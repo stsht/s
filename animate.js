@@ -53,6 +53,21 @@
     prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches && !forceMotion;
   } catch (e) { /* very old browser */ }
 
+  // Firefox detection.
+  // Why a JS-applied class instead of an `@-moz-document url-prefix()` CSS
+  // hack: stable Firefox restricted that at-rule to UA / browser-internal
+  // stylesheets in the 2019 cycle (Firefox bug 1035091), so it no longer
+  // matches in author CSS. Sniffing `InstallTrigger` (Firefox-only API)
+  // and tagging <html class="ss-firefox"> gives the same scoping with
+  // none of the cross-engine surprises, and lets every stylesheet on the
+  // site reuse it without its own detection.
+  var isFirefox = false;
+  try {
+    isFirefox = typeof window.InstallTrigger !== 'undefined' ||
+                /\bFirefox\//.test(navigator.userAgent || '');
+  } catch (e) { /* noop */ }
+  if (isFirefox) docEl.classList.add('ss-firefox');
+
   /* ----------------------------------------------------------------
    * Tiny utilities
    * ---------------------------------------------------------------- */
@@ -216,6 +231,15 @@
       return;
     }
 
+    // Coalesce repeat triggers. Pages that own a gate intro often call
+    // StarShotsReveal.bounceLogos(gate) right after we've already bounced
+    // every .ss-logo-hero from bootstrap's bounceLogos(document) pass —
+    // without this guard the user would see the animation jerk to its
+    // pre-roll state mid-flight.
+    var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    if (logo.__ssBounceAt && (now - logo.__ssBounceAt) < 600) return;
+    logo.__ssBounceAt = now;
+
     // Cancel any prior bounce so a bfcache restore replays cleanly.
     if (logo.__ssBounceAnim && typeof logo.__ssBounceAnim.cancel === 'function') {
       try { logo.__ssBounceAnim.cancel(); } catch (e) { /* noop */ }
@@ -244,10 +268,19 @@
 
   function bounceLogos(root) {
     var scope = scopeFor(root);
-    var allowGateLogo = !!(root && root.nodeType === 1 && root.matches && root.matches('.ss-gate-card'));
     var logos = scope.querySelectorAll(HERO_LOGO_SELECTOR);
+    // Bounce every hero logo in the given scope. The previous version of
+    // this function skipped any logo nested inside .ss-gate-card unless
+    // the caller passed the gate card itself as `root`. That guard was
+    // meant to defer to per-page intro scripts, but the page intros on
+    // /admin, /db, /g/<slug>, /inv, /l either don't call bounceLogos()
+    // at all (gate.js) or call it with a wrapper element that doesn't
+    // match .ss-gate-card (#adminGate is a .gate-shell). Net result: the
+    // gate-card logo never bounced. The bounceOne() coalescer above
+    // makes it safe to bounce unconditionally — repeat calls within
+    // 600 ms are dropped, so a page that DOES call bounceLogos(gate)
+    // after our bootstrap won't cause a visible re-trigger.
     for (var i = 0; i < logos.length; i++) {
-      if (!allowGateLogo && logos[i].closest && logos[i].closest('.ss-gate-card')) continue;
       bounceOne(logos[i]);
     }
   }
