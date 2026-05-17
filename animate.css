@@ -106,6 +106,50 @@
 }
 
 /* ============================================================
+ * Aurora kill on Firefox (macOS in particular).
+ *
+ * The .aurora layer is a 120vmax fixed-position element with
+ * `filter: blur(60px) saturate(108%)` and a slow `drift` keyframe
+ * animation that translates + scales it. Firefox/WebRender splits
+ * a blur surface that large into render tiles, and re-rasterizes
+ * each tile independently every frame the layer transforms. The
+ * tile boundaries do not always converge to identical pixels, so
+ * the user sees fast-flickering colored seams across the page —
+ * the "broken disco light" effect on macOS Firefox. WebKit (Safari)
+ * keeps the whole layer on a single CA layer, so it does not tile
+ * and is unaffected.
+ *
+ * `@-moz-document url-prefix()` is the standard Firefox-only at-
+ * rule (it is the one form Firefox still accepts in author
+ * stylesheets) and matches every URL, so this scopes the fix to
+ * Firefox only and does not touch any other engine.
+ *
+ * The fix:
+ *   - Disable the drift animation (it is the artifact trigger).
+ *   - Drop will-change so Firefox does not promote the layer to
+ *     its own tiled compositor surface.
+ *   - Soften the blur a touch and trim opacity so the now-static
+ *     aurora still reads as ambient depth rather than a hard wash.
+ *
+ * We deliberately do NOT touch:
+ *   - The prefers-reduced-motion rule (the recent iOS Safari fix).
+ *   - The (pointer:coarse) rule above.
+ *   - Any other browser's path.
+ * ============================================================ */
+@-moz-document url-prefix(){
+  .aurora{
+    -webkit-animation:none !important;
+    animation:none !important;
+    will-change:auto !important;
+    -webkit-transform:none !important;
+    transform:none !important;
+    -webkit-filter:blur(48px) saturate(106%) !important;
+    filter:blur(48px) saturate(106%) !important;
+    opacity:.42;
+  }
+}
+
+/* ============================================================
  * Card transition safety: never include filter or clip-path in
  * the transition list. Older versions of these classes shipped
  * with `transition: ..., filter ...` which stalls on iOS WebKit.
