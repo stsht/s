@@ -1,0 +1,191 @@
+/* StarShots animate.css
+ *
+ * Single source of truth for the StarShots intro animation system.
+ *
+ * Why this file exists in this shape:
+ *   - The previous version layered two engines (this file + an inline
+ *     IntersectionObserver in _worker.js) on top of each page's own
+ *     timer cascade. On iOS Safari, the duplicate engine wrote
+ *     style.transitionDelay mid-flight, which cancelled the queued
+ *     transitions and made the gate card appear half-faded.
+ *   - The fix is to keep this file primitive: only the things the JS
+ *     engine actually owns (logo sizing, the bounce keyframe, and the
+ *     touch-device aurora kill switch). Every page keeps its own gate
+ *     intro CSS — animate.js stops fighting with it.
+ *
+ * Rules followed throughout:
+ *   - Animate transform + opacity ONLY. No filter, no clip-path, no
+ *     layout-affecting properties.
+ *   - All keyframes are transform/opacity only.
+ *   - Reduced motion: no animation, just final state.
+ *   - Touch devices: kill the always-running aurora drift so it does
+ *     not throttle the gate card on iOS Low Power Mode.
+ */
+
+/* ============================================================
+ * Logo sizing — identical on every page so the position never
+ * shifts between /, /admin, /db, /g/<slug>, /l, /inv.
+ * ============================================================ */
+.ss-logo-hero{
+  display:block;
+  width:min(200px,52vw);
+  height:auto;
+  margin:0 auto 24px;
+  object-fit:contain;
+  transform-origin:50% 50%;
+  /* Promote to its own layer so the WAAPI bounce never coalesces with
+     the surrounding card's transform on iOS WebKit. */
+  -webkit-backface-visibility:hidden;
+  backface-visibility:hidden;
+  -webkit-transform:translateZ(0);
+  transform:translateZ(0);
+}
+.ss-logo-top{
+  display:block;
+  width:min(180px,46vw);
+  height:auto;
+  margin:0;
+  object-fit:contain;
+}
+@media (max-width:520px){
+  .ss-logo-hero{width:min(180px,56vw);margin-bottom:22px}
+  .ss-logo-top{width:min(150px,46vw)}
+}
+
+/* ============================================================
+ * Bounce keyframe — used by animate.js as a CSS fallback when the
+ * Web Animations API is unavailable. WAAPI is the primary path on
+ * iOS Safari 13.1+ because it is more reliable than CSS keyframe
+ * replay (no need to force reflow).
+ *
+ * Transform-only. Opacity stays 1 after the first 5% so the logo
+ * does not flash in halfway through the bounce.
+ * ============================================================ */
+@-webkit-keyframes ssBounceIn{
+  0%   {-webkit-transform:scale(.84);opacity:0}
+  20%  {-webkit-transform:scale(.78);opacity:1}
+  40%  {-webkit-transform:scale(.92)}
+  54%  {-webkit-transform:scale(1.055)}
+  66%  {-webkit-transform:scale(.958)}
+  80%  {-webkit-transform:scale(1.018)}
+  100% {-webkit-transform:scale(1);opacity:1}
+}
+@keyframes ssBounceIn{
+  0%   {transform:scale(.84);opacity:0}
+  20%  {transform:scale(.78);opacity:1}
+  40%  {transform:scale(.92)}
+  54%  {transform:scale(1.055)}
+  66%  {transform:scale(.958)}
+  80%  {transform:scale(1.018)}
+  100% {transform:scale(1);opacity:1}
+}
+.ss-bounce-in{
+  -webkit-animation:ssBounceIn 1460ms cubic-bezier(.22,1,.36,1) both;
+  animation:ssBounceIn 1460ms cubic-bezier(.22,1,.36,1) both;
+}
+
+/* ============================================================
+ * Aurora kill on touch / coarse-pointer devices.
+ *
+ * Every iPhone, iPad, and iOS-Safari-on-Mac with touch reports
+ * (pointer: coarse) or (hover: none). On those devices the always-
+ * running 28s aurora drift was pulling the gate card layer into
+ * iOS Low Power Mode's 30 fps coalescer, causing the intro
+ * transition to hitch.
+ *
+ * On desktop we leave the aurora running normally.
+ * ============================================================ */
+@media (hover:none),(pointer:coarse){
+  .aurora{
+    -webkit-animation:none !important;
+    animation:none !important;
+    will-change:auto !important;
+    /* Slightly soften so the still aurora still feels "alive". */
+    opacity:.42;
+  }
+}
+
+/* ============================================================
+ * Card transition safety: never include filter or clip-path in
+ * the transition list. Older versions of these classes shipped
+ * with `transition: ..., filter ...` which stalls on iOS WebKit.
+ *
+ * We do not change the *initial state* of these cards (each page
+ * still owns its own opacity:0 / transform start). We only
+ * normalize the transition property list and force any leftover
+ * filter to none on the visible/leaving states.
+ * ============================================================ */
+.access-card,
+.delivery-card,
+.gate-card{
+  -webkit-transition-property:opacity,-webkit-transform !important;
+  transition-property:opacity,transform !important;
+}
+.access-card.is-mounted,
+.access-card.is-visible,
+.delivery-card.is-mounted,
+.delivery-card.is-visible,
+.gate-card.is-mounted,
+.gate-card.is-visible,
+.access-card.is-leaving,
+.delivery-card.is-leaving,
+.gate-card.is-leaving{
+  -webkit-filter:none !important;
+  filter:none !important;
+}
+
+/* ============================================================
+ * Safety net: if animate.js fails to load entirely, the JS-set
+ * `ss-js` class on <html> never appears, so this rule does not
+ * match, and the page falls back to whatever non-hidden state
+ * each page's own CSS declares. If JS loads but stalls, the
+ * 2.5s safety timer in animate.js force-applies the visible
+ * state.
+ *
+ * The `data-ss-intro` attribute is reserved for future pages
+ * that opt in to fully declarative intros. No current page uses
+ * it; the rules below are inert until then.
+ * ============================================================ */
+.ss-js [data-ss-intro]{
+  opacity:0;
+  -webkit-transform:translate3d(0,14px,0);
+  transform:translate3d(0,14px,0);
+  -webkit-transition:opacity 900ms cubic-bezier(.22,1,.36,1),-webkit-transform 900ms cubic-bezier(.22,1,.36,1);
+  transition:opacity 900ms cubic-bezier(.22,1,.36,1),transform 900ms cubic-bezier(.22,1,.36,1);
+  isolation:isolate;
+}
+.ss-js [data-ss-intro].is-in{
+  opacity:1;
+  -webkit-transform:translate3d(0,0,0);
+  transform:translate3d(0,0,0);
+}
+.ss-js [data-ss-intro].is-out{
+  opacity:0;
+  -webkit-transform:translate3d(0,-6px,0);
+  transform:translate3d(0,-6px,0);
+  pointer-events:none;
+  -webkit-transition-duration:380ms;
+  transition-duration:380ms;
+}
+
+/* ============================================================
+ * Reduced-motion: no animation, just the final state.
+ * ============================================================ */
+@media (prefers-reduced-motion:reduce){
+  html:not(.ss-force-motion) .ss-bounce-in,
+  html:not(.ss-force-motion) .ss-logo-hero{
+    -webkit-animation:none !important;
+    animation:none !important;
+    -webkit-transform:none !important;
+    transform:none !important;
+    opacity:1 !important;
+  }
+  .aurora{display:none !important}
+  html:not(.ss-force-motion).ss-js [data-ss-intro]{
+    opacity:1 !important;
+    -webkit-transform:none !important;
+    transform:none !important;
+    -webkit-transition:none !important;
+    transition:none !important;
+  }
+}

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto" class="ss-force-motion">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <meta name="color-scheme" content="light dark" />
+  <title>StarShots Link Generator</title>
+  <style>
+    :root{color-scheme:light;--bg:#f6f6f3;--bg2:#f0efeb;--surface:#FFFFFF;--solid:#ffffff;--softSurface:rgba(255,255,255,.62);--field:#f8f8f6;--ink:#1f1a17;--soft:#69645f;--muted:#98928b;--line:#e4e2dc;--line2:#d6d3cc;--accent:#1f1a17;--accent2:#2a2420;--accentSoft:rgba(31,26,23,.10);--danger:#bc3b42;--success:#357f58;--shadow:0 30px 90px rgba(30,30,28,.10);--shadow2:0 12px 34px rgba(30,30,28,.07);--glow1:rgba(255,255,255,.66);--glow2:rgba(212,205,188,.06);--grain:rgba(80,64,44,.028);--r-xl:30px}
+    @media(prefers-color-scheme:dark){:root:not([data-theme=light]){color-scheme:dark;--bg:#11110f;--bg2:#171511;--surface:#171613;--solid:#1c1b17;--softSurface:rgba(255,245,230,.06);--field:#141310;--ink:#f4eee5;--soft:#b8aea2;--muted:#8f8579;--line:#2b2823;--line2:#3a352e;--accent:#f4eee5;--accent2:#e8d8c4;--accentSoft:rgba(244,238,229,.12);--danger:#ff737a;--success:#77d5a4;--shadow:0 34px 90px rgba(0,0,0,.36);--shadow2:0 14px 40px rgba(0,0,0,.24);--glow1:rgba(255,239,216,.045);--glow2:rgba(202,152,118,.06);--grain:rgba(255,245,230,.026)}}
+    :root[data-theme=dark]{color-scheme:dark;--bg:#11110f;--bg2:#171511;--surface:#171613;--solid:#1c1b17;--softSurface:rgba(255,245,230,.06);--field:#141310;--ink:#f4eee5;--soft:#b8aea2;--muted:#8f8579;--line:#2b2823;--line2:#3a352e;--accent:#f4eee5;--accent2:#e8d8c4;--accentSoft:rgba(244,238,229,.12);--danger:#ff737a;--success:#77d5a4;--shadow:0 34px 90px rgba(0,0,0,.36);--shadow2:0 14px 40px rgba(0,0,0,.24);--glow1:rgba(255,239,216,.045);--glow2:rgba(202,152,118,.06);--grain:rgba(255,245,230,.026)}
+    *{box-sizing:border-box} html,body{margin:0;padding:0;min-height:100%}
+    body{min-height:100dvh;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);overflow-x:hidden}
+    body:before{display:none}
+    .reveal{opacity:0;transform:translateY(-10px);transition:opacity 820ms cubic-bezier(.16,1,.3,1),transform 820ms cubic-bezier(.16,1,.3,1)}.reveal.is-visible{opacity:1;transform:translateY(0)}.stagger-1{transition-delay:120ms}.stagger-2{transition-delay:240ms}.stagger-3{transition-delay:360ms}.stagger-4{transition-delay:480ms}.stagger-5{transition-delay:600ms}.stagger-6{transition-delay:720ms}.stagger-7{transition-delay:840ms}
+    a{color:inherit}.hidden{display:none!important}.shell{position:relative;z-index:1;max-width:1160px;min-height:100dvh;margin:0 auto;padding:18px;display:flex;flex-direction:column;gap:16px}.center{position:fixed;inset:0;z-index:1;display:grid;place-items:center;padding:18px;overflow:auto}
+    .top{display:flex;align-items:center;justify-content:flex-start;gap:14px;margin-bottom:8px}.brand-logo{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:transparent;border:0;padding:0;box-shadow:none;transition:transform 300ms cubic-bezier(.22,1,.36,1),opacity 300ms cubic-bezier(.22,1,.36,1)}.brand-logo:hover{transform:translateY(-1px);opacity:.9}.brand-logo:active{transform:scale(.985)}.mark{width:min(180px,46vw);height:auto;object-fit:contain;display:block}
+    @media(prefers-color-scheme:dark){:root:not([data-theme=light]) .mark,:root:not([data-theme=light]) .gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}:root[data-theme=dark] .mark,:root[data-theme=dark] .gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}
+    .theme{display:inline-grid;grid-template-columns:1fr 1fr 1fr;padding:4px;border:1px solid var(--line);background:var(--surface);border-radius:999px}.theme button{border:0;background:transparent;color:var(--soft);border-radius:999px;padding:9px 12px;font-weight:750;cursor:pointer;text-align:center}.theme button.active{background:var(--solid);color:var(--ink);box-shadow:var(--shadow2)}
+    .grid{display:grid;grid-template-columns:minmax(360px,1fr) minmax(380px,1fr);gap:16px;flex:1;min-height:0}.card{background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--r-xl);padding:18px;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);min-width:0;min-height:0}.form{display:flex;flex-direction:column;gap:12px;height:100%}.scroll{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto;scrollbar-width:none}.scroll::-webkit-scrollbar{display:none}.dual{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .gate-card{width:min(100%,560px);height:auto!important;max-height:calc(100dvh - 36px);overflow:auto;margin:0;padding:26px;border-radius:30px;opacity:0;transform:translateY(-2px) scale(.992);transition:opacity 900ms cubic-bezier(.16,1,.3,1),transform 900ms cubic-bezier(.16,1,.3,1)}.gate-card.is-visible{opacity:1;transform:translateY(-18px) scale(1)}.gate-card.is-leaving{opacity:0;transform:translateY(-26px) scale(.985);transition-duration:420ms}.gate-logo{display:block;width:min(240px,68vw);margin:0 auto 24px}.gate-card h1{margin:0 0 22px;font-size:clamp(32px,4vw,38px);font-weight:950;line-height:1.02;letter-spacing:-.045em;text-align:center}.gate-card p{margin:0 0 20px;color:var(--soft)}
+    .field span,label span{display:block;margin:0 0 8px;font-size:13px;font-weight:750;color:var(--ink)}.req{color:var(--accent)}
+    input,select,textarea{width:100%;appearance:none;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:18px;padding:14px 15px;font-size:15px;line-height:1.35;outline:none;transition:border .16s ease,box-shadow .16s ease,background .16s ease}textarea{resize:none;min-height:260px;flex:1}input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 5px var(--accentSoft)}select{padding-right:42px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) calc(50% - 3px),calc(100% - 14px) calc(50% - 3px);background-size:6px 6px,6px 6px;background-repeat:no-repeat}.readonly{background:var(--softSurface);color:var(--soft);pointer-events:none}
+    .password-wrap{position:relative}.password-wrap input{padding-right:56px}.eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;min-height:24px;padding:0;border:0;border-radius:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--soft);box-shadow:none;appearance:none}.eye-btn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.eye-btn:hover{color:var(--ink);background:transparent}
+    .gate-card .password-wrap input{height:54px;border-radius:20px;padding:15px 56px 15px 16px;font-size:16px}.gate-card .btn.primary{min-height:54px;border-radius:18px;background:var(--ink);color:var(--surface);box-shadow:0 12px 24px rgba(26,26,26,.12);font-weight:600}.gate-card .btn.primary:hover{background:var(--ink);opacity:.92}
+    .services{display:grid;grid-template-columns:1fr 1fr;gap:10px}.service{background:var(--solid);border:1px solid var(--line);border-radius:20px;padding:12px}.svc-head{display:flex;align-items:center;gap:9px;margin-bottom:10px}.chip{font-size:11px;font-weight:850;color:var(--soft);background:rgba(31,26,23,.06);border-radius:999px;padding:6px 8px}.svc-name{font-weight:800;font-size:14px}.bottom{margin-top:auto}.actions{display:grid;grid-template-columns:1fr 3fr;gap:10px;margin-top:12px}
+    button{font-family:inherit;transition:transform 300ms cubic-bezier(.22,1,.36,1),opacity 300ms cubic-bezier(.22,1,.36,1),background 300ms cubic-bezier(.22,1,.36,1)}button:active{transform:scale(.985)}.btn{border:0;border-radius:18px;min-height:52px;padding:14px 18px;font-weight:850;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center;gap:8px}.btn:hover{transform:translateY(-1px)}.primary{color:var(--surface);background:var(--ink);box-shadow:0 12px 24px rgba(26,26,26,.12)}.primary:hover{background:var(--ink);opacity:.92}.secondary{color:var(--soft);background:transparent}.secondary:hover{background:rgba(31,26,23,.07);color:var(--ink)}.ghost{border:1px solid var(--line);background:var(--solid);color:var(--ink);border-radius:18px;padding:11px 15px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;text-align:center}
+    .preview{display:flex;flex-direction:column;height:100%;gap:12px}.preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.preview-head strong{font-size:17px}.mini{display:grid;grid-template-columns:1fr 1fr;gap:10px}.stat{border:1px solid var(--line);background:var(--solid);border-radius:20px;padding:12px;cursor:pointer;transition:opacity 820ms cubic-bezier(.16,1,.3,1),transform 820ms cubic-bezier(.16,1,.3,1),border-color 300ms cubic-bezier(.22,1,.36,1),box-shadow 300ms cubic-bezier(.22,1,.36,1)}.stat:hover{transform:translateY(-1px);border-color:var(--accent)}.stat:active{transform:scale(.985)}.stat.copied{box-shadow:0 0 0 4px var(--accentSoft);border-color:var(--accent)}.stat small{display:block;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.stat b{display:block;margin-top:5px;word-break:break-word}.status{min-height:20px;margin-top:10px;color:var(--soft);font-size:13px;font-weight:750}.status.success{color:var(--success)}.status.error{color:var(--danger)}.invalid{border-color:var(--danger)!important;box-shadow:0 0 0 5px rgba(188,59,66,.12)!important}
+    .gate-card.is-settled .reveal,.shell.is-settled .reveal{transition-delay:0ms!important}@media(prefers-reduced-motion:reduce){html:not(.ss-force-motion) *{animation:none!important;transition:none!important;scroll-behavior:auto!important}html:not(.ss-force-motion) .gate-card,html:not(.ss-force-motion) .reveal{opacity:1!important;transform:none!important}html:not(.ss-force-motion) .gate-card{transform:translateY(-18px)!important}}
+    @media(max-width:860px){.grid,.dual,.services{grid-template-columns:1fr}.shell,.center{padding:14px}.card{border-radius:28px}.gate-card{max-height:calc(100dvh - 28px)}.gate-card.is-visible{transform:translateY(-10px) scale(1)}.gate-card.is-leaving{transform:translateY(-18px) scale(.985)}.preview textarea{min-height:340px}.top{align-items:flex-start}.mark{width:min(150px,46vw)}}@media(min-width:861px){body{overflow:hidden}.shell{height:100dvh}.shell .card{height:100%}textarea{min-height:0}}
+  </style>
+  <style id="link-gate-lounge">
+    body{
+      --ease-out:cubic-bezier(.22,1,.36,1);
+      --ease-spring:cubic-bezier(.16,1.1,.3,1);
+      --dur-card:1100ms;
+      --dur-item:760ms;
+      --dur-switch:500ms;
+      --gold:#d0bb99;
+      --gold-2:#a79074;
+      background:
+        radial-gradient(1100px 620px at 18% 8%, var(--glow2), transparent 60%),
+        radial-gradient(900px 560px at 82% 92%, rgba(212,205,188,.06), transparent 55%),
+        var(--bg);
+      background-attachment:fixed;
+    }
+    .aurora{
+      position:fixed;inset:-10vmax;z-index:0;pointer-events:none;opacity:.55;
+      background:
+        radial-gradient(38vmax 28vmax at 28% 38%, rgba(212,205,188,.20), transparent 60%),
+        radial-gradient(34vmax 26vmax at 72% 70%, rgba(200,192,175,.13), transparent 60%),
+        radial-gradient(28vmax 20vmax at 50% 18%, rgba(247,244,237,.22), transparent 55%);
+      filter:blur(60px) saturate(108%);
+      animation:drift 28s ease-in-out infinite alternate;
+      will-change:transform;
+    }
+    @keyframes drift{
+      0%{transform:translate3d(-2%,-1%,0) scale(1)}
+      50%{transform:translate3d(2%,1.5%,0) scale(1.04)}
+      100%{transform:translate3d(-1%,2%,0) scale(1.02)}
+    }
+    .center{
+      z-index:2;
+      padding:max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+      background:transparent;
+    }
+    .gate-card.card{
+      position:relative;width:min(100%,480px);margin:0;
+      min-height:min(460px, calc(100dvh - 48px));
+      padding:clamp(28px,5vw,44px);border-radius:28px;
+      background:
+        linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
+        linear-gradient(180deg, color-mix(in srgb, var(--surface) 96%, white 4%), var(--surface));
+      border:1px solid var(--line);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.60) inset,
+        0 40px 90px -30px rgba(30,30,28,.22),
+        0 18px 40px -20px rgba(30,30,28,.11);
+      opacity:0;transform:translateY(14px);
+      overflow:auto;display:flex;flex-direction:column;justify-content:flex-start;will-change:transform,opacity;
+      transition:opacity var(--dur-card) var(--ease-out),transform var(--dur-card) var(--ease-out);
+    }
+    .gate-card.is-visible{opacity:1;transform:translateY(0) scale(1)}
+    .gate-card.is-leaving{opacity:0;transform:translateY(-6px) scale(1);pointer-events:none;transition-duration:var(--dur-switch)}
+    .gate-brand{display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+    .gate-logo{display:block;width:min(200px,52vw);height:auto;margin:0!important}
+    .gate-card .gate-eyebrow{
+      display:flex;align-items:center;gap:10px;justify-content:center;
+      margin:0 0 11px!important;color:var(--soft);
+      font-size:11px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;
+    }
+    .gate-card .gate-eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(212,205,188,.14)}
+    .gate-card .gate-eyebrow .rule{flex:0 0 22px;height:1px;background:linear-gradient(90deg,transparent,var(--line2),transparent)}
+    .mask-reveal{display:block;overflow:hidden}
+    .mask-reveal > span{display:block;transform:translateY(110%);transition:transform var(--dur-item) var(--ease-spring)}
+    .mask-reveal.is-visible > span{transform:translateY(0)}
+    .gate-card h1{
+      margin:0 0 clamp(16px,3vw,20px);font-size:clamp(26px,4.6vw,36px);
+      font-weight:900;line-height:1.04;letter-spacing:-.035em;text-align:center;color:var(--ink);
+    }
+    .gate-label{display:block;margin:0 0 8px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+    .gate-card .password-wrap input{
+      height:54px;border-radius:16px;padding:15px 56px 15px 18px;
+      font-size:16px;font-weight:400;font-style:normal;text-decoration:none;text-transform:none;letter-spacing:0;background:var(--field);border-color:var(--line);
+      transition:border-color .2s var(--ease-out),box-shadow .25s var(--ease-out),background .2s var(--ease-out);
+    }
+    .gate-card .password-wrap input::placeholder{font-weight:400;font-style:normal;text-decoration:none;text-transform:none;letter-spacing:0}
+    .gate-card .password-wrap input:focus{
+      border-color:var(--gold);
+      box-shadow:0 0 0 4px rgba(212,205,188,.14),0 12px 30px -18px rgba(212,205,188,.24);
+      background:color-mix(in srgb, var(--field) 96%, var(--gold) 4%);
+    }
+    .gate-card .eye-btn{right:18px;color:var(--muted);transition:color .2s var(--ease-out),transform .15s var(--ease-out)}
+    .gate-card .eye-btn svg{width:20px;height:20px;stroke-width:2}
+    .gate-card .btn.primary{
+      position:relative;overflow:hidden;isolation:isolate;contain:paint;width:100%;
+      margin-top:18px;min-height:56px;height:auto;border-radius:16px;
+      background:linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 92%, black 8%));
+      color:var(--surface);
+      box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 14px 30px -12px rgba(26,26,26,.45),0 4px 10px -4px rgba(26,26,26,.28);
+      font-weight:800;letter-spacing:.01em;font-size:15.5px;gap:10px;
+      transition:transform .25s var(--ease-out),box-shadow .25s var(--ease-out),opacity .25s var(--ease-out);
+    }
+    .gate-card .btn.primary:before{
+      content:"";position:absolute;top:0;bottom:0;left:-58%;z-index:0;width:58%;pointer-events:none;
+      background:linear-gradient(115deg,transparent 18%,rgba(255,255,255,.34) 50%,transparent 82%);
+      -webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0);
+    }
+    @-webkit-keyframes gateButtonSheen{
+      from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
+      to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
+    }
+    @keyframes gateButtonSheen{
+      from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
+      to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
+    }
+    .gate-card .btn.primary.is-sheen:before{-webkit-animation:gateButtonSheen 3.15s var(--ease-out) both;animation:gateButtonSheen 3.15s var(--ease-out) both}
+    .gate-card .btn.primary > *{position:relative;z-index:1}
+    .gate-card .btn.primary .spin{width:18px;height:18px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;display:none;animation:spin .8s linear infinite}
+    .gate-card .btn.primary.is-loading .spin{display:inline-block}
+    .gate-card .btn.primary.is-loading .label{opacity:.75}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .gate-card .btn.primary:active{transform:translateY(0) scale(.992)}
+    .gate-card .status{margin-top:14px;min-height:18px;text-align:center;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:var(--muted)}
+    .gate-card .status.success{color:var(--success)}
+    .gate-card .status.error{color:var(--danger)}
+    @media(hover:hover) and (pointer:fine){
+      .gate-card .btn.primary:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.16) inset,0 22px 40px -14px rgba(26,26,26,.48),0 6px 14px -6px rgba(26,26,26,.32)}
+    }
+    @media(prefers-color-scheme:dark){:root:not([data-theme=light]) .aurora{opacity:.5;filter:blur(72px) saturate(115%)}}
+    :root[data-theme=dark] .aurora{opacity:.5;filter:blur(72px) saturate(115%)}
+    @media(max-width:560px){
+      .gate-card.card{padding:28px 22px;border-radius:26px}
+      .gate-logo{width:min(180px,56vw)}
+      .gate-card h1{font-size:clamp(25px,7.2vw,32px)}
+      .gate-card .password-wrap input{height:52px;border-radius:14px}
+      .gate-card .btn.primary{min-height:54px;border-radius:14px;font-size:15px}
+      .aurora{opacity:.35;filter:blur(80px)}
+    }
+    @media(max-width:560px),(pointer:coarse){
+      body{--dur-card:720ms;--dur-item:460ms;--dur-switch:360ms}
+    }
+    @media(prefers-reduced-motion:reduce){
+      .aurora{display:none}
+      html:not(.ss-force-motion) .gate-card{opacity:1!important;filter:none!important;transform:none!important}
+      html:not(.ss-force-motion) .mask-reveal > span{transform:none!important}
+    }
+  </style>
+  <link rel="stylesheet" href="/animate.css">
+  <link rel="stylesheet" href="/gate.css">
+  <script src="/animate.js"></script>
+  <script src="/gate.js"></script>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+  <div id="adminGate" class="center">
+    <section class="card gate-card ss-gate-card" data-ss-gate-card>
+      <a class="gate-brand ss-gate-brand reveal" href="/"><img class="gate-logo ss-gate-logo ss-logo-hero" src="/logo-hero.png" width="640" height="155" decoding="async" fetchpriority="high" alt="StarShots logo"></a>
+      <p class="gate-eyebrow ss-gate-eyebrow reveal"><span class="rule"></span><span class="dot" aria-hidden="true"></span>Private Workspace<span class="rule"></span></p>
+      <h1 class="mask-reveal ss-gate-title reveal"><span>Link Generator</span></h1>
+      <label class="gate-label ss-gate-label reveal" for="adminPassword">Access key</label>
+      <div class="password-wrap reveal">
+        <input id="adminPassword" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" data-ss-gate-input>
+        <button id="toggleAdminPass" class="eye-btn" type="button" aria-label="Show password">
+          <svg viewBox="0 0 24 24"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>
+        </button>
+      </div>
+      <button id="adminOpen" class="btn primary ss-gate-button reveal" type="button" data-ss-gate-button>
+        <span class="spin" aria-hidden="true"></span>
+        <span class="label">Sign In</span>
+      </button>
+      <div id="adminStatus" class="status ss-gate-status reveal" role="status" aria-live="polite"></div>
+    </section>
+  </div>
+  <div id="appShell" class="shell hidden">
+	    <header class="top reveal stagger-1">
+		      <a class="brand-logo" href="/" aria-label="Back to StarShots homepage"><img class="mark ss-logo-top" src="/logo-hero.png" alt="StarShots logo"></a>
+	    </header>
+    <main class="grid">
+      <section class="card reveal stagger-2"><form id="form" class="form" novalidate><div class="scroll">
+        <div class="dual"><label class="field"><span>Title <i class="req">*</i></span><select id="title"><option selected>Ms.</option><option>Mr.</option></select></label><label class="field"><span>Name <i class="req">*</i></span><input id="clientName" type="text" placeholder="Client name" autocomplete="name"></label></div>
+        <label class="field"><span>Folder Name <i class="req">*</i></span><input id="folderName" type="text" placeholder="260427 Anson M Luis ( 6th Birthday )" autocomplete="off"></label>
+        <div class="dual"><label class="field"><span>Gallery Code</span><input id="baseSlug" class="readonly" readonly tabindex="-1" placeholder="260427-anson"></label><label class="field"><span>Password</span><input id="password" class="readonly" readonly tabindex="-1" placeholder="Generated after save"></label></div>
+        <div class="services"><div class="service reveal stagger-3"><div class="svc-head"><span class="chip">GD</span><span class="svc-name">Google Drive</span></div><input id="gd" type="text" inputmode="url" placeholder="https://drive.google.com/..." spellcheck="false"></div><div class="service reveal stagger-4"><div class="svc-head"><span class="chip">DB</span><span class="svc-name">Dropbox</span></div><input id="db" type="text" inputmode="url" placeholder="https://dropbox.com/..." spellcheck="false"></div><div class="service reveal stagger-5"><div class="svc-head"><span class="chip">WT</span><span class="svc-name">WeTransfer</span></div><input id="wt" type="text" inputmode="url" placeholder="https://we.tl/..." spellcheck="false"></div><div class="service reveal stagger-6"><div class="svc-head"><span class="chip">TN</span><span class="svc-name">TransferNow</span></div><input id="tn" type="text" inputmode="url" placeholder="https://transfernow.net/..." spellcheck="false"></div></div>
+      </div><div class="bottom"><div class="actions"><button class="btn secondary" id="clearBtn" type="button">Clear</button><button class="btn primary" type="submit">Generate</button></div><div id="status" class="status"></div></div></form></section>
+      <section class="card preview reveal stagger-3"><div class="preview-head"><div><strong>Generated Text</strong><div style="color:var(--soft);font-size:13px;margin-top:2px">Short link + password</div></div><button id="copyBtn" class="ghost" type="button">Copy</button></div><div class="mini"><div class="stat reveal stagger-4" id="deliveryCard"><small>Short Link</small><b id="deliveryPreview">starshots.pages.dev</b></div><div class="stat reveal stagger-5" id="passwordCard"><small>Password</small><b id="passPreview">—</b></div></div><textarea id="output" readonly placeholder="Generated delivery message will appear here..."></textarea></section>
+    </main>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const SHARED_ADMIN_KEY = 'starshots_admin_session_v1';
+    const INVOICE_LINK_HANDOFF_KEY = 'starshots_invoice_client_handoff_v1';
+    const ADMIN_SESSION_MS = 15 * 60 * 1000;
+    const PUBLIC_SITE = 'https://starshots.pages.dev';
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('ss-force-motion');
+    const adminGate = $('adminGate'), appShell = $('appShell'), adminPassword = $('adminPassword'), adminOpen = $('adminOpen'), adminStatus = $('adminStatus'), toggleAdminPass = $('toggleAdminPass');
+    const adminOpenLabel = adminOpen.querySelector('.label');
+    const form = $('form'), title = $('title'), clientName = $('clientName'), folderName = $('folderName'), baseSlug = $('baseSlug'), password = $('password'), output = $('output'), statusEl = $('status'), deliveryPreview = $('deliveryPreview'), passPreview = $('passPreview'), deliveryCard = $('deliveryCard'), passwordCard = $('passwordCard');
+    const linkInputs = { gd: $('gd'), db: $('db'), wt: $('wt'), tn: $('tn') };
+    let savedDelivery = null;
+    let linkedInvoiceId = '';
+    const eyeSvg = '<svg viewBox="0 0 24 24"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>';
+    const eyeOffSvg = '<svg viewBox="0 0 24 24"><path d="M2.5 2.5 21.5 21.5"/><path d="M9.9 5.9A13.2 13.2 0 0 1 12 5.5c6.5 0 10.25 6.5 10.25 6.5a18 18 0 0 1-3.45 4.38"/><path d="M6.03 8.03C3.56 9.96 1.75 12 1.75 12S5.5 18.5 12 18.5c1.87 0 3.53-.38 4.98-1.04"/><path d="M10.59 10.59A3.25 3.25 0 0 0 15.18 15.18"/></svg>';
+
+    function isTouchViewport() { return window.matchMedia('(max-width: 640px), (pointer: coarse)').matches; }
+    function focusSoon(el, options = {}) {
+      if (!el) return;
+      const { allowTouch = false, delay = 60 } = options;
+      if (!allowTouch && isTouchViewport()) return;
+      setTimeout(() => el.focus({ preventScroll: true }), delay);
+    }
+    function revealIn(el, delay) { if (el) setTimeout(() => el.classList.add('is-visible'), delay); }
+    function showReveals(root) {
+      requestAnimationFrame(() => root.querySelectorAll('.reveal').forEach((el) => el.classList.add('is-visible')));
+    }
+    function stageAccessIntro() {
+      const gateCard = adminGate.querySelector('.gate-card');
+      if (!gateCard) return;
+      if (window.StarShotsGate && window.StarShotsGate.intro) {
+        const handled = window.StarShotsGate.intro(gateCard, { root: adminGate, button: adminOpen, input: adminPassword });
+        if (handled || gateCard.dataset.ssGateIntro === 'running' || gateCard.dataset.introState === 'running' || gateCard.classList.contains('is-mounted') || gateCard.classList.contains('is-visible')) return;
+      }
+      if (gateCard.classList.contains('is-visible')) return;
+      const isMobile = window.matchMedia('(max-width: 640px), (pointer: coarse)').matches;
+      if (reduceMotion) {
+        gateCard.classList.add('is-visible');
+        adminGate.querySelectorAll('.reveal').forEach((el) => el.classList.add('is-visible'));
+        focusSoon(adminPassword);
+        return;
+      }
+      requestAnimationFrame(() => {
+        gateCard.classList.add('is-visible');
+        const reveals = adminGate.querySelectorAll('.reveal');
+        const stagger = isMobile ? 75 : 90;
+        const startAt = isMobile ? 180 : 300;
+        reveals.forEach((el, index) => revealIn(el, startAt + index * stagger));
+        const doneAt = startAt + reveals.length * stagger + 260;
+        setTimeout(() => {
+          adminOpen.classList.add('is-sheen');
+          setTimeout(() => adminOpen.classList.remove('is-sheen'), 3600);
+        }, doneAt);
+        setTimeout(() => focusSoon(adminPassword), isMobile ? 900 : 720);
+        setTimeout(() => gateCard.classList.add('is-settled'), doneAt + 520);
+      });
+    }
+    function rememberAdminSession() {
+      localStorage.removeItem(SHARED_ADMIN_KEY);
+      sessionStorage.setItem(SHARED_ADMIN_KEY, JSON.stringify({ expiresAt: Date.now() + ADMIN_SESSION_MS }));
+    }
+    function clearAdminSession() {
+      sessionStorage.removeItem('starshots_admin_password');
+      sessionStorage.removeItem('ss_admin_password');
+      sessionStorage.removeItem(SHARED_ADMIN_KEY);
+      localStorage.removeItem(SHARED_ADMIN_KEY);
+    }
+    function hasRememberedAdminSession() {
+      localStorage.removeItem(SHARED_ADMIN_KEY);
+      try {
+        const raw = sessionStorage.getItem(SHARED_ADMIN_KEY);
+        const saved = raw ? JSON.parse(raw) : null;
+        if (saved && Number(saved.expiresAt) > Date.now()) return true;
+        if (raw) { clearAdminSession(); return false; }
+      } catch {
+        clearAdminSession();
+        return false;
+      }
+      return false;
+    }
+    function normalizeInvoiceTitle(value) {
+      return /^mr\.?$/i.test(cleanText(value)) ? 'Mr.' : 'Ms.';
+    }
+    function folderCodeFromDate(value) {
+      const raw = String(value || '').trim();
+      const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (iso) return iso[1].slice(2) + iso[2] + iso[3];
+      const slash = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (slash) return slash[3].slice(2) + slash[2].padStart(2, '0') + slash[1].padStart(2, '0');
+      return '';
+    }
+    function readInvoiceClientHandoff() {
+      const params = new URLSearchParams(location.search);
+      const fromUrl = {
+        title: params.get('title') || '',
+        name: params.get('name') || '',
+        eventDate: params.get('eventDate') || '',
+        invoiceId: params.get('invoiceId') || ''
+      };
+      if (cleanText(fromUrl.name)) return fromUrl;
+      try {
+        const saved = JSON.parse(localStorage.getItem(INVOICE_LINK_HANDOFF_KEY) || 'null');
+        if (saved && cleanText(saved.name) && Date.now() - Number(saved.savedAt || 0) < 1000 * 60 * 60 * 24 * 7) return saved;
+      } catch {}
+      return null;
+    }
+    function applyInvoiceClientHandoff() {
+      const handoff = readInvoiceClientHandoff();
+      if (!handoff) return null;
+      const nameValue = cleanText(handoff.name);
+      if (!nameValue) return null;
+      if (!cleanText(clientName.value)) clientName.value = nameValue;
+      title.value = normalizeInvoiceTitle(handoff.title || title.value);
+      linkedInvoiceId = cleanText(handoff.invoiceId || '');
+      if (!cleanText(folderName.value)) {
+        const code = folderCodeFromDate(handoff.eventDate);
+        if (code) folderName.value = normalizeFolder(code + ' ' + nameValue);
+      }
+      return { title: title.value, name: nameValue };
+    }
+    function revealApp(skipGate = false) {
+      const showApp = () => {
+        appShell.classList.remove('hidden');
+        appShell.classList.remove('is-settled');
+        const handoff = applyInvoiceClientHandoff();
+        refresh();
+        if (handoff) setStatus('Loaded ' + handoff.title + ' ' + handoff.name + ' from invoice.', 'success');
+        showReveals(appShell);
+        setTimeout(() => appShell.classList.add('is-settled'), reduceMotion ? 0 : 1700);
+        focusSoon(clientName);
+      };
+      const gateCard = adminGate.querySelector('.gate-card');
+      if (skipGate || adminGate.classList.contains('hidden')) {
+        adminGate.classList.add('hidden');
+        showApp();
+        return;
+      }
+      gateCard.classList.add('is-leaving');
+      setTimeout(() => {
+        adminGate.classList.add('hidden');
+        gateCard.classList.remove('is-mounted', 'is-visible', 'is-leaving', 'is-settled');
+        showApp();
+      }, reduceMotion ? 0 : 500);
+    }
+    async function checkAdmin(pass = '') {
+      const body = pass ? { password: pass } : {};
+      const res = await fetch('/api/admin-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Wrong password.');
+      return true;
+    }
+    async function openAdmin() {
+      const pass = adminPassword.value.trim();
+      if (!pass) {
+        adminStatus.textContent = 'Access key required.';
+        adminStatus.className = 'status error';
+        focusSoon(adminPassword);
+        return;
+      }
+      adminStatus.textContent = 'Checking...';
+      adminStatus.className = 'status';
+      adminOpen.disabled = true;
+      adminOpen.classList.add('is-loading');
+      const original = adminOpenLabel.textContent;
+      adminOpenLabel.textContent = 'Opening...';
+      try {
+        await checkAdmin(pass);
+        rememberAdminSession();
+        adminStatus.textContent = '';
+        revealApp();
+      } catch (e) {
+        adminStatus.textContent = e.message || 'Wrong password.';
+        adminStatus.className = 'status error';
+        adminPassword.classList.add('invalid');
+        setTimeout(() => adminPassword.classList.remove('invalid'), 900);
+      } finally {
+        adminOpen.disabled = false;
+        adminOpen.classList.remove('is-loading');
+        adminOpenLabel.textContent = original;
+      }
+    }
+    function toggleGatePassword() {
+      const show = adminPassword.type === 'password';
+      adminPassword.type = show ? 'text' : 'password';
+      toggleAdminPass.innerHTML = show ? eyeOffSvg : eyeSvg;
+      toggleAdminPass.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      adminPassword.focus();
+    }
+    adminOpen.onclick = openAdmin;
+    toggleAdminPass.onclick = toggleGatePassword;
+    adminPassword.onkeydown = (e) => { if (e.key === 'Enter') openAdmin(); };
+    (async () => {
+      if (hasRememberedAdminSession()) {
+        try { await checkAdmin(); rememberAdminSession(); revealApp(true); return; }
+        catch { clearAdminSession(); }
+      }
+      stageAccessIntro();
+    })();
+
+    function setTheme(mode) {
+      document.documentElement.dataset.theme = mode;
+      localStorage.setItem('ss_theme', mode);
+      document.querySelectorAll('.theme button').forEach((b) => b.classList.toggle('active', b.dataset.theme === mode));
+    }
+    document.querySelectorAll('.theme button').forEach((b) => { b.onclick = () => setTheme(b.dataset.theme); });
+    setTheme('auto');
+
+    function setStatus(msg = '', state = '') { statusEl.textContent = msg; statusEl.className = 'status ' + state; }
+    function cleanText(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
+    function sanitize(v) {
+      return String(v || '')
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/["'’`]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+    function normalizeFolder(v) { return cleanText(String(v || '').replace(/\s*\(/g, ' ( ').replace(/\s*\)/g, ' ) ')); }
+    function stripBracketed(v) { return v.replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, ' '); }
+    function extract(folder) {
+      const normalized = normalizeFolder(folder);
+      const close = normalized.lastIndexOf(')');
+      const head = close >= 0 ? normalized.slice(0, close + 1) : normalized;
+      const suffix = close >= 0 ? normalized.slice(close + 1).trim() : '';
+      const parts = stripBracketed(head).split(/\s+/).map(sanitize).filter(Boolean);
+      let date = '', cursor = 0;
+      if (/^\d{6}$/.test(parts[0] || '')) { date = parts[0]; cursor = 1; }
+      else if (/^\d{8}$/.test(parts[0] || '')) { date = parts[0].slice(2); cursor = 1; }
+      else {
+        const now = new Date();
+        date = String(now.getFullYear()).slice(-2) + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+      }
+      const name = parts[cursor] || '';
+      const suff = sanitize(suffix);
+      return { date, name, suffix: suff, normalized };
+    }
+    function buildSlug(folder) {
+      const p = extract(folder);
+      if (!p.name) return '';
+      const arr = [p.date, p.name];
+      if (p.suffix && p.suffix !== p.name) arr.push(p.suffix);
+      return arr.join('-').slice(0, 64).replace(/-+$/, '');
+    }
+    function buildPassword(folder) {
+      const p = extract(folder);
+      const d = p.date;
+      return /^\d{6}$/.test(d) ? d.slice(4, 6) + d.slice(2, 4) + d.slice(0, 2) : '';
+    }
+    function normalizeUrl(v) {
+      v = String(v || '').trim();
+      if (!v) return '';
+      if (!/^https?:\/\//i.test(v) && /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/:?#].*)?$/i.test(v)) v = 'https://' + v;
+      try {
+        const u = new URL(v);
+        if (!/^https?:$/i.test(u.protocol) || !u.hostname.includes('.')) return '';
+        return u.toString();
+      } catch { return ''; }
+    }
+    function prettyCode(slug) {
+      const parts = String(slug || '').split('-').filter(Boolean);
+      if (!parts.length) return '';
+      return [parts[0], ...parts.slice(1).map((w) => w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w)].join(' ');
+    }
+    function sameSaved(info, name) {
+      return savedDelivery
+        && savedDelivery.slug === info.slug
+        && savedDelivery.name === name
+        && savedDelivery.shortLink;
+    }
+    function refresh(resetSaved = false) {
+      if (resetSaved) savedDelivery = null;
+      const f = normalizeFolder(folderName.value);
+      const slug = buildSlug(f);
+      const pass = savedDelivery?.pass || '';
+      const name = cleanText(clientName.value);
+      const galleryCode = prettyCode(slug);
+      const info = {
+        folder: f,
+        slug,
+        pass,
+        shortCode: savedDelivery?.shortCode || '',
+        shortLink: '',
+        galleryCode,
+        directUrl: slug ? PUBLIC_SITE + '/g/' + slug : PUBLIC_SITE
+      };
+      if (sameSaved(info, name)) info.shortLink = savedDelivery.shortLink;
+      baseSlug.value = slug;
+      password.value = pass;
+      deliveryPreview.textContent = info.shortLink ? info.shortLink.replace(/^https?:\/\//, '') : (slug ? 'Save first' : PUBLIC_SITE.replace(/^https?:\/\//, ''));
+      passPreview.textContent = pass || 'After save';
+      return info;
+    }
+    function buildMessage(name, info) {
+      return `Dear ${cleanText(title.value)} ${cleanText(name)},
+
+With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
+
+You may access them through the details below:
+
+• Link: ${info.shortLink || info.directUrl}
+• Password: ${info.pass}
+
+Kindly download the files within the stated availability period.
+
+It has been our pleasure to serve you, and we look forward to welcoming you again.
+
+Warm regards,
+StarShots`;
+    }
+    async function copy(text) {
+      try { await navigator.clipboard.writeText(text); return true; }
+      catch { output.focus(); output.select(); return document.execCommand('copy'); }
+    }
+    function mark(el) { el.classList.add('invalid'); setTimeout(() => el.classList.remove('invalid'), 900); }
+    function flashCard(el) { el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 850); }
+    async function copyCardValue(type) {
+      const info = refresh();
+      const text = savedDelivery?.pass || info.pass || '';
+      if (!text) return;
+      const ok = await copy(text);
+      if (ok) { flashCard(passwordCard); setStatus('Copied.', 'success'); }
+    }
+    function openShortLink() {
+      const info = refresh();
+      const url = info.shortLink || savedDelivery?.shortLink || '';
+      if (!url) {
+        setStatus('Generate first to open the short link.', 'error');
+        return;
+      }
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setStatus('Opened short link.', 'success');
+    }
+    async function submit(e) {
+      e.preventDefault();
+      setStatus('');
+      const info = refresh();
+      const name = cleanText(clientName.value);
+      if (!name) { mark(clientName); setStatus('Please fill client name.', 'error'); return; }
+      if (!info.folder || !info.slug) { mark(folderName); setStatus('Please use folder name starting with YYMMDD + name.', 'error'); return; }
+      const links = Object.entries(linkInputs).map(([service, el]) => ({ service, originalUrl: normalizeUrl(el.value) })).filter((x) => x.originalUrl);
+      if (!links.length) { setStatus('Please fill at least one delivery link.', 'error'); return; }
+
+      output.value = '';
+      deliveryPreview.textContent = 'Saving...';
+      passPreview.textContent = 'Generating...';
+      setStatus('Saving delivery...');
+      try {
+        const res = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: title.value,
+            clientName: name,
+            folderName: info.folder,
+            baseSlug: info.slug,
+            shortCode: '',
+            deliveryYear: 2000 + Number(info.slug.slice(0, 2)),
+            deliveryMonth: Number(info.slug.slice(2, 4)),
+            generatedTextWhatsapp: '',
+            generatedTextInstagram: '',
+            invoiceId: linkedInvoiceId,
+            links
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Save failed.');
+        const finalLink = data.shortLink || (data.shortUrl ? PUBLIC_SITE + data.shortUrl : info.directUrl);
+        const finalPass = data.password || '';
+        savedDelivery = { slug: info.slug, pass: finalPass, name, shortCode: data.shortCode || '', shortLink: finalLink };
+        const finalInfo = { ...info, pass: finalPass, shortCode: data.shortCode || '', shortLink: finalLink };
+        const finalMsg = data.generatedText || buildMessage(name, finalInfo);
+        output.value = finalMsg;
+        deliveryPreview.textContent = finalLink.replace(/^https?:\/\//, '');
+        password.value = finalPass;
+        passPreview.textContent = finalPass || '—';
+        const copied = await copy(finalMsg);
+        setStatus(copied ? 'Saved and copied.' : 'Saved. Please copy manually.', 'success');
+      } catch (err) {
+        if (String(err.message || '').toLowerCase().includes('unauthorized')) clearAdminSession();
+        setStatus(err.message || 'Save failed.', 'error');
+        refresh();
+      }
+    }
+    function markDirty() {
+      savedDelivery = null;
+      output.value = '';
+      setStatus('');
+      refresh();
+    }
+    form.addEventListener('submit', submit);
+    [title, clientName, folderName, ...Object.values(linkInputs)].forEach((input) => input.addEventListener('input', markDirty));
+    folderName.addEventListener('blur', () => { folderName.value = normalizeFolder(folderName.value); refresh(true); });
+    $('clearBtn').onclick = () => {
+      form.reset();
+      savedDelivery = null;
+      linkedInvoiceId = '';
+      title.value = 'Ms.';
+      output.value = '';
+      Object.values(linkInputs).forEach((i) => { i.value = ''; });
+      setStatus('');
+      refresh();
+      focusSoon(clientName);
+    };
+    $('copyBtn').onclick = async () => {
+      if (!output.value.trim()) { setStatus('Generate first.', 'error'); return; }
+      setStatus(await copy(output.value) ? 'Copied.' : 'Please copy manually.', 'success');
+    };
+    deliveryCard.onclick = openShortLink;
+    passwordCard.onclick = () => copyCardValue('password');
+    form.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); form.requestSubmit(); } });
+    refresh();
+  </script>
+</body>
+</html>

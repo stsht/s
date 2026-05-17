@@ -1,0 +1,513 @@
+/* StarShots shared gate UI
+ *
+ * Source of truth for the access-card pattern used by /inv, /l,
+ * /admin, /db, and /g/<slug>. Page-specific CSS can still exist as
+ * fallback, but these rules own the live visual rhythm.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&display=swap');
+
+:root{
+  --ss-gate-ease-out:cubic-bezier(.22,1,.36,1);
+  --ss-gate-ease-spring:cubic-bezier(.16,1.1,.3,1);
+  --ss-gate-card-duration:1100ms;
+  --ss-gate-item-duration:760ms;
+  --ss-gate-switch-duration:500ms;
+  --ss-gate-brand-gap:clamp(30px,4vw,38px);
+  --ss-gate-title-gap:clamp(38px,5vw,46px);
+  --ss-gate-idle-duration:4.8s;
+  --ss-gate-gold:#d0bb99;
+  --ss-gate-gold-2:#a79074;
+}
+
+.ss-gate-card{
+  position:relative!important;
+  width:min(100%,480px)!important;
+  min-height:min(460px,calc(100dvh - 48px))!important;
+  margin:0!important;
+  padding:clamp(28px,5vw,44px)!important;
+  border-radius:28px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-start!important;
+  overflow:auto!important;
+  opacity:0!important;
+  -webkit-transform:translate3d(0,14px,0)!important;
+  transform:translate3d(0,14px,0)!important;
+  -webkit-backface-visibility:hidden;
+  backface-visibility:hidden;
+  will-change:transform,opacity;
+  border:1px solid var(--line)!important;
+  background:
+    linear-gradient(90deg,transparent 12%,var(--ss-gate-gold) 50%,transparent 88%) top/100% 1px no-repeat,
+    linear-gradient(180deg,color-mix(in srgb,var(--surface,var(--card,var(--panel,#fff))) 96%,white 4%),var(--surface,var(--card,var(--panel,#fff))))!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.60) inset,
+    0 40px 90px -30px rgba(30,30,28,.22),
+    0 18px 40px -20px rgba(30,30,28,.11)!important;
+  -webkit-transition:opacity var(--ss-gate-card-duration) var(--ss-gate-ease-out),-webkit-transform var(--ss-gate-card-duration) var(--ss-gate-ease-out)!important;
+  transition:opacity var(--ss-gate-card-duration) var(--ss-gate-ease-out),transform var(--ss-gate-card-duration) var(--ss-gate-ease-out)!important;
+}
+
+.ss-gate-card.is-mounted,
+.ss-gate-card.is-visible{
+  opacity:1!important;
+  -webkit-transform:translate3d(0,0,0)!important;
+  transform:translate3d(0,0,0)!important;
+}
+
+.ss-gate-card.is-leaving{
+  opacity:0!important;
+  pointer-events:none;
+  -webkit-transform:translate3d(0,-6px,0)!important;
+  transform:translate3d(0,-6px,0)!important;
+  -webkit-transition-duration:var(--ss-gate-switch-duration)!important;
+  transition-duration:var(--ss-gate-switch-duration)!important;
+}
+
+.ss-gate-card .ss-gate-brand,
+.ss-gate-card .gate-brand,
+.ss-gate-card .brand{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  margin:0 0 var(--ss-gate-brand-gap)!important;
+  text-decoration:none!important;
+}
+
+.ss-gate-card .ss-gate-logo,
+.ss-gate-card .gate-logo,
+.ss-gate-card .ss-logo-hero{
+  display:block!important;
+  width:min(200px,52vw)!important;
+  height:auto!important;
+  margin:0 auto!important;
+  object-fit:contain;
+  -webkit-transform:translate3d(0,0,0) scale(1);
+  transform:translate3d(0,0,0) scale(1);
+  -webkit-transform-origin:50% 50%;
+  transform-origin:50% 50%;
+  will-change:transform;
+}
+
+.ss-gate-card .ss-gate-eyebrow,
+.ss-gate-card .gate-eyebrow,
+.ss-gate-card .eyebrow{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:10px!important;
+  margin:0 0 11px!important;
+  color:var(--muted,var(--soft,#8f8579))!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  line-height:1.45!important;
+  letter-spacing:.24em!important;
+  text-transform:uppercase!important;
+}
+
+.ss-gate-card .ss-gate-eyebrow .dot,
+.ss-gate-card .gate-eyebrow .dot,
+.ss-gate-card .eyebrow .dot{
+  width:5px!important;
+  height:5px!important;
+  border-radius:50%!important;
+  background:var(--ss-gate-gold)!important;
+  box-shadow:0 0 0 3px rgba(212,205,188,.14)!important;
+}
+
+.ss-gate-card .ss-gate-eyebrow .rule,
+.ss-gate-card .gate-eyebrow .rule,
+.ss-gate-card .eyebrow .rule{
+  flex:0 0 22px!important;
+  height:1px!important;
+  background:linear-gradient(90deg,transparent,var(--line2,var(--line,#e4e2dc)),transparent)!important;
+}
+
+.ss-gate-card .mask-reveal{
+  display:block!important;
+  overflow:hidden!important;
+}
+
+.ss-gate-card .mask-reveal > span{
+  display:block!important;
+  -webkit-transform:translate3d(0,110%,0);
+  transform:translate3d(0,110%,0);
+  -webkit-transition:-webkit-transform var(--ss-gate-item-duration) var(--ss-gate-ease-spring);
+  transition:transform var(--ss-gate-item-duration) var(--ss-gate-ease-spring);
+}
+
+.ss-gate-card .mask-reveal.is-visible > span{
+  -webkit-transform:translate3d(0,0,0)!important;
+  transform:translate3d(0,0,0)!important;
+}
+
+.ss-gate-card .ss-gate-title,
+.ss-gate-card h1{
+  margin:0 0 var(--ss-gate-title-gap)!important;
+  color:var(--ink,var(--text,#1f1a17))!important;
+  font-family:"Cormorant Garamond", "Times New Roman", serif!important;
+  font-size:clamp(32px,5.4vw,44px)!important;
+  font-weight:500!important;
+  line-height:1.02!important;
+  letter-spacing:-.015em!important;
+  text-align:center!important;
+}
+
+.ss-gate-card .field,
+.ss-gate-card .ss-gate-field{
+  margin-top:0!important;
+}
+
+.ss-gate-card .ss-gate-label,
+.ss-gate-card label{
+  display:block!important;
+  margin:0 0 8px!important;
+  color:var(--muted,#8f8579)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  line-height:1.45!important;
+  letter-spacing:.18em!important;
+  text-align:left!important;
+  text-transform:uppercase!important;
+}
+
+.ss-gate-card input[type="password"],
+.ss-gate-card .password-wrap input{
+  height:54px!important;
+  border:1px solid var(--line,#e4e2dc)!important;
+  border-radius:16px!important;
+  padding:15px 56px 15px 18px!important;
+  background:var(--field,var(--panel,var(--card,#f8f8f6)))!important;
+  color:var(--ink,var(--text,#1f1a17))!important;
+  font-size:16px!important;
+  font-weight:400!important;
+  font-style:normal!important;
+  letter-spacing:0!important;
+  text-decoration:none!important;
+  text-transform:none!important;
+  outline:none!important;
+  -webkit-transition:border-color .2s var(--ss-gate-ease-out),box-shadow .25s var(--ss-gate-ease-out),background .2s var(--ss-gate-ease-out)!important;
+  transition:border-color .2s var(--ss-gate-ease-out),box-shadow .25s var(--ss-gate-ease-out),background .2s var(--ss-gate-ease-out)!important;
+}
+
+.ss-gate-card input[type="password"]::placeholder,
+.ss-gate-card .password-wrap input::placeholder{
+  color:transparent!important;
+}
+
+.ss-gate-card input[type="password"]:focus,
+.ss-gate-card .password-wrap input:focus{
+  border-color:var(--ss-gate-gold)!important;
+  box-shadow:0 0 0 4px rgba(212,205,188,.14),0 12px 30px -18px rgba(212,205,188,.24)!important;
+  background:color-mix(in srgb,var(--field,var(--panel,var(--card,#f8f8f6))) 96%,var(--ss-gate-gold) 4%)!important;
+}
+
+.ss-gate-card .eye-btn{
+  right:18px!important;
+  color:var(--muted,#8f8579)!important;
+  -webkit-transition:color .2s var(--ss-gate-ease-out),-webkit-transform .15s var(--ss-gate-ease-out);
+  transition:color .2s var(--ss-gate-ease-out),transform .15s var(--ss-gate-ease-out);
+}
+
+.ss-gate-card .eye-btn:hover{color:var(--ink,var(--text,#1f1a17))!important}
+.ss-gate-card .eye-btn svg{width:20px!important;height:20px!important;stroke-width:2!important}
+
+.ss-gate-card .ss-gate-button,
+.ss-gate-card .btn.primary,
+.ss-gate-card .primary,
+.ss-gate-card #unlockBtn{
+  position:relative!important;
+  isolation:isolate!important;
+  contain:paint!important;
+  overflow:hidden!important;
+  width:100%!important;
+  min-height:56px!important;
+  height:auto!important;
+  margin-top:24px!important;
+  border-radius:16px!important;
+  background:linear-gradient(180deg,#211c18,#17120f)!important;
+  color:#fffdf8!important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.12) inset,
+    0 14px 30px -12px rgba(26,26,26,.45),
+    0 4px 10px -4px rgba(26,26,26,.28)!important;
+  font-family:"Cormorant Garamond", "Times New Roman", serif!important;
+  font-size:15.5px!important;
+  font-weight:600!important;
+  letter-spacing:.015em!important;
+  gap:10px!important;
+  -webkit-transition:opacity .25s var(--ss-gate-ease-out),box-shadow .25s var(--ss-gate-ease-out),-webkit-transform .25s var(--ss-gate-ease-out)!important;
+  transition:opacity .25s var(--ss-gate-ease-out),box-shadow .25s var(--ss-gate-ease-out),transform .25s var(--ss-gate-ease-out)!important;
+}
+
+.ss-gate-card .ss-gate-button:before,
+.ss-gate-card .btn.primary:before,
+.ss-gate-card .primary:before,
+.ss-gate-card #unlockBtn:before{
+  content:"";
+  position:absolute;
+  inset:0 auto 0 -58%;
+  z-index:0;
+  width:58%;
+  pointer-events:none;
+  opacity:0;
+  background:linear-gradient(65deg,transparent 18%,rgba(255,255,255,.34) 50%,transparent 82%);
+  -webkit-transform:translate3d(-18%,0,0);
+  transform:translate3d(-18%,0,0);
+}
+
+@-webkit-keyframes ssGateButtonSheen{
+  0%,5%{opacity:0;-webkit-transform:translate3d(-18%,0,0);transform:translate3d(-18%,0,0)}
+  11%{opacity:1}
+  72%{opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  82%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+}
+@keyframes ssGateButtonSheen{
+  0%,5%{opacity:0;-webkit-transform:translate3d(-18%,0,0);transform:translate3d(-18%,0,0)}
+  11%{opacity:1}
+  72%{opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  82%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+}
+
+.ss-gate-card .is-sheen:before,
+.ss-gate-card .ss-gate-button.is-sheen:before,
+.ss-gate-card .primary.is-sheen:before,
+.ss-gate-card #unlockBtn.is-sheen:before,
+.ss-gate-card.is-idle .ss-gate-button:before,
+.ss-gate-card.is-idle .btn.primary:before,
+.ss-gate-card.is-idle .primary:before,
+.ss-gate-card.is-idle #unlockBtn:before{
+  -webkit-animation:ssGateButtonSheen var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+  animation:ssGateButtonSheen var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+}
+
+@-webkit-keyframes ssGateLogoPulse{
+  0%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
+  24%{-webkit-transform:translate3d(0,0,0) scale(.94);transform:translate3d(0,0,0) scale(.94)}
+  34%{-webkit-transform:translate3d(0,0,0) scale(1.085);transform:translate3d(0,0,0) scale(1.085)}
+  46%{-webkit-transform:translate3d(0,0,0) scale(.972);transform:translate3d(0,0,0) scale(.972)}
+  62%,100%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes ssGateLogoPulse{
+  0%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
+  24%{-webkit-transform:translate3d(0,0,0) scale(.94);transform:translate3d(0,0,0) scale(.94)}
+  34%{-webkit-transform:translate3d(0,0,0) scale(1.085);transform:translate3d(0,0,0) scale(1.085)}
+  46%{-webkit-transform:translate3d(0,0,0) scale(.972);transform:translate3d(0,0,0) scale(.972)}
+  62%,100%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
+}
+
+.ss-gate-card.is-idle .ss-gate-logo,
+.ss-gate-card.is-idle .gate-logo,
+.ss-gate-card.is-idle .ss-logo-hero{
+  -webkit-animation:ssGateLogoPulse var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+  animation:ssGateLogoPulse var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+}
+
+.ss-gate-card .ss-gate-button > *,
+.ss-gate-card .btn.primary > *,
+.ss-gate-card .primary > *,
+.ss-gate-card #unlockBtn > *{
+  position:relative;
+  z-index:1;
+}
+
+.ss-gate-card .ss-gate-button:active,
+.ss-gate-card .btn.primary:active,
+.ss-gate-card .primary:active,
+.ss-gate-card #unlockBtn:active{
+  -webkit-transform:translateY(0) scale(.992)!important;
+  transform:translateY(0) scale(.992)!important;
+}
+
+.ss-gate-card .ss-gate-button:disabled,
+.ss-gate-card .btn.primary:disabled,
+.ss-gate-card .primary:disabled,
+.ss-gate-card #unlockBtn:disabled{
+  opacity:.75!important;
+  cursor:progress!important;
+  -webkit-transform:none!important;
+  transform:none!important;
+}
+
+.ss-gate-card .ss-gate-button:disabled:before,
+.ss-gate-card .btn.primary:disabled:before,
+.ss-gate-card .primary:disabled:before,
+.ss-gate-card #unlockBtn:disabled:before{
+  -webkit-animation:none!important;
+  animation:none!important;
+  opacity:0!important;
+}
+
+.ss-gate-card .spin{
+  width:18px!important;
+  height:18px!important;
+  border-radius:50%!important;
+  border:2px solid currentColor!important;
+  border-right-color:transparent!important;
+  display:none;
+  -webkit-animation:ssGateSpin .8s linear infinite;
+  animation:ssGateSpin .8s linear infinite;
+}
+
+.ss-gate-card .is-loading .spin{display:inline-block!important}
+.ss-gate-card .is-loading .label{opacity:.75!important}
+@-webkit-keyframes ssGateSpin{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+@keyframes ssGateSpin{to{-webkit-transform:rotate(360deg);transform:rotate(360deg)}}
+
+.ss-gate-card .ss-gate-status,
+.ss-gate-card .status,
+.ss-gate-card #status{
+  min-height:18px!important;
+  margin-top:14px!important;
+  color:var(--muted,#8f8579)!important;
+  font-size:12.5px!important;
+  font-weight:700!important;
+  letter-spacing:.02em!important;
+  line-height:1.45!important;
+  text-align:center!important;
+}
+
+.ss-gate-card .status.err,
+.ss-gate-card .status.error,
+.ss-gate-card .ss-gate-status.error,
+.ss-gate-card #status.err{color:var(--danger,#bc3b42)!important}
+
+.ss-gate-card .status.ok,
+.ss-gate-card .status.success,
+.ss-gate-card #status.ok{color:var(--green,var(--success,#357f58))!important}
+
+.ss-gate-card .reveal,
+.ss-gate-card [data-reveal]{
+  opacity:0;
+  -webkit-transform:translate3d(0,18px,0);
+  transform:translate3d(0,18px,0);
+  -webkit-transition:opacity 700ms var(--ss-gate-ease-out),-webkit-transform 700ms var(--ss-gate-ease-out);
+  transition:opacity 700ms var(--ss-gate-ease-out),transform 700ms var(--ss-gate-ease-out);
+  will-change:opacity;
+}
+
+.ss-gate-card .reveal.is-visible,
+.ss-gate-card [data-reveal].is-visible{
+  opacity:1!important;
+  -webkit-transform:translate3d(0,0,0)!important;
+  transform:translate3d(0,0,0)!important;
+}
+
+@media(hover:hover) and (pointer:fine){
+  .ss-gate-card .ss-gate-button:hover,
+  .ss-gate-card .btn.primary:hover,
+  .ss-gate-card .primary:hover,
+  .ss-gate-card #unlockBtn:hover{
+    -webkit-transform:translateY(-2px)!important;
+    transform:translateY(-2px)!important;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.16) inset,
+      0 22px 40px -14px rgba(26,26,26,.48),
+      0 6px 14px -6px rgba(26,26,26,.32)!important;
+  }
+}
+
+@media(max-width:560px){
+  .ss-gate-card{
+    padding:28px 22px!important;
+    border-radius:26px!important;
+  }
+  .ss-gate-card .ss-gate-logo,
+  .ss-gate-card .gate-logo,
+  .ss-gate-card .ss-logo-hero{
+    width:min(180px,56vw)!important;
+  }
+  .ss-gate-card .ss-gate-title,
+  .ss-gate-card h1{
+    font-size:clamp(32px,9vw,38px)!important;
+  }
+  .ss-gate-card input[type="password"],
+  .ss-gate-card .password-wrap input{
+    height:52px!important;
+    border-radius:14px!important;
+  }
+  .ss-gate-card .ss-gate-button,
+  .ss-gate-card .btn.primary,
+  .ss-gate-card .primary,
+  .ss-gate-card #unlockBtn{
+    min-height:54px!important;
+    margin-top:22px!important;
+    border-radius:14px!important;
+    font-size:15px!important;
+  }
+}
+
+@media(max-width:560px),(pointer:coarse){
+  :root{
+    --ss-gate-card-duration:720ms;
+    --ss-gate-item-duration:460ms;
+    --ss-gate-switch-duration:360ms;
+    --ss-gate-brand-gap:28px;
+    --ss-gate-title-gap:36px;
+  }
+}
+
+@media(max-width:380px){
+  .ss-gate-card{padding:26px 22px!important}
+  .ss-gate-card .ss-gate-logo,
+  .ss-gate-card .gate-logo,
+  .ss-gate-card .ss-logo-hero{
+    width:min(170px,58vw)!important;
+  }
+}
+
+@media(prefers-color-scheme:dark){
+  .ss-gate-card{
+    background:
+      linear-gradient(90deg,transparent 12%,var(--ss-gate-gold) 50%,transparent 88%) top/100% 1px no-repeat,
+      linear-gradient(180deg,color-mix(in srgb,var(--surface,var(--card,var(--panel,#171613))) 94%,white 3%),var(--surface,var(--card,var(--panel,#171613))))!important;
+    box-shadow:
+      0 1px 0 rgba(255,239,216,.05) inset,
+      0 40px 100px -30px rgba(0,0,0,.55),
+      0 18px 48px -20px rgba(0,0,0,.36)!important;
+  }
+  .ss-gate-card .ss-gate-button,
+  .ss-gate-card .btn.primary,
+  .ss-gate-card .primary,
+  .ss-gate-card #unlockBtn{
+    color:#fffdf8!important;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 14px 36px -12px rgba(0,0,0,.7)!important;
+  }
+}
+
+@media(hover:none),(pointer:coarse){
+  .aurora{
+    -webkit-animation:none!important;
+    animation:none!important;
+    will-change:auto!important;
+    opacity:.42;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  html:not(.ss-force-motion) .ss-gate-card{
+    opacity:1!important;
+    -webkit-transform:none!important;
+    transform:none!important;
+  }
+  html:not(.ss-force-motion) .ss-gate-card .reveal,
+  html:not(.ss-force-motion) .ss-gate-card [data-reveal],
+  html:not(.ss-force-motion) .ss-gate-card .mask-reveal > span{
+    opacity:1!important;
+    -webkit-transform:none!important;
+    transform:none!important;
+    -webkit-transition:none!important;
+    transition:none!important;
+  }
+  html:not(.ss-force-motion) .ss-gate-card .ss-gate-logo,
+  html:not(.ss-force-motion) .ss-gate-card .gate-logo,
+  html:not(.ss-force-motion) .ss-gate-card .ss-logo-hero,
+  html:not(.ss-force-motion) .ss-gate-card .ss-gate-button:before,
+  html:not(.ss-force-motion) .ss-gate-card .btn.primary:before,
+  html:not(.ss-force-motion) .ss-gate-card .primary:before,
+  html:not(.ss-force-motion) .ss-gate-card #unlockBtn:before{
+    -webkit-animation:none!important;
+    animation:none!important;
+  }
+}

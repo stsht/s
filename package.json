@@ -1,0 +1,14 @@
+{
+  "name": "starshots-pages",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wrangler": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler",
+    "dev": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages dev .",
+    "deploy": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages deploy . --project-name starshots",
+    "secret:admin": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages secret put ADMIN_PASSWORD --project-name starshots"
+  },
+  "devDependencies": {
+    "wrangler": "4.90.0"
+  }
+}
