@@ -78,21 +78,131 @@
   /* ----------------------------------------------------------------
    * Hero logo bounce
    *
-   * Primary: Web Animations API. We cancel any in-flight animation
-   * before re-playing so bfcache restores get a clean run.
-   * Fallback: CSS class replay with a forced reflow.
+   * Choreography (per play, with small per-play randomness so it
+   * never feels mechanical):
+   *
+   *   1. Fade in at near-final size (no flash of tiny logo).
+   *   2. SQUEEZE 1 — "mencekung": non-uniform scale + skewY along a
+   *      randomly-signed near-diagonal so one side dips and the
+   *      other lifts. Reads as a cupped/3D press.
+   *   3. BOOOM: scale punches past 1 (≈1.18), skew snaps back the
+   *      other way for a counter-kick.
+   *   4. Jiggle: two small rotation flicks in opposite directions.
+   *   5. SQUEEZE 2 — softer mencekung with the opposite tilt.
+   *   6. Tiny overshoot, micro dip, rest at scale(1).
+   *
+   * The squeeze axis sign and the magnitudes of rotation, skew, and
+   * boom scale are jittered per play so a bfcache restore (or a
+   * page revisit) doesn't replay the exact same motion.
+   *
+   * Primary path: Web Animations API. We cancel any in-flight
+   * animation before re-playing so bfcache restores stay clean.
+   * Fallback: CSS class replay with a forced reflow (uses the
+   * static `ssBounceIn` keyframes in animate.css).
    * ---------------------------------------------------------------- */
-  var BOUNCE_KEYFRAMES = [
-    { transform: 'scale(.84)', opacity: 0,    offset: 0    },
-    { transform: 'scale(.78)', opacity: 1,    offset: 0.20 },
-    { transform: 'scale(.92)',                offset: 0.40 },
-    { transform: 'scale(1.055)',              offset: 0.54 },
-    { transform: 'scale(.958)',               offset: 0.66 },
-    { transform: 'scale(1.018)',              offset: 0.80 },
-    { transform: 'scale(1)',   opacity: 1,    offset: 1    }
-  ];
+
+  function _ssRand(min, max) { return min + Math.random() * (max - min); }
+  function _ssSign() { return Math.random() < 0.5 ? -1 : 1; }
+
+  function _ssTransform(parts) {
+    // Always emit the same transform-list shape so WAAPI can
+    // interpolate every keyframe pair without falling back to
+    // matrix decomposition.
+    var rot = parts.rot || 0;
+    var skX = parts.skX || 0;
+    var skY = parts.skY || 0;
+    var sX  = parts.sX != null ? parts.sX : 1;
+    var sY  = parts.sY != null ? parts.sY : 1;
+    return 'translateZ(0) rotate(' + rot.toFixed(3) + 'deg)' +
+           ' skewX(' + skX.toFixed(3) + 'deg)' +
+           ' skewY(' + skY.toFixed(3) + 'deg)' +
+           ' scale(' + sX.toFixed(4) + ',' + sY.toFixed(4) + ')';
+  }
+
+  function buildBounceKeyframes() {
+    // axis: which way the first squeeze tilts. The boom + second
+    // squeeze counter-tilt the opposite direction.
+    var axis = _ssSign();
+    var skewMag    = _ssRand(5.2, 7.8);   // deg, primary squeeze tilt
+    var rotMag     = _ssRand(1.6, 2.8);   // deg, base rotation magnitude
+    var boom       = _ssRand(1.15, 1.21); // peak scale on the BOOM
+    var jiggleA    = _ssRand(2.6, 3.8);   // deg, first jiggle flick
+    var jiggleB    = _ssRand(1.8, 2.8);   // deg, opposite jiggle
+    var sq2YDip    = _ssRand(0.90, 0.94); // scaleY of the soft second squeeze
+
+    // Tiny extra wobble in the squeeze so the two halves don't read
+    // as a perfect diagonal (the user asked for "random, not exact
+    // diagonal").
+    var skXJitter = _ssRand(-1.6, 1.6);
+    var skXJitter2 = _ssRand(-1.2, 1.2);
+
+    return [
+      // Pre-roll: invisible, slightly compressed, tiny pre-tilt.
+      { transform: _ssTransform({ sX: .88, sY: .88, rot: -rotMag * 0.35 * axis }),
+        opacity: 0, offset: 0 },
+
+      // Fade in fast so the logo is already visible when the
+      // squeeze starts.
+      { transform: _ssTransform({ sX: .94, sY: .90, rot: -rotMag * 0.55 * axis,
+                                  skX: skXJitter * 0.4, skY: skewMag * 0.55 * axis }),
+        opacity: 1, offset: 0.10 },
+
+      // SQUEEZE 1 / mencekung peak. scaleY is the deepest dip;
+      // skewY tilts the diagonal; small skewX jitter so it isn't
+      // a perfect 45deg line.
+      { transform: _ssTransform({ sX: 1.00, sY: 0.72,
+                                  rot: -rotMag * 1.10 * axis,
+                                  skX: skXJitter,
+                                  skY: skewMag * axis }),
+        offset: 0.24 },
+
+      // Mid-release: starting to expand, skew unwinding.
+      { transform: _ssTransform({ sX: 1.05, sY: 0.92,
+                                  rot: -rotMag * 0.50 * axis,
+                                  skY: skewMag * 0.45 * axis }),
+        offset: 0.36 },
+
+      // BOOOOM: punch past 1, slight counter-skew, slight
+      // counter-rotation so the boom "kicks" the other way.
+      { transform: _ssTransform({ sX: boom * 1.02, sY: boom * 0.97,
+                                  rot: rotMag * 0.70 * -axis,
+                                  skY: skewMag * 0.20 * -axis }),
+        offset: 0.46 },
+
+      // Jiggle A: rotate flick one way.
+      { transform: _ssTransform({ sX: boom * 0.97, sY: boom * 0.99,
+                                  rot: jiggleA * -axis }),
+        offset: 0.56 },
+
+      // Jiggle B: rotate flick the other way, slightly smaller.
+      { transform: _ssTransform({ sX: boom * 0.94, sY: boom * 0.96,
+                                  rot: jiggleB * axis }),
+        offset: 0.66 },
+
+      // SQUEEZE 2 — soft mencekung in the opposite tilt.
+      { transform: _ssTransform({ sX: 1.04, sY: sq2YDip,
+                                  rot: rotMag * 0.55 * -axis,
+                                  skX: skXJitter2,
+                                  skY: skewMag * 0.45 * -axis }),
+        offset: 0.78 },
+
+      // Small overshoot up.
+      { transform: _ssTransform({ sX: 1.025, sY: 1.015,
+                                  rot: rotMag * 0.20 * axis }),
+        offset: 0.88 },
+
+      // Micro dip.
+      { transform: _ssTransform({ sX: 0.996, sY: 0.996 }),
+        offset: 0.95 },
+
+      // Rest.
+      { transform: _ssTransform({ sX: 1, sY: 1 }),
+        opacity: 1, offset: 1 }
+    ];
+  }
+
   var BOUNCE_TIMING = {
-    duration: 1460,
+    duration: 1780,
     easing: 'cubic-bezier(.22,1,.36,1)',
     fill: 'both'
   };
@@ -114,7 +224,7 @@
 
     if (typeof logo.animate === 'function') {
       try {
-        logo.__ssBounceAnim = logo.animate(BOUNCE_KEYFRAMES, BOUNCE_TIMING);
+        logo.__ssBounceAnim = logo.animate(buildBounceKeyframes(), BOUNCE_TIMING);
         logo.__ssBounceAnim.onfinish = function () {
           logo.style.opacity = '1';
           logo.style.transform = 'translateZ(0) scale(1)';

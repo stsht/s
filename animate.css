@@ -55,33 +55,42 @@
 /* ============================================================
  * Bounce keyframe — used by animate.js as a CSS fallback when the
  * Web Animations API is unavailable. WAAPI is the primary path on
- * iOS Safari 13.1+ because it is more reliable than CSS keyframe
- * replay (no need to force reflow).
+ * iOS Safari 13.1+ because it lets us randomize the choreography
+ * per play (squeeze / boom / jiggle / squeeze 2 / settle). On
+ * the rare engines without WAAPI we use this static approximation.
  *
- * Transform-only. Opacity stays 1 after the first 5% so the logo
- * does not flash in halfway through the bounce.
+ * Keep transform-only. Opacity stays 1 after the first 10% so the
+ * logo does not flash in halfway through the animation.
  * ============================================================ */
 @-webkit-keyframes ssBounceIn{
-  0%   {-webkit-transform:scale(.84);opacity:0}
-  20%  {-webkit-transform:scale(.78);opacity:1}
-  40%  {-webkit-transform:scale(.92)}
-  54%  {-webkit-transform:scale(1.055)}
-  66%  {-webkit-transform:scale(.958)}
-  80%  {-webkit-transform:scale(1.018)}
+  0%   {-webkit-transform:scale(.88);opacity:0}
+  10%  {-webkit-transform:scale(.94,.90) skewY(5deg);opacity:1}
+  24%  {-webkit-transform:scale(1,.72) skewY(7deg) rotate(-2deg)}
+  36%  {-webkit-transform:scale(1.05,.92) skewY(3deg) rotate(-1deg)}
+  46%  {-webkit-transform:scale(1.20,1.14) skewY(-1.4deg) rotate(1.5deg)}
+  56%  {-webkit-transform:scale(1.16,1.18) rotate(-3deg)}
+  66%  {-webkit-transform:scale(1.12,1.14) rotate(2.2deg)}
+  78%  {-webkit-transform:scale(1.04,.92) skewY(-3deg) rotate(-1deg)}
+  88%  {-webkit-transform:scale(1.025,1.015) rotate(.4deg)}
+  95%  {-webkit-transform:scale(.996,.996)}
   100% {-webkit-transform:scale(1);opacity:1}
 }
 @keyframes ssBounceIn{
-  0%   {transform:scale(.84);opacity:0}
-  20%  {transform:scale(.78);opacity:1}
-  40%  {transform:scale(.92)}
-  54%  {transform:scale(1.055)}
-  66%  {transform:scale(.958)}
-  80%  {transform:scale(1.018)}
+  0%   {transform:scale(.88);opacity:0}
+  10%  {transform:scale(.94,.90) skewY(5deg);opacity:1}
+  24%  {transform:scale(1,.72) skewY(7deg) rotate(-2deg)}
+  36%  {transform:scale(1.05,.92) skewY(3deg) rotate(-1deg)}
+  46%  {transform:scale(1.20,1.14) skewY(-1.4deg) rotate(1.5deg)}
+  56%  {transform:scale(1.16,1.18) rotate(-3deg)}
+  66%  {transform:scale(1.12,1.14) rotate(2.2deg)}
+  78%  {transform:scale(1.04,.92) skewY(-3deg) rotate(-1deg)}
+  88%  {transform:scale(1.025,1.015) rotate(.4deg)}
+  95%  {transform:scale(.996,.996)}
   100% {transform:scale(1);opacity:1}
 }
 .ss-bounce-in{
-  -webkit-animation:ssBounceIn 1460ms cubic-bezier(.22,1,.36,1) both;
-  animation:ssBounceIn 1460ms cubic-bezier(.22,1,.36,1) both;
+  -webkit-animation:ssBounceIn 1780ms cubic-bezier(.22,1,.36,1) both;
+  animation:ssBounceIn 1780ms cubic-bezier(.22,1,.36,1) both;
 }
 
 /* ============================================================
