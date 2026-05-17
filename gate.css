@@ -15,7 +15,13 @@
   --ss-gate-switch-duration:500ms;
   --ss-gate-brand-gap:clamp(30px,4vw,38px);
   --ss-gate-title-gap:clamp(38px,5vw,46px);
-  --ss-gate-idle-duration:4.8s;
+  /* Idle loop period.
+   * Used by both ssGateLogoBounce (squeeze/boom/jiggle/squeeze/settle
+   * with a rest tail) and ssGateButtonSheen. A long period with a
+   * built-in rest tail reads as "ready, waiting" instead of a
+   * machine pulse, which is the iCloud-style finish-celebration cue
+   * the gate is reaching for. */
+  --ss-gate-idle-duration:7.2s;
   --ss-gate-gold:#d0bb99;
   --ss-gate-gold-2:#a79074;
 }
@@ -257,17 +263,24 @@
   transform:translate3d(-18%,0,0);
 }
 
+/*
+ * Button sheen — quick glaze sweep then a long rest tail, keyed
+ * to the same idle period as the logo bounce so they feel
+ * choreographed together. Visible window ~16 % of the loop; the
+ * rest is hold-off-screen so the button looks "ready" rather than
+ * "glazing forever".
+ */
 @-webkit-keyframes ssGateButtonSheen{
-  0%,5%{opacity:0;-webkit-transform:translate3d(-18%,0,0);transform:translate3d(-18%,0,0)}
-  11%{opacity:1}
-  72%{opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  82%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
+  3%      {opacity:1}
+  17%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  19%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 @keyframes ssGateButtonSheen{
-  0%,5%{opacity:0;-webkit-transform:translate3d(-18%,0,0);transform:translate3d(-18%,0,0)}
-  11%{opacity:1}
-  72%{opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  82%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
+  3%      {opacity:1}
+  17%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  19%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 
 .ss-gate-card .is-sheen:before,
@@ -282,26 +295,48 @@
   animation:ssGateButtonSheen var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
 }
 
-@-webkit-keyframes ssGateLogoPulse{
-  0%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
-  24%{-webkit-transform:translate3d(0,0,0) scale(.94);transform:translate3d(0,0,0) scale(.94)}
-  34%{-webkit-transform:translate3d(0,0,0) scale(1.085);transform:translate3d(0,0,0) scale(1.085)}
-  46%{-webkit-transform:translate3d(0,0,0) scale(.972);transform:translate3d(0,0,0) scale(.972)}
-  62%,100%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
+/*
+ * Idle logo loop — squeeze / boom / jiggle / squeeze / settle, with
+ * a long rest tail so the loop reads as "ready, waiting" instead of
+ * a machine pulse. The shape mirrors the WAAPI load bounce in
+ * animate.js: deep squeeze with a positive skewY, a boom past 1.0
+ * (~1.17 peak), two opposing rotation flicks, a softer counter-tilt
+ * squeeze, and a rest. The animation occupies the first ~36 % of
+ * the loop period; the rest is hold-at-1.0 so the gate doesn't feel
+ * like it is permanently jiggling.
+ *
+ * Keep transform-only. We compose the transform list as
+ * translate3d → rotate → skewY → scale so it can be interpolated
+ * by every engine without falling back to matrix decomposition.
+ */
+@-webkit-keyframes ssGateLogoBounce{
+  0%   {-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+  4%   {-webkit-transform:translate3d(0,0,0) rotate(-1.4deg) skewY(4.6deg) scale(1.00,.86)}
+  10%  {-webkit-transform:translate3d(0,0,0) rotate(-2deg) skewY(6.4deg) scale(1.00,.78)}
+  16%  {-webkit-transform:translate3d(0,0,0) rotate(1.2deg) skewY(-1deg) scale(1.17,1.09)}
+  20%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.12)}
+  24%  {-webkit-transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.09,1.10)}
+  29%  {-webkit-transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
+  33%  {-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1.018,1.012)}
+  36%,100%{-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
 }
-@keyframes ssGateLogoPulse{
-  0%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
-  24%{-webkit-transform:translate3d(0,0,0) scale(.94);transform:translate3d(0,0,0) scale(.94)}
-  34%{-webkit-transform:translate3d(0,0,0) scale(1.085);transform:translate3d(0,0,0) scale(1.085)}
-  46%{-webkit-transform:translate3d(0,0,0) scale(.972);transform:translate3d(0,0,0) scale(.972)}
-  62%,100%{-webkit-transform:translate3d(0,0,0) scale(1);transform:translate3d(0,0,0) scale(1)}
+@keyframes ssGateLogoBounce{
+  0%   {transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+  4%   {transform:translate3d(0,0,0) rotate(-1.4deg) skewY(4.6deg) scale(1.00,.86)}
+  10%  {transform:translate3d(0,0,0) rotate(-2deg) skewY(6.4deg) scale(1.00,.78)}
+  16%  {transform:translate3d(0,0,0) rotate(1.2deg) skewY(-1deg) scale(1.17,1.09)}
+  20%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.12)}
+  24%  {transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.09,1.10)}
+  29%  {transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
+  33%  {transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1.018,1.012)}
+  36%,100%{transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
 }
 
 .ss-gate-card.is-idle .ss-gate-logo,
 .ss-gate-card.is-idle .gate-logo,
 .ss-gate-card.is-idle .ss-logo-hero{
-  -webkit-animation:ssGateLogoPulse var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
-  animation:ssGateLogoPulse var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+  -webkit-animation:ssGateLogoBounce var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+  animation:ssGateLogoBounce var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
 }
 
 .ss-gate-card .ss-gate-button > *,

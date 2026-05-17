@@ -286,6 +286,86 @@
   }
 
   /* ----------------------------------------------------------------
+   * Mount-time bounce scheduler.
+   *
+   * Why this exists: the bootstrap pass runs at DOMContentLoaded.
+   * On every gate page (/admin, /db, /g/<slug>, /inv, /l) the gate
+   * card is still hidden (opacity:0, off-screen translate, or the
+   * shell wrapping it has display:none) at that moment. The 1.78 s
+   * choreography would run anyway, behind the scenes, and finish
+   * before the per-page intro fades the card in — so the user only
+   * ever saw the logo at rest. This was the "the jiggle is DONE
+   * after the webpage fully loaded" symptom.
+   *
+   * The fix is to wait until the card is actually mounted, then
+   * trigger the bounce. We watch every gate-ish card for class
+   * mutations (is-mounted / is-visible) and re-fire bounceLogos
+   * scoped to that card the first time it becomes visible. The
+   * bootstrap pass still bounces logos that are *already* visible
+   * at load time (e.g. /), so the homepage path is unchanged.
+   * ---------------------------------------------------------------- */
+  var GATE_CARD_SELECTOR = '.ss-gate-card,' + CARD_SELECTOR;
+  var MOUNT_CLASS_RE = /(^|\s)(is-mounted|is-visible)(\s|$)/;
+
+  function scheduleMountBounce(card) {
+    if (!card || card.__ssBounceWatch) return;
+    card.__ssBounceWatch = true;
+
+    // If the card is already visible at scheduler time, bounce now.
+    if (isLayoutVisible(card) && (card.classList.contains('is-mounted') ||
+                                   card.classList.contains('is-visible'))) {
+      bounceLogos(card);
+      return;
+    }
+
+    if (typeof MutationObserver !== 'function') {
+      // Old browser: poll a few times so the bounce eventually fires.
+      var tries = 0;
+      var poll = setInterval(function () {
+        tries++;
+        if (isLayoutVisible(card) && (card.classList.contains('is-mounted') ||
+                                       card.classList.contains('is-visible'))) {
+          clearInterval(poll);
+          bounceLogos(card);
+        } else if (tries >= 30) {
+          clearInterval(poll);
+          bounceLogos(card);
+        }
+      }, 120);
+      return;
+    }
+
+    var fired = false;
+    var observer = new MutationObserver(function () {
+      if (fired) return;
+      if (!isLayoutVisible(card)) return;
+      if (!MOUNT_CLASS_RE.test(card.className)) return;
+      fired = true;
+      observer.disconnect();
+      // One rAF so the browser paints the mount frame first; the
+      // bounce starts on the very next frame, in lockstep with the
+      // card's own opacity/translate transition.
+      requestAnimationFrame(function () { bounceLogos(card); });
+    });
+    observer.observe(card, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+
+    // Hard safety so we never lose the bounce entirely if the page
+    // never adds is-mounted (e.g. JS error mid-intro).
+    setTimeout(function () {
+      if (fired) return;
+      fired = true;
+      try { observer.disconnect(); } catch (e) { /* noop */ }
+      bounceLogos(card);
+    }, SAFETY_TIMEOUT_MS);
+  }
+
+  function watchGateMounts(root) {
+    var scope = scopeFor(root);
+    var cards = scope.querySelectorAll(GATE_CARD_SELECTOR);
+    for (var i = 0; i < cards.length; i++) scheduleMountBounce(cards[i]);
+  }
+
+  /* ----------------------------------------------------------------
    * Reveal helpers
    *
    * These exist purely as a compatibility shim for legacy pages
@@ -458,6 +538,9 @@
 
   function bootstrap() {
     bounceLogos(document);
+    // Schedule a deferred bounce for any gate card that is still
+    // hidden at load time. See scheduleMountBounce() for context.
+    watchGateMounts(document);
     runDeclarativeIntro(document);
     setTimeout(forceMountIfStuck, SAFETY_TIMEOUT_MS);
   }
@@ -473,7 +556,12 @@
   // loaded normally and bootstrap() already ran.
   window.addEventListener('pageshow', function (event) {
     if (!event.persisted) return;
+    // Clear the per-card watch flag so a card that re-mounts after
+    // bfcache restore can be picked up again by the mount scheduler.
+    var cards = document.querySelectorAll(GATE_CARD_SELECTOR);
+    for (var i = 0; i < cards.length; i++) cards[i].__ssBounceWatch = false;
     bounceLogos(document);
+    watchGateMounts(document);
     runDeclarativeIntro(document);
   });
 })();
