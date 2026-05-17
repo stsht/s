@@ -128,10 +128,12 @@
  * keeps the whole layer on a single CA layer, so it does not tile
  * and is unaffected.
  *
- * `@-moz-document url-prefix()` is the standard Firefox-only at-
- * rule (it is the one form Firefox still accepts in author
- * stylesheets) and matches every URL, so this scopes the fix to
- * Firefox only and does not touch any other engine.
+ * Why a class selector and not `@-moz-document url-prefix()`:
+ * stable Firefox restricted that at-rule to UA / browser-internal
+ * stylesheets in 2019 (Firefox bug 1035091), so it no longer
+ * matches in author CSS — the previous fix was a silent no-op in
+ * real Firefox. animate.js now sniffs Firefox at boot and adds
+ * `html.ss-firefox`, which gives the same scoping reliably.
  *
  * The fix:
  *   - Disable the drift animation (it is the artifact trigger).
@@ -145,17 +147,15 @@
  *   - The (pointer:coarse) rule above.
  *   - Any other browser's path.
  * ============================================================ */
-@-moz-document url-prefix(){
-  .aurora{
-    -webkit-animation:none !important;
-    animation:none !important;
-    will-change:auto !important;
-    -webkit-transform:none !important;
-    transform:none !important;
-    -webkit-filter:blur(48px) saturate(106%) !important;
-    filter:blur(48px) saturate(106%) !important;
-    opacity:.42;
-  }
+html.ss-firefox .aurora{
+  -webkit-animation:none !important;
+  animation:none !important;
+  will-change:auto !important;
+  -webkit-transform:none !important;
+  transform:none !important;
+  -webkit-filter:blur(48px) saturate(106%) !important;
+  filter:blur(48px) saturate(106%) !important;
+  opacity:.42 !important;
 }
 
 /* ============================================================
