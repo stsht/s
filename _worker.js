@@ -896,6 +896,7 @@ async function patchRowsByClientId(env, table, clientId = '', payload = {}) {
 
 function shellStyles() {
   return `
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
     :root{
       color-scheme:light;
       --bg:#F6F6F3;--bg2:#F6F6F3;--card:#FFFFFF;--solid:#ffffff;--field:#f8f8f6;
@@ -916,7 +917,7 @@ function shellStyles() {
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;min-height:100%}
     body{
-      min-height:100dvh;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);
+      min-height:100dvh;font-family:"Cormorant Garamond","Times New Roman",Georgia,serif;font-weight:500;color:var(--ink);
       background:var(--bg);
       padding:18px;overflow-x:hidden;
     }
@@ -993,7 +994,7 @@ function shellStyles() {
     .row{display:flex;gap:10px;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
     .row:last-child{border-bottom:0}
     .row small{color:var(--soft)}
-    pre{white-space:pre-wrap;word-break:break-word;margin:0;color:var(--soft);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+    pre{white-space:pre-wrap;word-break:break-word;margin:0;color:var(--soft);font-family:"Cormorant Garamond","Times New Roman",Georgia,serif;font-weight:500;font-size:13px;line-height:1.45}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
     @media(max-width:800px){.grid{grid-template-columns:1fr}.detail{min-height:auto}.list{max-height:40dvh}.top{align-items:flex-start}.top .logo,.logo.compact{width:min(180px,54vw)}}
     @media(max-width:480px){body{padding:14px}.card,.panel{border-radius:30px;padding:22px}.hero-card{padding:30px 22px}.logo.hero{width:min(430px,88vw)}.cta-row .btn{width:100%}.lift{transform:translateY(-10px)}}
