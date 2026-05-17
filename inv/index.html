@@ -9,6 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
     :root{
       --bg:#F6F6F3;
       --panel:#FFFFFF;
@@ -32,7 +33,7 @@
       --radius-xl:30px;
       --radius-lg:22px;
       --radius-md:18px;
-      --doc-font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+      --doc-font:"Cormorant Garamond","Times New Roman",Georgia,serif;
     }
 
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -1205,7 +1206,7 @@
     }
 
     .for-export,.for-export *{
-      font-family:Arial,"Helvetica Neue",Helvetica,sans-serif !important;
+      font-family:"Cormorant Garamond","Times New Roman",Georgia,serif !important;
       letter-spacing:normal !important;
       text-shadow:none !important;
     }
@@ -1288,7 +1289,7 @@
   }
 }
 html,body{background:var(--bg)!important;color:var(--text)!important}
-body{background:var(--bg)!important;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif!important}
+body{background:var(--bg)!important;font-family:"Cormorant Garamond","Times New Roman",Georgia,serif!important;font-weight:500!important}
 body::before,body::after,.doodle-bg{display:none!important}
 .panel,.left,.right,.menu-card,.compact-item-card,.new-package-panel,.check-card,.summary-chip,.input-shell,.picker-shell,.readonly-shell,.stepper,.total-chip{
   background:var(--panel)!important;border-color:var(--line)!important;box-shadow:var(--shadow-soft)!important;

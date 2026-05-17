@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f4f7fb" />
   <title>Subscription Generator</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
     :root{
       --bg:#f4f7fb; --panel:rgba(255,255,255,.92); --line:#e6edf5; --line-strong:#d7e2ee;
       --text:#0f1728; --muted:#708092; --soft:#f1f5fa; --soft-2:#f8fbff; --accent:#111827;
@@ -22,7 +23,8 @@
         radial-gradient(1200px 760px at 0% 0%, rgba(56,189,248,.08), transparent 52%),
         radial-gradient(980px 620px at 100% 0%, rgba(29,78,216,.06), transparent 55%),
         linear-gradient(180deg,#fbfcfe,#f3f6fa 60%,#f2f5f9);
-      font:14px/1.45 "Segoe UI","Segoe UI Variable Text","Segoe UI Variable",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+      font:14px/1.45 "Cormorant Garamond","Times New Roman",Georgia,serif;
+      font-weight:500;
       -webkit-font-smoothing:antialiased;
     }
     .app{max-width:1360px;margin:0 auto;display:grid;grid-template-columns:430px minmax(540px,1fr);gap:18px;align-items:start}
@@ -47,7 +49,7 @@
     .switch[data-mode="paid"] .thumb{transform:translateX(100%)}
     .switch button{
       position:relative;z-index:1;height:40px;border:0;background:none;border-radius:999px;
-      cursor:pointer;font:700 14px "Segoe UI",sans-serif;color:#728196
+      cursor:pointer;font:700 14px "Cormorant Garamond","Times New Roman",Georgia,serif;color:#728196
     }
     .switch button.active{color:var(--text)}
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -65,7 +67,7 @@
     }
     .input-shell input,.input-shell select,.picker-shell input{
       width:100%;height:46px;border:0;outline:none;background:transparent;padding:0 14px;
-      color:var(--text);font:600 15px "Segoe UI",sans-serif;letter-spacing:.01em;border-radius:18px
+      color:var(--text);font:600 15px "Cormorant Garamond","Times New Roman",Georgia,serif;letter-spacing:.01em;border-radius:18px
     }
     .input-shell select{
       appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23708192' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='M3.5 6 8 10.5 12.5 6'/%3E%3C/svg%3E");
@@ -79,13 +81,13 @@
     }
     .stepper button{
       height:50px;border:0;background:none;cursor:pointer;color:#536275;
-      font:500 24px/1 "Segoe UI",sans-serif
+      font:500 24px/1 "Cormorant Garamond","Times New Roman",Georgia,serif
     }
     .stepper button:hover{background:#f6f9fc}
     .stepper button:disabled{color:#b8c1cc;background:transparent;cursor:default}
     .stepper select{
       border:0;background:transparent;outline:none;text-align:center;text-align-last:center;
-      font:800 15px "Segoe UI",sans-serif;letter-spacing:.01em;color:var(--text);padding:0 8px;height:50px;
+      font:800 15px "Cormorant Garamond","Times New Roman",Georgia,serif;letter-spacing:.01em;color:var(--text);padding:0 8px;height:50px;
       appearance:none
     }
     .rate{
@@ -93,7 +95,7 @@
     }
     .rate button{
       height:40px;border:0;background:none;border-radius:14px;cursor:pointer;
-      color:#728196;font:800 14px "Segoe UI",sans-serif
+      color:#728196;font:800 14px "Cormorant Garamond","Times New Roman",Georgia,serif
     }
     .rate button.active{
       background:#fff;color:var(--text);box-shadow:0 4px 14px rgba(17,24,39,.06)
@@ -108,7 +110,7 @@
     .actions{display:flex;align-items:center;gap:10px;margin-top:16px}
     .btn{
       height:48px;border:0;border-radius:18px;cursor:pointer;
-      font:800 14px "Segoe UI",sans-serif;transition:transform .04s ease, background .15s ease, opacity .15s ease
+      font:800 14px "Cormorant Garamond","Times New Roman",Georgia,serif;transition:transform .04s ease, background .15s ease, opacity .15s ease
     }
     .btn:active{transform:translateY(1px)}
     .btn.primary{
@@ -159,7 +161,7 @@
     .btn.soft{height:38px;background:#eef4ff;color:#2563eb;border:1px solid #dbe8ff;box-shadow:none;padding:0 14px;border-radius:14px}
     .btn.soft:hover{background:#e5efff}
     .mini-preview{width:72px;height:72px;border-radius:14px;border:1px solid var(--line);background:#fff;object-fit:contain;padding:6px;box-shadow:var(--shadow-soft)}
-    input[type="file"]{width:100%;font:600 13px "Segoe UI",sans-serif;color:var(--text);padding:11px 14px}
+    input[type="file"]{width:100%;font:600 13px "Cormorant Garamond","Times New Roman",Georgia,serif;color:var(--text);padding:11px 14px}
     .money-prefix{display:flex;align-items:center;gap:8px;padding:0 14px;height:46px}
     .money-prefix span{font-size:12px;font-weight:800;color:var(--muted)}
     .money-prefix input{height:44px;padding:0!important;font-weight:800}
@@ -763,7 +765,7 @@
     }
     function drawPill(ctx,text,x,y,bgColor,textColor){
       ctx.save();
-      ctx.font='700 24px Inter, Arial, sans-serif';
+      ctx.font='700 24px Cormorant Garamond, Times New Roman, Georgia, serif';
       const pillW=ctx.measureText(text).width+52, pillH=54;
       drawRoundedRect(ctx,x-pillW/2,y-pillH/2,pillW,pillH,999);
       ctx.fillStyle=bgColor;
@@ -782,14 +784,14 @@
       ctx.textAlign=align;
       const tx=align==='center'?x+w/2:x+34;
       ctx.fillStyle='#7a7a84';
-      ctx.font='700 24px Inter, Arial, sans-serif';
+      ctx.font='700 24px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(label,tx,y+46);
       ctx.fillStyle='#111111';
-      ctx.font='700 38px Inter, Arial, sans-serif';
+      ctx.font='700 38px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(value,tx,y+102);
       if(subValue){
         ctx.fillStyle='#6e6e73';
-        ctx.font='500 24px Inter, Arial, sans-serif';
+        ctx.font='500 24px Cormorant Garamond, Times New Roman, Georgia, serif';
         ctx.fillText(subValue,tx,y+144);
       }
       ctx.restore();
@@ -803,7 +805,7 @@
       ctx.textBaseline='middle';
 
       ctx.fillStyle='#7a7a84';
-      ctx.font='700 24px Inter, Arial, sans-serif';
+      ctx.font='700 24px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(label, x+w/2, y+54);
 
       const hasNote=Boolean(note && String(note).trim());
@@ -811,14 +813,14 @@
       const timeY=hasNote ? y+262 : y+302;
 
       ctx.fillStyle='#111111';
-      ctx.font='700 56px Inter, Arial, sans-serif';
+      ctx.font='700 56px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(dateValue, x+w/2, dateY);
-      ctx.font='700 86px Inter, Arial, sans-serif';
+      ctx.font='700 86px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(timeValue, x+w/2, timeY);
 
       if(hasNote){
         ctx.fillStyle='#6e6e73';
-        ctx.font='500 26px Inter, Arial, sans-serif';
+        ctx.font='500 26px Cormorant Garamond, Times New Roman, Georgia, serif';
         const lines=wrapText(ctx,note,w-90).slice(0,2);
         lines.forEach((line,i)=>ctx.fillText(line, x+w/2, y+348+(i*34)));
       }
@@ -828,13 +830,13 @@
       const w=invoiceCanvas.width;
       ctx.textAlign='center';
       ctx.fillStyle='#111111';
-      ctx.font='500 44px Inter, Arial, sans-serif';
+      ctx.font='500 44px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(greeting(), w/2, 196);
       ctx.fillStyle='#6e6e73';
-      ctx.font='700 34px Inter, Arial, sans-serif';
+      ctx.font='700 34px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(serviceDisplayName(), w/2, 248);
       ctx.fillStyle='#111111';
-      ctx.font='700 84px Inter, Arial, sans-serif';
+      ctx.font='700 84px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(title, w/2, 340);
       drawPill(ctx,pillText,w/2,415,pillBg,pillTextColor);
     }
@@ -886,10 +888,10 @@
       ctx.textBaseline='middle';
       ctx.textAlign='left';
       ctx.fillStyle='#6e6e73';
-      ctx.font='500 20px Inter, Arial, sans-serif';
+      ctx.font='500 20px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText(prefix, 160, footerY);
       const handle='@starshots.id';
-      ctx.font='600 20px Inter, Arial, sans-serif';
+      ctx.font='600 20px Cormorant Garamond, Times New Roman, Georgia, serif';
       const handleWidth=ctx.measureText(handle).width;
       const gap=12;
       const iconSize=24;
@@ -937,11 +939,11 @@
       drawTile(ctx,{x:890,y:680,w:540,h:160,label:isICloudService()?'Storage':'Access Period',value:isICloudService()?slot.value:accessLabel(),subValue:isICloudService()?accessLabel():'',align:'center'});
       drawQrBlock(ctx);
       ctx.fillStyle='#111111';
-      ctx.font='700 36px Inter, Arial, sans-serif';
+      ctx.font='700 36px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.textAlign='center';
       ctx.fillText('Scan the QR below to complete payment', w/2, 1664);
       ctx.fillStyle='#6e6e73';
-      ctx.font='500 29px Inter, Arial, sans-serif';
+      ctx.font='500 29px Cormorant Garamond, Times New Roman, Georgia, serif';
       const note='Please complete payment to confirm your subscription slot.';
       wrapText(ctx,note,980).forEach((line,i)=>ctx.fillText(line,w/2,1724+i*36));
       drawCardFooter(ctx,'invoice');
@@ -966,10 +968,10 @@
       drawDetailCard(ctx,{x:840,y:900,w:590,h:500,label:'Expiry',dateValue:data.endDateLabel,timeValue:data.endTimeLabel});
       ctx.fillStyle='#111111';
       ctx.textAlign='center';
-      ctx.font='700 36px Inter, Arial, sans-serif';
+      ctx.font='700 36px Cormorant Garamond, Times New Roman, Georgia, serif';
       ctx.fillText('This card serves as your confirmed subscription receipt', w/2, 1608);
       ctx.fillStyle='#6e6e73';
-      ctx.font='500 29px Inter, Arial, sans-serif';
+      ctx.font='500 29px Cormorant Garamond, Times New Roman, Georgia, serif';
       const note='Please keep this JPG for your subscription history and future reference.';
       wrapText(ctx,note,980).forEach((line,i)=>ctx.fillText(line,w/2,1668+i*36));
       drawCardFooter(ctx,'confirmed');
