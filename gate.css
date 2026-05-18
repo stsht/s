@@ -17,20 +17,24 @@
   --ss-gate-title-gap:clamp(38px,5vw,46px);
   /* Logo bounce loop period.
    * The WAAPI animation in animate.js uses iterations: Infinity with
-   * a rest tail baked into the keyframes (active 2200 ms + rest
-   * 600 ms = 2800 ms total). The CSS idle loop below mirrors this
+   * a rest tail baked into the keyframes (active 3300 ms + rest
+   * 900 ms = 4200 ms total). The CSS idle loop below mirrors this
    * for engines that fall back to @keyframes. The windup occupies a
    * longer fraction of the active phase (squeeze peak at 0.46, boom
    * at 0.62) so the "pull arrow back" feels deliberate, while the
-   * boom + jiggle stay snappy. Also drives the button sheen and the
-   * water-ripple accent below — three loops, one period, all
-   * starting on the same frame. */
-  --ss-gate-idle-duration:2.8s;
+   * boom + jiggle stay snappy. Also drives the button sheen — same
+   * period so the sheen and the bounce start on the same loop edge.
+   *
+   * Bumped from 2.8 s to 4.2 s on 2026-05-18: at the previous tempo
+   * the engine was sharing paint budget with the droplet emitter
+   * and the bounce dropped to ~24 fps on touch devices. With the
+   * cheaper droplets (transform + opacity only) AND the longer
+   * period, each frame's delta is smaller and the refresh rate
+   * stays at 60 fps. */
+  --ss-gate-idle-duration:4.2s;
   /* Button sheen period — same period as the bounce so the sweep
-   * starts on the same loop edge as the logo's draw-back. The sweep
-   * is visible for the full active window then fades into a short
-   * rest, mirroring the bounce's rest tail. */
-  --ss-gate-sheen-duration:2.8s;
+   * starts on the same loop edge as the logo's draw-back. */
+  --ss-gate-sheen-duration:4.2s;
   --ss-gate-gold:#d0bb99;
   --ss-gate-gold-2:#a79074;
 }

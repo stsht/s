@@ -13,8 +13,22 @@
   var BUTTON_SELECTOR = '[data-ss-gate-button],.ss-gate-button,#adminOpen,#loginBtn,#unlockBtn,.primary,.btn.primary';
   var INPUT_SELECTOR = '[data-ss-gate-input],input[type="password"]';
   var SPLASH_STYLE_ID = 'ss-water-splash-style';
-  var SPLASH_LOOP_MS = 2800;
-  var SPLASH_BOOM_DELAY_MS = 1360;
+  // Continuous-emit cadence. The previous build fired a burst of
+  // 1 or 3 droplets at the BOOM moment of every bounce loop, which
+  // looked like one frame of activity per ~3 s of stillness — and
+  // the burst itself shared the GPU paint budget with the bounce,
+  // so both effects dropped to ~1 fps. The new build emits a single
+  // droplet every SPLASH_EMIT_AVG_MS ± SPLASH_EMIT_JITTER_MS and
+  // scrolls the whole stream off the top of the logo, so the rhythm
+  // is "always something in flight" instead of "burst then idle".
+  var SPLASH_EMIT_AVG_MS = 230;
+  var SPLASH_EMIT_JITTER_MS = 110;
+  // After this many simultaneous droplets we skip a frame's emit so
+  // a backgrounded tab waking up doesn't dump 200 droplets at once.
+  var SPLASH_MAX_CONCURRENT = 12;
+  // First droplet kicks in this long after .is-idle lands so the
+  // logo's first bounce reads cleanly before the rain starts.
+  var SPLASH_LEAD_IN_MS = 800;
 
   function asElement(value) {
     if (!value) return null;
@@ -80,52 +94,41 @@
     if (document.getElementById(SPLASH_STYLE_ID)) return;
     var style = document.createElement('style');
     style.id = SPLASH_STYLE_ID;
-    // Why this style block exists, in plain English:
+    // GPU-cheap droplet style block.
     //
-    //   The brand wrapper used to render two animated rings via CSS
-    //   ::before/::after pseudos. Those rings have been removed
-    //   from gate.css, so this block:
-    //     1. NEUTRALIZES any leftover ::before/::after styles from
-    //        page-level CSS overrides on /inv and /l (defensive —
-    //        those pages were never sources of rings, but they
-    //        do declare their own .gate-brand rules).
-    //     2. Forces .ss-gate-brand to position:relative + visible
-    //        overflow so the absolutely-positioned droplet spans
-    //        anchor to the logo and aren't clipped by the brand
-    //        box.
-    //     3. Defines .ss-water-splash — a single droplet element.
+    //   The previous build painted box-shadow + color-mix() per frame
+    //   and used calc(... / var()) inside keyframes, which forced a
+    //   full style recalc + repaint every animation tick. Result:
+    //   the droplet rendered at ~1 fps and starved the bounce
+    //   keyframe of paint budget so the logo dropped to ~24 fps.
     //
-    //   Droplet design:
-    //     - Starts as a 2px × 2px gold pill INSIDE the logo, fully
-    //       transparent.
-    //     - Fades in to peak opacity ~14 % in.
-    //     - At ~50 % it has grown to its full size (--ss-splash-w x
-    //       --ss-splash-h) and travelled half-way along its random
-    //       outward vector (--ss-splash-dx / --ss-splash-dy).
-    //     - At 100 % it has reached the end of its travel, has
-    //       shrunk back to a tail and faded out — like a real
-    //       water droplet trailing into mist.
-    //     - z-index: 3 — IN FRONT of the logo (the logo itself
-    //       sits at z-index 1 inside the brand box because of the
-    //       intro reveal stacking), per the user's request.
-    //     - border-radius: 50% so the droplet reads as a soft pill
-    //       at every scale, with a slight vertical squash from the
-    //       differing width/height.
-    //     - background tint comes from --ss-splash-color (gold or
-    //       gold-2) so we can stagger warm/cool droplets within
-    //       the same burst.
-    //     - A subtle 1px highlight on the inner top-left edge sells
-    //       the "wet" look without needing real shaders.
+    //   Now: transform + opacity ONLY. No shadow, no color-mix, no
+    //   calc-divides in keyframes. The starting scale is computed
+    //   in JS (--ss-splash-start-scale) so the keyframe just reads
+    //   a numeric variable. Each droplet element gets its own
+    //   composited GPU layer (will-change:transform,opacity), so
+    //   ten droplets in flight cost ~one extra layer composite per
+    //   frame instead of ten repaints.
+    //
+    //   The brand wrapper still needs position:relative + visible
+    //   overflow so droplets anchor to the logo and aren't clipped.
     style.textContent = '\
 .ss-gate-card .ss-gate-brand::before,.ss-gate-card .ss-gate-brand::after,.ss-gate-card .gate-brand::before,.ss-gate-card .gate-brand::after,.ss-gate-card .brand::before,.ss-gate-card .brand::after{content:none!important;display:none!important;border:0!important;opacity:0!important;-webkit-animation:none!important;animation:none!important}\
 .ss-gate-card .ss-gate-brand,.ss-gate-card .gate-brand,.ss-gate-card .brand{position:relative!important;overflow:visible!important}\
-.ss-water-splash{position:absolute;left:var(--ss-splash-left);top:var(--ss-splash-top);width:var(--ss-splash-w);height:var(--ss-splash-h);margin:calc(var(--ss-splash-h) / -2) 0 0 calc(var(--ss-splash-w) / -2);pointer-events:none;z-index:3;opacity:0;border-radius:50%;background:var(--ss-splash-color,var(--ss-gate-gold,#d0bb99));box-shadow:inset 1px 1px 0 rgba(255,255,255,.45),0 0 6px color-mix(in srgb,var(--ss-splash-color,var(--ss-gate-gold,#d0bb99)) 30%,transparent);transform-origin:50% 50%;transform:translate3d(0,0,0) scale(calc(2 / var(--ss-splash-w-num,80)),calc(2 / var(--ss-splash-h-num,80)));animation:ssWaterDroplet var(--ss-splash-duration,820ms) cubic-bezier(.22,1,.36,1) forwards}\
+.ss-water-splash{position:absolute;left:var(--ss-splash-left);top:var(--ss-splash-top);width:var(--ss-splash-w);height:var(--ss-splash-h);margin:calc(var(--ss-splash-h) / -2) 0 0 calc(var(--ss-splash-w) / -2);pointer-events:none;z-index:3;opacity:0;border-radius:50%;background:var(--ss-splash-color,#d0bb99);will-change:transform,opacity;-webkit-transform-origin:50% 50%;transform-origin:50% 50%;-webkit-transform:translate3d(0,0,0) scale(var(--ss-splash-start-scale,.04));transform:translate3d(0,0,0) scale(var(--ss-splash-start-scale,.04));-webkit-animation:ssWaterDroplet var(--ss-splash-duration,1600ms) cubic-bezier(.22,.61,.36,1) forwards;animation:ssWaterDroplet var(--ss-splash-duration,1600ms) cubic-bezier(.22,.61,.36,1) forwards}\
+@-webkit-keyframes ssWaterDroplet{\
+0%{opacity:0;-webkit-transform:translate3d(0,0,0) scale(var(--ss-splash-start-scale,.04))}\
+12%{opacity:.92}\
+55%{opacity:.78;-webkit-transform:translate3d(calc(var(--ss-splash-dx) * .55),calc(var(--ss-splash-dy) * .55),0) scale(1)}\
+85%{opacity:.34;-webkit-transform:translate3d(calc(var(--ss-splash-dx) * .94),calc(var(--ss-splash-dy) * .94),0) scale(.62)}\
+100%{opacity:0;-webkit-transform:translate3d(var(--ss-splash-dx),var(--ss-splash-dy),0) scale(.18)}\
+}\
 @keyframes ssWaterDroplet{\
-0%{opacity:0;transform:translate3d(0,0,0) scale(calc(2 / var(--ss-splash-w-num,80)),calc(2 / var(--ss-splash-h-num,80)))}\
-14%{opacity:.95}\
-50%{opacity:.78;transform:translate3d(calc(var(--ss-splash-dx) * .55),calc(var(--ss-splash-dy) * .55),0) scale(1,1) rotate(var(--ss-splash-rot,0deg))}\
-80%{opacity:.42;transform:translate3d(calc(var(--ss-splash-dx) * .92),calc(var(--ss-splash-dy) * .92),0) scale(.78,.66) rotate(calc(var(--ss-splash-rot,0deg) * 1.3))}\
-100%{opacity:0;transform:translate3d(var(--ss-splash-dx),var(--ss-splash-dy),0) scale(.18,.14) rotate(calc(var(--ss-splash-rot,0deg) * 1.5))}\
+0%{opacity:0;transform:translate3d(0,0,0) scale(var(--ss-splash-start-scale,.04))}\
+12%{opacity:.92}\
+55%{opacity:.78;transform:translate3d(calc(var(--ss-splash-dx) * .55),calc(var(--ss-splash-dy) * .55),0) scale(1)}\
+85%{opacity:.34;transform:translate3d(calc(var(--ss-splash-dx) * .94),calc(var(--ss-splash-dy) * .94),0) scale(.62)}\
+100%{opacity:0;transform:translate3d(var(--ss-splash-dx),var(--ss-splash-dy),0) scale(.18)}\
 }\
 @media(prefers-reduced-motion:reduce){html:not(.ss-force-motion) .ss-water-splash{display:none!important}}';
     document.head.appendChild(style);
@@ -146,34 +149,26 @@
   }
 
   /*
-   * Spawn a single burst of water droplets at the logo's BOOM moment.
+   * Spawn ONE droplet at a random spot inside the logo.
    *
-   * Choreography per droplet:
-   *   - Start as a 2 × 2 px gold pill at a random spawn point INSIDE
-   *     the logo bounds. The CSS keyframe scales the pill from
-   *     (2 / w, 2 / h) to (1, 1) by 50 %, so the droplet visually
-   *     "grows out" of a single pixel as it leaves the logo.
-   *   - Travel along a random outward vector with a strong upward
-   *     bias. The vector is sampled in the upper hemisphere
-   *     (-Math.PI .. 0) about 70 % of the time so droplets mostly
-   *     fly UP and OUT, like a real splash. The remaining 30 % fan
-   *     to the sides — never straight down (that would read as
-   *     drips, which is the wrong feeling for a "boom").
-   *   - The user asked for a top-left fallback, so when the spawn
-   *     biases to non-random it picks a point in the upper-left
-   *     quadrant of the logo and a vector that points further
-   *     up-and-left. We use random spawn most of the time; the
-   *     top-left bias is the fallback for the FIRST droplet of
-   *     each burst so the splash always has a clear reading even
-   *     when the random angles cluster.
-   *   - At the tail end the droplet shrinks to ~14 % of its peak
-   *     size and fades to 0, so it dissolves into a tiny pixel
-   *     (the same way it started) — a clean trail rather than a
-   *     popped bubble.
+   * The continuous emitter (startSplashLoop below) calls this every
+   * ~230 ms ± 110 ms, so over a single bounce period (4.2 s) we get
+   * ~15-20 droplets in flight at any time and the stream looks like
+   * rain rather than a burst.
    *
-   * Count per burst: 1 or 3, chosen at random. Three droplets reads
-   * as a real splash; a lone droplet reads as a single drop ricochet
-   * — both feel deliberate, neither feels mechanical.
+   * Droplet choreography:
+   *   - Born as a tiny pixel at the spawn point (start scale is
+   *     computed so a 10 px droplet reads as ~1 px on frame 0;
+   *     this is what gives the "growing out of the logo" feel).
+   *   - Animation duration: 1400-2200 ms. Slow on purpose so each
+   *     frame moves a small delta — the engine doesn't have to
+   *     paint a long stroke per frame.
+   *   - Travel vector: upward hemisphere ~70 % of the time so the
+   *     stream reads as a splash, not as drips. Sideways droplets
+   *     get a small extra lift so they still arc up.
+   *   - First droplet of the stream (and ~30 % of the rest) biases
+   *     to the upper-left of the logo — the user's requested
+   *     fallback when the random spot doesn't read clearly.
    */
   function splashOnce(card) {
     if (!card || reduceMotion() || hasHiddenAncestor(card)) return;
@@ -182,118 +177,125 @@
     var logo = logoFor(brand);
     if (!brand || !logo || !brand.getBoundingClientRect || !logo.getBoundingClientRect) return;
 
+    // Concurrent droplet cap. If we're already at the cap, skip this
+    // tick. The next emitter call will try again. This prevents a
+    // backgrounded tab from waking up and dumping a queue.
+    if (brand.querySelectorAll('.ss-water-splash').length >= SPLASH_MAX_CONCURRENT) return;
+
     var brandRect = brand.getBoundingClientRect();
     var logoRect = logo.getBoundingClientRect();
     if (!logoRect.width || !logoRect.height) return;
 
-    // Logo center expressed in brand-local coordinates. Every droplet
-    // spawn point is computed relative to this point so the burst
-    // tracks the logo even on responsive resizes between loops.
     var logoCenterX = logoRect.left - brandRect.left + logoRect.width / 2;
     var logoCenterY = logoRect.top - brandRect.top + logoRect.height / 2;
     var halfW = logoRect.width / 2;
     var halfH = logoRect.height / 2;
 
-    // 1 or 3, never 2 — per the user's spec.
-    var count = Math.random() < 0.5 ? 1 : 3;
-
-    for (var i = 0; i < count; i++) {
-      // Spawn point selection.
-      //   - First droplet of each burst: 65 % of the time we drop it
-      //     in the upper-left of the logo (the user's requested
-      //     fallback); otherwise we sample the whole logo.
-      //   - Subsequent droplets: always random across the full logo
-      //     so a 3-droplet burst doesn't bunch in one corner.
-      var spawnFx, spawnFy;
-      if (i === 0 && Math.random() < 0.65) {
-        spawnFx = random(-0.85, -0.15); // left half
-        spawnFy = random(-0.80, -0.10); // upper half
-      } else {
-        spawnFx = random(-0.85, 0.85);
-        spawnFy = random(-0.85, 0.85);
-      }
-      var spawnX = logoCenterX + spawnFx * halfW;
-      var spawnY = logoCenterY + spawnFy * halfH;
-
-      // Travel vector. Bias upward (negative Y) ~70 % of the time so
-      // the burst reads as a splash, not a drip. The other 30 % fan
-      // out sideways.
-      var upwardBias = Math.random() < 0.70;
-      var angle = upwardBias
-        ? random(-Math.PI * 0.92, -Math.PI * 0.08)   // upper hemisphere
-        : (Math.random() < 0.5 ? random(-Math.PI * 0.08, Math.PI * 0.18)
-                               : random(Math.PI * 0.82, Math.PI * 1.08));
-      var distance = random(36, 72);
-      var dx = Math.cos(angle) * distance;
-      // Add a small extra lift so even sideways droplets arc up a bit.
-      var dy = Math.sin(angle) * distance - random(2, 10);
-
-      // Droplet size. Slight variance so the three-burst doesn't
-      // look like clones. Width is biased a touch larger than height
-      // so the droplet reads as a vertical pill — the canonical
-      // water-droplet shape.
-      var dw = random(7, 12);
-      var dh = random(9, 14);
-
-      var el = document.createElement('span');
-      el.className = 'ss-water-splash';
-      el.setAttribute('aria-hidden', 'true');
-      el.style.setProperty('--ss-splash-left', spawnX.toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-top', spawnY.toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-w', dw.toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-h', dh.toFixed(1) + 'px');
-      // The keyframe needs the pixel dimensions as raw numbers so it
-      // can compute "scale = 2px / size" without a calc(... / px) —
-      // calc() can't divide by a length, only by a unitless number.
-      el.style.setProperty('--ss-splash-w-num', dw.toFixed(2));
-      el.style.setProperty('--ss-splash-h-num', dh.toFixed(2));
-      el.style.setProperty('--ss-splash-dx', dx.toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-dy', dy.toFixed(1) + 'px');
-      // Tiny rotation so the pill tumbles slightly mid-flight; reads
-      // as wind/tumble rather than a perfectly rigid translation.
-      el.style.setProperty('--ss-splash-rot', random(-22, 22).toFixed(1) + 'deg');
-      // Per-droplet duration: shorter ones feel snappier on the
-      // small droplets, the larger one lingers a touch.
-      var dur = Math.round(random(700, 920));
-      el.style.setProperty('--ss-splash-duration', dur + 'ms');
-      // Warm/cool alternation gives the burst depth without needing
-      // a real lighting model. First droplet always uses the primary
-      // gold so the eye locks onto it.
-      el.style.setProperty('--ss-splash-color', i === 0
-        ? 'var(--ss-gate-gold,#d0bb99)'
-        : (Math.random() < 0.5 ? 'var(--ss-gate-gold-2,#a79074)'
-                               : 'var(--ss-gate-gold,#d0bb99)'));
-      // Stagger droplets within the same burst by a few ms so they
-      // don't all leave the logo at the exact same frame.
-      el.style.animationDelay = random(0, 60).toFixed(0) + 'ms';
-      brand.appendChild(el);
-      el.addEventListener('animationend', function (event) {
-        if (event && event.target) event.target.remove();
-      }, { once: true });
-      // Hard cleanup in case animationend never fires (engine quirk
-      // when the tab is backgrounded mid-animation).
-      setTimeout((function (node) {
-        return function () { if (node && node.parentNode) node.remove(); };
-      }(el)), dur + 220);
+    // Spawn point. ~30 % of droplets bias to upper-left (the user's
+    // requested fallback), the rest sample the whole logo.
+    var spawnFx, spawnFy;
+    if (Math.random() < 0.30) {
+      spawnFx = random(-0.85, -0.10);
+      spawnFy = random(-0.80, -0.05);
+    } else {
+      spawnFx = random(-0.85, 0.85);
+      spawnFy = random(-0.85, 0.85);
     }
+    var spawnX = logoCenterX + spawnFx * halfW;
+    var spawnY = logoCenterY + spawnFy * halfH;
+
+    // Travel vector. Upward hemisphere most of the time so the
+    // stream reads as a splash, not as drips.
+    var upwardBias = Math.random() < 0.72;
+    var angle = upwardBias
+      ? random(-Math.PI * 0.92, -Math.PI * 0.08)
+      : (Math.random() < 0.5 ? random(-Math.PI * 0.08, Math.PI * 0.18)
+                             : random(Math.PI * 0.82, Math.PI * 1.08));
+    var distance = random(44, 88);
+    var dx = Math.cos(angle) * distance;
+    var dy = Math.sin(angle) * distance - random(3, 12);
+
+    // Droplet size. Slight variance so the stream doesn't look like
+    // identical clones.
+    var dw = random(7, 12);
+    var dh = random(9, 14);
+
+    // Pre-compute the starting scale in JS so the keyframe doesn't
+    // have to do a calc(... / px) divide per frame. Target a ~1 px
+    // visual at frame 0 regardless of the droplet's full size.
+    var startScale = (2 / Math.max(dw, dh)).toFixed(4);
+
+    // Per-droplet duration: 1400-2200 ms. The slowest droplets are
+    // the most upward — they have the longest arc. Snappier on
+    // sideways droplets so the stream stays varied.
+    var dur = Math.round(upwardBias ? random(1600, 2200) : random(1400, 1850));
+
+    var el = document.createElement('span');
+    el.className = 'ss-water-splash';
+    el.setAttribute('aria-hidden', 'true');
+    var s = el.style;
+    s.setProperty('--ss-splash-left', spawnX.toFixed(1) + 'px');
+    s.setProperty('--ss-splash-top', spawnY.toFixed(1) + 'px');
+    s.setProperty('--ss-splash-w', dw.toFixed(1) + 'px');
+    s.setProperty('--ss-splash-h', dh.toFixed(1) + 'px');
+    s.setProperty('--ss-splash-dx', dx.toFixed(1) + 'px');
+    s.setProperty('--ss-splash-dy', dy.toFixed(1) + 'px');
+    s.setProperty('--ss-splash-start-scale', startScale);
+    s.setProperty('--ss-splash-duration', dur + 'ms');
+    // Plain rgba — no color-mix, no box-shadow. Two color choices
+    // alternate so the stream has warm/cool variation.
+    s.setProperty('--ss-splash-color', Math.random() < 0.55 ? '#d0bb99' : '#a79074');
+    brand.appendChild(el);
+    el.addEventListener('animationend', function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, { once: true });
+    // Hard cleanup if animationend never fires (backgrounded tab).
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, dur + 250);
   }
 
   function stopSplashLoop(card) {
     if (!card) return;
     if (card.__ssSplashTimeout) clearTimeout(card.__ssSplashTimeout);
-    if (card.__ssSplashInterval) clearInterval(card.__ssSplashInterval);
     card.__ssSplashTimeout = null;
-    card.__ssSplashInterval = null;
+    card.__ssSplashRunning = false;
     clearSplashes(card);
   }
 
+  /*
+   * Continuous droplet emitter.
+   *
+   * Schedules one splashOnce(card) call every SPLASH_EMIT_AVG_MS
+   * ± SPLASH_EMIT_JITTER_MS using setTimeout (NOT setInterval — a
+   * jittered timer is what makes the stream feel like rain instead
+   * of a metronome). The function self-reschedules until
+   * stopSplashLoop runs.
+   *
+   * Why setTimeout over rAF: the emit cadence is ~5 Hz; a 60 Hz rAF
+   * loop just to sleep 11 frames between spawns would waste budget.
+   * The droplet's own animation runs entirely on the compositor
+   * (transform + opacity), so the emitter only needs to fire often
+   * enough to keep new droplets entering the scene.
+   */
   function startSplashLoop(card) {
     if (!card || reduceMotion()) return;
     stopSplashLoop(card);
-    card.__ssSplashTimeout = setTimeout(function () {
-      splashOnce(card);
-      card.__ssSplashInterval = setInterval(function () { splashOnce(card); }, SPLASH_LOOP_MS);
-    }, SPLASH_BOOM_DELAY_MS);
+    card.__ssSplashRunning = true;
+
+    function tick() {
+      if (!card.__ssSplashRunning) return;
+      // Don't emit while the tab is hidden — wakes up to a flood
+      // otherwise. The next visibilitychange handler restarts us.
+      if (document.visibilityState === 'visible' && !hasHiddenAncestor(card)) {
+        splashOnce(card);
+      }
+      var nextDelay = SPLASH_EMIT_AVG_MS + (Math.random() * 2 - 1) * SPLASH_EMIT_JITTER_MS;
+      card.__ssSplashTimeout = setTimeout(tick, Math.max(80, nextDelay));
+    }
+
+    // Lead-in so the first bounce reads cleanly before the rain.
+    card.__ssSplashTimeout = setTimeout(tick, SPLASH_LEAD_IN_MS);
   }
 
   function sheen(button, duration) {

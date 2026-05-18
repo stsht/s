@@ -147,7 +147,7 @@
   // the gap inside the keyframes means exactly one Animation object
   // ever exists per logo, and the browser does the looping natively.
   //
-  // Period = 2800 ms. Matches --ss-gate-idle-duration in gate.css and
+  // Period = 4200 ms. Matches --ss-gate-idle-duration in gate.css and
   // the .is-sheen one-shot in worker shellStyles, so the button sheen
   // and the logo windup line up on every loop edge.
   //
@@ -160,9 +160,13 @@
   // up from below on every iteration, which read as the logo
   // "sinking and rising" rather than the intended draw-back-and-pop
   // arrow motion.
-  var BOUNCE_ACTIVE_MS = 2200;
-  var BOUNCE_GAP_MS = 600;
-  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 2800
+  // Slowed from 2200/600 to 3300/900 (50 % longer period). Same
+  // shape, more time per phase, so each frame moves a smaller
+  // delta and the engine can hit the full refresh rate even when
+  // the droplet emitter is also running.
+  var BOUNCE_ACTIVE_MS = 3300;
+  var BOUNCE_GAP_MS = 900;
+  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 4200
   // Where the active choreography ends inside the loop. The keyframes
   // below place every choreographic phase between offset 0 and this
   // value; from BOUNCE_ACTIVE_END to 1 the logo is held at scale(1).
