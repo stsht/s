@@ -17,18 +17,20 @@
   --ss-gate-title-gap:clamp(38px,5vw,46px);
   /* Logo bounce loop period.
    * The WAAPI animation in animate.js uses iterations: Infinity with
-   * the 700 ms rest tail baked into the keyframes. Total period:
-   * 2400 ms active + 700 ms rest = 3100 ms. CSS idle loop below
-   * mirrors this for engines that fall back to @keyframes. The
-   * windup occupies a longer fraction of the active phase (squeeze
-   * peak at 0.40, boom at 0.60) so the "pull arrow back" feels
-   * deliberate, while the boom + jiggle stay snappy. */
-  --ss-gate-idle-duration:3.1s;
-  /* Button sheen period — deliberately decoupled from the logo so
-   * the two effects drift in and out of phase (avoids feeling like
-   * clockwork). Sweep visible for ~30 % of the 24 s period ≈ 7.2 s
-   * of slow glaze per cycle, then a long pause. */
-  --ss-gate-sheen-duration:24s;
+   * a rest tail baked into the keyframes (active 2200 ms + rest
+   * 600 ms = 2800 ms total). The CSS idle loop below mirrors this
+   * for engines that fall back to @keyframes. The windup occupies a
+   * longer fraction of the active phase (squeeze peak at 0.46, boom
+   * at 0.62) so the "pull arrow back" feels deliberate, while the
+   * boom + jiggle stay snappy. Also drives the button sheen and the
+   * water-ripple accent below — three loops, one period, all
+   * starting on the same frame. */
+  --ss-gate-idle-duration:2.8s;
+  /* Button sheen period — same period as the bounce so the sweep
+   * starts on the same loop edge as the logo's draw-back. The sweep
+   * is visible for the full active window then fades into a short
+   * rest, mirroring the bounce's rest tail. */
+  --ss-gate-sheen-duration:2.8s;
   --ss-gate-gold:#d0bb99;
   --ss-gate-gold-2:#a79074;
 }
@@ -81,11 +83,108 @@
 .ss-gate-card .ss-gate-brand,
 .ss-gate-card .gate-brand,
 .ss-gate-card .brand{
+  position:relative!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   margin:0 0 var(--ss-gate-brand-gap)!important;
   text-decoration:none!important;
+}
+
+/*
+ * Monoline water ripple — two concentric thin rings expanding from
+ * the logo every loop, synced to --ss-gate-idle-duration so the
+ * outer edge of each ring reaches its peak around the BOOM moment
+ * of the bounce. Reads like a still water surface being tapped:
+ *   1. ring fades in compact and tight to the logo,
+ *   2. expands outward losing thickness,
+ *   3. dissolves before the next windup begins.
+ *
+ * Built from CSS only (transform + opacity) so no JS scheduling is
+ * needed and the loop edge stays in lockstep with the bounce. Two
+ * rings, the second offset 35 % into the period, so the surface
+ * never looks empty.
+ *
+ * Anchored to .ss-gate-brand because that's the element that wraps
+ * the hero logo on every gate page (/admin, /db, /g/<slug>, /inv,
+ * /l). The rings are absolutely positioned inside the brand block;
+ * the logo itself sits above them via z-index.
+ */
+.ss-gate-card .ss-gate-brand::before,
+.ss-gate-card .ss-gate-brand::after,
+.ss-gate-card .gate-brand::before,
+.ss-gate-card .gate-brand::after,
+.ss-gate-card .brand::before,
+.ss-gate-card .brand::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:min(170px,46vw);
+  height:min(170px,46vw);
+  margin-left:calc(min(170px,46vw) / -2);
+  margin-top:calc(min(170px,46vw) / -2);
+  border-radius:50%;
+  border:1px solid color-mix(in srgb,var(--ss-gate-gold) 70%,transparent);
+  pointer-events:none;
+  opacity:0;
+  -webkit-transform:translate3d(0,0,0) scale(.55);
+  transform:translate3d(0,0,0) scale(.55);
+  z-index:0;
+}
+
+.ss-gate-card .ss-gate-brand > *,
+.ss-gate-card .gate-brand > *,
+.ss-gate-card .brand > *{
+  position:relative;
+  z-index:1;
+}
+
+@-webkit-keyframes ssGateBrandRipple{
+  0%      {opacity:0;-webkit-transform:translate3d(0,0,0) scale(.55);transform:translate3d(0,0,0) scale(.55)}
+  10%     {opacity:.55}
+  62%     {opacity:.18;-webkit-transform:translate3d(0,0,0) scale(1.45);transform:translate3d(0,0,0) scale(1.45)}
+  78%,100%{opacity:0;-webkit-transform:translate3d(0,0,0) scale(1.7);transform:translate3d(0,0,0) scale(1.7)}
+}
+@keyframes ssGateBrandRipple{
+  0%      {opacity:0;transform:translate3d(0,0,0) scale(.55)}
+  10%     {opacity:.55}
+  62%     {opacity:.18;transform:translate3d(0,0,0) scale(1.45)}
+  78%,100%{opacity:0;transform:translate3d(0,0,0) scale(1.7)}
+}
+
+.ss-gate-card.is-idle .ss-gate-brand::before,
+.ss-gate-card.is-idle .gate-brand::before,
+.ss-gate-card.is-idle .brand::before{
+  -webkit-animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
+  animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
+}
+.ss-gate-card.is-idle .ss-gate-brand::after,
+.ss-gate-card.is-idle .gate-brand::after,
+.ss-gate-card.is-idle .brand::after{
+  /* Second ring lags the first by 35 % of the period so the surface
+     keeps a continuous ripple without overlapping the bounce
+     boom. Slightly thinner border + warmer tint so the two rings
+     read as distinct "rings on water" rather than a doubled stroke. */
+  border-color:color-mix(in srgb,var(--ss-gate-gold-2) 65%,transparent);
+  -webkit-animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
+  animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
+  -webkit-animation-delay:calc(var(--ss-gate-idle-duration) * -0.65)!important;
+  animation-delay:calc(var(--ss-gate-idle-duration) * -0.65)!important;
+}
+
+@media(max-width:560px){
+  .ss-gate-card .ss-gate-brand::before,
+  .ss-gate-card .ss-gate-brand::after,
+  .ss-gate-card .gate-brand::before,
+  .ss-gate-card .gate-brand::after,
+  .ss-gate-card .brand::before,
+  .ss-gate-card .brand::after{
+    width:min(150px,50vw);
+    height:min(150px,50vw);
+    margin-left:calc(min(150px,50vw) / -2);
+    margin-top:calc(min(150px,50vw) / -2);
+  }
 }
 
 .ss-gate-card .ss-gate-logo,
@@ -272,22 +371,24 @@
 
 /*
  * Button sheen — synced to the logo bounce loop period
- * (--ss-gate-idle-duration: 2.48s) so both effects start together
- * every cycle. The sweep spans 0%→68% of the loop, leaving a short
- * invisible tail (68%→100%) so it reads as a clean single glaze
- * rather than a permanent spotlight.
+ * (--ss-gate-idle-duration: 2.8s) so both effects start together
+ * every cycle. The sweep starts at offset 0 (the loop edge), spans
+ * 0%→78% of the loop (≈2.18 s — matches the WAAPI bounce's active
+ * window of 2200 ms), then fades and holds invisible during the
+ * 22% rest tail so it reads as a clean single glaze rather than
+ * a permanent spotlight.
  */
 @-webkit-keyframes ssGateButtonSheen{
   0%      {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
   4%      {opacity:1}
-  68%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  70%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  78%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  82%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 @keyframes ssGateButtonSheen{
   0%      {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
   4%      {opacity:1}
-  68%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  70%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  78%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  82%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 
 .ss-gate-card .is-sheen:before,
@@ -299,21 +400,26 @@
 .ss-gate-card.is-idle .primary:before,
 .ss-gate-card.is-idle #unlockBtn:before{
   /* Same period as the logo bounce loop so sheen and bounce
-     start together every cycle. Speed stays at 30% (the full
-     2.48s sweep is spread across the same visible window). */
+     start together every cycle (2.8 s). The sweep is visible for
+     ~78 % of the period (≈2.18 s) and rests for the remainder. */
   -webkit-animation:ssGateButtonSheen var(--ss-gate-idle-duration) linear infinite!important;
   animation:ssGateButtonSheen var(--ss-gate-idle-duration) linear infinite!important;
 }
 
 /*
- * Idle logo loop — squeeze / boom / jiggle / squeeze / settle, with
- * a long rest tail so the loop reads as "ready, waiting" instead of
- * a machine pulse. The shape mirrors the WAAPI load bounce in
- * animate.js: deep squeeze with a positive skewY, a boom past 1.0
- * (~1.17 peak), two opposing rotation flicks, a softer counter-tilt
- * squeeze, and a rest. The animation occupies the first ~36 % of
- * the loop period; the rest is hold-at-1.0 so the gate doesn't feel
- * like it is permanently jiggling.
+ * Idle logo loop — slow draw-back / squeeze / boom / jiggle /
+ * soft squeeze / rest. The shape mirrors the WAAPI load bounce in
+ * animate.js: deliberate windup with a positive skewY (peak at
+ * 0.46), boom past 1.0 (~1.18 peak) at 0.62, two opposing rotation
+ * flicks, a softer counter-tilt squeeze, and a long rest tail. The
+ * animation occupies the first ~78 % of the loop period (matches
+ * BOUNCE_ACTIVE_END in animate.js); the remaining ~22 % is held at
+ * scale 1 so the gate doesn't feel like it is permanently
+ * jiggling.
+ *
+ * Y axis stays at 0. Earlier builds had the logo translate up from
+ * below on every iteration; that read as the logo "sinking and
+ * rising" rather than the intended draw-back-and-pop arrow motion.
  *
  * Keep transform-only. We compose the transform list as
  * translate3d → rotate → skewY → scale so it can be interpolated
@@ -321,25 +427,29 @@
  */
 @-webkit-keyframes ssGateLogoBounce{
   0%   {-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
-  4%   {-webkit-transform:translate3d(0,0,0) rotate(-1.4deg) skewY(4.6deg) scale(1.00,.86)}
-  10%  {-webkit-transform:translate3d(0,0,0) rotate(-2deg) skewY(6.4deg) scale(1.00,.78)}
-  16%  {-webkit-transform:translate3d(0,0,0) rotate(1.2deg) skewY(-1deg) scale(1.17,1.09)}
-  20%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.12)}
-  24%  {-webkit-transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.09,1.10)}
-  29%  {-webkit-transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
-  33%  {-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1.018,1.012)}
-  36%,100%{-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+  14%  {-webkit-transform:translate3d(0,0,0) rotate(-1deg) skewY(3.6deg) scale(1.02,.92)}
+  25%  {-webkit-transform:translate3d(0,0,0) rotate(-2.2deg) skewY(6.2deg) scale(1.04,.82)}
+  36%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(7deg) scale(1.05,.70)}
+  44%  {-webkit-transform:translate3d(0,0,0) rotate(-1deg) skewY(3deg) scale(1.06,.92)}
+  48%  {-webkit-transform:translate3d(0,0,0) rotate(1.6deg) skewY(-1deg) scale(1.20,1.16)}
+  55%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.16)}
+  60%  {-webkit-transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.10,1.13)}
+  67%  {-webkit-transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
+  73%  {-webkit-transform:translate3d(0,0,0) rotate(.2deg) skewY(0) scale(1.02,1.012)}
+  78%,100%{-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
 }
 @keyframes ssGateLogoBounce{
   0%   {transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
-  4%   {transform:translate3d(0,0,0) rotate(-1.4deg) skewY(4.6deg) scale(1.00,.86)}
-  10%  {transform:translate3d(0,0,0) rotate(-2deg) skewY(6.4deg) scale(1.00,.78)}
-  16%  {transform:translate3d(0,0,0) rotate(1.2deg) skewY(-1deg) scale(1.17,1.09)}
-  20%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.12)}
-  24%  {transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.09,1.10)}
-  29%  {transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
-  33%  {transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1.018,1.012)}
-  36%,100%{transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+  14%  {transform:translate3d(0,0,0) rotate(-1deg) skewY(3.6deg) scale(1.02,.92)}
+  25%  {transform:translate3d(0,0,0) rotate(-2.2deg) skewY(6.2deg) scale(1.04,.82)}
+  36%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(7deg) scale(1.05,.70)}
+  44%  {transform:translate3d(0,0,0) rotate(-1deg) skewY(3deg) scale(1.06,.92)}
+  48%  {transform:translate3d(0,0,0) rotate(1.6deg) skewY(-1deg) scale(1.20,1.16)}
+  55%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.16)}
+  60%  {transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.10,1.13)}
+  67%  {transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
+  73%  {transform:translate3d(0,0,0) rotate(.2deg) skewY(0) scale(1.02,1.012)}
+  78%,100%{transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
 }
 
 .ss-gate-card.is-idle .ss-gate-logo,
@@ -551,8 +661,15 @@
   html:not(.ss-force-motion) .ss-gate-card .ss-gate-button:before,
   html:not(.ss-force-motion) .ss-gate-card .btn.primary:before,
   html:not(.ss-force-motion) .ss-gate-card .primary:before,
-  html:not(.ss-force-motion) .ss-gate-card #unlockBtn:before{
+  html:not(.ss-force-motion) .ss-gate-card #unlockBtn:before,
+  html:not(.ss-force-motion) .ss-gate-card .ss-gate-brand::before,
+  html:not(.ss-force-motion) .ss-gate-card .ss-gate-brand::after,
+  html:not(.ss-force-motion) .ss-gate-card .gate-brand::before,
+  html:not(.ss-force-motion) .ss-gate-card .gate-brand::after,
+  html:not(.ss-force-motion) .ss-gate-card .brand::before,
+  html:not(.ss-force-motion) .ss-gate-card .brand::after{
     -webkit-animation:none!important;
     animation:none!important;
+    opacity:0!important;
   }
 }

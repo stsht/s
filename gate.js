@@ -77,9 +77,9 @@
     if (duration > 0) setTimeout(function () { button.classList.remove('is-sheen'); }, duration);
   }
 
-  function bounce(root) {
+  function bounce(root, opts) {
     if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
-      window.StarShotsReveal.bounceLogos(root || document);
+      window.StarShotsReveal.bounceLogos(root || document, opts);
     }
   }
 
@@ -109,8 +109,24 @@
   function startIdle(card, settings) {
     if (!card || reduceMotion()) return;
     settings = settings || resolveOptions(card);
-    card.classList.add('is-idle');
-    if (settings.button) sheen(settings.button);
+    // Restart the logo bounce loop on the SAME animation frame we
+    // add .is-idle (which kicks the sheen keyframe). Both loops use
+    // --ss-gate-idle-duration: 2.8s, so anchoring their start
+    // timestamps to the same frame keeps them in lockstep on every
+    // subsequent iteration. Without the restart the bounce was
+    // ~1-2 s into its loop by the time .is-idle landed, so the
+    // sheen sweep and the logo windup were permanently out of phase.
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        bounce(card, { restart: true });
+        card.classList.add('is-idle');
+        if (settings.button) sheen(settings.button);
+      });
+    } else {
+      bounce(card, { restart: true });
+      card.classList.add('is-idle');
+      if (settings.button) sheen(settings.button);
+    }
   }
 
   function markUnmounted(card) {
