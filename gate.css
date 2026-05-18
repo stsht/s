@@ -83,108 +83,19 @@
 .ss-gate-card .ss-gate-brand,
 .ss-gate-card .gate-brand,
 .ss-gate-card .brand{
+  /* position:relative is REQUIRED — gate.js absolutely-positions the
+     droplet spans inside this block so they anchor to the logo, not
+     to the card. Without this the droplets would jump to the card's
+     top-left on every loop. */
   position:relative!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   margin:0 0 var(--ss-gate-brand-gap)!important;
   text-decoration:none!important;
-}
-
-/*
- * Monoline water ripple — two concentric thin rings expanding from
- * the logo every loop, synced to --ss-gate-idle-duration so the
- * outer edge of each ring reaches its peak around the BOOM moment
- * of the bounce. Reads like a still water surface being tapped:
- *   1. ring fades in compact and tight to the logo,
- *   2. expands outward losing thickness,
- *   3. dissolves before the next windup begins.
- *
- * Built from CSS only (transform + opacity) so no JS scheduling is
- * needed and the loop edge stays in lockstep with the bounce. Two
- * rings, the second offset 35 % into the period, so the surface
- * never looks empty.
- *
- * Anchored to .ss-gate-brand because that's the element that wraps
- * the hero logo on every gate page (/admin, /db, /g/<slug>, /inv,
- * /l). The rings are absolutely positioned inside the brand block;
- * the logo itself sits above them via z-index.
- */
-.ss-gate-card .ss-gate-brand::before,
-.ss-gate-card .ss-gate-brand::after,
-.ss-gate-card .gate-brand::before,
-.ss-gate-card .gate-brand::after,
-.ss-gate-card .brand::before,
-.ss-gate-card .brand::after{
-  content:"";
-  position:absolute;
-  left:50%;
-  top:50%;
-  width:min(170px,46vw);
-  height:min(170px,46vw);
-  margin-left:calc(min(170px,46vw) / -2);
-  margin-top:calc(min(170px,46vw) / -2);
-  border-radius:50%;
-  border:1px solid color-mix(in srgb,var(--ss-gate-gold) 70%,transparent);
-  pointer-events:none;
-  opacity:0;
-  -webkit-transform:translate3d(0,0,0) scale(.55);
-  transform:translate3d(0,0,0) scale(.55);
-  z-index:0;
-}
-
-.ss-gate-card .ss-gate-brand > *,
-.ss-gate-card .gate-brand > *,
-.ss-gate-card .brand > *{
-  position:relative;
-  z-index:1;
-}
-
-@-webkit-keyframes ssGateBrandRipple{
-  0%      {opacity:0;-webkit-transform:translate3d(0,0,0) scale(.55);transform:translate3d(0,0,0) scale(.55)}
-  10%     {opacity:.55}
-  62%     {opacity:.18;-webkit-transform:translate3d(0,0,0) scale(1.45);transform:translate3d(0,0,0) scale(1.45)}
-  78%,100%{opacity:0;-webkit-transform:translate3d(0,0,0) scale(1.7);transform:translate3d(0,0,0) scale(1.7)}
-}
-@keyframes ssGateBrandRipple{
-  0%      {opacity:0;transform:translate3d(0,0,0) scale(.55)}
-  10%     {opacity:.55}
-  62%     {opacity:.18;transform:translate3d(0,0,0) scale(1.45)}
-  78%,100%{opacity:0;transform:translate3d(0,0,0) scale(1.7)}
-}
-
-.ss-gate-card.is-idle .ss-gate-brand::before,
-.ss-gate-card.is-idle .gate-brand::before,
-.ss-gate-card.is-idle .brand::before{
-  -webkit-animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
-  animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
-}
-.ss-gate-card.is-idle .ss-gate-brand::after,
-.ss-gate-card.is-idle .gate-brand::after,
-.ss-gate-card.is-idle .brand::after{
-  /* Second ring lags the first by 35 % of the period so the surface
-     keeps a continuous ripple without overlapping the bounce
-     boom. Slightly thinner border + warmer tint so the two rings
-     read as distinct "rings on water" rather than a doubled stroke. */
-  border-color:color-mix(in srgb,var(--ss-gate-gold-2) 65%,transparent);
-  -webkit-animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
-  animation:ssGateBrandRipple var(--ss-gate-idle-duration) cubic-bezier(.22,1,.36,1) infinite!important;
-  -webkit-animation-delay:calc(var(--ss-gate-idle-duration) * -0.65)!important;
-  animation-delay:calc(var(--ss-gate-idle-duration) * -0.65)!important;
-}
-
-@media(max-width:560px){
-  .ss-gate-card .ss-gate-brand::before,
-  .ss-gate-card .ss-gate-brand::after,
-  .ss-gate-card .gate-brand::before,
-  .ss-gate-card .gate-brand::after,
-  .ss-gate-card .brand::before,
-  .ss-gate-card .brand::after{
-    width:min(150px,50vw);
-    height:min(150px,50vw);
-    margin-left:calc(min(150px,50vw) / -2);
-    margin-top:calc(min(150px,50vw) / -2);
-  }
+  /* Droplets travel up to ~70px from the logo center; they must be
+     allowed to escape the brand box without being clipped. */
+  overflow:visible!important;
 }
 
 .ss-gate-card .ss-gate-logo,
@@ -661,13 +572,7 @@
   html:not(.ss-force-motion) .ss-gate-card .ss-gate-button:before,
   html:not(.ss-force-motion) .ss-gate-card .btn.primary:before,
   html:not(.ss-force-motion) .ss-gate-card .primary:before,
-  html:not(.ss-force-motion) .ss-gate-card #unlockBtn:before,
-  html:not(.ss-force-motion) .ss-gate-card .ss-gate-brand::before,
-  html:not(.ss-force-motion) .ss-gate-card .ss-gate-brand::after,
-  html:not(.ss-force-motion) .ss-gate-card .gate-brand::before,
-  html:not(.ss-force-motion) .ss-gate-card .gate-brand::after,
-  html:not(.ss-force-motion) .ss-gate-card .brand::before,
-  html:not(.ss-force-motion) .ss-gate-card .brand::after{
+  html:not(.ss-force-motion) .ss-gate-card #unlockBtn:before{
     -webkit-animation:none!important;
     animation:none!important;
     opacity:0!important;
