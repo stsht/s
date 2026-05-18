@@ -268,22 +268,23 @@
 }
 
 /*
- * Button sheen — slow caress sweep (~30 % of the 24 s cycle ≈ 7.2 s
- * of visible glaze), then a long pause. Period is deliberately
- * separate from the logo bounce loop so the two drift in and out of
- * phase instead of always starting together.
+ * Button sheen — synced to the logo bounce loop period
+ * (--ss-gate-idle-duration: 2.48s) so both effects start together
+ * every cycle. The sweep spans 0%→68% of the loop, leaving a short
+ * invisible tail (68%→100%) so it reads as a clean single glaze
+ * rather than a permanent spotlight.
  */
 @-webkit-keyframes ssGateButtonSheen{
-  0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
-  3%      {opacity:1}
-  32%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  34%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  0%      {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
+  4%      {opacity:1}
+  68%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  70%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 @keyframes ssGateButtonSheen{
-  0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
-  3%      {opacity:1}
-  32%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  34%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  0%      {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
+  4%      {opacity:1}
+  68%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  70%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 
 .ss-gate-card .is-sheen:before,
@@ -294,8 +295,11 @@
 .ss-gate-card.is-idle .btn.primary:before,
 .ss-gate-card.is-idle .primary:before,
 .ss-gate-card.is-idle #unlockBtn:before{
-  -webkit-animation:ssGateButtonSheen var(--ss-gate-sheen-duration) var(--ss-gate-ease-out) infinite!important;
-  animation:ssGateButtonSheen var(--ss-gate-sheen-duration) var(--ss-gate-ease-out) infinite!important;
+  /* Same period as the logo bounce loop so sheen and bounce
+     start together every cycle. Speed stays at 30% (the full
+     2.48s sweep is spread across the same visible window). */
+  -webkit-animation:ssGateButtonSheen var(--ss-gate-idle-duration) linear infinite!important;
+  animation:ssGateButtonSheen var(--ss-gate-idle-duration) linear infinite!important;
 }
 
 /*

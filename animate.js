@@ -122,13 +122,16 @@
   function _ssTransform(parts) {
     // Always emit the same transform-list shape so WAAPI can
     // interpolate every keyframe pair without falling back to
-    // matrix decomposition.
+    // matrix decomposition. translateY comes first so the vertical
+    // travel arc is independent of the squeeze/rotate/skew stack.
+    var tY = parts.tY || 0;
     var rot = parts.rot || 0;
     var skX = parts.skX || 0;
     var skY = parts.skY || 0;
     var sX  = parts.sX != null ? parts.sX : 1;
     var sY  = parts.sY != null ? parts.sY : 1;
-    return 'translateZ(0) rotate(' + rot.toFixed(3) + 'deg)' +
+    return 'translateY(' + tY.toFixed(2) + 'px) translateZ(0)' +
+           ' rotate(' + rot.toFixed(3) + 'deg)' +
            ' skewX(' + skX.toFixed(3) + 'deg)' +
            ' skewY(' + skY.toFixed(3) + 'deg)' +
            ' scale(' + sX.toFixed(4) + ',' + sY.toFixed(4) + ')';
@@ -168,77 +171,83 @@
     var skXJitter = _ssRand(-1.6, 1.6);
     var skXJitter2 = _ssRand(-1.2, 1.2);
 
+    // Rise distance: how many px below the resting position the logo
+    // starts each iteration. A small random jitter keeps consecutive
+    // loops from feeling identical (the travel distance varies
+    // slightly so the "launch" feels organic, not mechanical).
+    var riseY = _ssRand(28, 40);
+
     // Compress the "active" offsets into [0, BOUNCE_ACTIVE_END]; the
     // remainder of the loop is a rest hold so the next iteration
     // feels like a real pause rather than a perpetual pulse.
     function at(active) { return active * BOUNCE_ACTIVE_END; }
 
     return [
-      // Pre-roll: scale slightly compressed at the start of each loop.
-      // We do NOT fade opacity here (would re-fade on every iteration
-      // after the first); animate.js still sets opacity:1 on settle.
-      { transform: _ssTransform({ sX: .92, sY: .92, rot: -rotMag * 0.35 * axis }),
+      // Pre-roll: logo starts BELOW its resting position, slightly
+      // compressed. The upward travel is the first thing the viewer
+      // reads — it gives the "flying up" entrance.
+      { transform: _ssTransform({ tY: riseY, sX: .92, sY: .88, rot: -rotMag * 0.35 * axis }),
         offset: 0 },
 
-      // Fade-in equivalent: still slightly squashed, light tilt.
-      { transform: _ssTransform({ sX: .94, sY: .90, rot: -rotMag * 0.55 * axis,
-                                  skX: skXJitter * 0.4, skY: skewMag * 0.55 * axis }),
+      // Mid-rise: still travelling up, beginning to tilt for squeeze 1.
+      { transform: _ssTransform({ tY: riseY * 0.55, sX: .94, sY: .90,
+                                  rot: -rotMag * 0.55 * axis,
+                                  skX: skXJitter * 0.4,
+                                  skY: skewMag * 0.55 * axis }),
         offset: at(0.10) },
 
-      // SQUEEZE 1 / mencekung peak.
-      { transform: _ssTransform({ sX: 1.00, sY: 0.72,
+      // SQUEEZE 1 / mencekung peak — logo has arrived at Y=0 and
+      // squashes on landing (like a ball hitting the floor).
+      { transform: _ssTransform({ tY: 0, sX: 1.00, sY: 0.72,
                                   rot: -rotMag * 1.10 * axis,
                                   skX: skXJitter,
                                   skY: skewMag * axis }),
         offset: at(0.24) },
 
       // Mid-release.
-      { transform: _ssTransform({ sX: 1.05, sY: 0.92,
+      { transform: _ssTransform({ tY: 0, sX: 1.05, sY: 0.92,
                                   rot: -rotMag * 0.50 * axis,
                                   skY: skewMag * 0.45 * axis }),
         offset: at(0.36) },
 
-      // BOOOOM.
-      { transform: _ssTransform({ sX: boom * 1.02, sY: boom * 0.97,
+      // BOOOOM — punches up a tiny bit on boom (slight float on impact).
+      { transform: _ssTransform({ tY: -4, sX: boom * 1.02, sY: boom * 0.97,
                                   rot: rotMag * 0.70 * -axis,
                                   skY: skewMag * 0.20 * -axis }),
         offset: at(0.46) },
 
       // Jiggle A.
-      { transform: _ssTransform({ sX: boom * 0.97, sY: boom * 0.99,
+      { transform: _ssTransform({ tY: -2, sX: boom * 0.97, sY: boom * 0.99,
                                   rot: jiggleA * -axis }),
         offset: at(0.56) },
 
       // Jiggle B.
-      { transform: _ssTransform({ sX: boom * 0.94, sY: boom * 0.96,
+      { transform: _ssTransform({ tY: 0, sX: boom * 0.94, sY: boom * 0.96,
                                   rot: jiggleB * axis }),
         offset: at(0.66) },
 
-      // SQUEEZE 2 — soft counter-tilt.
-      { transform: _ssTransform({ sX: 1.04, sY: sq2YDip,
+      // SQUEEZE 2 — soft counter-tilt, back at Y=0.
+      { transform: _ssTransform({ tY: 0, sX: 1.04, sY: sq2YDip,
                                   rot: rotMag * 0.55 * -axis,
                                   skX: skXJitter2,
                                   skY: skewMag * 0.45 * -axis }),
         offset: at(0.78) },
 
-      // Small overshoot.
-      { transform: _ssTransform({ sX: 1.025, sY: 1.015,
+      // Small overshoot — tiny float again.
+      { transform: _ssTransform({ tY: -2, sX: 1.025, sY: 1.015,
                                   rot: rotMag * 0.20 * axis }),
         offset: at(0.88) },
 
       // Micro dip.
-      { transform: _ssTransform({ sX: 0.996, sY: 0.996 }),
+      { transform: _ssTransform({ tY: 0, sX: 0.996, sY: 0.996 }),
         offset: at(0.95) },
 
-      // End of choreography — rest pose.
-      { transform: _ssTransform({ sX: 1, sY: 1 }),
+      // End of choreography — rest pose exactly at Y=0.
+      { transform: _ssTransform({ tY: 0, sX: 1, sY: 1 }),
         offset: BOUNCE_ACTIVE_END },
 
       // Hold rest until end of loop period (the 700 ms gap).
-      // The next iteration starts from the offset:0 frame, which is
-      // the slightly-squashed pre-roll, so the snap-in is part of
-      // the choreography rather than a glitch.
-      { transform: _ssTransform({ sX: 1, sY: 1 }),
+      { transform: _ssTransform({ tY: 0, sX: 1, sY: 1 }),
         offset: 1 }
     ];
   }
@@ -284,8 +293,7 @@
         var anim = logo.animate(buildBounceKeyframes(), BOUNCE_TIMING);
         logo.__ssBounceAnim = anim;
         logo.__ssBounceLooping = true;
-        return;
-      } catch (e) {
+        return;      } catch (e) {
         // Fall through to CSS path.
       }
     }
