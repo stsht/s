@@ -264,23 +264,24 @@
 }
 
 /*
- * Button sheen — quick glaze sweep then a long rest tail, keyed
- * to the same idle period as the logo bounce so they feel
- * choreographed together. Visible window ~16 % of the loop; the
- * rest is hold-off-screen so the button looks "ready" rather than
- * "glazing forever".
+ * Button sheen — slow glaze sweep then a long rest tail, keyed to the
+ * same idle period as the logo bounce so they feel choreographed
+ * together. Visible window ~32 % of the loop (≈2.3 s of the 7.2 s
+ * period); the rest is hold-off-screen so the button looks "ready"
+ * rather than "glazing forever". Half the speed of the previous
+ * sweep so the highlight is readable rather than a flicker.
  */
 @-webkit-keyframes ssGateButtonSheen{
   0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
   3%      {opacity:1}
-  17%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  19%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  33%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  35%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 @keyframes ssGateButtonSheen{
   0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
   3%      {opacity:1}
-  17%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  19%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  33%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  35%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 
 .ss-gate-card .is-sheen:before,
