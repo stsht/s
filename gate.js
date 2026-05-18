@@ -83,15 +83,29 @@
     style.textContent = '\
 .ss-gate-card .ss-gate-brand::before,.ss-gate-card .ss-gate-brand::after,.ss-gate-card .gate-brand::before,.ss-gate-card .gate-brand::after,.ss-gate-card .brand::before,.ss-gate-card .brand::after{content:none!important;display:none!important;border:0!important;opacity:0!important;-webkit-animation:none!important;animation:none!important}\
 .ss-gate-card .ss-gate-brand,.ss-gate-card .gate-brand,.ss-gate-card .brand{overflow:visible!important}\
-.ss-water-splash{position:absolute;left:50%;top:50%;width:var(--ss-splash-w);height:var(--ss-splash-h);margin-left:calc(var(--ss-splash-w) / -2);margin-top:calc(var(--ss-splash-h) / -2);pointer-events:none;z-index:0;opacity:0;background:color-mix(in srgb,var(--ss-gate-gold,#d0bb99) 76%,transparent);clip-path:polygon(50% 0%,61% 19%,83% 9%,75% 34%,100% 48%,74% 58%,85% 87%,58% 73%,50% 100%,39% 74%,13% 88%,25% 61%,0% 50%,26% 38%,15% 11%,39% 22%);filter:blur(.15px);transform:translate3d(var(--ss-splash-x),var(--ss-splash-y),0) rotate(var(--ss-splash-rot)) scale(.34,.24);animation:ssWaterSplash 760ms cubic-bezier(.22,1,.36,1) forwards}\
-.ss-water-splash.is-soft{opacity:0;background:color-mix(in srgb,var(--ss-gate-gold-2,#a79074) 58%,transparent);filter:blur(.45px);clip-path:polygon(49% 3%,58% 25%,81% 15%,69% 39%,96% 51%,70% 59%,81% 80%,56% 71%,49% 97%,41% 72%,18% 82%,29% 60%,4% 50%,30% 40%,19% 18%,42% 26%)}\
-@keyframes ssWaterSplash{0%{opacity:0;transform:translate3d(var(--ss-splash-x),var(--ss-splash-y),0) rotate(var(--ss-splash-rot)) scale(.34,.24)}14%{opacity:.72}56%{opacity:.36;transform:translate3d(calc(var(--ss-splash-x) + var(--ss-splash-dx) * .62),calc(var(--ss-splash-y) + var(--ss-splash-dy) * .62),0) rotate(calc(var(--ss-splash-rot) + var(--ss-splash-spin) * .62)) scale(.94,.68)}100%{opacity:0;transform:translate3d(calc(var(--ss-splash-x) + var(--ss-splash-dx)),calc(var(--ss-splash-y) + var(--ss-splash-dy)),0) rotate(calc(var(--ss-splash-rot) + var(--ss-splash-spin))) scale(1.16,.82)}}\
+.ss-water-splash{position:absolute;left:var(--ss-splash-left);top:var(--ss-splash-top);width:var(--ss-splash-w);height:var(--ss-splash-h);pointer-events:none;z-index:2;opacity:0;color:var(--ss-splash-color,var(--ss-gate-gold,#d0bb99));transform-origin:50% 86%;transform:translate3d(-50%,-50%,0) rotate(var(--ss-splash-rot)) scale(.44,.36);animation:ssWaterSplash 760ms cubic-bezier(.22,1,.36,1) forwards}\
+.ss-water-splash svg{display:block;width:100%;height:100%;overflow:visible}\
+.ss-water-splash path{fill:none;stroke:currentColor;stroke-width:14;stroke-linecap:round;stroke-linejoin:round;opacity:.72;vector-effect:non-scaling-stroke}\
+.ss-water-splash.is-mini path{stroke-width:12;opacity:.54}\
+@keyframes ssWaterSplash{0%{opacity:0;transform:translate3d(-50%,-50%,0) rotate(var(--ss-splash-rot)) scale(.44,.36)}16%{opacity:.78}55%{opacity:.42;transform:translate3d(calc(-50% + var(--ss-splash-dx) * .46),calc(-50% + var(--ss-splash-dy) * .46),0) rotate(calc(var(--ss-splash-rot) + var(--ss-splash-spin) * .46)) scale(.94,.78)}100%{opacity:0;transform:translate3d(calc(-50% + var(--ss-splash-dx)),calc(-50% + var(--ss-splash-dy)),0) rotate(calc(var(--ss-splash-rot) + var(--ss-splash-spin))) scale(1.12,.9)}}\
 @media(prefers-reduced-motion:reduce){html:not(.ss-force-motion) .ss-water-splash{display:none!important}}';
     document.head.appendChild(style);
   }
 
   function brandFor(card) {
     return scopedFind(card, '.ss-gate-brand,.gate-brand,.brand') || card;
+  }
+
+  function logoFor(brand) {
+    return scopedFind(brand, '.ss-logo-hero,.ss-gate-logo,.gate-logo,img') || brand;
+  }
+
+  function splashMarkup() {
+    return '<svg viewBox="0 0 260 170" aria-hidden="true" focusable="false">' +
+      '<path d="M127 151 C112 112 91 79 62 69 C35 60 15 80 15 104 C15 129 35 140 62 133 C91 126 111 133 127 151"/>' +
+      '<path d="M130 151 C123 116 100 83 85 49 C73 22 89 7 112 19 C145 36 153 82 132 132"/>' +
+      '<path d="M147 151 C159 116 183 87 214 76 C241 67 257 88 252 113 C245 141 219 144 194 136 C172 129 156 136 147 151"/>' +
+      '</svg>';
   }
 
   function clearSplashes(card) {
@@ -104,38 +118,42 @@
     if (!card || reduceMotion() || hasHiddenAncestor(card)) return;
     ensureSplashStyles();
     var brand = brandFor(card);
-    if (!brand) return;
+    var logo = logoFor(brand);
+    if (!brand || !logo || !brand.getBoundingClientRect || !logo.getBoundingClientRect) return;
 
+    var brandRect = brand.getBoundingClientRect();
+    var logoRect = logo.getBoundingClientRect();
+    var baseLeft = logoRect.left - brandRect.left + (logoRect.width / 2);
+    var baseTop = logoRect.top - brandRect.top + (logoRect.height * random(.16, .26));
     var pieces = [
-      { w: random(86, 118), h: random(30, 42), soft: false },
-      { w: random(52, 78), h: random(18, 30), soft: true },
-      { w: random(34, 54), h: random(13, 22), soft: true }
+      { w: random(94, 124), h: random(60, 78), x: 0, y: random(-13, -7), mini: false },
+      { w: random(52, 70), h: random(34, 46), x: random(-42, -24), y: random(-6, 4), mini: true },
+      { w: random(52, 70), h: random(34, 46), x: random(24, 42), y: random(-6, 4), mini: true }
     ];
 
     for (var i = 0; i < pieces.length; i++) {
       var p = pieces[i];
-      var angle = random(-Math.PI, Math.PI);
-      var radius = random(4, 16);
-      var drift = random(18, 42) * (i === 0 ? 1 : random(.7, 1.15));
       var el = document.createElement('span');
-      el.className = 'ss-water-splash' + (p.soft ? ' is-soft' : '');
+      el.className = 'ss-water-splash' + (p.mini ? ' is-mini' : '');
       el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = splashMarkup();
+      el.style.setProperty('--ss-splash-left', (baseLeft + p.x + random(-5, 5)).toFixed(1) + 'px');
+      el.style.setProperty('--ss-splash-top', (baseTop + p.y + random(-3, 3)).toFixed(1) + 'px');
       el.style.setProperty('--ss-splash-w', p.w.toFixed(1) + 'px');
       el.style.setProperty('--ss-splash-h', p.h.toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-x', (Math.cos(angle) * radius).toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-y', (Math.sin(angle) * radius).toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-dx', (Math.cos(angle) * drift).toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-dy', (Math.sin(angle) * drift - random(4, 18)).toFixed(1) + 'px');
-      el.style.setProperty('--ss-splash-rot', random(-34, 34).toFixed(1) + 'deg');
-      el.style.setProperty('--ss-splash-spin', random(-42, 42).toFixed(1) + 'deg');
-      el.style.animationDelay = random(0, 72).toFixed(0) + 'ms';
-      brand.insertBefore(el, brand.firstChild);
+      el.style.setProperty('--ss-splash-dx', random(-8, 8).toFixed(1) + 'px');
+      el.style.setProperty('--ss-splash-dy', random(-16, -5).toFixed(1) + 'px');
+      el.style.setProperty('--ss-splash-rot', random(-7, 7).toFixed(1) + 'deg');
+      el.style.setProperty('--ss-splash-spin', random(-9, 9).toFixed(1) + 'deg');
+      el.style.setProperty('--ss-splash-color', i === 0 ? 'var(--ss-gate-gold,#d0bb99)' : 'var(--ss-gate-gold-2,#a79074)');
+      el.style.animationDelay = random(0, 54).toFixed(0) + 'ms';
+      brand.appendChild(el);
       el.addEventListener('animationend', function (event) {
         if (event && event.target) event.target.remove();
       }, { once: true });
       setTimeout((function (node) {
         return function () { if (node && node.parentNode) node.remove(); };
-      }(el)), 950);
+      }(el)), 980);
     }
   }
 
