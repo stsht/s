@@ -1164,7 +1164,7 @@ function privateAccessStyles() {
       from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
       to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
     }
-    .access-card .primary.is-sheen:before{-webkit-animation:gateButtonSheen 2.8s var(--ease-out) both;animation:gateButtonSheen 2.8s var(--ease-out) both}
+    .access-card .primary.is-sheen:before{-webkit-animation:gateButtonSheen 4.2s var(--ease-out) both;animation:gateButtonSheen 4.2s var(--ease-out) both}
     .access-card .primary > *{position:relative;z-index:1}
     @media(hover:hover) and (pointer:fine){
       .access-card .primary:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.16) inset,0 22px 40px -14px rgba(26,26,26,.48),0 6px 14px -6px rgba(26,26,26,.32)}
@@ -1457,7 +1457,7 @@ function deliveryPageHtml(slug, delivery = null) {
       from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
       to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
     }
-    .delivery-card #unlockBtn.is-sheen:before{-webkit-animation:gateButtonSheen 2.8s var(--ease-out) both;animation:gateButtonSheen 2.8s var(--ease-out) both}
+    .delivery-card #unlockBtn.is-sheen:before{-webkit-animation:gateButtonSheen 4.2s var(--ease-out) both;animation:gateButtonSheen 4.2s var(--ease-out) both}
     .delivery-card #unlockBtn > *{position:relative;z-index:1}
     @media(hover:hover) and (pointer:fine){
       .delivery-card #unlockBtn:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.16) inset, 0 22px 40px -14px rgba(26,26,26,.48), 0 6px 14px -6px rgba(26,26,26,.32)}
