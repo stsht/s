@@ -221,6 +221,88 @@
     easing: 'cubic-bezier(.22,1,.36,1)',
     fill: 'both'
   };
+  // Idle gap between bounces. Chosen so the loop period
+  // (BOUNCE_TIMING.duration + BOUNCE_GAP_MS) tracks the button-sheen
+  // loop period (--ss-gate-idle-duration) without sliding so far out of
+  // phase that the two effects look unrelated.
+  var BOUNCE_GAP_MS = 700;
+
+  function stopBounceLoop(logo) {
+    if (!logo) return;
+    if (logo.__ssBounceTimer) {
+      clearTimeout(logo.__ssBounceTimer);
+      logo.__ssBounceTimer = null;
+    }
+    if (logo.__ssBounceAnim && typeof logo.__ssBounceAnim.cancel === 'function') {
+      try { logo.__ssBounceAnim.cancel(); } catch (e) { /* noop */ }
+    }
+    logo.__ssBounceAnim = null;
+    logo.__ssBounceLooping = false;
+  }
+
+  function playBounceOnce(logo) {
+    if (!logo || !isLayoutVisible(logo)) return false;
+
+    if (typeof logo.animate === 'function') {
+      try {
+        // Re-randomize the choreography on every play so the loop
+        // never feels mechanical: the squeeze tilt direction, boom
+        // peak, jiggle magnitudes, and second-squeeze depth all
+        // change per iteration. See buildBounceKeyframes().
+        var anim = logo.animate(buildBounceKeyframes(), BOUNCE_TIMING);
+        logo.__ssBounceAnim = anim;
+        anim.onfinish = function () {
+          if (logo.__ssBounceAnim !== anim) return;
+          logo.__ssBounceAnim = null;
+          // Settle to a clean rest pose between iterations so the
+          // gap reads as a true pause, not a held mid-frame.
+          logo.style.opacity = '1';
+          logo.style.transform = 'translateZ(0) scale(1)';
+          if (logo.__ssBounceLooping) {
+            logo.__ssBounceTimer = setTimeout(function () {
+              logo.__ssBounceTimer = null;
+              if (!logo.__ssBounceLooping) return;
+              playBounceOnce(logo);
+            }, BOUNCE_GAP_MS);
+          }
+        };
+        return true;
+      } catch (e) {
+        // Fall through to CSS path.
+      }
+    }
+
+    // CSS keyframe fallback (iOS < 13.1 etc). Force a reflow so the
+    // keyframe replays from frame 0 even when the class is already on
+    // the element from a previous iteration. Hook animationend so the
+    // loop chains a new iteration after BOUNCE_GAP_MS, mirroring the
+    // WAAPI path.
+    if (!logo.__ssBounceCssBound) {
+      logo.__ssBounceCssBound = true;
+      var endHandler = function (ev) {
+        // Some engines fire animationend multiple times for a single
+        // run when the keyframe has @-webkit-keyframes + @keyframes.
+        // Only act on the first one per iteration.
+        if (ev && ev.target !== logo) return;
+        if (!logo.__ssBounceLooping) return;
+        logo.style.opacity = '1';
+        logo.style.transform = 'translateZ(0) scale(1)';
+        logo.__ssBounceTimer = setTimeout(function () {
+          logo.__ssBounceTimer = null;
+          if (!logo.__ssBounceLooping) return;
+          logo.classList.remove('ss-bounce-in');
+          void logo.offsetWidth;
+          logo.classList.add('ss-bounce-in');
+        }, BOUNCE_GAP_MS);
+      };
+      logo.addEventListener('animationend', endHandler);
+      logo.addEventListener('webkitAnimationEnd', endHandler);
+    }
+    logo.classList.remove('ss-bounce-in');
+    void logo.offsetWidth;
+    logo.classList.add('ss-bounce-in');
+    return true;
+  }
 
   function bounceOne(logo) {
     if (!logo || !isLayoutVisible(logo)) return;
@@ -234,36 +316,22 @@
     // Coalesce repeat triggers. Pages that own a gate intro often call
     // StarShotsReveal.bounceLogos(gate) right after we've already bounced
     // every .ss-logo-hero from bootstrap's bounceLogos(document) pass —
-    // without this guard the user would see the animation jerk to its
-    // pre-roll state mid-flight.
+    // and we also get here from the mount scheduler. While the loop is
+    // already running we treat repeat triggers as no-ops so we never
+    // jerk the animation back to its pre-roll state mid-flight.
     var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    if (logo.__ssBounceAt && (now - logo.__ssBounceAt) < 600) return;
+    if (logo.__ssBounceLooping && logo.__ssBounceAt && (now - logo.__ssBounceAt) < 600) return;
     logo.__ssBounceAt = now;
 
-    // Cancel any prior bounce so a bfcache restore replays cleanly.
-    if (logo.__ssBounceAnim && typeof logo.__ssBounceAnim.cancel === 'function') {
-      try { logo.__ssBounceAnim.cancel(); } catch (e) { /* noop */ }
-      logo.__ssBounceAnim = null;
-    }
+    // Tear down any in-flight loop before starting a fresh one.
+    // Important on bfcache restore: the previous loop's timer would
+    // otherwise keep firing on top of the new one.
+    stopBounceLoop(logo);
+    logo.__ssBounceLooping = true;
 
-    if (typeof logo.animate === 'function') {
-      try {
-        logo.__ssBounceAnim = logo.animate(buildBounceKeyframes(), BOUNCE_TIMING);
-        logo.__ssBounceAnim.onfinish = function () {
-          logo.style.opacity = '1';
-          logo.style.transform = 'translateZ(0) scale(1)';
-        };
-        return;
-      } catch (e) {
-        // Fall through to CSS path.
-      }
+    if (!playBounceOnce(logo)) {
+      logo.__ssBounceLooping = false;
     }
-
-    // CSS keyframe fallback (iOS < 13.1 etc).
-    logo.classList.remove('ss-bounce-in');
-    // Force reflow so the animation can be re-triggered.
-    void logo.offsetWidth;
-    logo.classList.add('ss-bounce-in');
   }
 
   function bounceLogos(root) {
@@ -560,6 +628,10 @@
     // bfcache restore can be picked up again by the mount scheduler.
     var cards = document.querySelectorAll(GATE_CARD_SELECTOR);
     for (var i = 0; i < cards.length; i++) cards[i].__ssBounceWatch = false;
+    // Tear down any in-flight loops from the pre-bfcache page so the
+    // fresh mount can start clean — bounceOne will rearm.
+    var logos = document.querySelectorAll(HERO_LOGO_SELECTOR);
+    for (var k = 0; k < logos.length; k++) stopBounceLoop(logos[k]);
     bounceLogos(document);
     watchGateMounts(document);
     runDeclarativeIntro(document);
