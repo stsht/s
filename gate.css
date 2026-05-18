@@ -18,9 +18,12 @@
   /* Logo bounce loop period.
    * The WAAPI animation in animate.js uses iterations: Infinity with
    * the 700 ms rest tail baked into the keyframes. Total period:
-   * 1780 ms active + 700 ms rest = 2480 ms. CSS idle loop below
-   * mirrors this for engines that fall back to @keyframes. */
-  --ss-gate-idle-duration:2.48s;
+   * 2400 ms active + 700 ms rest = 3100 ms. CSS idle loop below
+   * mirrors this for engines that fall back to @keyframes. The
+   * windup occupies a longer fraction of the active phase (squeeze
+   * peak at 0.40, boom at 0.60) so the "pull arrow back" feels
+   * deliberate, while the boom + jiggle stay snappy. */
+  --ss-gate-idle-duration:3.1s;
   /* Button sheen period — deliberately decoupled from the logo so
    * the two effects drift in and out of phase (avoids feeling like
    * clockwork). Sweep visible for ~30 % of the 24 s period ≈ 7.2 s
