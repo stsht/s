@@ -134,6 +134,23 @@
            ' scale(' + sX.toFixed(4) + ',' + sY.toFixed(4) + ')';
   }
 
+  // Loop period = active choreography + rest tail, all baked into a
+  // single keyframe set so WAAPI can drive it with iterations: Infinity.
+  // The previous version stacked a fresh logo.animate() call every
+  // iteration via setTimeout. Each finished animation kept its end
+  // pose alive (fill: 'both'), so after a minute the compositor was
+  // juggling ~24 zombie animations on the same transform — at which
+  // point Safari and Firefox both throttled paint to ~1 fps. Putting
+  // the gap inside the keyframes means exactly one Animation object
+  // ever exists per logo, and the browser does the looping natively.
+  var BOUNCE_ACTIVE_MS = 1780;
+  var BOUNCE_GAP_MS = 700;
+  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 2480
+  // Where the active choreography ends inside the loop. The keyframes
+  // below place every choreographic phase between offset 0 and this
+  // value; from BOUNCE_ACTIVE_END to 1 the logo is held at scale(1).
+  var BOUNCE_ACTIVE_END = BOUNCE_ACTIVE_MS / BOUNCE_PERIOD_MS;
+
   function buildBounceKeyframes() {
     // axis: which way the first squeeze tilts. The boom + second
     // squeeze counter-tilt the opposite direction.
@@ -151,157 +168,95 @@
     var skXJitter = _ssRand(-1.6, 1.6);
     var skXJitter2 = _ssRand(-1.2, 1.2);
 
-    return [
-      // Pre-roll: invisible, slightly compressed, tiny pre-tilt.
-      { transform: _ssTransform({ sX: .88, sY: .88, rot: -rotMag * 0.35 * axis }),
-        opacity: 0, offset: 0 },
+    // Compress the "active" offsets into [0, BOUNCE_ACTIVE_END]; the
+    // remainder of the loop is a rest hold so the next iteration
+    // feels like a real pause rather than a perpetual pulse.
+    function at(active) { return active * BOUNCE_ACTIVE_END; }
 
-      // Fade in fast so the logo is already visible when the
-      // squeeze starts.
+    return [
+      // Pre-roll: scale slightly compressed at the start of each loop.
+      // We do NOT fade opacity here (would re-fade on every iteration
+      // after the first); animate.js still sets opacity:1 on settle.
+      { transform: _ssTransform({ sX: .92, sY: .92, rot: -rotMag * 0.35 * axis }),
+        offset: 0 },
+
+      // Fade-in equivalent: still slightly squashed, light tilt.
       { transform: _ssTransform({ sX: .94, sY: .90, rot: -rotMag * 0.55 * axis,
                                   skX: skXJitter * 0.4, skY: skewMag * 0.55 * axis }),
-        opacity: 1, offset: 0.10 },
+        offset: at(0.10) },
 
-      // SQUEEZE 1 / mencekung peak. scaleY is the deepest dip;
-      // skewY tilts the diagonal; small skewX jitter so it isn't
-      // a perfect 45deg line.
+      // SQUEEZE 1 / mencekung peak.
       { transform: _ssTransform({ sX: 1.00, sY: 0.72,
                                   rot: -rotMag * 1.10 * axis,
                                   skX: skXJitter,
                                   skY: skewMag * axis }),
-        offset: 0.24 },
+        offset: at(0.24) },
 
-      // Mid-release: starting to expand, skew unwinding.
+      // Mid-release.
       { transform: _ssTransform({ sX: 1.05, sY: 0.92,
                                   rot: -rotMag * 0.50 * axis,
                                   skY: skewMag * 0.45 * axis }),
-        offset: 0.36 },
+        offset: at(0.36) },
 
-      // BOOOOM: punch past 1, slight counter-skew, slight
-      // counter-rotation so the boom "kicks" the other way.
+      // BOOOOM.
       { transform: _ssTransform({ sX: boom * 1.02, sY: boom * 0.97,
                                   rot: rotMag * 0.70 * -axis,
                                   skY: skewMag * 0.20 * -axis }),
-        offset: 0.46 },
+        offset: at(0.46) },
 
-      // Jiggle A: rotate flick one way.
+      // Jiggle A.
       { transform: _ssTransform({ sX: boom * 0.97, sY: boom * 0.99,
                                   rot: jiggleA * -axis }),
-        offset: 0.56 },
+        offset: at(0.56) },
 
-      // Jiggle B: rotate flick the other way, slightly smaller.
+      // Jiggle B.
       { transform: _ssTransform({ sX: boom * 0.94, sY: boom * 0.96,
                                   rot: jiggleB * axis }),
-        offset: 0.66 },
+        offset: at(0.66) },
 
-      // SQUEEZE 2 — soft mencekung in the opposite tilt.
+      // SQUEEZE 2 — soft counter-tilt.
       { transform: _ssTransform({ sX: 1.04, sY: sq2YDip,
                                   rot: rotMag * 0.55 * -axis,
                                   skX: skXJitter2,
                                   skY: skewMag * 0.45 * -axis }),
-        offset: 0.78 },
+        offset: at(0.78) },
 
-      // Small overshoot up.
+      // Small overshoot.
       { transform: _ssTransform({ sX: 1.025, sY: 1.015,
                                   rot: rotMag * 0.20 * axis }),
-        offset: 0.88 },
+        offset: at(0.88) },
 
       // Micro dip.
       { transform: _ssTransform({ sX: 0.996, sY: 0.996 }),
-        offset: 0.95 },
+        offset: at(0.95) },
 
-      // Rest.
+      // End of choreography — rest pose.
       { transform: _ssTransform({ sX: 1, sY: 1 }),
-        opacity: 1, offset: 1 }
+        offset: BOUNCE_ACTIVE_END },
+
+      // Hold rest until end of loop period (the 700 ms gap).
+      // The next iteration starts from the offset:0 frame, which is
+      // the slightly-squashed pre-roll, so the snap-in is part of
+      // the choreography rather than a glitch.
+      { transform: _ssTransform({ sX: 1, sY: 1 }),
+        offset: 1 }
     ];
   }
 
   var BOUNCE_TIMING = {
-    duration: 1780,
+    duration: BOUNCE_PERIOD_MS,
     easing: 'cubic-bezier(.22,1,.36,1)',
-    fill: 'both'
+    iterations: Infinity,
+    fill: 'forwards'
   };
-  // Idle gap between bounces. Chosen so the loop period
-  // (BOUNCE_TIMING.duration + BOUNCE_GAP_MS) tracks the button-sheen
-  // loop period (--ss-gate-idle-duration) without sliding so far out of
-  // phase that the two effects look unrelated.
-  var BOUNCE_GAP_MS = 700;
 
   function stopBounceLoop(logo) {
     if (!logo) return;
-    if (logo.__ssBounceTimer) {
-      clearTimeout(logo.__ssBounceTimer);
-      logo.__ssBounceTimer = null;
-    }
     if (logo.__ssBounceAnim && typeof logo.__ssBounceAnim.cancel === 'function') {
       try { logo.__ssBounceAnim.cancel(); } catch (e) { /* noop */ }
     }
     logo.__ssBounceAnim = null;
     logo.__ssBounceLooping = false;
-  }
-
-  function playBounceOnce(logo) {
-    if (!logo || !isLayoutVisible(logo)) return false;
-
-    if (typeof logo.animate === 'function') {
-      try {
-        // Re-randomize the choreography on every play so the loop
-        // never feels mechanical: the squeeze tilt direction, boom
-        // peak, jiggle magnitudes, and second-squeeze depth all
-        // change per iteration. See buildBounceKeyframes().
-        var anim = logo.animate(buildBounceKeyframes(), BOUNCE_TIMING);
-        logo.__ssBounceAnim = anim;
-        anim.onfinish = function () {
-          if (logo.__ssBounceAnim !== anim) return;
-          logo.__ssBounceAnim = null;
-          // Settle to a clean rest pose between iterations so the
-          // gap reads as a true pause, not a held mid-frame.
-          logo.style.opacity = '1';
-          logo.style.transform = 'translateZ(0) scale(1)';
-          if (logo.__ssBounceLooping) {
-            logo.__ssBounceTimer = setTimeout(function () {
-              logo.__ssBounceTimer = null;
-              if (!logo.__ssBounceLooping) return;
-              playBounceOnce(logo);
-            }, BOUNCE_GAP_MS);
-          }
-        };
-        return true;
-      } catch (e) {
-        // Fall through to CSS path.
-      }
-    }
-
-    // CSS keyframe fallback (iOS < 13.1 etc). Force a reflow so the
-    // keyframe replays from frame 0 even when the class is already on
-    // the element from a previous iteration. Hook animationend so the
-    // loop chains a new iteration after BOUNCE_GAP_MS, mirroring the
-    // WAAPI path.
-    if (!logo.__ssBounceCssBound) {
-      logo.__ssBounceCssBound = true;
-      var endHandler = function (ev) {
-        // Some engines fire animationend multiple times for a single
-        // run when the keyframe has @-webkit-keyframes + @keyframes.
-        // Only act on the first one per iteration.
-        if (ev && ev.target !== logo) return;
-        if (!logo.__ssBounceLooping) return;
-        logo.style.opacity = '1';
-        logo.style.transform = 'translateZ(0) scale(1)';
-        logo.__ssBounceTimer = setTimeout(function () {
-          logo.__ssBounceTimer = null;
-          if (!logo.__ssBounceLooping) return;
-          logo.classList.remove('ss-bounce-in');
-          void logo.offsetWidth;
-          logo.classList.add('ss-bounce-in');
-        }, BOUNCE_GAP_MS);
-      };
-      logo.addEventListener('animationend', endHandler);
-      logo.addEventListener('webkitAnimationEnd', endHandler);
-    }
-    logo.classList.remove('ss-bounce-in');
-    void logo.offsetWidth;
-    logo.classList.add('ss-bounce-in');
-    return true;
   }
 
   function bounceOne(logo) {
@@ -313,25 +268,35 @@
       return;
     }
 
-    // Coalesce repeat triggers. Pages that own a gate intro often call
-    // StarShotsReveal.bounceLogos(gate) right after we've already bounced
-    // every .ss-logo-hero from bootstrap's bounceLogos(document) pass —
-    // and we also get here from the mount scheduler. While the loop is
-    // already running we treat repeat triggers as no-ops so we never
-    // jerk the animation back to its pre-roll state mid-flight.
-    var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    if (logo.__ssBounceLooping && logo.__ssBounceAt && (now - logo.__ssBounceAt) < 600) return;
-    logo.__ssBounceAt = now;
+    // If a loop is already running, leave it alone. Pages and the
+    // mount scheduler may call bounceLogos() multiple times during
+    // intro; we never want to restart and re-randomize mid-flight.
+    if (logo.__ssBounceLooping && logo.__ssBounceAnim) return;
 
-    // Tear down any in-flight loop before starting a fresh one.
-    // Important on bfcache restore: the previous loop's timer would
-    // otherwise keep firing on top of the new one.
-    stopBounceLoop(logo);
-    logo.__ssBounceLooping = true;
+    // Make sure the logo is visible before we start the loop. The
+    // intro CSS may have it at opacity:0; the bounce keyframes never
+    // touch opacity any more (they used to fade in on every loop,
+    // which would have re-faded every 2.48 s).
+    logo.style.opacity = '1';
 
-    if (!playBounceOnce(logo)) {
-      logo.__ssBounceLooping = false;
+    if (typeof logo.animate === 'function') {
+      try {
+        var anim = logo.animate(buildBounceKeyframes(), BOUNCE_TIMING);
+        logo.__ssBounceAnim = anim;
+        logo.__ssBounceLooping = true;
+        return;
+      } catch (e) {
+        // Fall through to CSS path.
+      }
     }
+
+    // CSS keyframe fallback (iOS < 13.1 etc). The .ss-bounce-in class
+    // in animate.css runs `ssBounceIn ... infinite` so the loop runs
+    // for free on the compositor without us scheduling anything.
+    logo.classList.remove('ss-bounce-in');
+    void logo.offsetWidth;
+    logo.classList.add('ss-bounce-in');
+    logo.__ssBounceLooping = true;
   }
 
   function bounceLogos(root) {

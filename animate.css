@@ -89,8 +89,8 @@
   100% {transform:scale(1);opacity:1}
 }
 .ss-bounce-in{
-  -webkit-animation:ssBounceIn 1780ms cubic-bezier(.22,1,.36,1) both;
-  animation:ssBounceIn 1780ms cubic-bezier(.22,1,.36,1) both;
+  -webkit-animation:ssBounceIn 2480ms cubic-bezier(.22,1,.36,1) infinite forwards;
+  animation:ssBounceIn 2480ms cubic-bezier(.22,1,.36,1) infinite forwards;
 }
 
 /* ============================================================
