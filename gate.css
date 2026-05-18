@@ -15,13 +15,17 @@
   --ss-gate-switch-duration:500ms;
   --ss-gate-brand-gap:clamp(30px,4vw,38px);
   --ss-gate-title-gap:clamp(38px,5vw,46px);
-  /* Idle loop period.
-   * Used by both ssGateLogoBounce (squeeze/boom/jiggle/squeeze/settle
-   * with a rest tail) and ssGateButtonSheen. A long period with a
-   * built-in rest tail reads as "ready, waiting" instead of a
-   * machine pulse, which is the iCloud-style finish-celebration cue
-   * the gate is reaching for. */
-  --ss-gate-idle-duration:7.2s;
+  /* Logo bounce loop period.
+   * The WAAPI animation in animate.js uses iterations: Infinity with
+   * the 700 ms rest tail baked into the keyframes. Total period:
+   * 1780 ms active + 700 ms rest = 2480 ms. CSS idle loop below
+   * mirrors this for engines that fall back to @keyframes. */
+  --ss-gate-idle-duration:2.48s;
+  /* Button sheen period — deliberately decoupled from the logo so
+   * the two effects drift in and out of phase (avoids feeling like
+   * clockwork). Sweep visible for ~30 % of the 24 s period ≈ 7.2 s
+   * of slow glaze per cycle, then a long pause. */
+  --ss-gate-sheen-duration:24s;
   --ss-gate-gold:#d0bb99;
   --ss-gate-gold-2:#a79074;
 }
@@ -264,24 +268,22 @@
 }
 
 /*
- * Button sheen — slow glaze sweep then a long rest tail, keyed to the
- * same idle period as the logo bounce so they feel choreographed
- * together. Visible window ~32 % of the loop (≈2.3 s of the 7.2 s
- * period); the rest is hold-off-screen so the button looks "ready"
- * rather than "glazing forever". Half the speed of the previous
- * sweep so the highlight is readable rather than a flicker.
+ * Button sheen — slow caress sweep (~30 % of the 24 s cycle ≈ 7.2 s
+ * of visible glaze), then a long pause. Period is deliberately
+ * separate from the logo bounce loop so the two drift in and out of
+ * phase instead of always starting together.
  */
 @-webkit-keyframes ssGateButtonSheen{
   0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
   3%      {opacity:1}
-  33%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  35%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  32%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  34%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 @keyframes ssGateButtonSheen{
   0%,1%   {opacity:0;-webkit-transform:translate3d(-22%,0,0);transform:translate3d(-22%,0,0)}
   3%      {opacity:1}
-  33%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
-  35%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  32%     {opacity:1;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
+  34%,100%{opacity:0;-webkit-transform:translate3d(306%,0,0);transform:translate3d(306%,0,0)}
 }
 
 .ss-gate-card .is-sheen:before,
@@ -292,8 +294,8 @@
 .ss-gate-card.is-idle .btn.primary:before,
 .ss-gate-card.is-idle .primary:before,
 .ss-gate-card.is-idle #unlockBtn:before{
-  -webkit-animation:ssGateButtonSheen var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
-  animation:ssGateButtonSheen var(--ss-gate-idle-duration) var(--ss-gate-ease-out) infinite!important;
+  -webkit-animation:ssGateButtonSheen var(--ss-gate-sheen-duration) var(--ss-gate-ease-out) infinite!important;
+  animation:ssGateButtonSheen var(--ss-gate-sheen-duration) var(--ss-gate-ease-out) infinite!important;
 }
 
 /*
