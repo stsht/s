@@ -3498,7 +3498,12 @@ export default {
           await insertLog(env, request, delivery.id, 'page_view');
           return new Response(deliveryPageHtml(shortCode, delivery), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
-        return new Response(rootHomepage(), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        // Unknown short code — fall back to the homepage. The
+        // unknown-path catch-all at the end of fetch() also handles
+        // this, but redirecting here saves the extra ASSETS.fetch
+        // round-trip and keeps the rate-limit window we already
+        // consumed honoured.
+        return Response.redirect(`${url.origin}/`, 302);
       }
 
       const galleryMatch = url.pathname.match(/^\/g\/([^/]+)\/?$/i);
@@ -3509,7 +3514,10 @@ export default {
         if (slug && cleanSlug(galleryMatch[1]) !== slug) return Response.redirect(`${url.origin}/g/${slug}`, 302);
         const delivery = await getLatestDeliveryBySlug(env, slug);
         if (shouldBlockFolderSlug(delivery)) {
-          return new Response(rootHomepage(), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+          // Blocked-folder gallery slugs (folders the admin marked
+          // not-public) fall back to the homepage instead of leaking
+          // the existence of the slug via a 404 page.
+          return Response.redirect(`${url.origin}/`, 302);
         }
         if (delivery) await insertLog(env, request, delivery.id, 'page_view');
         return new Response(deliveryPageHtml(slug, delivery), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
@@ -3525,6 +3533,58 @@ export default {
       return new Response(deliveryPageHtml('not-found', null), { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
-    return env.ASSETS.fetch(request);
+    return await assetOrFallback(request, env);
   }
 };
+
+/**
+ * Catch-all asset handler with a soft fallback to "/".
+ *
+ * Behaviour:
+ *   - Hands every unrouted request to env.ASSETS.fetch(...).
+ *   - If the asset exists (any 2xx/3xx, or a 404 from a non-HTML
+ *     request like `/missing.png`), pass it through unchanged. We
+ *     never want to redirect an <img> 404 to the HTML homepage.
+ *   - If the asset is missing AND the visitor is asking for a page
+ *     (Accept header includes text/html on a GET — true for every
+ *     address-bar navigation), rate-limit the IP+scope
+ *     'unknown-path' to slow down URL-space scanning, then redirect
+ *     to "/" (302). Saves people who typed `/in` or `/xx` from
+ *     hitting a generic Pages 404 and lands them on the gate.
+ *   - All other 404s (POST/PUT, fetch()/XHR without an explicit
+ *     text/html Accept, missing /foo.png, missing /api/whatever)
+ *     get the original 404 untouched — turning a missing JSON or
+ *     image into an HTML redirect would be worse than a clean 404.
+ *
+ * The limit (90/min, 5min block) is loose: legitimate visitors
+ * sometimes mistype a slug a few times and we don't want to lock
+ * them out. It is here mainly to discourage a bot from walking
+ * /aaa /aab /aac... looking for short codes; the per-route limits
+ * on /<short> and /g/<slug> are tighter and remain authoritative
+ * for those code spaces.
+ */
+async function assetOrFallback(request, env) {
+  const response = await env.ASSETS.fetch(request);
+  if (response.status !== 404) return response;
+  if (request.method !== 'GET') return response;
+
+  const accept = request.headers.get('accept') || '';
+  // Only redirect when the visitor is clearly asking for a page.
+  // A bare `Accept: */*` or empty (typical of fetch()/XHR without
+  // an explicit Accept) would otherwise turn a missing JSON or
+  // image into an HTML redirect, which is worse than a clean 404.
+  // Address-bar navigations always include `text/html` in their
+  // Accept header.
+  if (!accept.includes('text/html')) return response;
+
+  const limited = enforceRateLimit(
+    request,
+    'unknown-path',
+    { limit: 90, windowMs: 60 * 1000, blockMs: 5 * 60 * 1000 },
+    false
+  );
+  if (limited) return limited;
+
+  const url = new URL(request.url);
+  return Response.redirect(`${url.origin}/`, 302);
+}
