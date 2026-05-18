@@ -146,9 +146,9 @@
   // point Safari and Firefox both throttled paint to ~1 fps. Putting
   // the gap inside the keyframes means exactly one Animation object
   // ever exists per logo, and the browser does the looping natively.
-  var BOUNCE_ACTIVE_MS = 1780;
+  var BOUNCE_ACTIVE_MS = 2400;
   var BOUNCE_GAP_MS = 700;
-  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 2480
+  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 3100
   // Where the active choreography ends inside the loop. The keyframes
   // below place every choreographic phase between offset 0 and this
   // value; from BOUNCE_ACTIVE_END to 1 the logo is held at scale(1).
@@ -189,58 +189,69 @@
       { transform: _ssTransform({ tY: riseY, sX: .92, sY: .88, rot: -rotMag * 0.35 * axis }),
         offset: 0 },
 
-      // Mid-rise: still travelling up, beginning to tilt for squeeze 1.
-      { transform: _ssTransform({ tY: riseY * 0.55, sX: .94, sY: .90,
+      // Mid-rise: travelling up, slow drift toward the windup pose.
+      // Now sits a third of the way through the active phase so the
+      // viewer can read the upward arc clearly.
+      { transform: _ssTransform({ tY: riseY * 0.62, sX: .94, sY: .90,
                                   rot: -rotMag * 0.55 * axis,
                                   skX: skXJitter * 0.4,
                                   skY: skewMag * 0.55 * axis }),
-        offset: at(0.10) },
+        offset: at(0.18) },
+
+      // Approaching landing — almost at Y=0, just starting to squash.
+      { transform: _ssTransform({ tY: riseY * 0.18, sX: .98, sY: .82,
+                                  rot: -rotMag * 0.85 * axis,
+                                  skX: skXJitter * 0.7,
+                                  skY: skewMag * 0.78 * axis }),
+        offset: at(0.30) },
 
       // SQUEEZE 1 / mencekung peak — logo has arrived at Y=0 and
-      // squashes on landing (like a ball hitting the floor).
+      // squashes on landing (like a ball hitting the floor). Pushed
+      // to 0.40 so the windup is the slowest part of the loop, which
+      // matches the "pull arrow back slowly" feel.
       { transform: _ssTransform({ tY: 0, sX: 1.00, sY: 0.72,
                                   rot: -rotMag * 1.10 * axis,
                                   skX: skXJitter,
                                   skY: skewMag * axis }),
-        offset: at(0.24) },
+        offset: at(0.40) },
 
       // Mid-release.
       { transform: _ssTransform({ tY: 0, sX: 1.05, sY: 0.92,
                                   rot: -rotMag * 0.50 * axis,
                                   skY: skewMag * 0.45 * axis }),
-        offset: at(0.36) },
+        offset: at(0.52) },
 
       // BOOOOM — punches up a tiny bit on boom (slight float on impact).
       { transform: _ssTransform({ tY: -4, sX: boom * 1.02, sY: boom * 0.97,
                                   rot: rotMag * 0.70 * -axis,
                                   skY: skewMag * 0.20 * -axis }),
-        offset: at(0.46) },
+        offset: at(0.60) },
 
       // Jiggle A.
       { transform: _ssTransform({ tY: -2, sX: boom * 0.97, sY: boom * 0.99,
                                   rot: jiggleA * -axis }),
-        offset: at(0.56) },
+        offset: at(0.68) },
 
       // Jiggle B.
       { transform: _ssTransform({ tY: 0, sX: boom * 0.94, sY: boom * 0.96,
                                   rot: jiggleB * axis }),
-        offset: at(0.66) },
+        offset: at(0.76) },
 
       // SQUEEZE 2 — soft counter-tilt, back at Y=0.
       { transform: _ssTransform({ tY: 0, sX: 1.04, sY: sq2YDip,
                                   rot: rotMag * 0.55 * -axis,
                                   skX: skXJitter2,
                                   skY: skewMag * 0.45 * -axis }),
-        offset: at(0.78) },
+        offset: at(0.85) },
 
       // Small overshoot — tiny float again.
       { transform: _ssTransform({ tY: -2, sX: 1.025, sY: 1.015,
                                   rot: rotMag * 0.20 * axis }),
-        offset: at(0.88) },
+        offset: at(0.92) },
 
       // Micro dip.
       { transform: _ssTransform({ tY: 0, sX: 0.996, sY: 0.996 }),
-        offset: at(0.95) },
+        offset: at(0.97) },
 
       // End of choreography — rest pose exactly at Y=0.
       { transform: _ssTransform({ tY: 0, sX: 1, sY: 1 }),
