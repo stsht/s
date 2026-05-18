@@ -1164,7 +1164,7 @@ function privateAccessStyles() {
       from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
       to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
     }
-    .access-card .primary.is-sheen:before{-webkit-animation:gateButtonSheen 3.15s var(--ease-out) both;animation:gateButtonSheen 3.15s var(--ease-out) both}
+    .access-card .primary.is-sheen:before{-webkit-animation:gateButtonSheen 2.8s var(--ease-out) both;animation:gateButtonSheen 2.8s var(--ease-out) both}
     .access-card .primary > *{position:relative;z-index:1}
     @media(hover:hover) and (pointer:fine){
       .access-card .primary:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.16) inset,0 22px 40px -14px rgba(26,26,26,.48),0 6px 14px -6px rgba(26,26,26,.32)}
@@ -1457,7 +1457,7 @@ function deliveryPageHtml(slug, delivery = null) {
       from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
       to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
     }
-    .delivery-card #unlockBtn.is-sheen:before{-webkit-animation:gateButtonSheen 3.15s var(--ease-out) both;animation:gateButtonSheen 3.15s var(--ease-out) both}
+    .delivery-card #unlockBtn.is-sheen:before{-webkit-animation:gateButtonSheen 2.8s var(--ease-out) both;animation:gateButtonSheen 2.8s var(--ease-out) both}
     .delivery-card #unlockBtn > *{position:relative;z-index:1}
     @media(hover:hover) and (pointer:fine){
       .delivery-card #unlockBtn:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.16) inset, 0 22px 40px -14px rgba(26,26,26,.48), 0 6px 14px -6px rgba(26,26,26,.32)}
@@ -2408,6 +2408,88 @@ function rootHomepage() {
         requestAnimationFrame(show);
       });
       // Safety: even if rAF chain breaks, force-show after 1500ms.
+      setTimeout(show, 1500);
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+/**
+ * Friendly "page not found" page for unknown URLs.
+ *
+ * Why this exists in this exact shape:
+ *   - The previous build sent every unknown URL to "/" with a 302
+ *     redirect. That kept the address bar showing whatever the user
+ *     mistyped (`/in`, `/xx`, `/inva`...) which was confusing — the
+ *     URL didn't match the page they ended up on.
+ *   - We now serve a real 404 so the URL stays as-is and the browser
+ *     marks it as an error response. That also tightens the rate
+ *     limit story: scanners crawling the URL space hit a 404 wall
+ *     plus a 3/min cap (see assetOrFallback), without us also having
+ *     to rewrite the URL.
+ *   - Visual identity matches the homepage card (same background,
+ *     same logo, same hero spacing) so users land on something that
+ *     still feels like StarShots.
+ *   - Reserved paths (/inv, /l, /admin, /db, /g/<slug>, /<short>) are
+ *     handled by their own routes earlier in fetch(); they never
+ *     reach this 404 unless the underlying record is missing.
+ */
+function notFoundPage(path = '') {
+  const safePath = escapeHtml(path || '/');
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>StarShots · Not Found</title>
+  <style>${shellStyles()}
+    .home-card{width:min(100%,640px);text-align:center;padding:42px 34px;opacity:0;-webkit-transform:translateY(-8px) scale(.992);transform:translateY(-8px) scale(.992);-webkit-transition:opacity 900ms cubic-bezier(.16,1,.3,1),-webkit-transform 900ms cubic-bezier(.16,1,.3,1);transition:opacity 900ms cubic-bezier(.16,1,.3,1),transform 900ms cubic-bezier(.16,1,.3,1)}
+    .home-card.is-visible{opacity:1;-webkit-transform:translateY(-20px) scale(1);transform:translateY(-20px) scale(1)}
+    .reveal{opacity:0;-webkit-transform:translateY(-10px);transform:translateY(-10px);-webkit-transition:opacity 820ms cubic-bezier(.16,1,.3,1),-webkit-transform 820ms cubic-bezier(.16,1,.3,1);transition:opacity 820ms cubic-bezier(.16,1,.3,1),transform 820ms cubic-bezier(.16,1,.3,1)}
+    .reveal.is-visible{opacity:1;-webkit-transform:translateY(0);transform:translateY(0)}
+    .stagger-1{-webkit-transition-delay:120ms;transition-delay:120ms}.stagger-2{-webkit-transition-delay:240ms;transition-delay:240ms}.stagger-3{-webkit-transition-delay:360ms;transition-delay:360ms}.stagger-4{-webkit-transition-delay:480ms;transition-delay:480ms}.stagger-5{-webkit-transition-delay:600ms;transition-delay:600ms}.stagger-6{-webkit-transition-delay:720ms;transition-delay:720ms}
+    .nf-code{font-family:"Cormorant Garamond","Times New Roman",serif;font-size:clamp(72px,18vw,128px);font-weight:300;line-height:.95;letter-spacing:-.04em;color:var(--ink);margin:0 0 4px}
+    .status-pill{display:inline-flex;align-items:center;gap:8px;margin:6px auto 18px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.42);color:var(--soft);font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+    .nf-path{display:inline-block;margin-top:14px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--solid);color:var(--soft);font-size:12px;font-weight:800;letter-spacing:.06em;font-family:ui-monospace,Menlo,Consolas,monospace;max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+    .nf-actions{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-top:26px}
+    .nf-btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:14px;border:1px solid var(--line);background:var(--solid);color:var(--ink);text-decoration:none;font-size:14px;font-weight:800;letter-spacing:.02em;transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .25s cubic-bezier(.22,1,.36,1),background .25s cubic-bezier(.22,1,.36,1)}
+    .nf-btn.primary{background:var(--ink);color:var(--card);border-color:transparent;box-shadow:0 14px 30px -12px rgba(26,26,26,.45),0 4px 10px -4px rgba(26,26,26,.28)}
+    .nf-btn:hover{transform:translateY(-2px)}
+    .nf-btn:active{transform:translateY(0) scale(.992)}
+    .intro-settled .reveal{transition-delay:0ms!important}
+    @media(prefers-color-scheme:dark){.ss-logo-hero{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
+    @media(prefers-reduced-motion:reduce){*{-webkit-animation:none!important;animation:none!important;-webkit-transition:none!important;transition:none!important;scroll-behavior:auto!important}.home-card,.reveal{opacity:1!important;-webkit-transform:none!important;transform:none!important}}
+    @media(max-width:520px){.home-card{padding:32px 22px}.nf-actions{flex-direction:column}.nf-btn{width:100%;justify-content:center}}
+  </style>
+  ${animateAssets()}
+</head>
+<body>
+  <div class="wrap center">
+    <main class="card home-card" role="main">
+      <a class="reveal stagger-1" href="/" aria-label="StarShots homepage" style="display:inline-block;text-decoration:none"><img class="ss-logo-hero" src="${LOGO_PATH}" alt="StarShots logo"></a>
+      <p class="nf-code reveal stagger-2">404</p>
+      <div class="status-pill reveal stagger-3">Page Not Found</div>
+      <h1 class="reveal stagger-4">This Page Doesn't Exist</h1>
+      <p class="hero-copy reveal stagger-5">The address you tried isn't part of StarShots. Double-check the link or head back to the homepage.</p>
+      <p class="reveal stagger-5"><span class="nf-path">${safePath}</span></p>
+      <div class="nf-actions reveal stagger-6">
+        <a class="nf-btn primary" href="/">Go to Homepage</a>
+        <a class="nf-btn" href="https://instagram.com/starshots.id" target="_blank" rel="noopener">@starshots.id</a>
+      </div>
+    </main>
+  </div>
+  <script>
+    (function(){
+      var card=document.querySelector('.home-card');
+      var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      function show(){
+        if(card) card.classList.add('is-visible');
+        document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('is-visible');});
+        setTimeout(function(){document.body.classList.add('intro-settled');}, reduceMotion?0:1500);
+      }
+      requestAnimationFrame(function(){requestAnimationFrame(show);});
       setTimeout(show, 1500);
     })();
   </script>
@@ -3498,12 +3580,12 @@ export default {
           await insertLog(env, request, delivery.id, 'page_view');
           return new Response(deliveryPageHtml(shortCode, delivery), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
-        // Unknown short code — fall back to the homepage. The
-        // unknown-path catch-all at the end of fetch() also handles
-        // this, but redirecting here saves the extra ASSETS.fetch
-        // round-trip and keeps the rate-limit window we already
-        // consumed honoured.
-        return Response.redirect(`${url.origin}/`, 302);
+        // Unknown short code: serve a real 404 so the address bar
+        // keeps the URL the visitor typed (a 302 to "/" hid that)
+        // and the browser marks the response as an error. Bots
+        // walking the short-code space hit both this 404 and the
+        // 40/min rate limit we already consumed above.
+        return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       }
 
       const galleryMatch = url.pathname.match(/^\/g\/([^/]+)\/?$/i);
@@ -3514,10 +3596,11 @@ export default {
         if (slug && cleanSlug(galleryMatch[1]) !== slug) return Response.redirect(`${url.origin}/g/${slug}`, 302);
         const delivery = await getLatestDeliveryBySlug(env, slug);
         if (shouldBlockFolderSlug(delivery)) {
-          // Blocked-folder gallery slugs (folders the admin marked
-          // not-public) fall back to the homepage instead of leaking
-          // the existence of the slug via a 404 page.
-          return Response.redirect(`${url.origin}/`, 302);
+          // Blocked-folder slugs (folders the admin marked
+          // not-public) get a generic 404. Indistinguishable from a
+          // slug that simply does not exist — an attacker can't tell
+          // "blocked" from "never existed".
+          return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
         if (delivery) await insertLog(env, request, delivery.id, 'page_view');
         return new Response(deliveryPageHtml(slug, delivery), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
@@ -3530,7 +3613,7 @@ export default {
       }
     } catch (error) {
       if (url.pathname.startsWith('/api/')) return json({ error: error.message || 'Server error.' }, 500);
-      return new Response(deliveryPageHtml('not-found', null), { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      return new Response(notFoundPage(url.pathname), { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
     return await assetOrFallback(request, env);
@@ -3538,30 +3621,34 @@ export default {
 };
 
 /**
- * Catch-all asset handler with a soft fallback to "/".
+ * Catch-all asset handler with a real 404 for unknown HTML pages.
  *
  * Behaviour:
  *   - Hands every unrouted request to env.ASSETS.fetch(...).
  *   - If the asset exists (any 2xx/3xx, or a 404 from a non-HTML
  *     request like `/missing.png`), pass it through unchanged. We
- *     never want to redirect an <img> 404 to the HTML homepage.
+ *     never want to upgrade an <img> 404 to an HTML page.
  *   - If the asset is missing AND the visitor is asking for a page
  *     (Accept header includes text/html on a GET — true for every
  *     address-bar navigation), rate-limit the IP+scope
- *     'unknown-path' to slow down URL-space scanning, then redirect
- *     to "/" (302). Saves people who typed `/in` or `/xx` from
- *     hitting a generic Pages 404 and lands them on the gate.
+ *     'unknown-path', then serve a styled 404 (notFoundPage).
+ *     The address bar keeps the URL the visitor typed (a redirect
+ *     hid that and made `/in` show the homepage), and the browser
+ *     sees a real 404 status.
+ *   - Reserved paths (/, /admin, /db, /inv, /l, /g/<slug>, /<short>)
+ *     are handled earlier in fetch() and never reach this code, so
+ *     a legitimate visit there is never counted against this scope.
  *   - All other 404s (POST/PUT, fetch()/XHR without an explicit
  *     text/html Accept, missing /foo.png, missing /api/whatever)
- *     get the original 404 untouched — turning a missing JSON or
- *     image into an HTML redirect would be worse than a clean 404.
+ *     get the original 404 untouched.
  *
- * The limit (90/min, 5min block) is loose: legitimate visitors
- * sometimes mistype a slug a few times and we don't want to lock
- * them out. It is here mainly to discourage a bot from walking
- * /aaa /aab /aac... looking for short codes; the per-route limits
- * on /<short> and /g/<slug> are tighter and remain authoritative
- * for those code spaces.
+ * Rate limit: 3 attempts per minute, then block the IP for 5 min.
+ * Tight on purpose — typing a wrong URL more than three times in a
+ * minute is almost always a script walking the URL space looking
+ * for short codes. Legitimate visitors rarely fat-finger that fast,
+ * and if they do the existing-route limits (40/min on /<short>,
+ * 60/min on /g/<slug>) stay generous because reserved paths never
+ * spend this scope's budget.
  */
 async function assetOrFallback(request, env) {
   const response = await env.ASSETS.fetch(request);
@@ -3569,22 +3656,23 @@ async function assetOrFallback(request, env) {
   if (request.method !== 'GET') return response;
 
   const accept = request.headers.get('accept') || '';
-  // Only redirect when the visitor is clearly asking for a page.
-  // A bare `Accept: */*` or empty (typical of fetch()/XHR without
-  // an explicit Accept) would otherwise turn a missing JSON or
-  // image into an HTML redirect, which is worse than a clean 404.
-  // Address-bar navigations always include `text/html` in their
-  // Accept header.
+  // Only synthesize an HTML 404 when the visitor is clearly asking
+  // for a page. A bare `Accept: */*` or empty (typical of fetch()
+  // and XHR without an explicit Accept) keeps the original 404 —
+  // turning a missing JSON or image into HTML would be worse.
   if (!accept.includes('text/html')) return response;
 
   const limited = enforceRateLimit(
     request,
     'unknown-path',
-    { limit: 90, windowMs: 60 * 1000, blockMs: 5 * 60 * 1000 },
+    { limit: 3, windowMs: 60 * 1000, blockMs: 5 * 60 * 1000 },
     false
   );
   if (limited) return limited;
 
   const url = new URL(request.url);
-  return Response.redirect(`${url.origin}/`, 302);
+  return new Response(notFoundPage(url.pathname), {
+    status: 404,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  });
 }

@@ -146,9 +146,23 @@
   // point Safari and Firefox both throttled paint to ~1 fps. Putting
   // the gap inside the keyframes means exactly one Animation object
   // ever exists per logo, and the browser does the looping natively.
-  var BOUNCE_ACTIVE_MS = 2400;
-  var BOUNCE_GAP_MS = 700;
-  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 3100
+  //
+  // Period = 2800 ms. Matches --ss-gate-idle-duration in gate.css and
+  // the .is-sheen one-shot in worker shellStyles, so the button sheen
+  // and the logo windup line up on every loop edge.
+  //
+  // The choreography occupies the first ~78 % of the loop so the
+  // boom is "early enough" the sheen catches its peak. The tail
+  // (~22 %) holds at scale 1 so the loop reads as a deliberate pulse
+  // and not a perpetual wobble.
+  //
+  // Y axis stays at 0 throughout. Earlier builds had the logo travel
+  // up from below on every iteration, which read as the logo
+  // "sinking and rising" rather than the intended draw-back-and-pop
+  // arrow motion.
+  var BOUNCE_ACTIVE_MS = 2200;
+  var BOUNCE_GAP_MS = 600;
+  var BOUNCE_PERIOD_MS = BOUNCE_ACTIVE_MS + BOUNCE_GAP_MS; // 2800
   // Where the active choreography ends inside the loop. The keyframes
   // below place every choreographic phase between offset 0 and this
   // value; from BOUNCE_ACTIVE_END to 1 the logo is held at scale(1).
@@ -160,22 +174,16 @@
     var axis = _ssSign();
     var skewMag    = _ssRand(5.2, 7.8);   // deg, primary squeeze tilt
     var rotMag     = _ssRand(1.6, 2.8);   // deg, base rotation magnitude
-    var boom       = _ssRand(1.15, 1.21); // peak scale on the BOOM
+    var boom       = _ssRand(1.16, 1.22); // peak scale on the BOOM
     var jiggleA    = _ssRand(2.6, 3.8);   // deg, first jiggle flick
     var jiggleB    = _ssRand(1.8, 2.8);   // deg, opposite jiggle
     var sq2YDip    = _ssRand(0.90, 0.94); // scaleY of the soft second squeeze
 
     // Tiny extra wobble in the squeeze so the two halves don't read
-    // as a perfect diagonal (the user asked for "random, not exact
-    // diagonal").
-    var skXJitter = _ssRand(-1.6, 1.6);
+    // as a perfect diagonal — the user asked for "random, not exact
+    // diagonal".
+    var skXJitter  = _ssRand(-1.6, 1.6);
     var skXJitter2 = _ssRand(-1.2, 1.2);
-
-    // Rise distance: how many px below the resting position the logo
-    // starts each iteration. A small random jitter keeps consecutive
-    // loops from feeling identical (the travel distance varies
-    // slightly so the "launch" feels organic, not mechanical).
-    var riseY = _ssRand(28, 40);
 
     // Compress the "active" offsets into [0, BOUNCE_ACTIVE_END]; the
     // remainder of the loop is a rest hold so the next iteration
@@ -183,81 +191,80 @@
     function at(active) { return active * BOUNCE_ACTIVE_END; }
 
     return [
-      // Pre-roll: logo starts BELOW its resting position, slightly
-      // compressed. The upward travel is the first thing the viewer
-      // reads — it gives the "flying up" entrance.
-      { transform: _ssTransform({ tY: riseY, sX: .92, sY: .88, rot: -rotMag * 0.35 * axis }),
+      // Loop edge. Logo at rest. We start AND end here so the loop
+      // wraps cleanly and the sheen, which also starts at this
+      // moment, is in lockstep.
+      { transform: _ssTransform({ tY: 0, sX: 1, sY: 1 }),
         offset: 0 },
 
-      // Mid-rise: travelling up, slow drift toward the windup pose.
-      // Now sits a third of the way through the active phase so the
-      // viewer can read the upward arc clearly.
-      { transform: _ssTransform({ tY: riseY * 0.62, sX: .94, sY: .90,
-                                  rot: -rotMag * 0.55 * axis,
+      // Slow draw-back — like pulling a bow string. Vertical squash
+      // grows gradually; the user explicitly asked for this windup
+      // to feel deliberate.
+      { transform: _ssTransform({ tY: 0, sX: 1.02, sY: 0.92,
+                                  rot: -rotMag * 0.40 * axis,
                                   skX: skXJitter * 0.4,
-                                  skY: skewMag * 0.55 * axis }),
+                                  skY: skewMag * 0.45 * axis }),
         offset: at(0.18) },
 
-      // Approaching landing — almost at Y=0, just starting to squash.
-      { transform: _ssTransform({ tY: riseY * 0.18, sX: .98, sY: .82,
-                                  rot: -rotMag * 0.85 * axis,
+      // Deeper draw-back, approaching peak windup.
+      { transform: _ssTransform({ tY: 0, sX: 1.04, sY: 0.82,
+                                  rot: -rotMag * 0.80 * axis,
                                   skX: skXJitter * 0.7,
                                   skY: skewMag * 0.78 * axis }),
-        offset: at(0.30) },
+        offset: at(0.32) },
 
-      // SQUEEZE 1 / mencekung peak — logo has arrived at Y=0 and
-      // squashes on landing (like a ball hitting the floor). Pushed
-      // to 0.40 so the windup is the slowest part of the loop, which
-      // matches the "pull arrow back slowly" feel.
-      { transform: _ssTransform({ tY: 0, sX: 1.00, sY: 0.72,
+      // SQUEEZE 1 / mencekung peak — peak windup, "arrow drawn".
+      // Held briefly so the boom hits with maximum contrast.
+      { transform: _ssTransform({ tY: 0, sX: 1.05, sY: 0.70,
                                   rot: -rotMag * 1.10 * axis,
                                   skX: skXJitter,
                                   skY: skewMag * axis }),
-        offset: at(0.40) },
+        offset: at(0.46) },
 
-      // Mid-release.
-      { transform: _ssTransform({ tY: 0, sX: 1.05, sY: 0.92,
-                                  rot: -rotMag * 0.50 * axis,
-                                  skY: skewMag * 0.45 * axis }),
-        offset: at(0.52) },
+      // Mid-release — the snap is starting.
+      { transform: _ssTransform({ tY: 0, sX: 1.06, sY: 0.92,
+                                  rot: -rotMag * 0.40 * axis,
+                                  skY: skewMag * 0.40 * axis }),
+        offset: at(0.56) },
 
-      // BOOOOM — punches up a tiny bit on boom (slight float on impact).
-      { transform: _ssTransform({ tY: -4, sX: boom * 1.02, sY: boom * 0.97,
+      // BOOOOM — peak scale punch. Y stays at 0 (no upward travel);
+      // the perceived "lift" comes from the overshoot scale alone.
+      { transform: _ssTransform({ tY: 0, sX: boom * 1.02, sY: boom * 0.98,
                                   rot: rotMag * 0.70 * -axis,
-                                  skY: skewMag * 0.20 * -axis }),
-        offset: at(0.60) },
+                                  skY: skewMag * 0.18 * -axis }),
+        offset: at(0.62) },
 
       // Jiggle A.
-      { transform: _ssTransform({ tY: -2, sX: boom * 0.97, sY: boom * 0.99,
+      { transform: _ssTransform({ tY: 0, sX: boom * 0.97, sY: boom * 0.99,
                                   rot: jiggleA * -axis }),
-        offset: at(0.68) },
+        offset: at(0.70) },
 
       // Jiggle B.
       { transform: _ssTransform({ tY: 0, sX: boom * 0.94, sY: boom * 0.96,
                                   rot: jiggleB * axis }),
-        offset: at(0.76) },
+        offset: at(0.77) },
 
-      // SQUEEZE 2 — soft counter-tilt, back at Y=0.
+      // SQUEEZE 2 — soft counter-tilt.
       { transform: _ssTransform({ tY: 0, sX: 1.04, sY: sq2YDip,
                                   rot: rotMag * 0.55 * -axis,
                                   skX: skXJitter2,
                                   skY: skewMag * 0.45 * -axis }),
-        offset: at(0.85) },
+        offset: at(0.86) },
 
-      // Small overshoot — tiny float again.
-      { transform: _ssTransform({ tY: -2, sX: 1.025, sY: 1.015,
-                                  rot: rotMag * 0.20 * axis }),
+      // Tiny overshoot.
+      { transform: _ssTransform({ tY: 0, sX: 1.02, sY: 1.012,
+                                  rot: rotMag * 0.18 * axis }),
         offset: at(0.92) },
 
       // Micro dip.
       { transform: _ssTransform({ tY: 0, sX: 0.996, sY: 0.996 }),
         offset: at(0.97) },
 
-      // End of choreography — rest pose exactly at Y=0.
+      // End of choreography — rest pose.
       { transform: _ssTransform({ tY: 0, sX: 1, sY: 1 }),
         offset: BOUNCE_ACTIVE_END },
 
-      // Hold rest until end of loop period (the 700 ms gap).
+      // Hold rest until end of loop period (the 600 ms gap).
       { transform: _ssTransform({ tY: 0, sX: 1, sY: 1 }),
         offset: 1 }
     ];
@@ -279,8 +286,9 @@
     logo.__ssBounceLooping = false;
   }
 
-  function bounceOne(logo) {
+  function bounceOne(logo, opts) {
     if (!logo || !isLayoutVisible(logo)) return;
+    opts = opts || {};
 
     if (prefersReduced) {
       logo.style.opacity = '1';
@@ -288,10 +296,16 @@
       return;
     }
 
-    // If a loop is already running, leave it alone. Pages and the
-    // mount scheduler may call bounceLogos() multiple times during
-    // intro; we never want to restart and re-randomize mid-flight.
-    if (logo.__ssBounceLooping && logo.__ssBounceAnim) return;
+    // If a loop is already running and the caller did NOT ask for a
+    // restart, leave it alone. Pages and the mount scheduler may
+    // call bounceLogos() multiple times during intro; we never want
+    // to re-randomize mid-flight unless explicitly asked (via
+    // gate.js startIdle, which restarts the bounce on the same
+    // animation frame it adds .is-idle so the bounce keyframe edge
+    // and the sheen keyframe edge are aligned to within ~16 ms).
+    if (logo.__ssBounceLooping && logo.__ssBounceAnim && !opts.restart) return;
+
+    if (opts.restart) stopBounceLoop(logo);
 
     // Make sure the logo is visible before we start the loop. The
     // intro CSS may have it at opacity:0; the bounce keyframes never
@@ -318,7 +332,7 @@
     logo.__ssBounceLooping = true;
   }
 
-  function bounceLogos(root) {
+  function bounceLogos(root, opts) {
     var scope = scopeFor(root);
     var logos = scope.querySelectorAll(HERO_LOGO_SELECTOR);
     // Bounce every hero logo in the given scope. The previous version of
@@ -333,7 +347,7 @@
     // 600 ms are dropped, so a page that DOES call bounceLogos(gate)
     // after our bootstrap won't cause a visible re-trigger.
     for (var i = 0; i < logos.length; i++) {
-      bounceOne(logos[i]);
+      bounceOne(logos[i], opts);
     }
   }
 
