@@ -1,7 +1,7 @@
 /* StarShots animate.js
  *
  * Single-engine intro / reveal helper for /, /admin, /db, /g/<slug>,
- * /<short>, /l, /inv.
+ * /<short>, /l, /inv, /subs.
  *
  * Design:
  *   - One source of truth. Pages keep their own bespoke timing
