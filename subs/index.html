@@ -250,8 +250,9 @@
       background:var(--soft);display:grid;place-items:center;padding:18px;overflow:auto
     }
     .doc-wrap{width:100%;display:grid;place-items:center;gap:12px}
+    #canvasWrap{width:100%;display:grid;place-items:center}
     canvas{
-      width:min(100%,580px);height:auto;display:block;border-radius:26px;
+      width:min(100%,580px);height:auto;aspect-ratio:4/5;display:block;margin-inline:auto;border-radius:26px;
       box-shadow:0 18px 54px rgba(30,20,15,.14);background:#fff
     }
     input[type="date"]::-webkit-calendar-picker-indicator,
@@ -304,6 +305,8 @@
        /gate.css (.ss-gate-card) — these rules only own the dim
        overlay shell that holds it. */
     .gate-shell{position:fixed;inset:0;z-index:20;padding:18px;display:grid;place-items:center;overflow:auto;background:var(--bg)}
+    .gate-shell .password-wrap{width:100%}
+    .gate-shell .password-wrap input[type="password"]{width:100%}
     @media (prefers-color-scheme: dark){.gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
 
   </style>
