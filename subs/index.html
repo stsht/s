@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="ss-force-motion">
+<html lang="en" data-theme="auto" class="ss-force-motion">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -33,7 +33,7 @@
       --doc-font:"Cormorant Garamond","Times New Roman",Georgia,serif;
     }
     @media (prefers-color-scheme: dark){
-      :root{
+      :root:not([data-theme=light]){
         color-scheme:dark;
         --bg:#11110f;
         --panel:#171613;
@@ -48,6 +48,22 @@
         --shadow:0 34px 90px rgba(0,0,0,.36);
         --shadow-soft:0 14px 40px rgba(0,0,0,.24);
       }
+    }
+
+    :root[data-theme=dark]{
+      color-scheme:dark;
+      --bg:#11110f;
+      --panel:#171613;
+      --line:#2b2823;
+      --line-strong:#3a352e;
+      --text:#f4eee5;
+      --muted:#8f8579;
+      --soft:#1c1b17;
+      --soft-2:#1a1916;
+      --accent:#f4eee5;
+      --accent-2:#e8d8c4;
+      --shadow:0 34px 90px rgba(0,0,0,.36);
+      --shadow-soft:0 14px 40px rgba(0,0,0,.24);
     }
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     html,body{margin:0;min-height:100%}
