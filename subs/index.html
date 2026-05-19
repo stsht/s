@@ -67,7 +67,7 @@
     }
     .doodle-bg svg{width:100%;height:100%;display:block}
     .doodle-line{
-      fill:none;stroke:rgba(184,132,104,.72);stroke-width:1.8;
+      fill:none;stroke:rgba(114,78,52,.72);stroke-width:1.8;
       stroke-linecap:round;stroke-linejoin:round;
       stroke-dasharray:1200;stroke-dashoffset:1200;
       animation:ssDrawLine 7.2s ease-in-out infinite;
@@ -77,7 +77,7 @@
     .doodle-line.delay-2{animation-delay:3.2s}
     .doodle-float{transform-origin:center;animation:ssDriftFloat 14s ease-in-out infinite}
     .doodle-float.alt{animation-duration:22s;animation-delay:2.2s}
-    .doodle-dot{fill:rgba(184,132,104,.24);vector-effect:non-scaling-stroke}
+    .doodle-dot{fill:rgba(114,78,52,.28);vector-effect:non-scaling-stroke}
     @keyframes ssDrawLine{
       0%{stroke-dashoffset:1200;opacity:.12}
       18%,82%{opacity:1}
@@ -128,13 +128,13 @@
     }
     /* Animated doodle strokes inside the brand-hero pill */
     .hero-doodle-line{
-      fill:none;stroke:rgba(184,132,104,.72);stroke-width:2.1;
+      fill:none;stroke:rgba(114,78,52,.72);stroke-width:2.1;
       stroke-linecap:round;stroke-linejoin:round;
       stroke-dasharray:220;stroke-dashoffset:220;
       animation:ssMiniStroke 5.2s ease-in-out infinite;
     }
     .hero-doodle-line.delay{animation-delay:1s}
-    .hero-doodle-dot{fill:rgba(184,132,104,.38)}
+    .hero-doodle-dot{fill:rgba(114,78,52,.42)}
     @keyframes ssMiniStroke{
       0%,100%{stroke-dashoffset:220;opacity:.18}
       18%,82%{opacity:1}
@@ -278,6 +278,13 @@
     .stagger-4{transition-delay:300ms}
     .stagger-5{transition-delay:380ms}
 
+
+    @media (prefers-color-scheme: dark){
+      .doodle-line,.hero-doodle-line{stroke:rgba(244,238,229,.62)}
+      .doodle-dot{fill:rgba(244,238,229,.24)}
+      .hero-doodle-dot{fill:rgba(244,238,229,.34)}
+    }
+
     /* ── Reduced-motion overrides ──────────────────────────────── */
     @media(prefers-reduced-motion:reduce){
       html:not(.ss-force-motion) .aurora{display:none}
@@ -292,6 +299,20 @@
     }
     .jpg-reader-label{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin:0}
     .jpg-status{font-size:12px;font-weight:700;color:var(--accent);min-height:16px;line-height:1.35}
+
+    .gate-shell{position:fixed;inset:0;z-index:20;padding:18px;display:grid;place-items:center;overflow:auto;background:var(--bg)}
+    .gate-card{width:min(100%,560px);max-height:calc(100dvh - 36px);overflow:auto;padding:26px;transform:translateY(-18px)}
+    .gate-logo{display:block;width:min(200px,52vw);height:auto;margin:0 auto 24px;object-fit:contain}
+    @media (prefers-color-scheme: dark){.gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
+    .gate-card h1{margin:0 0 22px;font-size:clamp(32px,4vw,38px);font-weight:950;line-height:1.02;letter-spacing:-.045em;text-align:center;color:var(--text)}
+    .password-wrap{position:relative}
+    .gate-card .password-wrap input{width:100%;height:54px;border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--text);padding:15px 56px 15px 16px;font:600 16px var(--doc-font);outline:none}
+    .gate-card .password-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 5px rgba(26,26,26,.07)}
+    .gate-card .btn.primary{height:54px;min-width:0;border-radius:18px}
+    .eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+    .eye-btn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+    .gate-status{min-height:18px;margin-top:12px;text-align:center;color:var(--muted);font-size:12.5px;font-weight:700}
+    .gate-status.error{color:var(--danger)}
 
   </style>
   <link rel="stylesheet" href="/animate.css">
@@ -323,20 +344,30 @@
       </g>
     </svg>
   </div>
+  <div id="adminGate" class="gate-shell">
+    <section class="panel gate-card ss-gate-card" data-ss-gate-card>
+      <a class="gate-brand ss-gate-brand reveal" href="/" aria-label="Back to StarShots homepage"><img class="gate-logo ss-gate-logo ss-logo-hero" src="/logo-hero.png" width="640" height="155" decoding="async" fetchpriority="high" alt="StarShots logo"></a>
+      <h1 class="reveal">Welcome back</h1>
+      <div class="password-wrap reveal">
+        <input id="adminPassword" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" data-ss-gate-input />
+        <button id="toggleAdminPass" class="eye-btn" type="button" aria-label="Show password">
+          <svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>
+        </button>
+      </div>
+      <div style="margin-top:14px;display:grid;gap:10px" class="reveal">
+        <button id="adminUnlock" class="btn primary" type="button">Unlock</button>
+      </div>
+      <p id="adminStatus" class="gate-status reveal"></p>
+    </section>
+  </div>
+
   <div class="app">
     <section class="panel left reveal stagger-2">
       <div class="topbar reveal stagger-1">
         <div class="brand">
-          <div class="brand-hero" aria-hidden="true">
-            <svg viewBox="0 0 220 48" fill="none" preserveAspectRatio="none">
-              <path class="hero-doodle-line" d="M24 30c12-12 28-18 44-17 14 1 21 10 18 19-3 9-14 15-28 15-15 0-30-6-42-17" />
-              <path class="hero-doodle-line delay" d="M68 15c18-8 35-7 46 1 10 8 10 22-3 31-12 8-31 9-50 4" />
-              <path class="hero-doodle-line" d="M118 23c22-10 46-11 66-3 17 7 31 21 50 24" />
-              <path class="hero-doodle-line delay" d="M160 15c9 1 16 8 17 16 1 10-8 19-20 20-11 1-21-5-23-14-2-10 8-21 26-22" />
-              <circle class="hero-doodle-dot" cx="103" cy="31" r="3.2" />
-              <circle class="hero-doodle-dot" cx="201" cy="14" r="3.2" />
-            </svg>
-          </div>
+          <a href="/" aria-label="Back to StarShots homepage">
+            <img class="ss-logo-top ss-bounce-in" src="/logo-hero.png" width="640" height="155" alt="StarShots logo" />
+          </a>
         </div>
         <div class="switch" id="modeSwitch" data-mode="invoice" aria-label="Mode switch">
           <div class="thumb"></div>
@@ -861,9 +892,9 @@
       bg.addColorStop(0,'#ffffff');bg.addColorStop(1,'#f8f6f2');
       ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
       /* soft blobs */
-      ctx.fillStyle=accent==='green'?'rgba(28,124,74,0.05)':'rgba(184,132,104,0.07)';
+      ctx.fillStyle=accent==='green'?'rgba(28,124,74,0.05)':'rgba(114,78,52,0.10)';
       ctx.beginPath();ctx.arc(220,240,200,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=accent==='green'?'rgba(28,124,74,0.04)':'rgba(184,132,104,0.05)';
+      ctx.fillStyle=accent==='green'?'rgba(28,124,74,0.04)':'rgba(114,78,52,0.08)';
       ctx.beginPath();ctx.arc(w-160,h-200,260,0,Math.PI*2);ctx.fill();
     }
     function drawShell(ctx,w,h){
@@ -962,7 +993,7 @@
       updatePrice();
       const ctx=invoiceCanvas.getContext('2d');const w=invoiceCanvas.width,h=invoiceCanvas.height;
       ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'warm');drawShell(ctx,w,h);
-      baseCardHeader(ctx,'Subscription Invoice','Payment QR Ready','rgba(184,132,104,0.12)','#9A6F50');
+      baseCardHeader(ctx,'Subscription Invoice','Payment QR Ready','rgba(114,78,52,0.16)','#6B462F');
       drawTile(ctx,{x:170,y:470,w:540,h:180,label:'Date of Invoice',value:longDate(invDate)});
       drawTile(ctx,{x:890,y:470,w:540,h:180,label:'Price',value:formatRupiah(calculatePrice()),subValue:parseMoney(manualPrice.value)>0?'Manual price':(rateMode==='discount'?'Discount rate':'Normal rate'),align:'center'});
       drawTile(ctx,{x:170,y:680,w:540,h:160,label:'Service',value:serviceDisplayName()});
@@ -1069,6 +1100,28 @@
     jpgUpload.addEventListener('change',event=>{const f=event.target.files&&event.target.files[0];if(f)processJpgUpload(f)});
     [invoiceDate,paymentDate,startDate].forEach(attachDatePicker);
     qrSource.addEventListener('load',preview);
+
+    async function verifyAdminPassword(password){
+      const res=await fetch('/api/verify-admin-password',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});
+      const data=await res.json().catch(()=>({ok:false,error:'Invalid server response.'}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'Wrong password.');
+      return true;
+    }
+    async function submitGate(){
+      const pass=(el('adminPassword')?.value||'').trim();
+      const st=el('adminStatus');
+      if(!pass){st.textContent='Enter password first.';st.className='gate-status error';return;}
+      st.textContent='Checking password...';st.className='gate-status';
+      try{
+        await verifyAdminPassword(pass);
+        el('adminGate').style.display='none';
+        st.textContent='';
+      }catch(e){st.textContent=e.message||'Wrong password.';st.className='gate-status error';}
+    }
+    el('adminUnlock')?.addEventListener('click',submitGate);
+    el('adminPassword')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submitGate();}});
+    el('toggleAdminPass')?.addEventListener('click',()=>{const input=el('adminPassword');const show=input.type==='password';input.type=show?'text':'password';el('toggleAdminPass').setAttribute('aria-label',show?'Hide password':'Show password');});
+
     setInterval(()=>{
       if(mode!=='PAID')return;
       const active=document.activeElement;
