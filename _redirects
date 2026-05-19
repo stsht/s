@@ -7,3 +7,5 @@
 /g/*  /g/:splat  200
 /inv  /inv/index.html  200
 /inv/*  /inv/index.html  200
+/subs  /subs/index.html  200
+/subs/*  /subs/index.html  200
