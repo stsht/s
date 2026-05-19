@@ -90,6 +90,24 @@
     return min + Math.random() * (max - min);
   }
 
+  function isDarkMode() {
+    // Used by splashOnce() to pick droplet colors that contrast
+    // with the page background. The previous build used a single
+    // warm gold/brown pair (#d0bb99 / #a79074) regardless of
+    // theme; on dark pages the droplets dropped into the same
+    // tonal band as the background and the inverted off-white
+    // logo, so the rain went invisible. We sniff the live media
+    // query each spawn (it is a property read, not a recompute)
+    // so a system theme switch mid-session repaints the next
+    // emitted droplets in the new palette without needing to
+    // restart the loop.
+    try {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function ensureSplashStyles() {
     if (document.getElementById(SPLASH_STYLE_ID)) return;
     var style = document.createElement('style');
@@ -244,7 +262,19 @@
     s.setProperty('--ss-splash-duration', dur + 'ms');
     // Plain rgba — no color-mix, no box-shadow. Two color choices
     // alternate so the stream has warm/cool variation.
-    s.setProperty('--ss-splash-color', Math.random() < 0.55 ? '#d0bb99' : '#a79074');
+    //
+    // Palette swaps with the system theme: on light mode we keep
+    // the original warm gold pair (matches the gate-card border
+    // gold and the logo's brown ink). On dark mode we move to an
+    // off-white pair that mirrors the inverted gate-logo filter
+    // (`brightness(0) invert(1) sepia(.08) saturate(.7)`), so the
+    // droplets read like little flecks of the same paint as the
+    // logo instead of disappearing into the dark background.
+    var dark = isDarkMode();
+    var splashColor = dark
+      ? (Math.random() < 0.55 ? '#f4eee5' : '#d8cbb6')
+      : (Math.random() < 0.55 ? '#d0bb99' : '#a79074');
+    s.setProperty('--ss-splash-color', splashColor);
     brand.appendChild(el);
     el.addEventListener('animationend', function () {
       if (el.parentNode) el.parentNode.removeChild(el);

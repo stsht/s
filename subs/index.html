@@ -300,19 +300,11 @@
     .jpg-reader-label{font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin:0}
     .jpg-status{font-size:12px;font-weight:700;color:var(--accent);min-height:16px;line-height:1.35}
 
+    /* Page-local gate shell. The card itself is fully styled by
+       /gate.css (.ss-gate-card) — these rules only own the dim
+       overlay shell that holds it. */
     .gate-shell{position:fixed;inset:0;z-index:20;padding:18px;display:grid;place-items:center;overflow:auto;background:var(--bg)}
-    .gate-card{width:min(100%,560px);max-height:calc(100dvh - 36px);overflow:auto;padding:26px;transform:translateY(-18px)}
-    .gate-logo{display:block;width:min(200px,52vw);height:auto;margin:0 auto 24px;object-fit:contain}
     @media (prefers-color-scheme: dark){.gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
-    .gate-card h1{margin:0 0 22px;font-size:clamp(32px,4vw,38px);font-weight:950;line-height:1.02;letter-spacing:-.045em;text-align:center;color:var(--text)}
-    .password-wrap{position:relative}
-    .gate-card .password-wrap input{width:100%;height:54px;border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--text);padding:15px 56px 15px 16px;font:600 16px var(--doc-font);outline:none}
-    .gate-card .password-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 5px rgba(26,26,26,.07)}
-    .gate-card .btn.primary{height:54px;min-width:0;border-radius:18px}
-    .eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
-    .eye-btn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-    .gate-status{min-height:18px;margin-top:12px;text-align:center;color:var(--muted);font-size:12.5px;font-weight:700}
-    .gate-status.error{color:var(--danger)}
 
   </style>
   <link rel="stylesheet" href="/animate.css">
@@ -347,21 +339,23 @@
   <div id="adminGate" class="gate-shell">
     <section class="panel gate-card ss-gate-card" data-ss-gate-card>
       <a class="gate-brand ss-gate-brand reveal" href="/" aria-label="Back to StarShots homepage"><img class="gate-logo ss-gate-logo ss-logo-hero" src="/logo-hero.png" width="640" height="155" decoding="async" fetchpriority="high" alt="StarShots logo"></a>
-      <h1 class="reveal">Welcome back</h1>
+      <h1 class="mask-reveal ss-gate-title reveal"><span>Subs Invoices</span></h1>
+      <label class="gate-label ss-gate-label reveal" for="adminPassword">Access key</label>
       <div class="password-wrap reveal">
         <input id="adminPassword" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" data-ss-gate-input />
         <button id="toggleAdminPass" class="eye-btn" type="button" aria-label="Show password">
-          <svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"></path><circle cx="12" cy="12" r="3.2"></circle></svg>
+          <svg viewBox="0 0 24 24"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>
         </button>
       </div>
-      <div style="margin-top:14px;display:grid;gap:10px" class="reveal">
-        <button id="adminUnlock" class="btn primary" type="button">Unlock</button>
-      </div>
-      <p id="adminStatus" class="gate-status reveal"></p>
+      <button id="adminOpen" class="btn primary ss-gate-button reveal" type="button" data-ss-gate-button>
+        <span class="spin" aria-hidden="true"></span>
+        <span class="label">Sign In</span>
+      </button>
+      <p id="adminStatus" class="gate-status ss-gate-status reveal" role="status" aria-live="polite"></p>
     </section>
   </div>
 
-  <div class="app">
+  <div id="appShell" class="app hidden">
     <section class="panel left reveal stagger-2">
       <div class="topbar reveal stagger-1">
         <div class="brand">
@@ -1101,26 +1095,137 @@
     [invoiceDate,paymentDate,startDate].forEach(attachDatePicker);
     qrSource.addEventListener('load',preview);
 
+    /* ── Admin gate ────────────────────────────────────────────
+       Same Supabase-backed auth as /admin, /db, /inv, /l: a single
+       password POSTed to /api/admin-check, with a 15-minute session
+       in sessionStorage so reloading inside that window skips the
+       gate. We deliberately mirror /inv's structure so any change
+       to the shared gate experience flows through the same paths. */
+    const ADMIN_SESSION_KEY = 'starshots_admin_session_v1';
+    const ADMIN_SESSION_MS = 15 * 60 * 1000;
+    const adminGate = el('adminGate');
+    const appShell = el('appShell');
+    const adminPasswordInput = el('adminPassword');
+    const adminOpenBtn = el('adminOpen');
+    const adminStatusEl = el('adminStatus');
+    const adminEyeBtn = el('toggleAdminPass');
+    const adminOpenLabel = adminOpenBtn?.querySelector('.label');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('ss-force-motion');
+    const eyeOpenSvg = '<svg viewBox="0 0 24 24"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>';
+    const eyeOffSvg = '<svg viewBox="0 0 24 24"><path d="M2.5 2.5 21.5 21.5"/><path d="M9.9 5.9A13.2 13.2 0 0 1 12 5.5c6.5 0 10.25 6.5 10.25 6.5a18 18 0 0 1-3.45 4.38"/><path d="M6.03 8.03C3.56 9.96 1.75 12 1.75 12S5.5 18.5 12 18.5c1.87 0 3.53-.38 4.98-1.04"/><path d="M10.59 10.59A3.25 3.25 0 0 0 15.18 15.18"/></svg>';
+
+    function setAdminStatus(message='', isError=false){
+      if(!adminStatusEl) return;
+      adminStatusEl.textContent = message;
+      adminStatusEl.className = 'gate-status ss-gate-status reveal is-visible' + (isError ? ' error' : '');
+    }
+    function rememberAdminSession(){
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ expiresAt: Date.now() + ADMIN_SESSION_MS }));
+      sessionStorage.removeItem('starshots_admin_password');
+      sessionStorage.removeItem('ss_admin_password');
+    }
+    function clearAdminSession(){
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      sessionStorage.removeItem('starshots_admin_password');
+      sessionStorage.removeItem('ss_admin_password');
+    }
+    function hasRememberedAdminSession(){
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      try{
+        const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
+        const saved = raw ? JSON.parse(raw) : null;
+        if(saved && Number(saved.expiresAt) > Date.now()) return true;
+        if(raw){ clearAdminSession(); return false; }
+      }catch{ clearAdminSession(); return false; }
+      return false;
+    }
     async function verifyAdminPassword(password){
-      const res=await fetch('/api/verify-admin-password',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});
-      const data=await res.json().catch(()=>({ok:false,error:'Invalid server response.'}));
-      if(!res.ok||!data.ok)throw new Error(data.error||'Wrong password.');
+      const res = await fetch('/api/admin-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok) throw new Error(data.error || 'Unauthorized.');
       return true;
     }
-    async function submitGate(){
-      const pass=(el('adminPassword')?.value||'').trim();
-      const st=el('adminStatus');
-      if(!pass){st.textContent='Enter password first.';st.className='gate-status error';return;}
-      st.textContent='Checking password...';st.className='gate-status';
-      try{
-        await verifyAdminPassword(pass);
-        el('adminGate').style.display='none';
-        st.textContent='';
-      }catch(e){st.textContent=e.message||'Wrong password.';st.className='gate-status error';}
+    function stageSubsGate(){
+      const gateCard = adminGate?.querySelector('.gate-card');
+      if(!gateCard) return;
+      if(window.StarShotsGate?.intro){
+        const handled = window.StarShotsGate.intro(gateCard, { root: adminGate, button: adminOpenBtn, input: adminPasswordInput });
+        if(handled || gateCard.dataset.ssGateIntro === 'running' || gateCard.classList.contains('is-mounted') || gateCard.classList.contains('is-visible')) return;
+      }
+      // Fallback (no gate.js): just reveal the card statically.
+      gateCard.classList.add('is-mounted','is-visible');
+      adminGate.querySelectorAll('.reveal').forEach(node => node.classList.add('is-visible'));
     }
-    el('adminUnlock')?.addEventListener('click',submitGate);
-    el('adminPassword')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submitGate();}});
-    el('toggleAdminPass')?.addEventListener('click',()=>{const input=el('adminPassword');const show=input.type==='password';input.type=show?'text':'password';el('toggleAdminPass').setAttribute('aria-label',show?'Hide password':'Show password');});
+    function revealSubsApp(){
+      const gateCard = adminGate?.querySelector('.gate-card');
+      const finish = () => {
+        adminGate?.classList.add('hidden');
+        appShell?.classList.remove('hidden');
+        setAdminStatus('');
+        // Stop the idle bounce + droplet emitter so we are not
+        // burning compositor cycles after the gate is gone.
+        if(window.StarShotsGate?.stopIdle && gateCard) window.StarShotsGate.stopIdle(gateCard);
+        if(window.StarShotsReveal) window.StarShotsReveal.start(appShell);
+      };
+      if(!gateCard || adminGate?.classList.contains('hidden')){ finish(); return; }
+      gateCard.classList.add('is-leaving');
+      setTimeout(() => {
+        gateCard.classList.remove('is-mounted','is-visible','is-leaving');
+        finish();
+      }, reduceMotion ? 0 : 500);
+    }
+    async function openSubsGate(){
+      const value = (adminPasswordInput?.value || '').trim();
+      if(!value){ setAdminStatus('Access key required.', true); adminPasswordInput?.focus(); return; }
+      const original = adminOpenLabel?.textContent || 'Sign In';
+      adminOpenBtn.disabled = true;
+      adminOpenBtn.classList.add('is-loading');
+      if(adminOpenLabel) adminOpenLabel.textContent = 'Opening...';
+      setAdminStatus('Checking...');
+      try{
+        await verifyAdminPassword(value);
+        rememberAdminSession();
+        revealSubsApp();
+      }catch(error){
+        clearAdminSession();
+        setAdminStatus(error.message || 'Unauthorized.', true);
+        adminPasswordInput?.focus();
+      }finally{
+        adminOpenBtn.disabled = false;
+        adminOpenBtn.classList.remove('is-loading');
+        if(adminOpenLabel) adminOpenLabel.textContent = original;
+      }
+    }
+    function toggleAdminPasswordVisibility(){
+      if(!adminPasswordInput || !adminEyeBtn) return;
+      const show = adminPasswordInput.type === 'password';
+      adminPasswordInput.type = show ? 'text' : 'password';
+      adminEyeBtn.innerHTML = show ? eyeOffSvg : eyeOpenSvg;
+      adminEyeBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      adminPasswordInput.focus();
+    }
+    adminOpenBtn?.addEventListener('click', openSubsGate);
+    adminPasswordInput?.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); openSubsGate(); } });
+    adminEyeBtn?.addEventListener('click', toggleAdminPasswordVisibility);
+
+    // Boot the gate. If a session is still valid, skip straight
+    // into the app. Otherwise stage the intro so the droplets +
+    // sheen kick in alongside the reveal cascade.
+    (function bootSubsGate(){
+      if(hasRememberedAdminSession()){
+        adminGate?.classList.add('hidden');
+        appShell?.classList.remove('hidden');
+        if(window.StarShotsReveal) window.StarShotsReveal.start(appShell);
+        return;
+      }
+      stageSubsGate();
+    })();
 
     setInterval(()=>{
       if(mode!=='PAID')return;
@@ -1130,12 +1235,21 @@
     },30000);
     resetForm();
     /* ── Kick off the reveal intro ─────────────────────────── */
+    function kickOffSubsReveal(){
+      if(!window.StarShotsReveal) return;
+      // While the gate is visible the gate intro owns the reveal
+      // cascade; revealing the app at the same time would spoil
+      // the staggered animation. Once the gate is dismissed the
+      // bootSubsGate / revealSubsApp paths call StarShotsReveal
+      // themselves, so this initial pass only fires when there
+      // is no gate (e.g. cached session).
+      if(adminGate && !adminGate.classList.contains('hidden')) return;
+      window.StarShotsReveal.start();
+    }
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () {
-        if (window.StarShotsReveal) window.StarShotsReveal.start();
-      }, { once: true });
+      document.addEventListener('DOMContentLoaded', kickOffSubsReveal, { once: true });
     } else {
-      if (window.StarShotsReveal) window.StarShotsReveal.start();
+      kickOffSubsReveal();
     }
   </script>
 </body>
