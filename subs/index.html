@@ -314,6 +314,118 @@
     }
 
   </style>
+  <style id="starshots-subs-theme-override">
+    :root{
+      --bg:#F6F6F3!important;
+      --panel:#FFFFFF!important;
+      --line:#E4E2DC!important;
+      --line-strong:#D6D3CC!important;
+      --text:#1F1A17!important;
+      --muted:#69645F!important;
+      --soft:#F3F2EF!important;
+      --soft-2:#FFFFFF!important;
+      --accent:#1F1A17!important;
+      --accent-2:#2A2420!important;
+      --shadow:0 22px 54px rgba(26,26,26,.07)!important;
+      --shadow-soft:0 10px 24px rgba(26,26,26,.05)!important;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#11110F!important;
+        --panel:#171613!important;
+        --line:#2B2823!important;
+        --line-strong:#3A352E!important;
+        --text:#F4EEE5!important;
+        --muted:#B8AEA2!important;
+        --soft:#1D1B18!important;
+        --soft-2:#171613!important;
+        --accent:#F4EEE5!important;
+        --accent-2:#E8D8C4!important;
+        --shadow:0 24px 60px rgba(0,0,0,.28)!important;
+        --shadow-soft:0 10px 28px rgba(0,0,0,.18)!important;
+      }
+    }
+    html,body{background:var(--bg)!important;color:var(--text)!important}
+    body{
+      background:
+        radial-gradient(1100px 620px at 18% 8%, rgba(212,205,188,.08), transparent 60%),
+        radial-gradient(900px 560px at 82% 92%, rgba(212,205,188,.06), transparent 55%),
+        var(--bg)!important;
+      background-attachment:fixed;
+      color:var(--text)!important;
+      font-family:"Cormorant Garamond","Times New Roman",Georgia,serif!important;
+      font-weight:500!important;
+    }
+    .aurora,.doodle-bg{display:none!important}
+    .panel,.left,.right,.input-shell,.picker-shell,.stepper,.toggle,.price-card,.jpg-reader{
+      background:var(--panel)!important;
+      border-color:var(--line)!important;
+      box-shadow:var(--shadow-soft)!important;
+    }
+    .panel{box-shadow:var(--shadow)!important}
+    .topbar{
+      align-items:center!important;
+      margin-bottom:18px!important;
+      padding-bottom:14px!important;
+      border-bottom:1px solid var(--line)!important;
+    }
+    .brand{align-items:center!important}
+    .ss-logo-top{
+      width:min(180px,46vw)!important;
+      height:auto!important;
+      display:block!important;
+    }
+    .switch,.toggle{background:var(--soft)!important;border-color:var(--line)!important}
+    .switch .thumb,.toggle button.active{
+      background:var(--panel)!important;
+      box-shadow:0 8px 18px rgba(26,26,26,.07)!important;
+    }
+    .switch{align-self:center!important;transform:translateY(0)!important}
+    .switch button,.toggle button,label,.hint,.section-label,.page-sub,.preview-head .badge,.price-label,.money-prefix span,.jpg-reader-label,.jpg-status,.qr-status{
+      color:var(--muted)!important;
+    }
+    .switch button.active,.toggle button.active,.page-title,.price-value,.stepper-value,.stepper-value select,input,select{
+      color:var(--text)!important;
+    }
+    .input-shell input,.input-shell select,.picker-shell input,.stepper-value select{
+      color:var(--text)!important;
+    }
+    .input-shell:focus-within,.picker-shell:focus-within,.stepper:focus-within{
+      border-color:var(--accent)!important;
+      box-shadow:0 0 0 4px rgba(184,132,104,.09)!important;
+    }
+    .stepper button,.btn.ghost{color:var(--muted)!important}
+    .stepper button:hover{background:var(--soft)!important}
+    .btn.primary{
+      background:var(--accent)!important;
+      color:var(--panel)!important;
+      box-shadow:0 12px 24px rgba(26,26,26,.12)!important;
+    }
+    .btn.primary:hover{background:var(--accent-2)!important}
+    .btn.secondary,.btn.soft{
+      background:var(--panel)!important;
+      color:var(--text)!important;
+      border-color:var(--line)!important;
+    }
+    .btn.ghost:hover{color:var(--text)!important}
+    .preview-box{
+      background:var(--soft)!important;
+      border-color:var(--line)!important;
+    }
+    .mini-preview,#invoiceCanvas,canvas{
+      background:#fff!important;
+      color-scheme:light!important;
+    }
+    @media (prefers-color-scheme: dark){
+      .ss-logo-top{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}
+      .input-shell select{
+        background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23B8AEA2' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.6' d='M3.5 6 8 10.5 12.5 6'/%3E%3C/svg%3E")!important;
+      }
+    }
+    @media(max-width:520px){
+      .ss-logo-top{width:min(150px,46vw)!important}
+    }
+  </style>
   <link rel="stylesheet" href="/animate.css">
   <link rel="stylesheet" href="/gate.css">
   <script src="/animate.js"></script>

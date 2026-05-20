@@ -1296,11 +1296,15 @@ body::before,body::after,.doodle-bg{display:none!important}
 }
 .panel{box-shadow:var(--shadow)!important}
 .left::before,.right::before,.left::after,.brand-hero::before,.brand-hero::after{display:none!important}
-.brand-hero{width:min(100%,260px)!important;height:64px!important;padding:0!important;border:0!important;box-shadow:none!important;background:url('/logo-hero.png') center left / contain no-repeat!important;border-radius:0!important}
+.topbar{align-items:center!important;margin-bottom:18px!important;padding-bottom:14px!important;border-bottom:1px solid var(--line)!important}
+.brand{align-items:center!important}
+.brand-hero{width:auto!important;height:auto!important;padding:0!important;border:0!important;box-shadow:none!important;background:none!important;border-radius:0!important;overflow:visible!important}
+.brand-hero .ss-logo-top{width:min(180px,46vw)!important;height:auto!important;display:block!important;margin:0!important}
 .brand-hero svg{display:none!important}
-@media (prefers-color-scheme: dark){.brand-hero{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
+@media (prefers-color-scheme: dark){.brand-hero .ss-logo-top{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
 .switch,.toggle{background:var(--soft)!important;border-color:var(--line)!important}
 .switch .thumb,.toggle button.active{background:var(--panel)!important;box-shadow:0 8px 18px rgba(26,26,26,.07)!important}
+.switch{align-self:center!important;transform:translateY(0)!important}
 .switch button,.toggle button,label,.hint,.section-label,.sub,.preview-note{color:var(--muted)!important}
 .switch button.active,.toggle button.active,.title,h1,h2,h3,.summary-chip strong,.stepper-value,.check-copy strong{color:var(--text)!important}
 .btn.primary{background:var(--accent)!important;color:var(--panel)!important;box-shadow:0 12px 24px rgba(26,26,26,.12)!important}
@@ -1358,6 +1362,7 @@ body::before,body::after,.doodle-bg{display:none!important}
 .calendar-day.selected{background:#B88468!important;color:#fff!important;box-shadow:0 10px 20px rgba(184,132,104,.16)!important}
 .calendar-actions .btn.ghost{background:transparent!important;color:#69645F!important;box-shadow:none!important}
 .calendar-actions .btn.ghost:hover{color:#1F1A17!important}
+@media(max-width:520px){.brand-hero .ss-logo-top{width:min(150px,46vw)!important}}
 .gate-shell{background:transparent!important;padding:max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom))!important}
 body{
   --ease-out:cubic-bezier(.22,1,.36,1);
@@ -1591,6 +1596,7 @@ body{
       <div class="topbar">
         <div class="brand">
           <div class="brand-hero" aria-hidden="true">
+            <img class="ss-logo-top" src="/logo-hero.png" width="640" height="155" alt="" />
             <svg viewBox="0 0 220 48" fill="none" preserveAspectRatio="none">
               <path class="hero-doodle-line" d="M24 30c12-12 28-18 44-17 14 1 21 10 18 19-3 9-14 15-28 15-15 0-30-6-42-17" />
               <path class="hero-doodle-line delay" d="M68 15c18-8 35-7 46 1 10 8 10 22-3 31-12 8-31 9-50 4" />
