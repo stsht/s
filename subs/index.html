@@ -305,9 +305,13 @@
        /gate.css (.ss-gate-card) — these rules only own the dim
        overlay shell that holds it. */
     .gate-shell{position:fixed;inset:0;z-index:20;padding:18px;display:grid;place-items:center;overflow:auto;background:var(--bg)}
-    .gate-shell .password-wrap{width:100%}
+    .gate-shell .password-wrap{position:relative;width:100%}
     .gate-shell .password-wrap input[type="password"]{width:100%}
-    @media (prefers-color-scheme: dark){.gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
+    @media (prefers-color-scheme: dark){
+      body{background:#060708}
+      .gate-shell{background:radial-gradient(120% 140% at 50% 0%, #171816 0%, #090a0b 45%, #050506 100%)}
+      .gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}
+    }
 
   </style>
   <link rel="stylesheet" href="/animate.css">
@@ -364,7 +368,7 @@
       <div class="topbar reveal stagger-1">
         <div class="brand">
           <a href="/" aria-label="Back to StarShots homepage">
-            <img class="ss-logo-top ss-bounce-in" src="/logo-hero.png" width="640" height="155" alt="StarShots logo" />
+            <img class="ss-logo-top" src="/logo-hero.png" width="640" height="155" alt="StarShots logo" />
           </a>
         </div>
         <div class="switch" id="modeSwitch" data-mode="invoice" aria-label="Mode switch">
@@ -427,6 +431,7 @@
             <div class="stepper">
               <button id="accessDownBtn" type="button" aria-label="Decrease">−</button>
               <div class="stepper-value"><select id="accessPeriod">
+                <option value="7">7 Days</option>
                 <option value="30" selected>30 Days</option>
                 <option value="60">60 Days</option>
                 <option value="90">90 Days</option>
@@ -597,9 +602,9 @@
     const jpgUpload=el('jpgUpload'), jpgStatus=el('jpgStatus');
 
     const STORAGE_VALUES=['500GB','1TB','1.5TB','2TB'];
-    const ACCESS_VALUES=['30','60','90'];
+    const ACCESS_VALUES=['7','30','60','90'];
     const SLOT_UNITS={'500GB':1,'1TB':2,'1.5TB':3,'2TB':4};
-    const PERIOD_MULTIPLIER={'30':1,'60':2,'90':3};
+    const PERIOD_MULTIPLIER={'7':1,'30':1,'60':2,'90':3};
     const FONT='"Cormorant Garamond","Times New Roman",Georgia,serif';
 
     let mode='INVOICE';
