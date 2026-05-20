@@ -926,15 +926,16 @@
       ctx.font=`700 86px ${FONT}`;ctx.fillText(timeValue,x+w/2,y+302);
       ctx.restore();
     }
-    function baseCardHeader(ctx,titleText,pillText,pillBg,pillTextColor){
+    function baseCardHeader(ctx,titleText,pillText,pillBg,pillTextColor,options={}){
       const w=invoiceCanvas.width;
+      const titleSize=options.titleSize||72;
       ctx.textAlign='center';
-      /* Service name at top (above greeting) */
-      ctx.fillStyle='#9a8070';ctx.font=`700 34px ${FONT}`;ctx.fillText(serviceDisplayName(),w/2,184);
-      /* Greeting below service */
-      ctx.fillStyle='#1f1a17';ctx.font=`500 46px ${FONT}`;ctx.fillText(greeting(),w/2,246);
-      /* Big title */
-      ctx.font=`700 84px ${FONT}`;ctx.fillText(titleText,w/2,342);
+      /* Greeting on top line */
+      ctx.fillStyle='#1f1a17';ctx.font=`500 46px ${FONT}`;ctx.fillText(greeting(),w/2,206);
+      /* Service name in the middle */
+      ctx.fillStyle='#9a8070';ctx.font=`700 34px ${FONT}`;ctx.fillText(serviceDisplayName(),w/2,264);
+      /* Smaller title at the bottom */
+      ctx.fillStyle='#1f1a17';ctx.font=`700 ${titleSize}px ${FONT}`;ctx.fillText(titleText,w/2,346);
       /* Status pill */
       drawPill(ctx,pillText,w/2,416,pillBg,pillTextColor);
     }
@@ -991,10 +992,10 @@
       updatePrice();
       const ctx=invoiceCanvas.getContext('2d');const w=invoiceCanvas.width,h=invoiceCanvas.height;
       ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'warm');drawShell(ctx,w,h);
-      baseCardHeader(ctx,'Subscription Invoice','Payment QR Ready','rgba(114,78,52,0.16)','#6B462F');
-      drawTile(ctx,{x:170,y:470,w:540,h:180,label:'Date of Invoice',value:longDate(invDate)});
+      baseCardHeader(ctx,'Subscription Invoice','Payment QR Ready','rgba(114,78,52,0.12)','#6B462F',{titleSize:72});
+      drawTile(ctx,{x:170,y:470,w:540,h:180,label:'Date of Invoice',value:longDate(invDate),align:'center'});
       drawTile(ctx,{x:890,y:470,w:540,h:180,label:'Price',value:formatRupiah(calculatePrice()),subValue:parseMoney(manualPrice.value)>0?'Manual price':(rateMode==='discount'?'Discount rate':'Normal rate'),align:'center'});
-      drawTile(ctx,{x:170,y:680,w:540,h:160,label:'Service',value:serviceDisplayName()});
+      drawTile(ctx,{x:170,y:680,w:540,h:160,label:'Service',value:serviceDisplayName(),align:'center'});
       drawTile(ctx,{x:890,y:680,w:540,h:160,label:isICloudService()?'Storage':'Access Period',value:isICloudService()?slot.value:accessLabel(),subValue:isICloudService()?accessLabel():'',align:'center'});
       drawQrBlock(ctx);
       ctx.fillStyle='#1f1a17';ctx.font=`700 36px ${FONT}`;ctx.textAlign='center';
@@ -1011,11 +1012,11 @@
     function drawPaidCard(){
       const data=buildPaidData();if(!data)return false;
       const ctx=invoiceCanvas.getContext('2d');const w=invoiceCanvas.width,h=invoiceCanvas.height;
-      ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'green');drawShell(ctx,w,h);
-      baseCardHeader(ctx,'Subscription Confirmed','Payment Received','rgba(28,124,74,0.10)','#1c7c4a');
-      drawTile(ctx,{x:170,y:470,w:540,h:170,label:'Date of Payment',value:data.paymentDateLabel});
+      ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'warm');drawShell(ctx,w,h);
+      baseCardHeader(ctx,'Subscription Confirmed','Payment Received','rgba(114,78,52,0.10)','#7A5A46',{titleSize:68});
+      drawTile(ctx,{x:170,y:470,w:540,h:170,label:'Date of Payment',value:data.paymentDateLabel,align:'center'});
       drawTile(ctx,{x:890,y:470,w:540,h:170,label:'Time of Payment',value:data.paymentTimeLabel,align:'center'});
-      drawTile(ctx,{x:170,y:670,w:540,h:170,label:'Service',value:data.serviceLabel});
+      drawTile(ctx,{x:170,y:670,w:540,h:170,label:'Service',value:data.serviceLabel,align:'center'});
       drawTile(ctx,{x:890,y:670,w:540,h:170,label:isICloudService()?'Storage':'Access Period',value:isICloudService()?data.slotLabel:data.accessPeriodLabel,subValue:isICloudService()?data.accessPeriodLabel:'',align:'center'});
       drawDetailCard(ctx,{x:170,y:900,w:590,h:500,label:'Start Access',dateValue:data.startDateLabel,timeValue:data.startTimeLabel});
       drawDetailCard(ctx,{x:840,y:900,w:590,h:500,label:'Expiry',dateValue:data.endDateLabel,timeValue:data.endTimeLabel});
