@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="en" class="ss-force-motion">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+	  <title>StarShots DB</title>
+	  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+    :root{
+      color-scheme:light;
+      --bg:#F6F6F3;--bg2:#F6F6F3;--card:#FFFFFF;--solid:#ffffff;--field:#f8f8f6;
+      --ink:#1f1a17;--soft:#69645f;--muted:#98928b;--line:#e4e2dc;--line2:#d6d3cc;
+      --accent:#b88468;--accent2:#9a6f50;--accentSoft:rgba(184,132,104,.09);--disabled:#e5ded3;
+      --green:#357f58;--danger:#bc3b42;--shadow:0 30px 90px rgba(30,30,28,.10);--shadow2:0 12px 34px rgba(30,30,28,.07);
+      --glow1:rgba(255,255,255,.66);--glow2:rgba(212,205,188,.08);--grain:rgba(80,64,44,.028);
+    }
+    @media(prefers-color-scheme:dark){
+      :root{
+        color-scheme:dark;--bg:#11110F;--bg2:#11110F;--card:#171613;--solid:#1c1b17;--field:#141310;
+        --ink:#f4eee5;--soft:#b8aea2;--muted:#8f8579;--line:#2b2823;--line2:#3a352e;
+        --accent:#ca9876;--accent2:#ad7f5d;--accentSoft:rgba(202,152,118,.14);--disabled:#2f2b26;
+        --green:#77d5a4;--danger:#ff737a;--shadow:0 30px 90px rgba(0,0,0,.36);--shadow2:0 14px 40px rgba(0,0,0,.24);
+        --glow1:rgba(255,239,216,.045);--glow2:rgba(202,152,118,.06);--grain:rgba(255,245,230,.026);
+      }
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;min-height:100%}
+    body{
+      min-height:100dvh;font-family:"Cormorant Garamond","Times New Roman",Georgia,serif;font-weight:500;color:var(--ink);
+      background:var(--bg);
+      padding:18px;overflow-x:hidden;
+    }
+    body:before{display:none}
+    a{color:inherit}
+    .wrap{position:relative;z-index:1;max-width:1160px;margin:0 auto}
+    .center{display:grid;place-items:center;min-height:calc(100dvh - 36px)}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+    .logo-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none;transition:transform .15s ease,opacity .15s ease}
+    .logo-link:hover{transform:translateY(-1px);opacity:.9}
+    .logo{display:block;width:min(240px,66vw);height:auto;object-fit:contain}
+    .logo.hero{width:min(480px,84vw)}
+    .logo.compact{width:min(190px,48vw)}
+    .top .logo{width:min(190px,48vw)}
+    @media(prefers-color-scheme:dark){.logo,.home-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
+    .pill{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:10px 14px;color:var(--soft);font-size:13px;font-weight:750}
+    .panel,.card{background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:36px;padding:26px;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);-webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-transform:translateZ(0);transform:translateZ(0)}
+    .card{width:min(100%,560px);margin-inline:auto}
+    .lift{transform:translateY(-18px)}
+    h1,h2,h3{margin:0;letter-spacing:-.04em}
+    h1{font-size:clamp(30px,5vw,48px);line-height:1.02;margin-bottom:10px}
+    h2{font-size:25px}
+    h3{font-size:16px}
+    p{margin:0;color:var(--soft);line-height:1.55}
+    .sub{margin-bottom:20px}
+    .tiny{font-size:12px;color:var(--muted);margin-top:20px;text-align:center}
+    .hero-card{text-align:center;width:min(100%,820px);padding:40px 34px}
+    .hero-copy{font-size:17px;max-width:580px;margin:0 auto;color:var(--soft)}
+    .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+    .micro{font-size:12px;color:var(--muted);margin-top:20px}
+    .field{margin-top:18px}
+    label{display:block;font-size:13px;font-weight:760;margin:0 0 8px;color:var(--ink)}
+    input,textarea{width:100%;border:1px solid var(--line);background:var(--field);color:var(--ink);border-radius:20px;padding:15px 16px;font-size:16px;outline:none}
+    input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 5px var(--accentSoft)}
+    .password-wrap{position:relative}
+    .password-wrap input{padding-right:56px}
+    .eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;min-height:24px;padding:0;border:0;border-radius:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--soft);box-shadow:none;-webkit-appearance:none;appearance:none}
+    .eye-btn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+    .eye-btn:hover{color:var(--ink);background:transparent}
+    button:not(.eye-btn),.btn{border:0;border-radius:999px;min-height:54px;padding:15px 20px;font:800 16px/1 inherit;cursor:pointer;text-decoration:none;display:flex;align-items:center;justify-content:center;text-align:center;gap:8px;transition:transform .15s ease,opacity .15s ease,background .15s ease,box-shadow .15s ease}
+    .primary{color:#fff;background:var(--accent);box-shadow:0 14px 28px rgba(30,30,28,.12)}
+    .ghost{background:var(--solid);color:var(--ink);border:1px solid var(--line)}
+    .danger{background:#a93f40;color:#fff;box-shadow:0 14px 28px rgba(169,63,64,.16)}
+    button:not(.eye-btn):hover,.btn:hover{transform:translateY(-1px)}
+    button:not(.eye-btn):active,.btn:active{transform:translateY(0) scale(.99)}
+    .links{display:none;margin-top:18px;gap:12px;flex-direction:column}
+    .links.ready{display:flex}
+    .service{border:1px solid var(--line);background:var(--solid);color:var(--ink);justify-content:center;text-align:center;width:100%}
+    .service.active{background:var(--accent);color:#fff}
+    .service.disabled{cursor:not-allowed;background:var(--disabled);color:var(--muted);opacity:.78}
+    .status{min-height:20px;margin-top:14px;font-size:13px;font-weight:750;color:var(--soft)}
+    .status.ok{color:var(--green)}
+    .status.err{color:var(--danger)}
+    .hidden{display:none!important}
+    .grid{display:grid;grid-template-columns:340px 1fr;gap:14px}
+    .search{width:100%;margin-bottom:12px}
+    .list{display:flex;flex-direction:column;gap:10px;max-height:calc(100dvh - 168px);overflow:auto;scrollbar-width:none}
+    .list::-webkit-scrollbar{display:none}
+    .item-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:stretch}
+    .item{border:1px solid var(--line);background:var(--solid);border-radius:20px;padding:14px;text-align:left;cursor:pointer;color:var(--ink);width:100%;min-height:auto;display:block}
+    .item.active{border-color:var(--accent);box-shadow:0 0 0 4px rgba(184,132,104,.09)}
+    .item b{display:block;font-size:15px}
+    .item span{font-size:12px;color:var(--soft)}
+    .more{border:1px solid var(--line)!important;background:var(--solid)!important;color:var(--soft)!important;border-radius:18px!important;min-height:auto!important;padding:0!important;font-size:22px!important;line-height:1!important;box-shadow:none!important}
+    .more:hover{color:var(--danger)!important;background:rgba(188,59,66,.08)!important}
+    .copyable{cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+    .copyable:hover{border-color:var(--accent);box-shadow:0 0 0 4px var(--accentSoft);transform:translateY(-1px)}
+    .copy-note{font-size:11px;color:var(--muted);font-weight:750;margin-left:8px}
+    .detail{min-height:calc(100dvh - 126px)}
+    .chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+    .chip{border:1px solid var(--line);background:var(--solid);border-radius:999px;padding:8px 11px;font-size:12px;color:var(--soft)}
+    .chip.ok{color:var(--green)}
+    .box{border:1px solid var(--line);background:var(--solid);border-radius:22px;padding:14px;margin-top:12px}
+    .row{display:flex;gap:10px;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line)}
+    .row:last-child{border-bottom:0}
+    .row small{color:var(--soft)}
+    pre{white-space:pre-wrap;word-break:break-word;margin:0;color:var(--soft);font-family:"Cormorant Garamond","Times New Roman",Georgia,serif;font-weight:500;font-size:13px;line-height:1.45}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    @media(max-width:800px){.grid{grid-template-columns:1fr}.detail{min-height:auto}.list{max-height:40dvh}.top{align-items:flex-start}.top .logo,.logo.compact{width:min(180px,54vw)}}
+    @media(max-width:480px){body{padding:14px}.card,.panel{border-radius:30px;padding:22px}.hero-card{padding:30px 22px}.logo.hero{width:min(430px,88vw)}.cta-row .btn{width:100%}.lift{transform:translateY(-10px)}}
+  
+    body{
+      --ease-out:cubic-bezier(.22,1,.36,1);
+      --ease-spring:cubic-bezier(.16,1.1,.3,1);
+      --dur-card:1100ms;
+      --dur-item:760ms;
+      --dur-switch:500ms;
+      --gold:#d0bb99;
+      --gold-2:#a79074;
+      background:
+        radial-gradient(1100px 620px at 18% 8%, var(--glow2), transparent 60%),
+        radial-gradient(900px 560px at 82% 92%, rgba(212,205,188,.06), transparent 55%),
+        var(--bg);
+      background-attachment:fixed;
+      padding:max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+      overflow-x:hidden;
+    }
+    @media(prefers-color-scheme:dark){
+      body{
+        background:
+          radial-gradient(1100px 620px at 18% 8%, rgba(202,152,118,.09), transparent 60%),
+          radial-gradient(900px 560px at 82% 92%, rgba(202,152,118,.05), transparent 55%),
+          var(--bg);
+      }
+    }
+    .aurora{
+      position:fixed;inset:-10vmax;z-index:0;pointer-events:none;opacity:.55;
+      background:
+        radial-gradient(38vmax 28vmax at 28% 38%, rgba(212,205,188,.20), transparent 60%),
+        radial-gradient(34vmax 26vmax at 72% 70%, rgba(200,192,175,.13), transparent 60%),
+        radial-gradient(28vmax 20vmax at 50% 18%, rgba(247,244,237,.22), transparent 55%);
+      filter:blur(60px) saturate(108%);
+      animation:drift 28s ease-in-out infinite alternate;
+      will-change:transform;
+    }
+    @media(prefers-color-scheme:dark){.aurora{opacity:.5;filter:blur(72px) saturate(115%)}}
+    @keyframes drift{
+      0%{transform:translate3d(-2%,-1%,0) scale(1)}
+      50%{transform:translate3d(2%,1.5%,0) scale(1.04)}
+      100%{transform:translate3d(-1%,2%,0) scale(1.02)}
+    }
+    .access-shell{position:relative;z-index:1;max-width:1160px;margin:0 auto;min-height:calc(100dvh - max(48px, calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))))}
+    .access-stage{position:relative;z-index:2;width:100%;display:grid;place-items:center;min-height:calc(100dvh - max(48px, calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))))}
+    .access-card{
+      position:relative;width:min(100%,480px);margin:0;
+      min-height:min(460px, calc(100dvh - 48px));
+      padding:clamp(28px,5vw,44px);border-radius:28px;
+      -webkit-backface-visibility:hidden;backface-visibility:hidden;
+      background:
+        linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
+        linear-gradient(180deg, var(--card), var(--card));
+      background:
+        linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
+        linear-gradient(180deg, color-mix(in srgb, var(--card) 96%, white 4%), var(--card));
+      border:1px solid var(--line);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.60) inset,
+        0 40px 90px -30px rgba(30,30,28,.22),
+        0 18px 40px -20px rgba(30,30,28,.11);
+      opacity:0;
+      -webkit-transform:translateY(14px) translateZ(0);transform:translateY(14px) translateZ(0);
+      display:flex;flex-direction:column;justify-content:flex-start;
+      will-change:opacity;
+      -webkit-transition:opacity var(--dur-card) var(--ease-out),-webkit-transform var(--dur-card) var(--ease-out);
+      transition:opacity var(--dur-card) var(--ease-out),transform var(--dur-card) var(--ease-out);
+    }
+    .access-card.is-mounted{opacity:1;-webkit-transform:translateY(0) translateZ(0);transform:translateY(0) translateZ(0)}
+    .access-card.is-leaving{opacity:0;-webkit-transform:translateY(-6px) translateZ(0);transform:translateY(-6px) translateZ(0);pointer-events:none;-webkit-transition-duration:var(--dur-switch);transition-duration:var(--dur-switch)}
+    @media(prefers-color-scheme:dark){
+      .access-card{
+        background:
+          linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
+          linear-gradient(180deg, var(--card), var(--card));
+        background:
+          linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
+          linear-gradient(180deg, color-mix(in srgb, var(--card) 94%, white 3%), var(--card));
+        box-shadow:
+          0 1px 0 rgba(255,239,216,.05) inset,
+          0 40px 100px -30px rgba(0,0,0,.55),
+          0 18px 48px -20px rgba(0,0,0,.36);
+      }
+    }
+    .brand{display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+    .brand .logo-link{display:inline-flex}
+    .brand .logo,.brand .ss-logo-hero{width:min(200px,52vw);height:auto;margin:0 auto 0;display:block}
+    .eyebrow{
+      display:flex;align-items:center;gap:10px;justify-content:center;
+      font-size:11px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;
+      color:var(--soft);margin:0 0 11px;
+    }
+    .eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(212,205,188,.14)}
+    .eyebrow .rule{flex:0 0 22px;height:1px;background:linear-gradient(90deg,transparent,var(--line2),transparent)}
+    .mask-reveal{display:block;overflow:hidden}
+    .mask-reveal > span{display:block;transform:translateY(110%);transition:transform var(--dur-item) var(--ease-spring)}
+    .mask-reveal.is-visible > span{transform:translateY(0)}
+    .reveal,[data-reveal]{
+      opacity:0;
+      -webkit-transform:translate3d(0,18px,0);transform:translate3d(0,18px,0);
+      -webkit-transition:opacity 700ms cubic-bezier(.22,1,.36,1),-webkit-transform 700ms cubic-bezier(.22,1,.36,1);
+      transition:opacity 700ms cubic-bezier(.22,1,.36,1),transform 700ms cubic-bezier(.22,1,.36,1);
+      will-change:opacity;
+    }
+    .reveal.is-visible,[data-reveal].is-visible{opacity:1;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
+    .stagger-1{-webkit-transition-delay:90ms;transition-delay:90ms}.stagger-2{-webkit-transition-delay:180ms;transition-delay:180ms}.stagger-3{-webkit-transition-delay:270ms;transition-delay:270ms}.stagger-4{-webkit-transition-delay:360ms;transition-delay:360ms}.stagger-5{-webkit-transition-delay:450ms;transition-delay:450ms}.stagger-6{-webkit-transition-delay:540ms;transition-delay:540ms}
+    .access-card h1{
+      font-size:clamp(26px,4.6vw,36px);
+      font-weight:900;line-height:1.04;letter-spacing:-.035em;
+      text-align:center;margin:0 0 clamp(16px,3vw,20px);color:var(--ink);
+    }
+    .access-card .sub{max-width:340px;margin:0 auto 22px;text-align:center;font-size:14.5px;line-height:1.55;color:var(--soft)}
+    .access-card .field{margin-top:0}
+    .access-card label{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;text-align:left}
+    .access-card input{
+      height:54px;border-radius:16px;padding:15px 56px 15px 18px;
+      font-size:16px;font-weight:400;font-style:normal;text-decoration:none;text-transform:none;letter-spacing:0;
+      background:var(--field);border:1px solid var(--line);
+      transition:border-color .2s var(--ease-out),box-shadow .25s var(--ease-out),background .2s var(--ease-out);
+    }
+    .access-card input::placeholder{color:var(--muted);font-weight:400;font-style:normal;text-decoration:none;text-transform:none;letter-spacing:0}
+    .access-card input:focus{
+      border-color:var(--gold);
+      box-shadow:0 0 0 4px rgba(212,205,188,.14),0 12px 30px -18px rgba(212,205,188,.24);
+      background:var(--field);
+      background:color-mix(in srgb, var(--field) 96%, var(--gold) 4%);
+    }
+    .access-card .eye-btn{right:18px;color:var(--muted);transition:color .2s var(--ease-out),transform .15s var(--ease-out)}
+    .access-card .eye-btn:hover{color:var(--ink)}
+    .access-card .eye-btn svg{width:20px;height:20px;stroke-width:2}
+    .access-card .primary{
+      position:relative;overflow:hidden;isolation:isolate;contain:paint;
+      width:100%;margin-top:18px;min-height:56px;border-radius:16px;
+      background:var(--ink);
+      background:linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 92%, black 8%));
+      color:var(--card);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.12) inset,
+        0 14px 30px -12px rgba(26,26,26,.45),
+        0 4px 10px -4px rgba(26,26,26,.28);
+      font-weight:800;letter-spacing:.01em;font-size:15.5px;gap:10px;
+      transition:transform .25s var(--ease-out),box-shadow .25s var(--ease-out),opacity .25s var(--ease-out);
+    }
+    @media(prefers-color-scheme:dark){
+      .access-card .primary{
+        background:var(--ink);
+        background:linear-gradient(180deg, var(--ink), color-mix(in srgb, var(--ink) 88%, black 12%));
+        color:#171511;
+        box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 14px 36px -12px rgba(0,0,0,.7);
+      }
+    }
+    .access-card .primary:before{
+      content:"";position:absolute;top:0;bottom:0;left:-58%;z-index:0;width:58%;pointer-events:none;
+      background:linear-gradient(115deg,transparent 18%,rgba(255,255,255,.34) 50%,transparent 82%);
+      -webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0);
+    }
+    @-webkit-keyframes gateButtonSheen{
+      from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
+      to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
+    }
+    @keyframes gateButtonSheen{
+      from{-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)}
+      to{-webkit-transform:translate3d(274%,0,0);transform:translate3d(274%,0,0)}
+    }
+    .access-card .primary.is-sheen:before{-webkit-animation:gateButtonSheen 4.2s var(--ease-out) both;animation:gateButtonSheen 4.2s var(--ease-out) both}
+    .access-card .primary > *{position:relative;z-index:1}
+    @media(hover:hover) and (pointer:fine){
+      .access-card .primary:hover{transform:translateY(-2px);box-shadow:0 1px 0 rgba(255,255,255,.16) inset,0 22px 40px -14px rgba(26,26,26,.48),0 6px 14px -6px rgba(26,26,26,.32)}
+    }
+    .access-card .primary:active{transform:translateY(0) scale(.992)}
+    .access-card .primary:disabled{opacity:.75;cursor:progress;transform:none}
+    .access-card .primary .spin{width:18px;height:18px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;display:none;animation:spin .8s linear infinite}
+    .access-card .primary.is-loading .spin{display:inline-block}
+    .access-card .primary.is-loading .label{opacity:.75}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .access-card .status{margin-top:14px;min-height:18px;text-align:center;font-size:12.5px;font-weight:700;letter-spacing:.02em;color:var(--muted)}
+    .access-card .status.ok{color:var(--green)}
+    .access-card .status.err{color:var(--danger)}
+    .compact-pill{
+      display:inline-flex;align-items:center;gap:8px;
+      padding:6px 12px;border-radius:999px;border:1px solid var(--line);
+      background:var(--card);
+      background:color-mix(in srgb, var(--card) 82%, transparent);
+      color:var(--soft);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;
+    }
+    .compact-pill:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(212,205,188,.12)}
+    @media(max-width:560px){
+      .access-card{border-radius:26px}
+      .brand .logo,.brand .ss-logo-hero{width:min(180px,56vw)}
+      .access-card h1{font-size:clamp(25px,7.2vw,32px)}
+      .access-card .sub{font-size:14px;max-width:300px}
+      .access-card input{height:52px;border-radius:14px}
+      .access-card .primary{min-height:54px;border-radius:14px;font-size:15px}
+      .aurora{opacity:.35;filter:blur(80px)}
+    }
+    @media(max-width:560px),(pointer:coarse){
+      body{--dur-card:720ms;--dur-item:460ms;--dur-switch:360ms}
+      .access-card{-webkit-transition-duration:var(--dur-card);transition-duration:var(--dur-card)}
+      .reveal,[data-reveal],.mask-reveal > span{-webkit-transition-duration:var(--dur-item);transition-duration:var(--dur-item)}
+    }
+    @media(max-width:380px){
+      .access-card{padding:26px 22px}
+      .brand .logo,.brand .ss-logo-hero{width:min(170px,58vw)}
+    }
+    @media(prefers-reduced-motion:reduce){
+      html:not(.ss-force-motion) *{-webkit-animation:none!important;animation:none!important;-webkit-transition:none!important;transition:none!important;scroll-behavior:auto!important}
+      .aurora{display:none}
+      html:not(.ss-force-motion) .access-card{opacity:1!important;-webkit-filter:none!important;filter:none!important;-webkit-transform:none!important;transform:none!important}
+      html:not(.ss-force-motion) .mask-reveal > span{-webkit-transform:none!important;transform:none!important}
+      html:not(.ss-force-motion) .reveal,html:not(.ss-force-motion) [data-reveal]{opacity:1!important;-webkit-transform:none!important;transform:none!important;-webkit-transition:opacity 200ms ease!important;transition:opacity 200ms ease!important;will-change:auto!important}
+    }
+  
+	    .db-shell{display:flex;flex-direction:column;gap:18px}
+	    .db-top{margin-bottom:0}
+	    .db-top .logo{width:min(168px,44vw)}
+	    .top-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;position:relative;min-width:40px}
+	    .db-password-top{position:relative}
+	    .db-password-top summary{cursor:pointer;list-style:none;color:var(--soft);width:34px;height:34px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;text-align:center;background:var(--card);background:color-mix(in srgb, var(--card) 82%, transparent);transition:color .2s var(--ease-out),border-color .2s var(--ease-out),background .2s var(--ease-out)}
+	    .db-password-top summary::-webkit-details-marker{display:none}
+	    .db-password-top summary:hover{color:var(--ink);border-color:color-mix(in srgb, var(--gold) 55%, var(--line));background:color-mix(in srgb, var(--solid) 94%, var(--gold) 6%)}
+	    .db-password-top svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+	    .db-password-pop{position:absolute;right:0;top:calc(100% + 12px);z-index:10;width:min(330px,82vw);padding:16px;border:1px solid var(--line);border-radius:22px;background:var(--card);box-shadow:var(--shadow2)}
+	    .db-password-fields input{height:48px;border-radius:16px;margin-bottom:10px;font-size:15px;font-weight:650}
+	    .db-password-fields button{width:100%;min-height:48px}
+	    .db-password-fields .status{margin-top:10px}
+	    .db-login{max-height:calc(100dvh - max(48px, calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))));overflow:auto}
+	    .db-app{align-items:start}
+	    .grid{grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:14px}
+	    .db-panel{
+	      border-radius:28px;padding:20px;
+	      -webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-transform:translateZ(0);transform:translateZ(0);
+	      background:
+	        linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
+	        linear-gradient(180deg, var(--card), var(--card));
+	      background:
+	        linear-gradient(90deg, transparent 12%, color-mix(in srgb, var(--gold) 72%, transparent) 50%, transparent 88%) top/100% 1px no-repeat,
+	        linear-gradient(180deg, color-mix(in srgb, var(--card) 96%, white 4%), var(--card));
+	      box-shadow:0 34px 80px -44px rgba(30,30,28,.20),0 1px 0 rgba(255,255,255,.48) inset;
+	    }
+	    .db-shell .primary{background:var(--ink);color:var(--card);border-radius:16px;box-shadow:0 12px 24px rgba(26,26,26,.12);font-size:15px;font-weight:800}
+	    .db-shell .primary:hover{background:var(--ink);opacity:.92}
+	    .db-shell .ghost{border-radius:16px}
+	    .db-tabs{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:12px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--solid)}
+	    .db-tabs button{min-height:38px!important;padding:8px 10px!important;border-radius:999px!important;background:transparent;color:var(--soft);box-shadow:none;font-size:11px!important;font-weight:800!important;letter-spacing:.14em;text-transform:uppercase}
+	    .db-tabs button.active{background:var(--ink);color:var(--card);box-shadow:0 10px 20px rgba(26,26,26,.12)}
+	    .search{height:44px;border-radius:15px;padding:0 16px;font-family:"Cormorant Garamond","Times New Roman",serif!important;font-size:18px;font-weight:500;letter-spacing:0}
+	    .search::placeholder{font-family:"Cormorant Garamond","Times New Roman",serif!important;font-weight:500;color:var(--muted);letter-spacing:0}
+	    .add-client-btn{width:100%;min-height:34px!important;margin:0 0 14px;padding:7px 12px!important;border:0!important;border-radius:999px!important;background:transparent!important;color:var(--soft)!important;box-shadow:none!important;font-size:10.5px!important;font-weight:800!important;letter-spacing:.13em;text-transform:uppercase}
+	    .add-client-btn:hover,.add-client-btn.active{background:rgba(31,26,23,.055)!important;color:var(--ink)!important;transform:none!important}
+	    .detail{min-height:calc(100dvh - 150px)}
+	    .detail h1{font-size:clamp(26px,4vw,36px);font-weight:900;line-height:1.04;letter-spacing:0;margin-bottom:10px}
+	    .detail .sub{font-size:14.5px;line-height:1.55}
+	    .list,.list-title,.list .item,.list .item-name,.list .item-sub,.list .item-status,.list .more{font-family:"Cormorant Garamond","Times New Roman",serif!important;font-weight:500!important;letter-spacing:0!important}
+	    .list-title{margin:4px 0 10px;font-size:17px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted)}
+	    .list{gap:4px}
+	    .list .item-row{grid-template-columns:minmax(0,1fr) 34px;gap:0;align-items:center;position:relative;border-radius:16px;transition:background .15s ease}
+	    .list .item-row.single{grid-template-columns:1fr}
+	    .list .item-row:hover,.list .item-row.menu-open,.list .item-row:has(.item.active){background:rgba(31,26,23,.055)}
+	    .item{min-height:48px;border:0!important;border-radius:16px;padding:10px 12px;background:transparent!important;box-shadow:none!important;display:flex;align-items:center;justify-content:flex-start;gap:10px;overflow:hidden;text-align:left!important}
+	    .item:hover,.item.active{background:transparent!important;box-shadow:none!important}
+	    .item-main{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:baseline;gap:16px;min-width:0;width:100%;overflow:hidden}
+	    .client-main{display:flex;grid-template-columns:none;align-items:baseline;justify-content:flex-start}
+	    .item-date{font-size:17px;font-weight:500;color:var(--soft);white-space:nowrap;line-height:1.15}
+	    .item-name{font-size:20px;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;max-width:100%;line-height:1.15}
+	    .item-sub{font-size:15px;font-weight:500;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;line-height:1.15}
+	    .item-status{font-size:15px;font-weight:500;color:var(--soft);white-space:nowrap;flex:0 0 auto}
+	    .item-status.ok{color:var(--green)}
+	    .item-status.warn{color:#9a642d}
+	    .item-status.danger{color:var(--danger)}
+	    .list .more{align-self:stretch;border:0!important;background:transparent!important;color:var(--soft)!important;border-radius:0 16px 16px 0!important;min-height:48px!important;padding:0!important;font-size:22px!important;line-height:1!important;box-shadow:none!important;display:grid!important;place-items:center!important}
+	    .list .more:hover{color:var(--ink)!important;background:transparent!important;transform:none!important}
+	    .row-menu{grid-column:1 / -1;display:none;flex-direction:column;gap:2px;margin:0 8px 8px 12px;padding:2px 0 4px}
+	    .item-row.menu-open .row-menu{display:flex}
+	    .row-menu a,.row-menu button{border:0!important;min-height:34px!important;padding:8px 10px!important;border-radius:12px!important;background:transparent!important;color:var(--soft)!important;box-shadow:none!important;justify-content:flex-start!important;text-align:left!important;font-size:14px!important;font-weight:500!important;text-decoration:none!important}
+	    .row-menu a:hover,.row-menu button:hover{background:rgba(31,26,23,.055)!important;color:var(--ink)!important;transform:none!important}
+	    .row-menu .menu-delete{color:var(--danger)!important}
+	    .records-panel{display:grid;gap:8px;margin-top:18px}
+	    .record-row{display:grid;grid-template-columns:82px minmax(0,1fr) auto auto auto 28px;gap:12px;align-items:center;padding:11px 12px;border-radius:16px;background:rgba(31,26,23,.035)}
+	    .record-date{font-family:"Cormorant Garamond","Times New Roman",serif;font-size:18px;font-weight:500;color:var(--soft);white-space:nowrap}
+	    .record-name{font-family:"Cormorant Garamond","Times New Roman",serif;font-size:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+	    .record-action{border:0!important;min-height:34px!important;padding:8px 12px!important;border-radius:12px!important;background:var(--solid)!important;color:var(--ink)!important;box-shadow:none!important;font-size:12px!important;font-weight:750!important;text-decoration:none!important;white-space:nowrap}
+	    .record-action:hover{transform:none!important;background:rgba(31,26,23,.06)!important}
+	    .record-action.missing{color:var(--soft)!important}
+	    .record-delete{width:28px;height:28px;min-height:28px!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:var(--muted)!important;box-shadow:none!important;font-size:18px!important;line-height:1!important;display:grid!important;place-items:center!important}
+	    .record-delete:hover{background:rgba(188,59,66,.08)!important;color:var(--danger)!important;transform:none!important}
+	    .record-action.disabled,.record-action:disabled{opacity:.38;cursor:not-allowed;color:var(--soft)!important}
+	    @media(prefers-color-scheme:dark){.list .item-row:hover,.list .item-row.menu-open,.list .item-row:has(.item.active),.row-menu a:hover,.row-menu button:hover{background:rgba(255,255,255,.075)!important}}
+	    .chip{padding:6px 12px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+	    .chip.warn{color:#9a642d;background:rgba(184,132,104,.08);border-color:rgba(184,132,104,.14)}
+	    .chip.danger{color:var(--danger);background:rgba(188,59,66,.08);border-color:rgba(188,59,66,.16)}
+	    .box{border-radius:18px;background:var(--solid)}
+	    .link-copy{cursor:pointer;transition:background .15s ease,border-radius .15s ease,padding-inline .15s ease}
+	    .link-copy:hover{background:rgba(31,26,23,.045);border-radius:14px;padding-inline:8px}
+	    .box-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+	    .quiet-action{border:0!important;background:transparent!important;box-shadow:none!important;color:var(--soft)!important;min-height:auto!important;padding:0!important;font-size:12px!important;font-weight:650!important}
+	    .quiet-action:hover{color:var(--danger)!important;transform:none!important;background:transparent!important}
+	    .log-group{border:1px solid var(--line);border-radius:15px;margin-top:8px;background:transparent;overflow:hidden}
+	    .log-group summary{cursor:pointer;list-style:none;padding:9px 11px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+	    .log-group summary::-webkit-details-marker{display:none}
+	    .log-title{font-size:12px;font-weight:550;color:var(--soft);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+	    .log-count{font-size:11px;font-weight:550;color:var(--muted);white-space:nowrap}
+	    .log-events{border-top:1px solid var(--line);padding:2px 11px 6px}
+	    .log-row{display:grid;grid-template-columns:112px 1fr;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);align-items:start}
+	    .log-row:last-child{border-bottom:0}
+	    .log-time{color:var(--muted);font-size:11px;line-height:1.35}
+	    .log-main{min-width:0;color:var(--soft);font-size:12px;line-height:1.35;word-break:break-word}
+	    .log-event{font-weight:550;color:var(--soft)}
+	    .log-event.important{font-weight:700;color:var(--ink)}
+	    .log-meta{font-size:11px;color:var(--muted);margin-top:2px}
+	    .client-form{display:grid;gap:12px}
+	    .client-form label{display:grid;gap:7px;color:var(--soft);font-size:12px;font-weight:750}
+	    .client-form input,.client-form select{height:48px;border:1px solid var(--line);border-radius:16px;background:var(--field);color:var(--ink);padding:0 14px;font:inherit;font-size:15px;font-weight:700;outline:none}
+	    .client-form input:focus,.client-form select:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accentSoft)}
+	    .client-grid{display:grid;grid-template-columns:120px 1fr;gap:10px}
+	    .new-client-form{max-width:560px;margin-top:18px}
+	    .new-client-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+	    .new-client-actions .btn{width:100%;justify-content:center;text-align:center}
+	    .client-save-status{min-height:20px;margin:0;color:var(--soft);font-size:13px;font-weight:750}
+	    .client-save-status.err{color:var(--danger)}
+	    .client-save-status.ok{color:var(--green)}
+	    .db-tabs{grid-template-columns:1fr 1fr}
+	    .status-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;border:1px solid transparent;line-height:1.2}
+	    .status-tag.paid{color:var(--green);background:rgba(53,127,88,.10);border-color:rgba(53,127,88,.18)}
+	    .status-tag.invoice{color:#9a642d;background:rgba(184,132,104,.12);border-color:rgba(184,132,104,.22)}
+	    .status-tag.expired{color:var(--danger);background:rgba(188,59,66,.10);border-color:rgba(188,59,66,.18)}
+	    .item-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+	    .item-meta .item-sub{flex:0 1 auto}
+	    .sub-item-main{grid-template-columns:82px minmax(0,1fr) auto}
+	    .record-row.subs{grid-template-columns:82px minmax(0,1fr) auto auto 28px}
+	    .db-login.is-settled .reveal,.db-app.is-settled .reveal,.db-top.is-settled{transition-delay:0ms!important}
+	    @media(max-width:800px){.grid{grid-template-columns:1fr}.detail{min-height:auto}.list{max-height:40dvh}}
+	    @media(max-width:640px){.client-grid,.new-client-actions{grid-template-columns:1fr}.top-actions{gap:10px}.log-group summary{grid-template-columns:1fr}.log-row{grid-template-columns:1fr;gap:3px}.db-panel{border-radius:26px;padding:18px}.db-tabs button{letter-spacing:.08em}.item-main,.record-row{grid-template-columns:72px minmax(0,1fr)}.record-row{gap:8px}.record-action{grid-column:span 1}.record-delete{grid-column:2;justify-self:end}}
+  </style>
+  <link rel="stylesheet" href="/animate.css">
+    <link rel="stylesheet" href="/gate.css">
+    <script src="/animate.js"></script>
+    <script src="/gate.js"></script>
+</head>
+<body>
+	  <div class="aurora" aria-hidden="true"></div>
+	  <div class="access-shell db-shell">
+	    <div id="dbTop" class="top db-top hidden reveal stagger-1" data-reveal>
+	      <a class="logo-link" href="/db" aria-label="StarShots database"><img class="logo compact ss-logo-top" src="/logo-hero.png" alt="StarShots logo"></a>
+	      <div class="top-actions">
+	        <div class="compact-pill">Database</div>
+	        <details id="dbPasswordTop" class="db-password-top hidden">
+	          <summary aria-label="Change Password" title="Change Password">
+	            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12 21 1"/><path d="M16 6l2 2"/><path d="M18 4l2 2"/></svg>
+	          </summary>
+	          <div class="db-password-pop db-password-fields">
+	            <input id="newDbPassword" type="password" placeholder="New password" autocomplete="new-password" autocapitalize="off" spellcheck="false">
+	            <input id="confirmDbPassword" type="password" placeholder="Confirm new password" autocomplete="new-password" autocapitalize="off" spellcheck="false">
+	            <button id="saveDbPasswordBtn" class="primary" type="button">Update Password</button>
+	            <p id="dbPasswordStatus" class="status"></p>
+	          </div>
+	        </details>
+	      </div>
+	    </div>
+	    <div id="dbStage" class="access-stage">
+      <section id="login" class="access-card db-login ss-gate-card" data-ss-gate-card aria-labelledby="db-gate-title">
+        <div class="brand ss-gate-brand reveal" data-reveal>
+          <a class="logo-link" href="/" aria-label="Back to StarShots homepage">
+            <img class="logo ss-gate-logo ss-logo-hero" src="/logo-hero.png" alt="StarShots">
+          </a>
+        </div>
+	        <p class="eyebrow ss-gate-eyebrow reveal" data-reveal><span class="rule"></span><span class="dot" aria-hidden="true"></span>Private Workspace<span class="rule"></span></p>
+	        <h1 id="db-gate-title" class="mask-reveal ss-gate-title reveal" data-reveal><span>Database</span></h1>
+	        <div class="field ss-gate-field reveal" data-reveal>
+	          <label class="ss-gate-label" for="pass">Access key</label>
+	          <div class="password-wrap">
+	            <input id="pass" type="password" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-ss-gate-input>
+            <button id="toggleDbPass" class="eye-btn" type="button" aria-label="Show access key">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>
+            </button>
+          </div>
+        </div>
+        <button id="loginBtn" class="primary ss-gate-button reveal" data-ss-gate-button data-reveal type="button">
+          <span class="spin" aria-hidden="true"></span>
+	          <span class="label">Sign In</span>
+        </button>
+        <p id="loginStatus" class="status ss-gate-status reveal" data-reveal role="status" aria-live="polite"></p>
+	      </section>
+	    </div>
+    <section id="app" class="grid db-app hidden">
+      <aside class="panel db-panel reveal stagger-2" data-reveal>
+	        <div id="dbTabs" class="db-tabs" role="tablist" aria-label="Database view">
+	          <button class="active" data-view="clients" type="button">Clients</button>
+	          <button data-view="subscriptions" type="button">Subscriptions</button>
+	        </div>
+	        <input id="q" class="search" placeholder="Search">
+	        <button id="addClientBtn" class="add-client-btn" type="button">Add New Client</button>
+	        <div id="list" class="list"></div>
+	      </aside>
+      <main id="detail" class="panel detail db-panel reveal stagger-3" data-reveal><h1>Choose A Record</h1><p class="sub">Saved deliveries will appear here.</p></main>
+    </section>
+  </div>
+  <script>
+    
+    (() => {
+      if (window.StarShotsReveal) return;
+      const scopeFor = (root) => (root && root.querySelectorAll ? root : document);
+      const collect = (root) => {
+        const scope = scopeFor(root);
+        const sel = '[data-reveal],.reveal';
+        const out = [];
+        if (scope.matches && scope.matches(sel)) out.push(scope);
+        scope.querySelectorAll(sel).forEach((el) => out.push(el));
+        return out;
+      };
+      const show = (el) => { if (el) el.classList.add('is-visible'); };
+      const start = (root) => collect(root).forEach(show);
+      const reset = (root) => collect(root).forEach((el) => el.classList.remove('is-visible'));
+      const mount = (card) => {
+        if (!card || card.classList.contains('is-mounted')) return;
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('is-mounted')));
+        } else {
+          card.classList.add('is-mounted');
+        }
+      };
+      const bounceLogos = (root) => {
+        scopeFor(root).querySelectorAll('.ss-logo-hero').forEach((logo) => {
+          logo.classList.remove('ss-bounce-in');
+          void logo.offsetWidth;
+          logo.classList.add('ss-bounce-in');
+        });
+      };
+      window.StarShotsReveal = { start, reset, show, mount, bounceLogos, intro: () => {} };
+
+      const boot = () => { bounceLogos(document); start(document); };
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot, { once: true });
+      } else {
+        boot();
+      }
+      window.addEventListener('pageshow', (e) => { if (e.persisted) bounceLogos(document); });
+    })();
+  
+    let password='', items=[], invoices=[], subscriptions=[], clients=[], selected=null, activeView='clients', openMenuKey='', detailRows=[];
+    const ADMIN_SESSION_KEY='starshots_admin_session_v1';
+    const ADMIN_SESSION_MS=15*60*1000;
+	    const login=document.getElementById('login'), dbStage=document.getElementById('dbStage'), app=document.getElementById('app'), dbTop=document.getElementById('dbTop'), pass=document.getElementById('pass'), q=document.getElementById('q'), addClientBtn=document.getElementById('addClientBtn'), list=document.getElementById('list'), detail=document.getElementById('detail'), loginStatus=document.getElementById('loginStatus'), dbTabs=document.getElementById('dbTabs'), dbPasswordTop=document.getElementById('dbPasswordTop'), newDbPassword=document.getElementById('newDbPassword'), confirmDbPassword=document.getElementById('confirmDbPassword'), saveDbPasswordBtn=document.getElementById('saveDbPasswordBtn'), dbPasswordStatus=document.getElementById('dbPasswordStatus');
+    const toggleDbPass = document.getElementById('toggleDbPass');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginLabel = loginBtn.querySelector('.label');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('ss-force-motion');
+    const idr = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
+    const eyeSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>';
+    const eyeOffSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 2.5 21.5 21.5"/><path d="M9.9 5.9A13.2 13.2 0 0 1 12 5.5c6.5 0 10.25 6.5 10.25 6.5a18 18 0 0 1-3.45 4.38"/><path d="M6.03 8.03C3.56 9.96 1.75 12 1.75 12S5.5 18.5 12 18.5c1.87 0 3.53-.38 4.98-1.04"/><path d="M10.59 10.59A3.25 3.25 0 0 0 15.18 15.18"/></svg>';
+    function isTouchViewport(){return window.matchMedia('(max-width: 640px), (pointer: coarse)').matches}
+    function focusSoon(el,options={}){if(!el)return;const{allowTouch=false,delay=60}=options;if(!allowTouch&&isTouchViewport())return;setTimeout(()=>el.focus({preventScroll:true}),delay)}
+    function revealIn(el,delay){if(!el)return;setTimeout(()=>el.classList.add('is-visible'),delay);}
+    function showReveals(root){requestAnimationFrame(()=>root.querySelectorAll('[data-reveal],.reveal').forEach(el=>el.classList.add('is-visible')))}
+    function stageAccessIntro(){
+      if(window.StarShotsGate&&window.StarShotsGate.intro){
+        const handled=window.StarShotsGate.intro(login,{root:login,button:loginBtn,input:pass});
+        if(handled||login.dataset.ssGateIntro==='running'||login.dataset.introState==='running'||login.classList.contains('is-mounted')||login.classList.contains('is-visible')) return;
+      }
+      if(login.classList.contains('is-mounted') || login.dataset.introState === 'running') return;
+      login.dataset.introState='running';
+      const isMobile=window.matchMedia('(max-width: 640px), (pointer: coarse)').matches;
+      const reveals=Array.from(login.querySelectorAll('.reveal'));
+      login.classList.remove('is-mounted','is-leaving');
+      reveals.forEach(el=>el.classList.remove('is-visible'));
+      if(reduceMotion){
+        login.classList.add('is-mounted');
+        reveals.forEach(el=>el.classList.add('is-visible'));
+        login.dataset.introState='done';
+        focusSoon(pass);
+        return;
+      }
+      requestAnimationFrame(()=>{
+        void login.offsetWidth;
+        requestAnimationFrame(()=>{
+          login.classList.add('is-mounted');
+          if(window.StarShotsReveal&&window.StarShotsReveal.bounceLogos) window.StarShotsReveal.bounceLogos(login);
+          const stagger=isMobile?75:90;
+          const startAt=isMobile?180:300;
+          reveals.forEach((el,i)=>revealIn(el,startAt+i*stagger));
+          const doneAt=startAt+reveals.length*stagger+260;
+          setTimeout(()=>{login.dataset.introState='done';loginBtn.classList.add('is-sheen');setTimeout(()=>loginBtn.classList.remove('is-sheen'),3600);},doneAt);
+          setTimeout(()=>focusSoon(pass),isMobile?900:720);
+          setTimeout(()=>login.classList.add('is-settled'),doneAt+520);
+        });
+      });
+    }
+    function rememberAdminPassword(){localStorage.removeItem(ADMIN_SESSION_KEY);sessionStorage.setItem(ADMIN_SESSION_KEY,JSON.stringify({expiresAt:Date.now()+ADMIN_SESSION_MS}));}
+    function clearAdminPassword(){sessionStorage.removeItem(ADMIN_SESSION_KEY);localStorage.removeItem(ADMIN_SESSION_KEY);sessionStorage.removeItem('starshots_admin_password');sessionStorage.removeItem('ss_admin_password');}
+    function rememberedAdminPassword(){localStorage.removeItem(ADMIN_SESSION_KEY);try{const raw=sessionStorage.getItem(ADMIN_SESSION_KEY);const saved=raw?JSON.parse(raw):null;if(saved&&Number(saved.expiresAt)>Date.now())return true;if(raw){clearAdminPassword();return false;}}catch{clearAdminPassword();return false;}return false;}
+	    function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+	    function fmt(v){return idr.format(Number(v)||0)}
+	    function num(v){return Number(v)||0}
+	    function invoiceData(inv){return inv && typeof inv.invoice_data === 'object' && inv.invoice_data ? inv.invoice_data : {}}
+	    function dateText(value){
+	      if(!value) return 'Not recorded';
+	      const raw=String(value);
+	      const iso=raw.length>=10 ? raw.slice(0,10) : raw;
+	      const date=new Date(iso.length===10 ? iso+'T00:00:00' : raw);
+	      if(Number.isNaN(date.getTime())) return raw;
+	      return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(date);
+	    }
+	    function firstName(value){
+	      const clean=String(value||'Client').trim();
+	      return clean.split(/s+/)[0]||'Client';
+	    }
+	    function normalizeNameKey(value){
+	      return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+	    }
+	    function localDate(raw){
+	      if(!raw) return null;
+	      const value=String(raw);
+	      const iso=value.length>=10?value.slice(0,10):value;
+	      const date=new Date(iso.length===10?iso+'T00:00:00':value);
+	      return Number.isNaN(date.getTime())?null:date;
+	    }
+	    function dateLabel(date){
+	      if(!date) return 'No date';
+	      return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short'}).format(date).replace(/^0/,'');
+	    }
+	    function dateKey(date){
+	      if(!date) return '';
+	      const y=date.getFullYear();
+	      const m=String(date.getMonth()+1).padStart(2,'0');
+	      const d=String(date.getDate()).padStart(2,'0');
+	      return y+'-'+m+'-'+d;
+	    }
+	    function createRecordUrl(path,fields={},extra={}){
+	      const params=new URLSearchParams();
+	      const title=String(fields.title||'').trim();
+	      const name=String(fields.name||'').trim();
+	      const eventDate=String(fields.eventDate||'').trim();
+	      if(title) params.set('title',title);
+	      if(name) params.set('name',name);
+	      if(eventDate) params.set('eventDate',eventDate);
+	      Object.entries(extra||{}).forEach(([key,value])=>{if(value)params.set(key,String(value));});
+	      const query=params.toString();
+	      return path+(query?'?'+query:'');
+	    }
+	    function recordActionFields(row={},client=null){
+	      const delivery=row.delivery||{};
+	      const invoice=row.invoice||{};
+	      return {
+	        title:invoice.client_title||delivery.title||client?.title||'Ms.',
+	        name:invoice.client_name||delivery.client_name||row.name||client?.name||q.value.trim(),
+	        eventDate:dateKey(row.date)
+	      };
+	    }
+	    function dateFromCode(value){
+	      const raw=String(value||'');
+	      const match=raw.match(/(?:^|[^0-9])(d{6}|d{8})(?:[^0-9]|$)/);
+	      if(!match) return null;
+	      const digits=match[1];
+	      const y=digits.length===8?Number(digits.slice(0,4)):2000+Number(digits.slice(0,2));
+	      const m=Number(digits.slice(digits.length===8?4:2,digits.length===8?6:4));
+	      const d=Number(digits.slice(digits.length===8?6:4));
+	      const date=new Date(y,m-1,d);
+	      return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d?date:null;
+	    }
+	    function deliveryDate(delivery){
+	      return dateFromCode(delivery.folder_name)||dateFromCode(delivery.base_slug)||localDate(delivery.event_date)||localDate(delivery.created_at)||(Number(delivery.delivery_year)&&Number(delivery.delivery_month)?new Date(Number(delivery.delivery_year),Number(delivery.delivery_month)-1,1):null);
+	    }
+	    function invoiceDate(inv){
+	      return localDate(inv.event_date)||localDate(inv.invoice_date)||localDate(inv.updated_at)||localDate(inv.created_at);
+	    }
+	    function deliveryDateLabel(delivery){return dateLabel(deliveryDate(delivery));}
+	    function invoiceDateLabel(inv){return dateLabel(invoiceDate(inv));}
+	    function monthYearFromParts(year,month){
+	      const y=Number(year);
+	      const m=Number(month);
+	      if(y&&m>=1&&m<=12) return new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric'}).format(new Date(y,m-1,1));
+	      return y?String(y):'No date';
+	    }
+	    function monthYearFromDate(value){
+	      if(!value) return 'No date';
+	      const raw=String(value);
+	      const iso=raw.length>=10 ? raw.slice(0,10) : raw;
+	      const date=new Date(iso.length===10 ? iso+'T00:00:00' : raw);
+	      if(Number.isNaN(date.getTime())) return raw;
+	      return new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric'}).format(date);
+	    }
+	    function statusLabel(s){return s==='paid'?'Paid in Full':s==='deposit'?'Deposit Received':'Invoice Sent'}
+	    function invoiceInfo(inv){
+	      const data=invoiceData(inv);
+	      const status=inv.status||data.mode||'invoice';
+	      const grand=num(inv.grand_total);
+	      const deposit=num(inv.deposit_amount);
+	      const requestDeposit=data.requestDeposit===false ? false : deposit>0;
+	      let paid=num(inv.paid_amount);
+	      if(status==='invoice') paid=0;
+	      if(status==='deposit'){
+	        const depositBase=requestDeposit?Math.min(deposit,grand):0;
+	        paid=(data.depositPaid||paid>0)?Math.min(paid>0?paid:depositBase,depositBase):0;
+	      }
+	      if(status==='paid') paid=grand;
+	      paid=Math.min(Math.max(paid,0),grand);
+	      const balance=status==='paid'?0:Math.max(grand-paid,0);
+	      let label=statusLabel(status), tone='', dueTone=balance>0?'warn':'ok', dueLabel=balance>0?'Due '+fmt(balance):'Balance cleared', summary='';
+	      if(status==='paid'){
+	        tone='ok';
+	        summary='Full payment received'+(data.paidDate?' on '+dateText(data.paidDate):'')+'. No balance due.';
+	      }else if(status==='deposit'){
+	        tone='warn';
+	        summary='Deposit received'+(data.depositPaidDate?' on '+dateText(data.depositPaidDate):'')+'. Balance due '+fmt(balance)+'.';
+	      }else if(requestDeposit){
+	        label='Deposit Requested';
+	        tone='danger';
+	        dueTone='danger';
+	        dueLabel='Deposit due '+fmt(deposit);
+	        summary='Deposit requested. Balance due '+fmt(balance)+'.';
+	      }else{
+	        summary='Invoice sent with no deposit requested. Balance due '+fmt(balance)+'.';
+	      }
+	      return {status,label,tone,dueTone,dueLabel,summary,grand,deposit,paid,balance,requestDeposit,data};
+	    }
+	    function togglePass(){ const show = pass.type === 'password'; pass.type = show ? 'text' : 'password'; toggleDbPass.innerHTML = show ? eyeOffSvg : eyeSvg; toggleDbPass.setAttribute('aria-label', show ? 'Hide access key' : 'Show access key'); focusSoon(pass,{allowTouch:true}); }
+    function activeType(){return activeView==='subscriptions' ? 'subscription' : 'client'}
+    function syncViewChrome(){
+      dbTabs.querySelectorAll('button').forEach(button=>button.classList.toggle('active', button.dataset.view===activeView));
+      q.placeholder = activeView==='subscriptions' ? 'Search subscriptions' : 'Search';
+      if(addClientBtn) addClientBtn.classList.toggle('hidden', activeView==='subscriptions');
+    }
+    function setPasswordStatus(message='', isError=false){dbPasswordStatus.textContent=message;dbPasswordStatus.className='status '+(message?(isError?'err':'ok'):'');}
+    function setView(view){
+      activeView = view==='subscriptions' ? 'subscriptions' : 'clients';
+      if(selected && selected.type !== activeType() && selected.type !== 'new-client') selected = null;
+      syncViewChrome();
+      renderList();
+      renderDetail();
+    }
+    async function saveDbPassword(){
+      const next = newDbPassword.value.trim();
+      const confirm = confirmDbPassword.value.trim();
+      if(next.length < 4){setPasswordStatus('Use at least 4 characters.', true);return;}
+      if(next !== confirm){setPasswordStatus('Passwords do not match.', true);return;}
+      setPasswordStatus('Saving...');
+      const original = saveDbPasswordBtn.textContent;
+      saveDbPasswordBtn.textContent = 'Saving...';
+      saveDbPasswordBtn.disabled = true;
+      try{
+        const res=await fetch('/api/db-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,newPassword:next})});
+        const data=await res.json();
+        if(!res.ok||!data.ok)throw new Error(data.error||'Password update failed.');
+        password=next;
+        pass.value=next;
+        rememberAdminPassword();
+	        newDbPassword.value='';
+	        confirmDbPassword.value='';
+	        setPasswordStatus('Password updated.');
+	        if(dbPasswordTop) dbPasswordTop.open=false;
+	        await load();
+      }catch(e){
+        setPasswordStatus(e.message||'Password update failed.', true);
+      }finally{
+        saveDbPasswordBtn.textContent = original;
+        saveDbPasswordBtn.disabled = false;
+      }
+    }
+    async function load(){
+      const res=await fetch('/api/db?q='+encodeURIComponent(q.value.trim()));
+      const data=await res.json();
+      if(!res.ok) throw new Error(data.error||'Failed.');
+      items=data.items||[];
+      invoices=data.invoices||[];
+      subscriptions=data.subscriptions||[];
+      clients=data.clients||[];
+      if(selected && selected.type==='delivery') selected = items.find(x=>x.id===selected.id) ? {type:'delivery', id:selected.id, data:items.find(x=>x.id===selected.id)} : null;
+      if(selected && selected.type==='invoice') selected = invoices.find(x=>x.id===selected.id) ? {type:'invoice', id:selected.id, data:invoices.find(x=>x.id===selected.id)} : null;
+      if(selected && selected.type==='subscription') selected = subscriptions.find(x=>x.id===selected.id) ? {type:'subscription', id:selected.id, data:subscriptions.find(x=>x.id===selected.id)} : null;
+      if(selected && selected.type==='client') selected = clients.find(x=>x.id===selected.id) ? {type:'client', id:selected.id, data:clients.find(x=>x.id===selected.id)} : null;
+      if(selected && selected.type !== activeType() && selected.type !== 'new-client') selected = null;
+      renderList();
+      renderDetail();
+    }
+	    async function checkAdmin(value){
+	      const body=value?{password:value}:{};
+	      const res=await fetch('/api/admin-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+	      const data=await res.json().catch(()=>({}));
+	      if(!res.ok||!data.ok)throw new Error(data.error||'Unauthorized.');
+	    }
+	    function showLoginAfterAuthLoss(){
+	      app.classList.add('hidden');
+	      if(dbTop)dbTop.classList.add('hidden');
+	      if(dbPasswordTop)dbPasswordTop.classList.add('hidden');
+	      dbStage.classList.remove('hidden');
+	      login.classList.remove('is-leaving');
+	      login.classList.add('is-mounted');
+	      login.querySelectorAll('.reveal').forEach(el=>el.classList.add('is-visible'));
+	      focusSoon(pass);
+	    }
+	    function revealDbApp(){
+	      dbStage.classList.add('hidden');
+	      app.classList.remove('hidden');
+	      if(dbTop)dbTop.classList.remove('hidden');
+	      if(dbPasswordTop)dbPasswordTop.classList.remove('hidden');
+	      app.classList.remove('is-settled');
+	      if(dbTop)dbTop.classList.remove('is-settled');
+	      if(window.StarShotsReveal){window.StarShotsReveal.reset(app);if(dbTop)window.StarShotsReveal.reset(dbTop);}
+	      requestAnimationFrame(()=>{
+	        if(dbTop)dbTop.classList.add('is-visible');
+	        if(window.StarShotsReveal){if(dbTop)window.StarShotsReveal.start(dbTop);window.StarShotsReveal.start(app);}
+	        showReveals(app);
+	      });
+	      loginStatus.textContent='';
+	      setTimeout(()=>{app.classList.add('is-settled');if(dbTop)dbTop.classList.add('is-settled');},reduceMotion?0:1200);
+	      focusSoon(q);
+	    }
+	    function showDbApp(){
+	      if(dbStage.classList.contains('hidden')){revealDbApp();return;}
+	      login.classList.add('is-leaving');
+	      setTimeout(()=>{
+	        login.classList.remove('is-mounted','is-leaving','is-settled');
+	        revealDbApp();
+	      },reduceMotion?0:500);
+	    }
+	    async function refreshDb(){
+	      const button=dbTabs.querySelector('button[data-view="'+activeView+'"]');
+	      const original=button?button.textContent:'';
+	      if(button){button.textContent='Refreshing...';button.disabled=true;}
+	      try{await load();}
+	      catch(e){
+	        if(String(e.message||'').toLowerCase().includes('unauthorized')){clearAdminPassword();showLoginAfterAuthLoss();}
+	        loginStatus.textContent=e.message||'Refresh failed.';
+	        loginStatus.className='status err';
+	      }finally{
+	        if(button){button.textContent=original;button.disabled=false;}
+	      }
+	    }
+	    function subscriptionDate(sub){
+	      return localDate(sub.payment_date)||localDate(sub.invoice_date)||localDate(sub.start_date)||localDate(sub.created_at);
+	    }
+	    function subscriptionStatusInfo(sub){
+	      const status=String(sub?.status||'invoice').toLowerCase();
+	      if(status==='paid'){
+	        const expiry=localDate(sub?.expiry_date);
+	        if(expiry && expiry.getTime() < Date.now()) return {key:'expired',label:'Expired',tone:'expired'};
+	        return {key:'paid',label:'Paid',tone:'paid'};
+	      }
+	      return {key:'invoice',label:'Invoice',tone:'invoice'};
+	    }
+	    function subscriptionLabel(sub){
+	      const service=String(sub?.service||'Service').trim()||'Service';
+	      const slot=String(sub?.storage_slot||'').trim();
+	      return slot ? service+' '+slot : service;
+	    }
+	    function renderList(){
+	      if(activeView==='subscriptions'){
+	        const subHtml = subscriptions.map((sub,i)=>{
+	          const info=subscriptionStatusInfo(sub);
+	          const date=dateLabel(subscriptionDate(sub));
+	          const name=sub.client_name||'Client';
+	          const meta=subscriptionLabel(sub);
+	          const isActive=selected&&selected.type==='subscription'&&selected.id===sub.id;
+	          return '<div class="item-row single"><button class="item '+(isActive?'active':'')+'" data-type="subscription" data-i="'+i+'" title="'+esc(name)+' — '+esc(meta)+'">'+
+	            '<span class="item-main sub-item-main">'+
+	              '<span class="item-date">'+esc(date)+'</span>'+
+	              '<span class="item-meta"><b class="item-name">'+esc(name)+'</b><span class="item-sub">'+esc(meta)+'</span></span>'+
+	              '<span class="status-tag '+esc(info.tone)+'">'+esc(info.label)+'</span>'+
+	            '</span>'+
+	          '</button></div>';
+	        }).join('') || '<p class="sub">No subscriptions yet.</p>';
+	        list.innerHTML = '<h3 class="list-title">Subscriptions</h3>'+subHtml;
+	        if(addClientBtn) addClientBtn.classList.add('hidden');
+	        list.querySelectorAll('button.item').forEach(b=>b.onclick=()=>{openMenuKey='';const index=Number(b.dataset.i); const data=subscriptions[index]; selected={type:'subscription',id:data.id,data}; renderList(); renderDetail();});
+	        return;
+	      }
+	      const clientHtml = clients.map((client,i)=>{
+	        const subCount=Number(client.subscription_count||0);
+	        const meta=subCount?'<span class="item-sub">'+esc(subCount+(subCount===1?' subscription':' subscriptions'))+'</span>':'';
+	        return '<div class="item-row single"><button class="item '+(selected&&selected.type==='client'&&selected.id===client.id?'active':'')+'" data-type="client" data-i="'+i+'" title="'+esc(client.name||'Client')+'">'+
+	          '<span class="item-main client-main"><b class="item-name">'+esc(client.name||'Client')+'</b>'+meta+'</span>'+
+	        '</button></div>';
+	      }).join('') || '<p class="sub">No clients.</p>';
+	      list.innerHTML = '<h3 class="list-title">Clients</h3>'+clientHtml;
+	      if(addClientBtn){ addClientBtn.classList.remove('hidden'); addClientBtn.classList.toggle('active', !!(selected&&selected.type==='new-client'));}
+      list.querySelectorAll('button.item').forEach(b=>b.onclick=()=>{openMenuKey='';const index=Number(b.dataset.i); const data=clients[index]; selected={type:'client',id:data.id,data}; renderList(); renderDetail();});
+      list.querySelectorAll('button.item').forEach(b=>b.oncontextmenu=(e)=>{e.preventDefault();b.click();});
+    }
+    function copyText(v){return navigator.clipboard.writeText(v).catch(()=>{});}
+	    async function postJson(url,payload){
+	      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})});
+	      const data=await res.json().catch(()=>({}));
+	      if(!res.ok||!data.ok)throw new Error(data.error||'Request failed.');
+	      return data;
+	    }
+	    async function openDeliveryRecord(deliveryId){
+	      const id=String(deliveryId||'');
+	      if(!id) return;
+	      const record=items.find((item)=>String(item.id)===id);
+	      if(!record) return;
+	      selected={type:'delivery',id:record.id,data:record};
+	      syncViewChrome();
+	      renderList();
+	      renderDetail();
+	    }
+	    async function openSubscriptionRecord(subscriptionId){
+	      const id=String(subscriptionId||'');
+	      if(!id) return;
+	      const record=subscriptions.find((sub)=>String(sub.id)===id);
+	      if(!record) return;
+	      selected={type:'subscription',id:record.id,data:record};
+	      syncViewChrome();
+	      renderList();
+	      renderDetail();
+	    }
+	    function renderClientDetail(client){
+	      const rows=buildRecordRows(client);
+	      detailRows=rows;
+	      const html=rows.map((row,i)=>{
+	        const fields=recordActionFields(row,client);
+	        const linkHref=createRecordUrl('/l',fields,{invoiceId:row.invoice?.id||''});
+	        const invoiceHref=createRecordUrl('/inv',fields);
+	        const subsHref='/subs';
+	        const linkButton=row.delivery
+	          ? '<button class="record-action" data-action="view-delivery" data-id="'+esc(row.delivery.id)+'" type="button">View Links</button>'
+	          : '<a class="record-action missing" href="'+esc(linkHref)+'" target="_blank" rel="noopener">Create Links</a>';
+	        const invoiceButton=row.invoice
+	          ? '<a class="record-action" href="/inv?id='+encodeURIComponent(row.invoice.id)+'" target="_blank" rel="noopener">View Invoice</a>'
+	          : '<a class="record-action missing" href="'+esc(invoiceHref)+'" target="_blank" rel="noopener">Create Invoice</a>';
+	        const subsButton=row.subscription
+	          ? '<button class="record-action" data-action="view-subscription" data-id="'+esc(row.subscription.id)+'" type="button">Open/Edit Subscription</button>'
+	          : '<a class="record-action missing" href="'+esc(subsHref)+'" target="_blank" rel="noopener">Create Subscription</a>';
+	        return '<div class="record-row" data-i="'+i+'"><span class="record-date">'+esc(dateLabel(row.date))+'</span><span class="record-name">'+esc(row.name||client.name||'Client')+'</span>'+linkButton+invoiceButton+subsButton+'<button class="record-delete" data-action="delete-record" data-i="'+i+'" type="button" aria-label="Delete record">&times;</button></div>';
+	      }).join('') || '<p class="sub">No records for this client yet.</p>';
+	      const subCount=Number(client.subscription_count||0);
+	      const subSummary=subCount?' · '+subCount+(subCount===1?' subscription':' subscriptions'):'';
+	      detail.innerHTML='<h1>'+esc(client.name||'Client')+'</h1><p class="sub">'+esc(client.delivery_count||0)+' links · '+esc(client.invoice_count||0)+' invoices'+esc(subSummary)+'</p><div class="records-panel">'+html+'</div>';
+	      detail.querySelectorAll('[data-action="view-delivery"]').forEach(button=>button.onclick=()=>openDeliveryRecord(button.dataset.id));
+	      detail.querySelectorAll('[data-action="view-subscription"]').forEach(button=>button.onclick=()=>openSubscriptionRecord(button.dataset.id));
+	      detail.querySelectorAll('[data-action="delete-record"]').forEach(button=>button.onclick=()=>deleteRecordRow(Number(button.dataset.i)));
+	    }
+	    function renderNewClient(){
+	      detailRows=[];
+	      const draft=selected?.data||{};
+	      const name=String(draft.name||q.value||'').trim();
+	      detail.innerHTML='<h1>Add New Client</h1><p class="sub">Fill the event once, then start with links or invoice.</p>'+
+	        '<div class="box client-form new-client-form">'+
+	          '<div class="client-grid"><label>Title<select id="newClientTitle"><option value="Ms.">Ms.</option><option value="Mr.">Mr.</option></select></label><label>Name<input id="newClientName" value="'+esc(name)+'" placeholder="Client name" autocomplete="off"></label></div>'+
+	          '<label>Event Date<input id="newClientEventDate" type="date" value="'+esc(draft.eventDate||'')+'"></label>'+
+	          '<div class="new-client-actions"><button id="startClientLinks" class="btn ghost" type="button">Create Links</button><button id="startClientInvoice" class="btn primary" type="button">Create Invoice</button></div>'+
+	          '<p id="newClientStatus" class="client-save-status"></p>'+
+	        '</div>';
+	      const titleInput=document.getElementById('newClientTitle');
+	      const nameInput=document.getElementById('newClientName');
+	      const dateInput=document.getElementById('newClientEventDate');
+	      const status=document.getElementById('newClientStatus');
+	      titleInput.value=draft.title||'Ms.';
+	      function draftFields(){
+	        return {title:titleInput.value||'Ms.',name:nameInput.value.trim(),eventDate:dateInput.value};
+	      }
+	      function rememberDraft(){
+	        if(selected&&selected.type==='new-client') selected.data=draftFields();
+	      }
+	      function start(kind){
+	        rememberDraft();
+	        const fields=draftFields();
+	        if(!fields.name){status.textContent='Name dulu ya.';status.className='client-save-status err';focusSoon(nameInput,{allowTouch:true});return;}
+	        if(!fields.eventDate){status.textContent='Event date wajib supaya links dan invoice jadi satu group.';status.className='client-save-status err';focusSoon(dateInput,{allowTouch:true});return;}
+	        status.textContent='';
+	        status.className='client-save-status';
+	        window.open(createRecordUrl(kind==='links'?'/l':'/inv',fields),'_blank','noopener,noreferrer');
+	      }
+	      [titleInput,nameInput,dateInput].forEach(input=>input.oninput=rememberDraft);
+	      document.getElementById('startClientLinks').onclick=()=>start('links');
+	      document.getElementById('startClientInvoice').onclick=()=>start('invoice');
+	      focusSoon(nameInput);
+	    }
+	    async function deleteRecordRow(index){
+	      const row=detailRows[index];
+	      if(!row) return;
+	      const parts=[row.delivery?'links':'',row.invoice?'invoice':'',row.subscription?'subscription':''].filter(Boolean).join(' + ');
+	      const ok=confirm('Delete this '+(parts||'record')+' row?');
+	      if(!ok) return;
+	      try{
+	        if(row.delivery?.id) await postJson('/api/db-delete',{password,id:row.delivery.id});
+	        if(row.invoice?.id) await postJson('/api/invoices-delete',{password,id:row.invoice.id});
+	        if(row.subscription?.id) await postJson('/api/subscriptions-delete',{password,id:row.subscription.id});
+	        await load();
+	      }catch(e){
+	        alert(e.message||'Delete failed.');
+	      }
+	    }
+	    async function saveClient(client){
+	      const saveBtn=document.getElementById('saveClientBtn');
+	      const status=document.getElementById('clientSaveStatus');
+	      const payload={
+	        password,
+	        id:client.client_id||client.id,
+	        title:document.getElementById('clientTitle').value,
+	        name:document.getElementById('clientNameEdit').value.trim(),
+	        contact:document.getElementById('clientContactEdit').value.trim(),
+	        invoiceIds:client.invoice_ids||[],
+	        deliveryIds:client.delivery_ids||[]
+	      };
+	      if(!payload.name){status.textContent='Client name is required.';status.className='client-save-status err';return;}
+	      const original=saveBtn.textContent;
+	      saveBtn.textContent='Saving...';
+	      saveBtn.disabled=true;
+	      status.textContent='Saving client and linked records...';
+	      status.className='client-save-status';
+	      try{
+	        const res=await fetch('/api/clients-save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+	        const data=await res.json();
+	        if(!res.ok||!data.ok)throw new Error(data.error||'Client save failed.');
+	        selected={type:'client',id:data.client.id,data:{...client,...data.client,client_id:data.client.id,invoice_count:data.updated?.invoices||client.invoice_count,delivery_count:data.updated?.deliveries||client.delivery_count}};
+	        status.textContent='Updated '+(data.updated?.invoices||0)+' invoices and '+(data.updated?.deliveries||0)+' delivery records.';
+	        status.className='client-save-status ok';
+	        await load();
+	      }catch(e){
+	        status.textContent=e.message||'Client save failed.';
+	        status.className='client-save-status err';
+	      }finally{
+	        saveBtn.textContent=original;
+	        saveBtn.disabled=false;
+	      }
+	    }
+	    async function deleteSelected(){
+	      if(!selected || selected.type!=='delivery') return;
+	      const ok = confirm('🗑 Delete this delivery record and all its links/logs?');
+	      if(!ok) return;
+	      try{const res=await fetch('/api/db-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selected.id})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'Delete failed.');selected=null;await load();}catch(e){alert(e.message||'Delete failed.');}
+	    }
+	    async function clearSelectedLogs(){
+	      if(!selected || selected.type!=='delivery') return;
+	      const ok = confirm('Clear logs for this delivery record?');
+	      if(!ok) return;
+	      try{const res=await fetch('/api/db-clear-logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selected.id})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'Clear logs failed.');await load();}catch(e){alert(e.message||'Clear logs failed.');}
+	    }
+    async function deleteInvoice(){
+      if(!selected || selected.type!=='invoice') return;
+      const ok = confirm('🗑 Delete this invoice record?');
+      if(!ok) return;
+      try{const res=await fetch('/api/invoices-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,id:selected.id})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'Delete failed.');selected=null;await load();}catch(e){alert(e.message||'Delete failed.');}
+    }
+	    function renderInvoiceDetail(inv){
+	      const info=invoiceInfo(inv);
+	      const data=info.data;
+	      const relatedDelivery=inv.related_delivery||null;
+	      const deliveryHref='/l?title='+encodeURIComponent(inv.client_title||'')+'&name='+encodeURIComponent(inv.client_name||'')+'&eventDate='+encodeURIComponent(inv.event_date||'')+'&invoiceId='+encodeURIComponent(inv.id||'');
+	      const deliveryAction=relatedDelivery&&relatedDelivery.id
+	        ? '<button id="viewDeliveryBtn" class="btn ghost" type="button">View Links</button>'
+	        : '<a class="btn ghost" href="'+esc(deliveryHref)+'" target="_blank" rel="noopener">Create Links</a>';
+	      const amountWithDate=(amount,value)=>fmt(amount)+(value?' on '+dateText(value):' (date not recorded)');
+	      const depositText=info.deposit>0?fmt(info.deposit):'No deposit requested';
+	      const depositPaidText=info.requestDeposit?(info.paid>0&&info.status!=='paid'?amountWithDate(info.paid,data.depositPaidDate):(info.status==='paid'&&info.deposit>0?amountWithDate(info.deposit,data.depositPaidDate):'Not received yet')):'Not applicable';
+	      const paidText=info.status==='paid'?amountWithDate(info.paid,data.paidDate):(info.paid>0?fmt(info.paid):'Not paid in full yet');
+	      const depositDateText=info.requestDeposit?(data.depositPaidDate?dateText(data.depositPaidDate):'Not received yet'):'No deposit requested';
+	      const fullDateText=info.status==='paid'?(data.paidDate?dateText(data.paidDate):'Date not recorded'):'Not paid in full yet';
+	      detail.innerHTML='<h1>'+esc(inv.client_name)+'</h1><p class="sub">Payment status: '+esc(info.summary)+'</p>'+ 
+	        '<div class="chips"><span class="chip '+esc(info.tone)+'">'+esc(info.label)+'</span><span class="chip">Invoice '+esc(dateText(inv.invoice_date))+'</span><span class="chip">Event '+esc(dateText(inv.event_date))+'</span><span class="chip '+esc(info.dueTone)+'">'+esc(info.dueLabel)+'</span></div>'+ 
+	        '<div class="box"><div class="row"><small>Grand Total</small><b>'+esc(fmt(info.grand))+'</b></div><div class="row"><small>Deposit Requested</small><b>'+esc(depositText)+'</b></div><div class="row"><small>Deposit Received</small><b>'+esc(depositPaidText)+'</b></div><div class="row"><small>Total Paid</small><b>'+esc(paidText)+'</b></div><div class="row"><small>Balance Due</small><b>'+esc(fmt(info.balance))+'</b></div></div>'+ 
+	        '<div class="box"><h3>Details</h3><div class="row"><small>Title</small><b>'+esc(inv.client_title||'')+'</b></div><div class="row"><small>Contact</small><b>'+esc(inv.client_contact||'—')+'</b></div><div class="row"><small>Venue</small><b>'+esc(inv.venue||'—')+'</b></div><div class="row"><small>Deposit Date</small><b>'+esc(depositDateText)+'</b></div><div class="row"><small>Full Payment Date</small><b>'+esc(fullDateText)+'</b></div><div class="row"><small>Updated</small><b>'+esc(inv.updated_at?new Date(inv.updated_at).toLocaleString():'—')+'</b></div></div>'+ 
+	        '<div class="toolbar"><a class="btn primary" href="/inv?id='+encodeURIComponent(inv.id)+'" target="_blank" rel="noopener">Open / Edit Invoice</a>'+deliveryAction+'<button id="deleteInvoiceBtn" class="btn danger" type="button">🗑 Delete</button></div>';
+	      document.getElementById('deleteInvoiceBtn').onclick = deleteInvoice;
+	      const viewDeliveryBtn=document.getElementById('viewDeliveryBtn');
+	      if(viewDeliveryBtn) viewDeliveryBtn.onclick=()=>openDeliveryRecord(relatedDelivery.id);
+	    }
+		    function sourceLabel(log){
+		      const ua=String(log.user_agent||'').toLowerCase();
+		      const isp=String(log.isp||'').toLowerCase();
+		      if(isp.includes('meta')||isp.includes('facebook')) return 'Meta preview';
+		      if(ua.includes('whatsapp')) return 'WhatsApp';
+		      if(ua.includes('instagram')) return 'Instagram';
+		      if(ua.includes('facebook')||ua.includes('facebot')||ua.includes('meta-externalagent')) return 'Meta preview';
+		      return 'Browser';
+		    }
+		    function ispLabel(log){
+		      const isp=String(log.isp||'').trim();
+		      if(isp) return isp;
+		      if(sourceLabel(log)==='Meta preview') return 'Meta';
+		      return 'ISP unknown';
+		    }
+	    function eventLabel(log){
+	      if(log.event_type==='password_success') return 'Login success';
+	      if(log.event_type==='password_failed') return 'Wrong password';
+	      if(log.event_type==='button_click') return (log.service?String(log.service).toUpperCase()+' link':'Link')+' clicked';
+	      if(log.event_type==='page_view') return 'Page opened';
+	      return String(log.event_type||'Activity').replace(/_/g,' ');
+	    }
+		    function logGroupKey(log){
+		      return [log.ip_address||'Unknown IP',log.city||'',log.country||'',sourceLabel(log),ispLabel(log)].join('|');
+		    }
+		    function renderLogRow(log){
+		      const important=log.event_type==='password_success'||log.event_type==='button_click';
+		      const place=[log.city,log.country].filter(Boolean).join(', ')||'Unknown location';
+		      return '<div class="log-row"><div class="log-time">'+esc(new Date(log.created_at).toLocaleString())+'</div><div class="log-main"><span class="log-event '+(important?'important':'')+'">'+esc(eventLabel(log))+'</span><div class="log-meta">'+esc(place)+' · '+esc(sourceLabel(log))+' · '+esc(log.ip_address||'Unknown IP')+' · '+esc(ispLabel(log))+'</div></div></div>';
+		    }
+	    function renderLogGroups(logs){
+	      const clean=(logs||[]).slice(0,50);
+	      if(!clean.length) return '<p class="sub">No logs yet.</p>';
+	      const groups=[];
+	      clean.forEach((log)=>{
+	        const key=logGroupKey(log);
+	        let group=groups.find((item)=>item.key===key);
+	        if(!group){
+	          const place=[log.city,log.country].filter(Boolean).join(', ')||'Unknown location';
+		          group={key,place,ip:log.ip_address||'Unknown IP',source:sourceLabel(log),isp:ispLabel(log),logs:[]};
+	          groups.push(group);
+	        }
+	        group.logs.push(log);
+	      });
+	      return groups.map((group,index)=>{
+	        const latest=group.logs[0]?.created_at?new Date(group.logs[0].created_at).toLocaleString():'';
+		        return '<details class="log-group" '+(index===0?'open':'')+'><summary><span class="log-title">'+esc(group.place)+' · '+esc(group.source)+' · '+esc(group.ip)+' · '+esc(group.isp)+'</span><span class="log-count">'+esc(group.logs.length)+' events · '+esc(latest)+'</span></summary><div class="log-events">'+group.logs.map(renderLogRow).join('')+'</div></details>';
+	      }).join('');
+	    }
+	    function renderDeliveryDetail(selectedDelivery){
+	      const selected=selectedDelivery;
+	      const linkMap=Object.fromEntries((selected.links||[]).map(l=>[l.service,l]));
+	      const services=['gd','db','wt','tn'];
+	      const linkRows=services.map(s=>{const l=linkMap[s]; return l?'<div class="row link-copy" data-url="'+esc(l.original_url)+'" title="Click to copy"><small>'+s.toUpperCase()+' <span class="copy-note">Click to copy</span></small><b style="max-width:70%;word-break:break-word">'+esc(l.original_url)+'</b></div>':'<div class="row"><small>'+s.toUpperCase()+'</small><b>—</b></div>';}).join('');
+	      const shortLink='https://starshots.pages.dev'+(selected.short_url||selected.delivery_url);
+	      const directLink='https://starshots.pages.dev'+selected.delivery_url;
+	      const relatedInvoice=selected.related_invoice||null;
+	      const deliveryEventDate=dateKey(deliveryDate(selected));
+	      const invoiceHref=relatedInvoice&&relatedInvoice.id
+	        ? '/inv?id='+encodeURIComponent(relatedInvoice.id)
+	        : createRecordUrl('/inv',{title:selected.title||'',name:selected.client_name||'',eventDate:deliveryEventDate});
+	      const invoiceLabel=relatedInvoice&&relatedInvoice.id?'View Invoice':'Create Invoice';
+	      detail.innerHTML = '<h1>'+esc(selected.client_name)+'</h1>'+ '<p class="sub">'+esc(selected.folder_name)+'</p>'+ '<div class="chips"><span class="chip">'+esc(selected.delivery_year)+'</span><span class="chip">Month '+esc(selected.delivery_month)+'</span><span class="chip ok">Opens '+esc(selected.stats?.opens||0)+'</span><span class="chip ok">Clicks '+esc(selected.stats?.clicks||0)+'</span></div>'+ '<div class="box"><div class="row link-copy" data-url="'+esc(shortLink)+'" title="Click to copy"><small>Short Link <span class="copy-note">Click to copy</span></small><b>'+esc(shortLink)+'</b></div><div class="row link-copy" data-url="'+esc(selected.password||'')+'" title="Click to copy"><small>Password <span class="copy-note">Click to copy</span></small><b>'+esc(selected.password||'')+'</b></div><div class="row link-copy" data-url="'+esc(directLink)+'" title="Click to copy"><small>Direct Link <span class="copy-note">Click to copy</span></small><b>'+esc(directLink)+'</b></div></div>'+ '<div class="box"><h3>Links</h3>' + linkRows + '</div>'+ '<div id="messageBox" class="box copyable" title="Click to copy message"><h3>Message <span class="copy-note">Click to copy</span></h3><pre>'+esc(selected.generated_text_whatsapp||'')+'</pre></div>'+ '<div class="box"><div class="box-head"><h3>Recent Logs</h3><button id="clearLogsBtn" class="quiet-action" type="button">Clear Logs</button></div>' + renderLogGroups(selected.stats?.logs||[]) + '</div>'+ '<div class="toolbar"><a class="btn primary" href="'+esc(invoiceHref)+'" target="_blank" rel="noopener">'+invoiceLabel+'</a><button id="copyLinkBtn" class="btn ghost" type="button">Copy Link</button><button id="deleteBtn" class="btn danger" type="button">🗑 Delete</button></div>';
+	      document.getElementById('copyLinkBtn').onclick = ()=>copyText('https://starshots.pages.dev' + (selected.short_url || selected.delivery_url));
+	      document.getElementById('messageBox').onclick = ()=>copyText(selected.generated_text_whatsapp||'');
+	      detail.querySelectorAll('.link-copy').forEach(row=>row.onclick=()=>copyText(row.dataset.url||''));
+	      document.getElementById('clearLogsBtn').onclick = clearSelectedLogs;
+	      document.getElementById('deleteBtn').onclick = deleteSelected;
+	    }
+	    async function deleteSubscription(id){
+	      const subscriptionId=String(id||'').trim();
+	      if(!subscriptionId) return;
+	      const ok=confirm('🗑 Delete this subscription record?');
+	      if(!ok) return;
+	      try{
+	        await postJson('/api/subscriptions-delete',{password,id:subscriptionId});
+	        if(selected&&selected.type==='subscription'&&selected.id===subscriptionId) selected=null;
+	        await load();
+	      }catch(e){
+	        alert(e.message||'Delete failed.');
+	      }
+	    }
+	    function renderSubscriptionDetail(sub){
+	      const info=subscriptionStatusInfo(sub);
+	      const service=String(sub.service||'Service');
+	      const slot=String(sub.storage_slot||'').trim();
+	      const accessPeriod=Number(sub.access_period||0);
+	      const accessLabel=accessPeriod?accessPeriod+' Days':'';
+	      const rate=String(sub.rate_mode||'normal').toLowerCase();
+	      const rateLabel=sub.manual_override?'Manual override':(rate==='discount'?'Discount rate':'Normal rate');
+	      const price=Number(sub.price||0);
+	      const subsHref='/subs?id='+encodeURIComponent(sub.id);
+	      const dateRows=[
+	        ['Invoice Date',dateText(sub.invoice_date)],
+	        ['Payment Date',sub.payment_date?dateText(sub.payment_date)+(sub.payment_time?' · '+sub.payment_time:''):'—'],
+	        ['Start',sub.start_date?dateText(sub.start_date)+(sub.start_time?' · '+sub.start_time:''):'—'],
+	        ['Expiry',sub.expiry_date?dateText(sub.expiry_date)+(sub.expiry_time?' · '+sub.expiry_time:''):'—']
+	      ].map(([label,value])=>'<div class="row"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>').join('');
+	      detail.innerHTML='<h1>'+esc(sub.client_name||'Client')+'</h1>'+
+	        '<p class="sub">'+esc(service)+(slot?' · '+esc(slot):'')+(accessLabel?' · '+esc(accessLabel):'')+'</p>'+
+	        '<div class="chips"><span class="chip">'+esc(service)+'</span>'+(slot?'<span class="chip">'+esc(slot)+'</span>':'')+(accessLabel?'<span class="chip">'+esc(accessLabel)+'</span>':'')+'<span class="chip status-tag '+esc(info.tone)+'">'+esc(info.label)+'</span></div>'+
+	        '<div class="box"><h3>Service</h3><div class="row"><small>Service</small><b>'+esc(service)+'</b></div><div class="row"><small>Slot</small><b>'+esc(slot||'—')+'</b></div><div class="row"><small>Access Period</small><b>'+esc(accessLabel||'—')+'</b></div><div class="row"><small>Billing Mode</small><b>'+esc(rateLabel)+'</b></div><div class="row"><small>Price</small><b>'+esc(fmt(price))+'</b></div></div>'+
+	        '<div class="box"><h3>Timing</h3>'+dateRows+'</div>'+
+	        '<div class="box"><h3>Client</h3><div class="row"><small>Title</small><b>'+esc(sub.client_title||'')+'</b></div><div class="row"><small>Name</small><b>'+esc(sub.client_name||'')+'</b></div><div class="row"><small>Contact</small><b>'+esc(sub.client_contact||'—')+'</b></div><div class="row"><small>Updated</small><b>'+esc(sub.updated_at?new Date(sub.updated_at).toLocaleString():'—')+'</b></div></div>'+
+	        '<div class="toolbar"><a class="btn primary" href="'+esc(subsHref)+'" target="_blank" rel="noopener">Open / Edit Subscription</a><button id="deleteSubscriptionBtn" class="btn danger" type="button">🗑 Delete</button></div>';
+	      document.getElementById('deleteSubscriptionBtn').onclick = ()=>deleteSubscription(sub.id);
+	    }
+	    function recordMatchesClient(record,client){
+	      if(!record||!client) return true;
+	      const recordClientId=String(record.client_id||'').trim();
+	      const clientId=String(client.client_id||client.id||'').trim();
+	      if(recordClientId&&clientId&&recordClientId===clientId) return true;
+	      const recordName=normalizeNameKey(record.client_name||record.name);
+	      const clientName=normalizeNameKey(client.name||client.client_name);
+	      return !!recordName&&!!clientName&&recordName===clientName;
+	    }
+	    function buildRecordRows(client=null){
+	      const byKey=new Map();
+	      const ensure=(key,seed={})=>{
+	        if(!byKey.has(key)) byKey.set(key,{key,name:seed.name||'Client',date:seed.date||null,delivery:null,invoice:null,subscription:null});
+	        const row=byKey.get(key);
+	        if(seed.name&&!row.name) row.name=seed.name;
+	        if(seed.date&&!row.date) row.date=seed.date;
+	        return row;
+	      };
+	      items.forEach((delivery)=>{
+	        if(client&&!recordMatchesClient(delivery,client)) return;
+	        const date=deliveryDate(delivery);
+	        const name=delivery.client_name||'Client';
+	        const key=(normalizeNameKey(name)||String(delivery.id))+'|'+(dateKey(date)||'delivery:'+delivery.id);
+	        const row=ensure(key,{name,date});
+	        row.delivery=delivery;
+	      });
+	      invoices.forEach((invoice)=>{
+	        if(client&&!recordMatchesClient(invoice,client)) return;
+	        const date=invoiceDate(invoice);
+	        const name=invoice.client_name||'Client';
+	        const key=(normalizeNameKey(name)||String(invoice.id))+'|'+(dateKey(date)||'invoice:'+invoice.id);
+	        const row=ensure(key,{name,date});
+	        row.invoice=invoice;
+	      });
+	      // Subscriptions live on their own row per record so the timeline
+	      // shows the rental cadence without piling each one onto the
+	      // first delivery/invoice row that happens to share a date.
+	      subscriptions.forEach((subscription)=>{
+	        if(client&&!recordMatchesClient(subscription,client)) return;
+	        const date=subscriptionDate(subscription);
+	        const name=subscription.client_name||'Client';
+	        const key=(normalizeNameKey(name)||String(subscription.id))+'|sub:'+subscription.id;
+	        const row=ensure(key,{name,date});
+	        row.subscription=subscription;
+	      });
+	      return [...byKey.values()].sort((a,b)=>(b.date?b.date.getTime():0)-(a.date?a.date.getTime():0)).slice(0,80);
+	    }
+    function renderDetail(){
+      if(!selected){
+        detailRows=[];
+        if(activeView==='subscriptions'){
+          detail.innerHTML = '<h1>Choose A Subscription</h1><p class="sub">Subscriptions you save through /subs will appear here.</p>';
+        }else{
+          detail.innerHTML = '<h1>Choose A Client</h1><p class="sub">Client records will appear here.</p>';
+        }
+        return;
+      }
+      if(selected.type==='new-client') return renderNewClient();
+      if(selected.type==='client') return renderClientDetail(selected.data);
+      if(selected.type==='invoice') return renderInvoiceDetail(selected.data);
+      if(selected.type==='subscription') return renderSubscriptionDetail(selected.data);
+      return renderDeliveryDetail(selected.data);
+    }
+	    async function openDb(fromSession=false){
+	      password=pass.value.trim();
+		      if(!password && !fromSession){loginStatus.textContent='Access key required.';loginStatus.className='status err';focusSoon(pass,{allowTouch:true});return;}
+	      loginStatus.textContent='Loading...'; loginStatus.className='status';
+	      loginBtn.disabled=true;
+	      loginBtn.classList.add('is-loading');
+	      const original=loginLabel.textContent;
+	      loginLabel.textContent='Opening...';
+	      try{ await checkAdmin(password); rememberAdminPassword(); await load(); fromSession ? revealDbApp() : showDbApp(); }
+		      catch(e){ clearAdminPassword(); if(dbTop)dbTop.classList.add('hidden'); if(dbPasswordTop)dbPasswordTop.classList.add('hidden'); loginStatus.textContent=e.message||'Wrong access key.'; loginStatus.className='status err'; focusSoon(pass,{allowTouch:true}); }
+	      finally{loginBtn.disabled=false;loginBtn.classList.remove('is-loading');loginLabel.textContent=original;}
+	    }
+	    loginBtn.onclick = () => openDb(false);
+	    toggleDbPass.onclick = togglePass;
+	    pass.onkeydown = e=>{ if(e.key==='Enter') openDb(false); };
+	    dbTabs.querySelectorAll('button').forEach(button=>button.onclick=()=>{ if(button.dataset.view===activeView) refreshDb(); else setView(button.dataset.view); });
+	    addClientBtn.onclick=()=>{selected={type:'new-client',id:'new-client',data:{title:'Ms.',name:q.value.trim(),eventDate:''}};renderList();renderDetail();};
+	    saveDbPasswordBtn.onclick = saveDbPassword;
+	    [newDbPassword, confirmDbPassword].forEach(input=>input.onkeydown=e=>{ if(e.key==='Enter') saveDbPassword(); });
+	    q.oninput = ()=>{ clearTimeout(window.t); window.t = setTimeout(()=>load().catch(e=>{if(String(e.message||'').toLowerCase().includes('unauthorized')){clearAdminPassword();showLoginAfterAuthLoss();}loginStatus.textContent=e.message||'Failed.';loginStatus.className='status err';}), 220); };
+    const remembered=rememberedAdminPassword();
+    if(remembered){openDb(true);}else stageAccessIntro();
+  </script>
+</body>
+</html>

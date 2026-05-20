@@ -249,6 +249,10 @@
     .preview-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
     .preview-actions .btn.primary{flex:0 0 auto}
     .preview-actions .btn.ghost{height:auto;padding:0;border-radius:0}
+    .db-status{min-height:18px;margin:6px 4px 0;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.02em;text-align:right}
+    .db-status.ok{color:var(--green)}
+    .db-status.err{color:var(--danger)}
+    .db-status.saving{color:var(--accent)}
     .preview-box{
       min-height:860px;border:1px solid var(--line);border-radius:26px;
       background:var(--soft);display:grid;place-items:center;padding:18px;overflow:auto
@@ -693,6 +697,7 @@
           <button id="primaryBtn" class="btn primary" type="button">Generate JPG</button>
         </div>
       </div>
+      <div id="dbStatus" class="db-status" role="status" aria-live="polite"></div>
       <div class="preview-box">
         <div class="doc-wrap" id="canvasWrap">
           <div class="hint" id="livePreviewLabel">Waiting for client name</div>
@@ -742,6 +747,12 @@
     let mode='INVOICE';
     let rateMode='normal';
     let paidAutoRefresh={paymentDate:true,paymentTime:true,startDate:true,startTime:true};
+    // The current subscription's id once it has been saved or loaded
+    // from /api/subscriptions-get. Empty until the admin clicks
+    // Generate JPG (which calls /api/subscriptions-save) or reaches
+    // /subs?id=UUID. Used to PATCH (instead of insert) on subsequent
+    // saves and to keep the address bar URL in sync.
+    let currentSubscriptionId='';
     const DEFAULT_QR_DATA_URL=qrSource.src;
     let qrSourceMode='default';
 
@@ -1203,6 +1214,11 @@
       const valid=validateMemberName(true);
       if(!valid){clearCanvas();livePreviewLabel.textContent='Waiting for client name';memberName.focus();return}
       preview();downloadCurrentJpg();
+      // Best-effort: persist the same payload used to draw the card.
+      // Save errors are surfaced through the dbStatus pill but never
+      // block the JPG download — the admin still walks away with a
+      // local image even if Supabase happens to be unreachable.
+      saveSubscriptionRecord().catch(()=>{});
     }
     function setMode(next){mode=next;if(mode==='PAID')refreshPaidDateTime(false);syncModeUI();preview()}
     function fillNowDefaults(){
@@ -1219,8 +1235,134 @@
       memberNameShell.classList.remove('error-box');memberNameError.textContent='';
       jpgStatus.textContent='Upload a previously generated JPG to auto-fill fields';
       jpgStatus.style.color='';
+      currentSubscriptionId='';
+      setDbStatus('');
+      updateUrlForCurrentSubscription();
       updateServiceUI();updatePrice();updateRateUI();updateStepperStates();syncModeUI();clearCanvas();
       livePreviewLabel.textContent='Waiting for client name';
+    }
+
+    /* ── Database integration ────────────────────────────────────
+       The /subs page is the editor surface for rows in the
+       public.subscriptions table (db-migration-part-4.sql). Three
+       tiny endpoints back this up:
+         - GET  /api/subscriptions-get?id=UUID  → load
+         - POST /api/subscriptions-save         → insert/update
+         - POST /api/subscriptions-delete       → remove
+       They share the same admin gate as /db, /inv, /admin via the
+       ss_admin_session cookie set by /api/admin-check.            */
+
+    const dbStatusEl = el('dbStatus');
+    function setDbStatus(message='', tone=''){
+      if(!dbStatusEl) return;
+      dbStatusEl.textContent = message;
+      dbStatusEl.className = 'db-status' + (tone ? ' ' + tone : '');
+    }
+    function isInvoiceMode(){ return mode === 'INVOICE'; }
+    function buildSubscriptionPayload(){
+      const includeId = !!currentSubscriptionId;
+      const subscription = {
+        client_title: memberTitle.value || 'Ms.',
+        client_name: memberName.value.trim(),
+        service: serviceName.value || '',
+        storage_slot: isICloudService() ? (slot.value || '') : '',
+        access_period: Number(accessPeriod.value || 30) || 30,
+        rate_mode: rateMode,
+        price: calculatePrice(),
+        manual_override: parseMoney(manualPrice.value) > 0,
+        status: isInvoiceMode() ? 'invoice' : 'paid',
+        invoice_date: invoiceDate.value || ''
+      };
+      if(!isInvoiceMode()){
+        subscription.payment_date = paymentDate.value || '';
+        subscription.payment_time = paymentTime.value || '';
+        subscription.start_date = startDate.value || '';
+        subscription.start_time = startTime.value || '';
+      }
+      if(includeId) subscription.id = currentSubscriptionId;
+      return { subscription };
+    }
+    function applySubscriptionRecord(record){
+      // Map a row from /api/subscriptions-get back onto the form.
+      // Mirrors the inverse of buildSubscriptionPayload, but is
+      // tolerant of missing optional fields so partially-populated
+      // rows from older code paths still load cleanly.
+      if(!record || typeof record !== 'object') return false;
+      currentSubscriptionId = String(record.id || '');
+      if(record.service) serviceName.value = String(record.service);
+      if(record.client_title) memberTitle.value = String(record.client_title);
+      if(record.client_name) memberName.value = String(record.client_name);
+      if(record.storage_slot) slot.value = String(record.storage_slot);
+      if(record.access_period) accessPeriod.value = String(record.access_period);
+      if(record.rate_mode === 'discount' || record.rate_mode === 'normal') rateMode = record.rate_mode;
+      if(record.manual_override && record.price) manualPrice.value = String(record.price);
+      else manualPrice.value = '';
+      const status = String(record.status || 'invoice').toLowerCase();
+      mode = status === 'paid' ? 'PAID' : 'INVOICE';
+      if(record.invoice_date) invoiceDate.value = String(record.invoice_date).slice(0, 10);
+      // Mark every paid field as manually set so the auto-refresh
+      // loop doesn't overwrite the values we just loaded.
+      Object.keys(paidAutoRefresh).forEach(key => { paidAutoRefresh[key] = false; });
+      if(record.payment_date) paymentDate.value = String(record.payment_date).slice(0, 10);
+      if(record.payment_time) paymentTime.value = String(record.payment_time).slice(0, 5);
+      if(record.start_date) startDate.value = String(record.start_date).slice(0, 10);
+      if(record.start_time) startTime.value = String(record.start_time).slice(0, 5);
+      return true;
+    }
+    function updateUrlForCurrentSubscription(){
+      try {
+        const url = new URL(window.location.href);
+        if(currentSubscriptionId){ url.searchParams.set('id', currentSubscriptionId); }
+        else { url.searchParams.delete('id'); }
+        window.history.replaceState({}, '', url.toString());
+      } catch (_) { /* ignore — old browsers, opaque origins */ }
+    }
+    async function saveSubscriptionRecord(){
+      const name = memberName.value.trim();
+      if(!name){ setDbStatus('Add a client name to save', 'err'); return; }
+      const service = (serviceName.value || '').trim();
+      if(!service){ setDbStatus('Pick a service to save', 'err'); return; }
+      setDbStatus('Saving to database...', 'saving');
+      try {
+        const res = await fetch('/api/subscriptions-save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildSubscriptionPayload())
+        });
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok || !data.ok) throw new Error(data.error || 'Save failed.');
+        if(data.subscription && data.subscription.id){
+          currentSubscriptionId = String(data.subscription.id);
+          updateUrlForCurrentSubscription();
+        }
+        setDbStatus('Saved · ' + (mode === 'INVOICE' ? 'Invoice' : 'Paid'), 'ok');
+      } catch (error) {
+        setDbStatus(error.message || 'Save failed.', 'err');
+        throw error;
+      }
+    }
+    async function loadSubscriptionFromUrl(){
+      let id = '';
+      try { id = new URL(window.location.href).searchParams.get('id') || ''; } catch (_) { id = ''; }
+      id = id.trim();
+      if(!id) return false;
+      setDbStatus('Loading subscription...', 'saving');
+      try {
+        const res = await fetch('/api/subscriptions-get?id=' + encodeURIComponent(id));
+        const data = await res.json().catch(() => ({}));
+        if(!res.ok || !data.ok) throw new Error(data.error || 'Load failed.');
+        if(applySubscriptionRecord(data.subscription)){
+          updateServiceUI(); updateStepperStates(); updateRateUI(); updatePrice(); syncModeUI();
+          if(memberName.value.trim()) validateMemberName(false);
+          preview();
+          setDbStatus('Loaded subscription', 'ok');
+          return true;
+        }
+        setDbStatus('Subscription not found', 'err');
+      } catch (error) {
+        setDbStatus(error.message || 'Load failed.', 'err');
+      }
+      return false;
     }
 
     /* ── Event listeners ─────────────────────────────────────────────────── */
@@ -1327,6 +1469,7 @@
         // burning compositor cycles after the gate is gone.
         if(window.StarShotsGate?.stopIdle && gateCard) window.StarShotsGate.stopIdle(gateCard);
         if(window.StarShotsReveal) window.StarShotsReveal.start(appShell);
+        kickOffSubsAutoload();
       };
       if(!gateCard || adminGate?.classList.contains('hidden')){ finish(); return; }
       gateCard.classList.add('is-leaving');
@@ -1334,6 +1477,14 @@
         gateCard.classList.remove('is-mounted','is-visible','is-leaving');
         finish();
       }, reduceMotion ? 0 : 500);
+    }
+    let subsAutoloadStarted = false;
+    function kickOffSubsAutoload(){
+      if(subsAutoloadStarted) return;
+      subsAutoloadStarted = true;
+      // Auto-load whatever subscription id is sitting in the URL.
+      // Stays a no-op (and silent) for plain /subs visits.
+      loadSubscriptionFromUrl().catch(() => {});
     }
     async function openSubsGate(){
       const value = (adminPasswordInput?.value || '').trim();
@@ -1377,6 +1528,7 @@
         adminGate?.classList.add('hidden');
         appShell?.classList.remove('hidden');
         if(window.StarShotsReveal) window.StarShotsReveal.start(appShell);
+        kickOffSubsAutoload();
         return;
       }
       stageSubsGate();
