@@ -208,6 +208,7 @@
       display:flex;justify-content:space-between;align-items:flex-end;gap:12px;
       padding:12px 14px;background:linear-gradient(180deg,#faf8f5,#f5f0eb)
     }
+    .price-card{user-select:none;-webkit-user-select:none}
     .price-copy{display:flex;flex-direction:column;gap:4px}
     .price-label{font-size:12px;font-weight:700;color:var(--muted)}
     .price-value{font-size:18px;font-weight:900;line-height:1;color:var(--text)}
@@ -411,6 +412,12 @@
       color:var(--panel)!important;
       box-shadow:0 12px 24px rgba(26,26,26,.12)!important;
     }
+    .gate-card .btn.primary,.gate-card .ss-gate-button{
+      flex:0 0 auto!important;
+      min-height:54px!important;
+      height:auto!important;
+      width:100%!important;
+    }
     .btn.primary:hover{background:var(--accent-2)!important}
     .btn.secondary,.btn.soft{
       background:var(--panel)!important;
@@ -508,6 +515,7 @@
             <select id="serviceName">
               <option value="iCloud" selected>iCloud</option>
               <option value="ChatGPT">ChatGPT</option>
+              <option value="Copilot">Copilot</option>
             </select>
           </div>
         </div>
@@ -535,7 +543,7 @@
       <div class="section" id="icloudFields">
         <div class="section-label">Plan</div>
         <div class="grid">
-          <div class="field">
+          <div class="field" id="icloudStorageField">
             <label for="slot">Storage</label>
             <div class="stepper">
               <button id="slotDownBtn" type="button" aria-label="Decrease">−</button>
@@ -573,7 +581,7 @@
       </div>
 
       <div class="section" id="chatgptPriceFields">
-        <div class="section-label">ChatGPT Pricing</div>
+        <div class="section-label" id="servicePricingTitle">ChatGPT Pricing</div>
         <div class="grid">
           <div class="field">
             <label for="chatgptNormalPrice">Normal</label>
@@ -710,7 +718,9 @@
     const rateDiscountBtn=el('rateDiscountBtn'), priceValue=el('priceValue');
     const chatgptNormalPrice=el('chatgptNormalPrice'), chatgptDiscountPrice=el('chatgptDiscountPrice');
     const manualPrice=el('manualPrice');
-    const icloudFields=el('icloudFields'), rateBlock=el('rateBlock'), chatgptPriceFields=el('chatgptPriceFields');
+    const icloudFields=el('icloudFields'), icloudStorageField=el('icloudStorageField');
+    const rateBlock=el('rateBlock'), chatgptPriceFields=el('chatgptPriceFields');
+    const servicePricingTitle=el('servicePricingTitle');
     const invoiceFields=el('invoiceFields'), paidFields=el('paidFields');
     const invoiceToggle=el('invoiceToggle'), paidToggle=el('paidToggle'), modeSwitch=el('modeSwitch');
     const primaryBtn=el('primaryBtn'), resetBtn=el('resetBtn');
@@ -723,7 +733,8 @@
     const jpgUpload=el('jpgUpload'), jpgStatus=el('jpgStatus');
 
     const STORAGE_VALUES=['500GB','1TB','1.5TB','2TB'];
-    const ACCESS_VALUES=['7','30','60','90'];
+    const ICLOUD_ACCESS_VALUES=['7','30','60','90'];
+    const SERVICE_ACCESS_VALUES=['7','15','30'];
     const SLOT_UNITS={'500GB':1,'1TB':2,'1.5TB':3,'2TB':4};
     const PERIOD_MULTIPLIER={'7':1,'30':1,'60':2,'90':3};
     const FONT='"Cormorant Garamond","Times New Roman",Georgia,serif';
@@ -749,6 +760,7 @@
     const timeInputValue=d=>`${pad(d.getHours())}:${pad(d.getMinutes())}`;
     const accessLabel=()=>`${accessPeriod.value} Days`;
     const isICloudService=()=>serviceName.value==='iCloud';
+    const accessValues=()=>isICloudService()?ICLOUD_ACCESS_VALUES:SERVICE_ACCESS_VALUES;
     const serviceDisplayName=()=>serviceName.value;
     const greeting=()=>`Hello, ${memberTitle.value} ${memberName.value.trim()}!`;
 
@@ -787,9 +799,12 @@
     }
     function updateServiceUI(){
       const showICloud=isICloudService();
-      icloudFields.classList.toggle('hidden',!showICloud);
+      icloudFields.classList.remove('hidden');
+      icloudStorageField.classList.toggle('hidden',!showICloud);
       chatgptPriceFields.classList.toggle('hidden',showICloud);
+      if(servicePricingTitle)servicePricingTitle.textContent=`${serviceDisplayName()} Pricing`;
       rateBlock.classList.remove('hidden');
+      syncAccessOptions();
     }
     function syncModeUI(){
       const isInvoice=mode==='INVOICE';
@@ -803,8 +818,16 @@
     function updateStepperStates(){
       slotDownBtn.disabled=slot.value===STORAGE_VALUES[0];
       slotUpBtn.disabled=slot.value===STORAGE_VALUES[STORAGE_VALUES.length-1];
-      accessDownBtn.disabled=accessPeriod.value===ACCESS_VALUES[0];
-      accessUpBtn.disabled=accessPeriod.value===ACCESS_VALUES[ACCESS_VALUES.length-1];
+      const values=accessValues();
+      accessDownBtn.disabled=accessPeriod.value===values[0];
+      accessUpBtn.disabled=accessPeriod.value===values[values.length-1];
+    }
+    function syncAccessOptions(){
+      const values=accessValues();
+      const labels={'7':'7 Days','15':'15 Days','30':'30 Days','60':'60 Days','90':'90 Days'};
+      const current=accessPeriod.value;
+      accessPeriod.innerHTML=values.map(value=>`<option value="${value}">${labels[value]}</option>`).join('');
+      accessPeriod.value=values.includes(current)?current:'30';
     }
     function stepSelect(node,values,dir){
       const ci=Math.max(0,values.indexOf(node.value));
@@ -1196,7 +1219,7 @@
       memberNameShell.classList.remove('error-box');memberNameError.textContent='';
       jpgStatus.textContent='Upload a previously generated JPG to auto-fill fields';
       jpgStatus.style.color='';
-      updatePrice();updateRateUI();updateStepperStates();syncModeUI();clearCanvas();
+      updateServiceUI();updatePrice();updateRateUI();updateStepperStates();syncModeUI();clearCanvas();
       livePreviewLabel.textContent='Waiting for client name';
     }
 
@@ -1206,10 +1229,11 @@
     modeSwitch.addEventListener('click',event=>{const b=event.target.closest('button[data-mode]');if(b)setMode(b.dataset.mode.toUpperCase())});
     slotDownBtn.addEventListener('click',()=>stepSelect(slot,STORAGE_VALUES,-1));
     slotUpBtn.addEventListener('click',()=>stepSelect(slot,STORAGE_VALUES,1));
-    accessDownBtn.addEventListener('click',()=>stepSelect(accessPeriod,ACCESS_VALUES,-1));
-    accessUpBtn.addEventListener('click',()=>stepSelect(accessPeriod,ACCESS_VALUES,1));
+    accessDownBtn.addEventListener('click',()=>stepSelect(accessPeriod,accessValues(),-1));
+    accessUpBtn.addEventListener('click',()=>stepSelect(accessPeriod,accessValues(),1));
     rateToggle.addEventListener('click',event=>{const b=event.target.closest('button[data-rate]');if(!b)return;rateMode=b.dataset.rate;preview()});
-    [serviceName,memberTitle,memberName,slot,accessPeriod,invoiceDate,chatgptNormalPrice,chatgptDiscountPrice,manualPrice].forEach(node=>{
+    serviceName.addEventListener('change',()=>{accessPeriod.value='30';if(memberName.value.trim())validateMemberName(false);preview()});
+    [memberTitle,memberName,slot,accessPeriod,invoiceDate,chatgptNormalPrice,chatgptDiscountPrice,manualPrice].forEach(node=>{
       node.addEventListener('input',()=>{if(memberName.value.trim())validateMemberName(false);preview()});
       node.addEventListener('change',()=>{if([chatgptNormalPrice,chatgptDiscountPrice,manualPrice].includes(node))formatMoneyInput(node);preview()});
     });
