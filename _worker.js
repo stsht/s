@@ -730,7 +730,7 @@ async function getLinksByDeliveryId(env, deliveryId) {
   return Array.isArray(rows) ? rows : [];
 }
 
-function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], q = '') {
+function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], subscriptions = [], q = '') {
   const byId = new Map();
   const byNormalized = new Map();
   const legacy = new Map();
@@ -746,8 +746,10 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], q
     updated_at: seed.updated_at || seed.created_at || '',
     invoice_count: 0,
     delivery_count: 0,
+    subscription_count: 0,
     invoice_ids: [],
-    delivery_ids: []
+    delivery_ids: [],
+    subscription_ids: []
   });
 
   (Array.isArray(clientRows) ? clientRows : []).forEach((client) => {
@@ -787,6 +789,14 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], q
     summary.delivery_ids.push(String(delivery.id));
   });
 
+  (Array.isArray(subscriptions) ? subscriptions : []).forEach((sub) => {
+    const summary = bucketFor(sub, 'subscription');
+    if (!summary) return;
+    summary.subscription_count += 1;
+    summary.subscription_ids.push(String(sub.id));
+    if (!summary.contact && sub.client_contact) summary.contact = cleanText(sub.client_contact, 240);
+  });
+
   const query = String(q || '').toLowerCase();
   return [...byId.values(), ...legacy.values()]
     .filter((client) => !query || [
@@ -795,7 +805,8 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], q
       client.contact,
       client.normalized_name,
       client.invoice_count,
-      client.delivery_count
+      client.delivery_count,
+      client.subscription_count
     ].join(' ').toLowerCase().includes(query))
     .sort((a, b) => (Date.parse(b.updated_at || '') || 0) - (Date.parse(a.updated_at || '') || 0))
     .slice(0, 300);
@@ -2069,6 +2080,19 @@ async function handleDbSearch(request, env) {
     allInvoices = [];
   }
 
+  let subscriptionRows = [];
+  let allSubscriptions = [];
+  try {
+    const rawSubs = await supabaseFetch(env, '/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200');
+    allSubscriptions = Array.isArray(rawSubs) ? rawSubs : [];
+    subscriptionRows = q
+      ? allSubscriptions.filter((sub) => [sub.client_name, sub.service, sub.storage_slot, sub.status, sub.invoice_date, sub.created_at].join(' ').toLowerCase().includes(q))
+      : allSubscriptions;
+  } catch (error) {
+    subscriptionRows = [];
+    allSubscriptions = [];
+  }
+
   const latestInvoiceByClient = latestByClientKey(allInvoices);
   const latestDeliveryByClient = latestByClientKey(allDeliveries);
 
@@ -2110,9 +2134,9 @@ async function handleDbSearch(request, env) {
   }));
 
   const clientRows = await fetchClients(env);
-  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, q);
+  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
 
-  return json({ ok: true, items, invoices: invoiceRows, clients });
+  return json({ ok: true, items, invoices: invoiceRows, clients, subscriptions: subscriptionRows });
 }
 
 async function handleClientSave(request, env) {
@@ -2335,6 +2359,120 @@ async function handleInvoiceDelete(request, env) {
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing invoice id.' }, 400);
   await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' }
+  });
+  return json({ ok: true });
+}
+
+async function handleSubscriptionSave(request, env) {
+  const body = await request.json();
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  const sub = body.subscription || {};
+  const clientName = cleanText(sub.client_name || '', 160);
+  if (!clientName) return json({ error: 'Client name is required.' }, 400);
+  if (!sub.service) return json({ error: 'Service is required.' }, 400);
+
+  const id = String(sub.id || '').trim();
+  let existingSub = null;
+  if (id) {
+    existingSub = await supabaseFetch(env, `/rest/v1/subscriptions?select=*&id=eq.${encodeURIComponent(id)}&limit=1`)
+      .then((rows) => Array.isArray(rows) ? rows[0] : rows)
+      .catch(() => null);
+  }
+
+  const client = await findOrCreateClient(env, {
+    title: sub.client_title || 'Ms.',
+    name: clientName,
+    contact: sub.client_contact || ''
+  }, existingSub?.client_id || '');
+
+  const payload = {
+    client_name: clientName,
+    client_title: cleanClientTitle(sub.client_title || 'Ms.'),
+    client_contact: cleanText(sub.client_contact || '', 240),
+    service: cleanText(sub.service, 80),
+    storage_slot: sub.storage_slot ? cleanText(sub.storage_slot, 80) : null,
+    access_period: Number(sub.access_period) || 30,
+    rate_mode: sub.rate_mode || 'normal',
+    price: Number(sub.price) || 0,
+    manual_override: !!sub.manual_override,
+    status: sub.status || 'invoice',
+    invoice_date: sub.invoice_date || new Date().toISOString().slice(0, 10),
+    payment_date: sub.payment_date || null,
+    payment_time: sub.payment_time || null,
+    start_date: sub.start_date || null,
+    start_time: sub.start_time || null,
+    expiry_date: sub.expiry_date || null,
+    expiry_time: sub.expiry_time || null
+  };
+
+  const linked = client?.id ? { ...payload, client_id: String(client.id) } : payload;
+  const unlinked = { ...payload };
+
+  if (id) {
+    let rows;
+    try {
+      rows = await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(linked)
+      });
+    } catch (error) {
+      if (!linked.client_id || !isSchemaError(error)) throw error;
+      rows = await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(unlinked)
+      });
+    }
+    const saved = Array.isArray(rows) ? rows[0] : rows;
+    return json({ ok: true, subscription: saved });
+  }
+
+  let rows;
+  try {
+    rows = await supabaseFetch(env, '/rest/v1/subscriptions', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(linked)
+    });
+  } catch (error) {
+    if (!linked.client_id || !isSchemaError(error)) throw error;
+    rows = await supabaseFetch(env, '/rest/v1/subscriptions', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(unlinked)
+    });
+  }
+  const saved = Array.isArray(rows) ? rows[0] : rows;
+  return json({ ok: true, subscription: saved });
+}
+
+async function handleSubscriptionGet(request, env) {
+  const url = new URL(request.url);
+  const id = String(url.searchParams.get('id') || '').trim();
+  if (!id) return json({ error: 'Missing subscription id.' }, 400);
+  try {
+    const rows = await supabaseFetch(env, `/rest/v1/subscriptions?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
+    const subscription = Array.isArray(rows) ? rows[0] : rows;
+    if (!subscription) return json({ error: 'Subscription not found.' }, 404);
+    return json({ ok: true, subscription });
+  } catch (error) {
+    if (isSchemaError(error)) return json({ error: 'Subscription not found.' }, 404);
+    throw error;
+  }
+}
+
+async function handleSubscriptionDelete(request, env) {
+  const body = await request.json();
+  const password = String(body.password || '').trim();
+  const id = String(body.id || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!id) return json({ error: 'Missing subscription id.' }, 400);
+  await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { Prefer: 'return=minimal' }
   });
@@ -2758,784 +2896,8 @@ function adminPage() {
 </html>`;
 }
 
-function dbPage() {
-  return `<!DOCTYPE html>
-<html lang="en" class="ss-force-motion">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="robots" content="noindex,nofollow">
-	  <title>StarShots DB</title>
-	  <style>${shellStyles()}${privateAccessStyles()}
-	    .db-shell{display:flex;flex-direction:column;gap:18px}
-	    .db-top{margin-bottom:0}
-	    .db-top .logo{width:min(168px,44vw)}
-	    .top-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;position:relative;min-width:40px}
-	    .db-password-top{position:relative}
-	    .db-password-top summary{cursor:pointer;list-style:none;color:var(--soft);width:34px;height:34px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;text-align:center;background:var(--card);background:color-mix(in srgb, var(--card) 82%, transparent);transition:color .2s var(--ease-out),border-color .2s var(--ease-out),background .2s var(--ease-out)}
-	    .db-password-top summary::-webkit-details-marker{display:none}
-	    .db-password-top summary:hover{color:var(--ink);border-color:color-mix(in srgb, var(--gold) 55%, var(--line));background:color-mix(in srgb, var(--solid) 94%, var(--gold) 6%)}
-	    .db-password-top svg{width:18px;height:18px;display:block;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-	    .db-password-pop{position:absolute;right:0;top:calc(100% + 12px);z-index:10;width:min(330px,82vw);padding:16px;border:1px solid var(--line);border-radius:22px;background:var(--card);box-shadow:var(--shadow2)}
-	    .db-password-fields input{height:48px;border-radius:16px;margin-bottom:10px;font-size:15px;font-weight:650}
-	    .db-password-fields button{width:100%;min-height:48px}
-	    .db-password-fields .status{margin-top:10px}
-	    .db-login{max-height:calc(100dvh - max(48px, calc(env(safe-area-inset-top) + env(safe-area-inset-bottom))));overflow:auto}
-	    .db-app{align-items:start}
-	    .grid{grid-template-columns:minmax(300px,360px) minmax(0,1fr);gap:14px}
-	    .db-panel{
-	      border-radius:28px;padding:20px;
-	      -webkit-backface-visibility:hidden;backface-visibility:hidden;-webkit-transform:translateZ(0);transform:translateZ(0);
-	      background:
-	        linear-gradient(90deg, transparent 12%, var(--gold) 50%, transparent 88%) top/100% 1px no-repeat,
-	        linear-gradient(180deg, var(--card), var(--card));
-	      background:
-	        linear-gradient(90deg, transparent 12%, color-mix(in srgb, var(--gold) 72%, transparent) 50%, transparent 88%) top/100% 1px no-repeat,
-	        linear-gradient(180deg, color-mix(in srgb, var(--card) 96%, white 4%), var(--card));
-	      box-shadow:0 34px 80px -44px rgba(30,30,28,.20),0 1px 0 rgba(255,255,255,.48) inset;
-	    }
-	    .db-shell .primary{background:var(--ink);color:var(--card);border-radius:16px;box-shadow:0 12px 24px rgba(26,26,26,.12);font-size:15px;font-weight:800}
-	    .db-shell .primary:hover{background:var(--ink);opacity:.92}
-	    .db-shell .ghost{border-radius:16px}
-	    .db-tabs{display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:12px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--solid)}
-	    .db-tabs button{min-height:38px!important;padding:8px 10px!important;border-radius:999px!important;background:transparent;color:var(--soft);box-shadow:none;font-size:11px!important;font-weight:800!important;letter-spacing:.14em;text-transform:uppercase}
-	    .db-tabs button.active{background:var(--ink);color:var(--card);box-shadow:0 10px 20px rgba(26,26,26,.12)}
-	    .search{height:44px;border-radius:15px;padding:0 16px;font-family:"Cormorant Garamond","Times New Roman",serif!important;font-size:18px;font-weight:500;letter-spacing:0}
-	    .search::placeholder{font-family:"Cormorant Garamond","Times New Roman",serif!important;font-weight:500;color:var(--muted);letter-spacing:0}
-	    .add-client-btn{width:100%;min-height:34px!important;margin:0 0 14px;padding:7px 12px!important;border:0!important;border-radius:999px!important;background:transparent!important;color:var(--soft)!important;box-shadow:none!important;font-size:10.5px!important;font-weight:800!important;letter-spacing:.13em;text-transform:uppercase}
-	    .add-client-btn:hover,.add-client-btn.active{background:rgba(31,26,23,.055)!important;color:var(--ink)!important;transform:none!important}
-	    .detail{min-height:calc(100dvh - 150px)}
-	    .detail h1{font-size:clamp(26px,4vw,36px);font-weight:900;line-height:1.04;letter-spacing:0;margin-bottom:10px}
-	    .detail .sub{font-size:14.5px;line-height:1.55}
-	    .list,.list-title,.list .item,.list .item-name,.list .item-sub,.list .item-status,.list .more{font-family:"Cormorant Garamond","Times New Roman",serif!important;font-weight:500!important;letter-spacing:0!important}
-	    .list-title{margin:4px 0 10px;font-size:17px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted)}
-	    .list{gap:4px}
-	    .list .item-row{grid-template-columns:minmax(0,1fr) 34px;gap:0;align-items:center;position:relative;border-radius:16px;transition:background .15s ease}
-	    .list .item-row.single{grid-template-columns:1fr}
-	    .list .item-row:hover,.list .item-row.menu-open,.list .item-row:has(.item.active){background:rgba(31,26,23,.055)}
-	    .item{min-height:48px;border:0!important;border-radius:16px;padding:10px 12px;background:transparent!important;box-shadow:none!important;display:flex;align-items:center;justify-content:flex-start;gap:10px;overflow:hidden;text-align:left!important}
-	    .item:hover,.item.active{background:transparent!important;box-shadow:none!important}
-	    .item-main{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:baseline;gap:16px;min-width:0;width:100%;overflow:hidden}
-	    .client-main{display:flex;grid-template-columns:none;align-items:baseline;justify-content:flex-start}
-	    .item-date{font-size:17px;font-weight:500;color:var(--soft);white-space:nowrap;line-height:1.15}
-	    .item-name{font-size:20px;font-weight:500;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;max-width:100%;line-height:1.15}
-	    .item-sub{font-size:15px;font-weight:500;color:var(--soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;line-height:1.15}
-	    .item-status{font-size:15px;font-weight:500;color:var(--soft);white-space:nowrap;flex:0 0 auto}
-	    .item-status.ok{color:var(--green)}
-	    .item-status.warn{color:#9a642d}
-	    .item-status.danger{color:var(--danger)}
-	    .list .more{align-self:stretch;border:0!important;background:transparent!important;color:var(--soft)!important;border-radius:0 16px 16px 0!important;min-height:48px!important;padding:0!important;font-size:22px!important;line-height:1!important;box-shadow:none!important;display:grid!important;place-items:center!important}
-	    .list .more:hover{color:var(--ink)!important;background:transparent!important;transform:none!important}
-	    .row-menu{grid-column:1 / -1;display:none;flex-direction:column;gap:2px;margin:0 8px 8px 12px;padding:2px 0 4px}
-	    .item-row.menu-open .row-menu{display:flex}
-	    .row-menu a,.row-menu button{border:0!important;min-height:34px!important;padding:8px 10px!important;border-radius:12px!important;background:transparent!important;color:var(--soft)!important;box-shadow:none!important;justify-content:flex-start!important;text-align:left!important;font-size:14px!important;font-weight:500!important;text-decoration:none!important}
-	    .row-menu a:hover,.row-menu button:hover{background:rgba(31,26,23,.055)!important;color:var(--ink)!important;transform:none!important}
-	    .row-menu .menu-delete{color:var(--danger)!important}
-	    .records-panel{display:grid;gap:8px;margin-top:18px}
-	    .record-row{display:grid;grid-template-columns:82px minmax(0,1fr) auto auto 28px;gap:12px;align-items:center;padding:11px 12px;border-radius:16px;background:rgba(31,26,23,.035)}
-	    .record-date{font-family:"Cormorant Garamond","Times New Roman",serif;font-size:18px;font-weight:500;color:var(--soft);white-space:nowrap}
-	    .record-name{font-family:"Cormorant Garamond","Times New Roman",serif;font-size:20px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-	    .record-action{border:0!important;min-height:34px!important;padding:8px 12px!important;border-radius:12px!important;background:var(--solid)!important;color:var(--ink)!important;box-shadow:none!important;font-size:12px!important;font-weight:750!important;text-decoration:none!important;white-space:nowrap}
-	    .record-action:hover{transform:none!important;background:rgba(31,26,23,.06)!important}
-	    .record-action.missing{color:var(--soft)!important}
-	    .record-delete{width:28px;height:28px;min-height:28px!important;padding:0!important;border:0!important;border-radius:50%!important;background:transparent!important;color:var(--muted)!important;box-shadow:none!important;font-size:18px!important;line-height:1!important;display:grid!important;place-items:center!important}
-	    .record-delete:hover{background:rgba(188,59,66,.08)!important;color:var(--danger)!important;transform:none!important}
-	    .record-action.disabled,.record-action:disabled{opacity:.38;cursor:not-allowed;color:var(--soft)!important}
-	    @media(prefers-color-scheme:dark){.list .item-row:hover,.list .item-row.menu-open,.list .item-row:has(.item.active),.row-menu a:hover,.row-menu button:hover{background:rgba(255,255,255,.075)!important}}
-	    .chip{padding:6px 12px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-	    .chip.warn{color:#9a642d;background:rgba(184,132,104,.08);border-color:rgba(184,132,104,.14)}
-	    .chip.danger{color:var(--danger);background:rgba(188,59,66,.08);border-color:rgba(188,59,66,.16)}
-	    .box{border-radius:18px;background:var(--solid)}
-	    .link-copy{cursor:pointer;transition:background .15s ease,border-radius .15s ease,padding-inline .15s ease}
-	    .link-copy:hover{background:rgba(31,26,23,.045);border-radius:14px;padding-inline:8px}
-	    .box-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-	    .quiet-action{border:0!important;background:transparent!important;box-shadow:none!important;color:var(--soft)!important;min-height:auto!important;padding:0!important;font-size:12px!important;font-weight:650!important}
-	    .quiet-action:hover{color:var(--danger)!important;transform:none!important;background:transparent!important}
-	    .log-group{border:1px solid var(--line);border-radius:15px;margin-top:8px;background:transparent;overflow:hidden}
-	    .log-group summary{cursor:pointer;list-style:none;padding:9px 11px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
-	    .log-group summary::-webkit-details-marker{display:none}
-	    .log-title{font-size:12px;font-weight:550;color:var(--soft);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-	    .log-count{font-size:11px;font-weight:550;color:var(--muted);white-space:nowrap}
-	    .log-events{border-top:1px solid var(--line);padding:2px 11px 6px}
-	    .log-row{display:grid;grid-template-columns:112px 1fr;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);align-items:start}
-	    .log-row:last-child{border-bottom:0}
-	    .log-time{color:var(--muted);font-size:11px;line-height:1.35}
-	    .log-main{min-width:0;color:var(--soft);font-size:12px;line-height:1.35;word-break:break-word}
-	    .log-event{font-weight:550;color:var(--soft)}
-	    .log-event.important{font-weight:700;color:var(--ink)}
-	    .log-meta{font-size:11px;color:var(--muted);margin-top:2px}
-	    .client-form{display:grid;gap:12px}
-	    .client-form label{display:grid;gap:7px;color:var(--soft);font-size:12px;font-weight:750}
-	    .client-form input,.client-form select{height:48px;border:1px solid var(--line);border-radius:16px;background:var(--field);color:var(--ink);padding:0 14px;font:inherit;font-size:15px;font-weight:700;outline:none}
-	    .client-form input:focus,.client-form select:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accentSoft)}
-	    .client-grid{display:grid;grid-template-columns:120px 1fr;gap:10px}
-	    .new-client-form{max-width:560px;margin-top:18px}
-	    .new-client-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
-	    .new-client-actions .btn{width:100%;justify-content:center;text-align:center}
-	    .client-save-status{min-height:20px;margin:0;color:var(--soft);font-size:13px;font-weight:750}
-	    .client-save-status.err{color:var(--danger)}
-	    .client-save-status.ok{color:var(--green)}
-	    .db-login.is-settled .reveal,.db-app.is-settled .reveal,.db-top.is-settled{transition-delay:0ms!important}
-	    @media(max-width:800px){.grid{grid-template-columns:1fr}.detail{min-height:auto}.list{max-height:40dvh}}
-	    @media(max-width:640px){.client-grid,.new-client-actions{grid-template-columns:1fr}.top-actions{gap:10px}.log-group summary{grid-template-columns:1fr}.log-row{grid-template-columns:1fr;gap:3px}.db-panel{border-radius:26px;padding:18px}.db-tabs button{letter-spacing:.08em}.item-main,.record-row{grid-template-columns:72px minmax(0,1fr)}.record-row{gap:8px}.record-action{grid-column:span 1}.record-delete{grid-column:2;justify-self:end}}
-  </style>
-  ${animateAssets()}
-</head>
-<body>
-	  <div class="aurora" aria-hidden="true"></div>
-	  <div class="access-shell db-shell">
-	    <div id="dbTop" class="top db-top hidden reveal stagger-1" data-reveal>
-	      <a class="logo-link" href="/db" aria-label="StarShots database"><img class="logo compact ss-logo-top" src="${LOGO_PATH}" alt="StarShots logo"></a>
-	      <div class="top-actions">
-	        <div class="compact-pill">Database</div>
-	        <details id="dbPasswordTop" class="db-password-top hidden">
-	          <summary aria-label="Change Password" title="Change Password">
-	            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="14.5" r="3.5"/><path d="M10 12 21 1"/><path d="M16 6l2 2"/><path d="M18 4l2 2"/></svg>
-	          </summary>
-	          <div class="db-password-pop db-password-fields">
-	            <input id="newDbPassword" type="password" placeholder="New password" autocomplete="new-password" autocapitalize="off" spellcheck="false">
-	            <input id="confirmDbPassword" type="password" placeholder="Confirm new password" autocomplete="new-password" autocapitalize="off" spellcheck="false">
-	            <button id="saveDbPasswordBtn" class="primary" type="button">Update Password</button>
-	            <p id="dbPasswordStatus" class="status"></p>
-	          </div>
-	        </details>
-	      </div>
-	    </div>
-	    <div id="dbStage" class="access-stage">
-      <section id="login" class="access-card db-login ss-gate-card" data-ss-gate-card aria-labelledby="db-gate-title">
-        <div class="brand ss-gate-brand reveal" data-reveal>
-          <a class="logo-link" href="/" aria-label="Back to StarShots homepage">
-            <img class="logo ss-gate-logo ss-logo-hero" src="${LOGO_PATH}" alt="StarShots">
-          </a>
-        </div>
-	        <p class="eyebrow ss-gate-eyebrow reveal" data-reveal><span class="rule"></span><span class="dot" aria-hidden="true"></span>Private Workspace<span class="rule"></span></p>
-	        <h1 id="db-gate-title" class="mask-reveal ss-gate-title reveal" data-reveal><span>Database</span></h1>
-	        <div class="field ss-gate-field reveal" data-reveal>
-	          <label class="ss-gate-label" for="pass">Access key</label>
-	          <div class="password-wrap">
-	            <input id="pass" type="password" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-ss-gate-input>
-            <button id="toggleDbPass" class="eye-btn" type="button" aria-label="Show access key">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>
-            </button>
-          </div>
-        </div>
-        <button id="loginBtn" class="primary ss-gate-button reveal" data-ss-gate-button data-reveal type="button">
-          <span class="spin" aria-hidden="true"></span>
-	          <span class="label">Sign In</span>
-        </button>
-        <p id="loginStatus" class="status ss-gate-status reveal" data-reveal role="status" aria-live="polite"></p>
-	      </section>
-	    </div>
-    <section id="app" class="grid db-app hidden">
-      <aside class="panel db-panel reveal stagger-2" data-reveal>
-	        <div id="dbTabs" class="db-tabs" role="tablist" aria-label="Database view">
-	          <button class="active" data-view="clients" type="button">Clients</button>
-	        </div>
-	        <input id="q" class="search" placeholder="Search">
-	        <button id="addClientBtn" class="add-client-btn" type="button">Add New Client</button>
-	        <div id="list" class="list"></div>
-	      </aside>
-      <main id="detail" class="panel detail db-panel reveal stagger-3" data-reveal><h1>Choose A Record</h1><p class="sub">Saved deliveries will appear here.</p></main>
-    </section>
-  </div>
-  <script>
-    ${mobileSafeRevealScript()}
-    let password='', items=[], invoices=[], clients=[], selected=null, activeView='clients', openMenuKey='', detailRows=[];
-    const ADMIN_SESSION_KEY='starshots_admin_session_v1';
-    const ADMIN_SESSION_MS=15*60*1000;
-	    const login=document.getElementById('login'), dbStage=document.getElementById('dbStage'), app=document.getElementById('app'), dbTop=document.getElementById('dbTop'), pass=document.getElementById('pass'), q=document.getElementById('q'), addClientBtn=document.getElementById('addClientBtn'), list=document.getElementById('list'), detail=document.getElementById('detail'), loginStatus=document.getElementById('loginStatus'), dbTabs=document.getElementById('dbTabs'), dbPasswordTop=document.getElementById('dbPasswordTop'), newDbPassword=document.getElementById('newDbPassword'), confirmDbPassword=document.getElementById('confirmDbPassword'), saveDbPasswordBtn=document.getElementById('saveDbPasswordBtn'), dbPasswordStatus=document.getElementById('dbPasswordStatus');
-    const toggleDbPass = document.getElementById('toggleDbPass');
-    const loginBtn = document.getElementById('loginBtn');
-    const loginLabel = loginBtn.querySelector('.label');
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('ss-force-motion');
-    const idr = new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0});
-    const eyeSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>';
-    const eyeOffSvg = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 2.5 21.5 21.5"/><path d="M9.9 5.9A13.2 13.2 0 0 1 12 5.5c6.5 0 10.25 6.5 10.25 6.5a18 18 0 0 1-3.45 4.38"/><path d="M6.03 8.03C3.56 9.96 1.75 12 1.75 12S5.5 18.5 12 18.5c1.87 0 3.53-.38 4.98-1.04"/><path d="M10.59 10.59A3.25 3.25 0 0 0 15.18 15.18"/></svg>';
-    function isTouchViewport(){return window.matchMedia('(max-width: 640px), (pointer: coarse)').matches}
-    function focusSoon(el,options={}){if(!el)return;const{allowTouch=false,delay=60}=options;if(!allowTouch&&isTouchViewport())return;setTimeout(()=>el.focus({preventScroll:true}),delay)}
-    function revealIn(el,delay){if(!el)return;setTimeout(()=>el.classList.add('is-visible'),delay);}
-    function showReveals(root){requestAnimationFrame(()=>root.querySelectorAll('[data-reveal],.reveal').forEach(el=>el.classList.add('is-visible')))}
-    function stageAccessIntro(){
-      if(window.StarShotsGate&&window.StarShotsGate.intro){
-        const handled=window.StarShotsGate.intro(login,{root:login,button:loginBtn,input:pass});
-        if(handled||login.dataset.ssGateIntro==='running'||login.dataset.introState==='running'||login.classList.contains('is-mounted')||login.classList.contains('is-visible')) return;
-      }
-      if(login.classList.contains('is-mounted') || login.dataset.introState === 'running') return;
-      login.dataset.introState='running';
-      const isMobile=window.matchMedia('(max-width: 640px), (pointer: coarse)').matches;
-      const reveals=Array.from(login.querySelectorAll('.reveal'));
-      login.classList.remove('is-mounted','is-leaving');
-      reveals.forEach(el=>el.classList.remove('is-visible'));
-      if(reduceMotion){
-        login.classList.add('is-mounted');
-        reveals.forEach(el=>el.classList.add('is-visible'));
-        login.dataset.introState='done';
-        focusSoon(pass);
-        return;
-      }
-      requestAnimationFrame(()=>{
-        void login.offsetWidth;
-        requestAnimationFrame(()=>{
-          login.classList.add('is-mounted');
-          if(window.StarShotsReveal&&window.StarShotsReveal.bounceLogos) window.StarShotsReveal.bounceLogos(login);
-          const stagger=isMobile?75:90;
-          const startAt=isMobile?180:300;
-          reveals.forEach((el,i)=>revealIn(el,startAt+i*stagger));
-          const doneAt=startAt+reveals.length*stagger+260;
-          setTimeout(()=>{login.dataset.introState='done';loginBtn.classList.add('is-sheen');setTimeout(()=>loginBtn.classList.remove('is-sheen'),3600);},doneAt);
-          setTimeout(()=>focusSoon(pass),isMobile?900:720);
-          setTimeout(()=>login.classList.add('is-settled'),doneAt+520);
-        });
-      });
-    }
-    function rememberAdminPassword(){localStorage.removeItem(ADMIN_SESSION_KEY);sessionStorage.setItem(ADMIN_SESSION_KEY,JSON.stringify({expiresAt:Date.now()+ADMIN_SESSION_MS}));}
-    function clearAdminPassword(){sessionStorage.removeItem(ADMIN_SESSION_KEY);localStorage.removeItem(ADMIN_SESSION_KEY);sessionStorage.removeItem('starshots_admin_password');sessionStorage.removeItem('ss_admin_password');}
-    function rememberedAdminPassword(){localStorage.removeItem(ADMIN_SESSION_KEY);try{const raw=sessionStorage.getItem(ADMIN_SESSION_KEY);const saved=raw?JSON.parse(raw):null;if(saved&&Number(saved.expiresAt)>Date.now())return true;if(raw){clearAdminPassword();return false;}}catch{clearAdminPassword();return false;}return false;}
-	    function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-	    function fmt(v){return idr.format(Number(v)||0)}
-	    function num(v){return Number(v)||0}
-	    function invoiceData(inv){return inv && typeof inv.invoice_data === 'object' && inv.invoice_data ? inv.invoice_data : {}}
-	    function dateText(value){
-	      if(!value) return 'Not recorded';
-	      const raw=String(value);
-	      const iso=raw.length>=10 ? raw.slice(0,10) : raw;
-	      const date=new Date(iso.length===10 ? iso+'T00:00:00' : raw);
-	      if(Number.isNaN(date.getTime())) return raw;
-	      return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric'}).format(date);
-	    }
-	    function firstName(value){
-	      const clean=String(value||'Client').trim();
-	      return clean.split(/\s+/)[0]||'Client';
-	    }
-	    function normalizeNameKey(value){
-	      return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-	    }
-	    function localDate(raw){
-	      if(!raw) return null;
-	      const value=String(raw);
-	      const iso=value.length>=10?value.slice(0,10):value;
-	      const date=new Date(iso.length===10?iso+'T00:00:00':value);
-	      return Number.isNaN(date.getTime())?null:date;
-	    }
-	    function dateLabel(date){
-	      if(!date) return 'No date';
-	      return new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short'}).format(date).replace(/^0/,'');
-	    }
-	    function dateKey(date){
-	      if(!date) return '';
-	      const y=date.getFullYear();
-	      const m=String(date.getMonth()+1).padStart(2,'0');
-	      const d=String(date.getDate()).padStart(2,'0');
-	      return y+'-'+m+'-'+d;
-	    }
-	    function createRecordUrl(path,fields={},extra={}){
-	      const params=new URLSearchParams();
-	      const title=String(fields.title||'').trim();
-	      const name=String(fields.name||'').trim();
-	      const eventDate=String(fields.eventDate||'').trim();
-	      if(title) params.set('title',title);
-	      if(name) params.set('name',name);
-	      if(eventDate) params.set('eventDate',eventDate);
-	      Object.entries(extra||{}).forEach(([key,value])=>{if(value)params.set(key,String(value));});
-	      const query=params.toString();
-	      return path+(query?'?'+query:'');
-	    }
-	    function recordActionFields(row={},client=null){
-	      const delivery=row.delivery||{};
-	      const invoice=row.invoice||{};
-	      return {
-	        title:invoice.client_title||delivery.title||client?.title||'Ms.',
-	        name:invoice.client_name||delivery.client_name||row.name||client?.name||q.value.trim(),
-	        eventDate:dateKey(row.date)
-	      };
-	    }
-	    function dateFromCode(value){
-	      const raw=String(value||'');
-	      const match=raw.match(/(?:^|[^0-9])(\d{6}|\d{8})(?:[^0-9]|$)/);
-	      if(!match) return null;
-	      const digits=match[1];
-	      const y=digits.length===8?Number(digits.slice(0,4)):2000+Number(digits.slice(0,2));
-	      const m=Number(digits.slice(digits.length===8?4:2,digits.length===8?6:4));
-	      const d=Number(digits.slice(digits.length===8?6:4));
-	      const date=new Date(y,m-1,d);
-	      return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d?date:null;
-	    }
-	    function deliveryDate(delivery){
-	      return dateFromCode(delivery.folder_name)||dateFromCode(delivery.base_slug)||localDate(delivery.event_date)||localDate(delivery.created_at)||(Number(delivery.delivery_year)&&Number(delivery.delivery_month)?new Date(Number(delivery.delivery_year),Number(delivery.delivery_month)-1,1):null);
-	    }
-	    function invoiceDate(inv){
-	      return localDate(inv.event_date)||localDate(inv.invoice_date)||localDate(inv.updated_at)||localDate(inv.created_at);
-	    }
-	    function deliveryDateLabel(delivery){return dateLabel(deliveryDate(delivery));}
-	    function invoiceDateLabel(inv){return dateLabel(invoiceDate(inv));}
-	    function monthYearFromParts(year,month){
-	      const y=Number(year);
-	      const m=Number(month);
-	      if(y&&m>=1&&m<=12) return new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric'}).format(new Date(y,m-1,1));
-	      return y?String(y):'No date';
-	    }
-	    function monthYearFromDate(value){
-	      if(!value) return 'No date';
-	      const raw=String(value);
-	      const iso=raw.length>=10 ? raw.slice(0,10) : raw;
-	      const date=new Date(iso.length===10 ? iso+'T00:00:00' : raw);
-	      if(Number.isNaN(date.getTime())) return raw;
-	      return new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric'}).format(date);
-	    }
-	    function statusLabel(s){return s==='paid'?'Paid in Full':s==='deposit'?'Deposit Received':'Invoice Sent'}
-	    function invoiceInfo(inv){
-	      const data=invoiceData(inv);
-	      const status=inv.status||data.mode||'invoice';
-	      const grand=num(inv.grand_total);
-	      const deposit=num(inv.deposit_amount);
-	      const requestDeposit=data.requestDeposit===false ? false : deposit>0;
-	      let paid=num(inv.paid_amount);
-	      if(status==='invoice') paid=0;
-	      if(status==='deposit'){
-	        const depositBase=requestDeposit?Math.min(deposit,grand):0;
-	        paid=(data.depositPaid||paid>0)?Math.min(paid>0?paid:depositBase,depositBase):0;
-	      }
-	      if(status==='paid') paid=grand;
-	      paid=Math.min(Math.max(paid,0),grand);
-	      const balance=status==='paid'?0:Math.max(grand-paid,0);
-	      let label=statusLabel(status), tone='', dueTone=balance>0?'warn':'ok', dueLabel=balance>0?'Due '+fmt(balance):'Balance cleared', summary='';
-	      if(status==='paid'){
-	        tone='ok';
-	        summary='Full payment received'+(data.paidDate?' on '+dateText(data.paidDate):'')+'. No balance due.';
-	      }else if(status==='deposit'){
-	        tone='warn';
-	        summary='Deposit received'+(data.depositPaidDate?' on '+dateText(data.depositPaidDate):'')+'. Balance due '+fmt(balance)+'.';
-	      }else if(requestDeposit){
-	        label='Deposit Requested';
-	        tone='danger';
-	        dueTone='danger';
-	        dueLabel='Deposit due '+fmt(deposit);
-	        summary='Deposit requested. Balance due '+fmt(balance)+'.';
-	      }else{
-	        summary='Invoice sent with no deposit requested. Balance due '+fmt(balance)+'.';
-	      }
-	      return {status,label,tone,dueTone,dueLabel,summary,grand,deposit,paid,balance,requestDeposit,data};
-	    }
-	    function togglePass(){ const show = pass.type === 'password'; pass.type = show ? 'text' : 'password'; toggleDbPass.innerHTML = show ? eyeOffSvg : eyeSvg; toggleDbPass.setAttribute('aria-label', show ? 'Hide access key' : 'Show access key'); focusSoon(pass,{allowTouch:true}); }
-    function activeType(){return 'client'}
-    function syncViewChrome(){
-      dbTabs.querySelectorAll('button').forEach(button=>button.classList.toggle('active', button.dataset.view===activeView));
-      q.placeholder = 'Search';
-    }
-    function setPasswordStatus(message='', isError=false){dbPasswordStatus.textContent=message;dbPasswordStatus.className='status '+(message?(isError?'err':'ok'):'');}
-    function setView(view){
-      activeView = 'clients';
-      if(selected && selected.type !== activeType()) selected = null;
-      syncViewChrome();
-      renderList();
-      renderDetail();
-    }
-    async function saveDbPassword(){
-      const next = newDbPassword.value.trim();
-      const confirm = confirmDbPassword.value.trim();
-      if(next.length < 4){setPasswordStatus('Use at least 4 characters.', true);return;}
-      if(next !== confirm){setPasswordStatus('Passwords do not match.', true);return;}
-      setPasswordStatus('Saving...');
-      const original = saveDbPasswordBtn.textContent;
-      saveDbPasswordBtn.textContent = 'Saving...';
-      saveDbPasswordBtn.disabled = true;
-      try{
-        const res=await fetch('/api/db-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,newPassword:next})});
-        const data=await res.json();
-        if(!res.ok||!data.ok)throw new Error(data.error||'Password update failed.');
-        password=next;
-        pass.value=next;
-        rememberAdminPassword();
-	        newDbPassword.value='';
-	        confirmDbPassword.value='';
-	        setPasswordStatus('Password updated.');
-	        if(dbPasswordTop) dbPasswordTop.open=false;
-	        await load();
-      }catch(e){
-        setPasswordStatus(e.message||'Password update failed.', true);
-      }finally{
-        saveDbPasswordBtn.textContent = original;
-        saveDbPasswordBtn.disabled = false;
-      }
-    }
-    async function load(){
-      const res=await fetch('/api/db?q='+encodeURIComponent(q.value.trim()));
-      const data=await res.json();
-      if(!res.ok) throw new Error(data.error||'Failed.');
-      items=data.items||[];
-      invoices=data.invoices||[];
-      clients=data.clients||[];
-      if(selected && selected.type==='delivery') selected = items.find(x=>x.id===selected.id) ? {type:'delivery', id:selected.id, data:items.find(x=>x.id===selected.id)} : null;
-      if(selected && selected.type==='invoice') selected = invoices.find(x=>x.id===selected.id) ? {type:'invoice', id:selected.id, data:invoices.find(x=>x.id===selected.id)} : null;
-      if(selected && selected.type==='client') selected = clients.find(x=>x.id===selected.id) ? {type:'client', id:selected.id, data:clients.find(x=>x.id===selected.id)} : null;
-      if(selected && selected.type !== activeType() && selected.type !== 'new-client') selected = null;
-      renderList();
-      renderDetail();
-    }
-	    async function checkAdmin(value){
-	      const body=value?{password:value}:{};
-	      const res=await fetch('/api/admin-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-	      const data=await res.json().catch(()=>({}));
-	      if(!res.ok||!data.ok)throw new Error(data.error||'Unauthorized.');
-	    }
-	    function showLoginAfterAuthLoss(){
-	      app.classList.add('hidden');
-	      if(dbTop)dbTop.classList.add('hidden');
-	      if(dbPasswordTop)dbPasswordTop.classList.add('hidden');
-	      dbStage.classList.remove('hidden');
-	      login.classList.remove('is-leaving');
-	      login.classList.add('is-mounted');
-	      login.querySelectorAll('.reveal').forEach(el=>el.classList.add('is-visible'));
-	      focusSoon(pass);
-	    }
-	    function revealDbApp(){
-	      dbStage.classList.add('hidden');
-	      app.classList.remove('hidden');
-	      if(dbTop)dbTop.classList.remove('hidden');
-	      if(dbPasswordTop)dbPasswordTop.classList.remove('hidden');
-	      app.classList.remove('is-settled');
-	      if(dbTop)dbTop.classList.remove('is-settled');
-	      if(window.StarShotsReveal){window.StarShotsReveal.reset(app);if(dbTop)window.StarShotsReveal.reset(dbTop);}
-	      requestAnimationFrame(()=>{
-	        if(dbTop)dbTop.classList.add('is-visible');
-	        if(window.StarShotsReveal){if(dbTop)window.StarShotsReveal.start(dbTop);window.StarShotsReveal.start(app);}
-	        showReveals(app);
-	      });
-	      loginStatus.textContent='';
-	      setTimeout(()=>{app.classList.add('is-settled');if(dbTop)dbTop.classList.add('is-settled');},reduceMotion?0:1200);
-	      focusSoon(q);
-	    }
-	    function showDbApp(){
-	      if(dbStage.classList.contains('hidden')){revealDbApp();return;}
-	      login.classList.add('is-leaving');
-	      setTimeout(()=>{
-	        login.classList.remove('is-mounted','is-leaving','is-settled');
-	        revealDbApp();
-	      },reduceMotion?0:500);
-	    }
-	    async function refreshDb(){
-	      const button=dbTabs.querySelector('button[data-view="'+activeView+'"]');
-	      const original=button?button.textContent:'';
-	      if(button){button.textContent='Refreshing...';button.disabled=true;}
-	      try{await load();}
-	      catch(e){
-	        if(String(e.message||'').toLowerCase().includes('unauthorized')){clearAdminPassword();showLoginAfterAuthLoss();}
-	        loginStatus.textContent=e.message||'Refresh failed.';
-	        loginStatus.className='status err';
-	      }finally{
-	        if(button){button.textContent=original;button.disabled=false;}
-	      }
-	    }
-	    function renderList(){
-	      const clientHtml = clients.map((client,i)=>'<div class="item-row single"><button class="item '+(selected&&selected.type==='client'&&selected.id===client.id?'active':'')+'" data-type="client" data-i="'+i+'" title="'+esc(client.name||'Client')+'"><span class="item-main client-main"><b class="item-name">'+esc(client.name||'Client')+'</b></span></button></div>').join('') || '<p class="sub">No clients.</p>';
-	      list.innerHTML = '<h3 class="list-title">Clients</h3>'+clientHtml;
-	      if(addClientBtn) addClientBtn.classList.toggle('active', !!(selected&&selected.type==='new-client'));
-      list.querySelectorAll('button.item').forEach(b=>b.onclick=()=>{openMenuKey='';const index=Number(b.dataset.i); const data=clients[index]; selected={type:'client',id:data.id,data}; renderList(); renderDetail();});
-      list.querySelectorAll('button.item').forEach(b=>b.oncontextmenu=(e)=>{e.preventDefault();b.click();});
-    }
-    function copyText(v){return navigator.clipboard.writeText(v).catch(()=>{});}
-	    async function postJson(url,payload){
-	      const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload||{})});
-	      const data=await res.json().catch(()=>({}));
-	      if(!res.ok||!data.ok)throw new Error(data.error||'Request failed.');
-	      return data;
-	    }
-	    async function openDeliveryRecord(deliveryId){
-	      const id=String(deliveryId||'');
-	      if(!id) return;
-	      const record=items.find((item)=>String(item.id)===id);
-	      if(!record) return;
-	      selected={type:'delivery',id:record.id,data:record};
-	      syncViewChrome();
-	      renderList();
-	      renderDetail();
-	    }
-	    function renderClientDetail(client){
-	      const rows=buildRecordRows(client);
-	      detailRows=rows;
-	      const html=rows.map((row,i)=>{
-	        const fields=recordActionFields(row,client);
-	        const linkHref=createRecordUrl('/l',fields,{invoiceId:row.invoice?.id||''});
-	        const invoiceHref=createRecordUrl('/inv',fields);
-	        const linkButton=row.delivery
-	          ? '<button class="record-action" data-action="view-delivery" data-id="'+esc(row.delivery.id)+'" type="button">View Links</button>'
-	          : '<a class="record-action missing" href="'+esc(linkHref)+'" target="_blank" rel="noopener">Create Links</a>';
-	        const invoiceButton=row.invoice
-	          ? '<a class="record-action" href="/inv?id='+encodeURIComponent(row.invoice.id)+'" target="_blank" rel="noopener">View Invoice</a>'
-	          : '<a class="record-action missing" href="'+esc(invoiceHref)+'" target="_blank" rel="noopener">Create Invoice</a>';
-	        return '<div class="record-row" data-i="'+i+'"><span class="record-date">'+esc(dateLabel(row.date))+'</span><span class="record-name">'+esc(row.name||client.name||'Client')+'</span>'+linkButton+invoiceButton+'<button class="record-delete" data-action="delete-record" data-i="'+i+'" type="button" aria-label="Delete record">&times;</button></div>';
-	      }).join('') || '<p class="sub">No records for this client yet.</p>';
-	      detail.innerHTML='<h1>'+esc(client.name||'Client')+'</h1><p class="sub">'+esc(client.delivery_count||0)+' links · '+esc(client.invoice_count||0)+' invoices</p><div class="records-panel">'+html+'</div>';
-	      detail.querySelectorAll('[data-action="view-delivery"]').forEach(button=>button.onclick=()=>openDeliveryRecord(button.dataset.id));
-	      detail.querySelectorAll('[data-action="delete-record"]').forEach(button=>button.onclick=()=>deleteRecordRow(Number(button.dataset.i)));
-	    }
-	    function renderNewClient(){
-	      detailRows=[];
-	      const draft=selected?.data||{};
-	      const name=String(draft.name||q.value||'').trim();
-	      detail.innerHTML='<h1>Add New Client</h1><p class="sub">Fill the event once, then start with links or invoice.</p>'+
-	        '<div class="box client-form new-client-form">'+
-	          '<div class="client-grid"><label>Title<select id="newClientTitle"><option value="Ms.">Ms.</option><option value="Mr.">Mr.</option></select></label><label>Name<input id="newClientName" value="'+esc(name)+'" placeholder="Client name" autocomplete="off"></label></div>'+
-	          '<label>Event Date<input id="newClientEventDate" type="date" value="'+esc(draft.eventDate||'')+'"></label>'+
-	          '<div class="new-client-actions"><button id="startClientLinks" class="btn ghost" type="button">Create Links</button><button id="startClientInvoice" class="btn primary" type="button">Create Invoice</button></div>'+
-	          '<p id="newClientStatus" class="client-save-status"></p>'+
-	        '</div>';
-	      const titleInput=document.getElementById('newClientTitle');
-	      const nameInput=document.getElementById('newClientName');
-	      const dateInput=document.getElementById('newClientEventDate');
-	      const status=document.getElementById('newClientStatus');
-	      titleInput.value=draft.title||'Ms.';
-	      function draftFields(){
-	        return {title:titleInput.value||'Ms.',name:nameInput.value.trim(),eventDate:dateInput.value};
-	      }
-	      function rememberDraft(){
-	        if(selected&&selected.type==='new-client') selected.data=draftFields();
-	      }
-	      function start(kind){
-	        rememberDraft();
-	        const fields=draftFields();
-	        if(!fields.name){status.textContent='Name dulu ya.';status.className='client-save-status err';focusSoon(nameInput,{allowTouch:true});return;}
-	        if(!fields.eventDate){status.textContent='Event date wajib supaya links dan invoice jadi satu group.';status.className='client-save-status err';focusSoon(dateInput,{allowTouch:true});return;}
-	        status.textContent='';
-	        status.className='client-save-status';
-	        window.open(createRecordUrl(kind==='links'?'/l':'/inv',fields),'_blank','noopener,noreferrer');
-	      }
-	      [titleInput,nameInput,dateInput].forEach(input=>input.oninput=rememberDraft);
-	      document.getElementById('startClientLinks').onclick=()=>start('links');
-	      document.getElementById('startClientInvoice').onclick=()=>start('invoice');
-	      focusSoon(nameInput);
-	    }
-	    async function deleteRecordRow(index){
-	      const row=detailRows[index];
-	      if(!row) return;
-	      const parts=[row.delivery?'links':'',row.invoice?'invoice':''].filter(Boolean).join(' + ');
-	      const ok=confirm('Delete this '+(parts||'record')+' row?');
-	      if(!ok) return;
-	      try{
-	        if(row.delivery?.id) await postJson('/api/db-delete',{password,id:row.delivery.id});
-	        if(row.invoice?.id) await postJson('/api/invoices-delete',{password,id:row.invoice.id});
-	        await load();
-	      }catch(e){
-	        alert(e.message||'Delete failed.');
-	      }
-	    }
-	    async function saveClient(client){
-	      const saveBtn=document.getElementById('saveClientBtn');
-	      const status=document.getElementById('clientSaveStatus');
-	      const payload={
-	        password,
-	        id:client.client_id||client.id,
-	        title:document.getElementById('clientTitle').value,
-	        name:document.getElementById('clientNameEdit').value.trim(),
-	        contact:document.getElementById('clientContactEdit').value.trim(),
-	        invoiceIds:client.invoice_ids||[],
-	        deliveryIds:client.delivery_ids||[]
-	      };
-	      if(!payload.name){status.textContent='Client name is required.';status.className='client-save-status err';return;}
-	      const original=saveBtn.textContent;
-	      saveBtn.textContent='Saving...';
-	      saveBtn.disabled=true;
-	      status.textContent='Saving client and linked records...';
-	      status.className='client-save-status';
-	      try{
-	        const res=await fetch('/api/clients-save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-	        const data=await res.json();
-	        if(!res.ok||!data.ok)throw new Error(data.error||'Client save failed.');
-	        selected={type:'client',id:data.client.id,data:{...client,...data.client,client_id:data.client.id,invoice_count:data.updated?.invoices||client.invoice_count,delivery_count:data.updated?.deliveries||client.delivery_count}};
-	        status.textContent='Updated '+(data.updated?.invoices||0)+' invoices and '+(data.updated?.deliveries||0)+' delivery records.';
-	        status.className='client-save-status ok';
-	        await load();
-	      }catch(e){
-	        status.textContent=e.message||'Client save failed.';
-	        status.className='client-save-status err';
-	      }finally{
-	        saveBtn.textContent=original;
-	        saveBtn.disabled=false;
-	      }
-	    }
-	    async function deleteSelected(){
-	      if(!selected || selected.type!=='delivery') return;
-	      const ok = confirm('🗑 Delete this delivery record and all its links/logs?');
-	      if(!ok) return;
-	      try{const res=await fetch('/api/db-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selected.id})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'Delete failed.');selected=null;await load();}catch(e){alert(e.message||'Delete failed.');}
-	    }
-	    async function clearSelectedLogs(){
-	      if(!selected || selected.type!=='delivery') return;
-	      const ok = confirm('Clear logs for this delivery record?');
-	      if(!ok) return;
-	      try{const res=await fetch('/api/db-clear-logs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:selected.id})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'Clear logs failed.');await load();}catch(e){alert(e.message||'Clear logs failed.');}
-	    }
-    async function deleteInvoice(){
-      if(!selected || selected.type!=='invoice') return;
-      const ok = confirm('🗑 Delete this invoice record?');
-      if(!ok) return;
-      try{const res=await fetch('/api/invoices-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password,id:selected.id})});const data=await res.json();if(!res.ok||!data.ok)throw new Error(data.error||'Delete failed.');selected=null;await load();}catch(e){alert(e.message||'Delete failed.');}
-    }
-	    function renderInvoiceDetail(inv){
-	      const info=invoiceInfo(inv);
-	      const data=info.data;
-	      const relatedDelivery=inv.related_delivery||null;
-	      const deliveryHref='/l?title='+encodeURIComponent(inv.client_title||'')+'&name='+encodeURIComponent(inv.client_name||'')+'&eventDate='+encodeURIComponent(inv.event_date||'')+'&invoiceId='+encodeURIComponent(inv.id||'');
-	      const deliveryAction=relatedDelivery&&relatedDelivery.id
-	        ? '<button id="viewDeliveryBtn" class="btn ghost" type="button">View Links</button>'
-	        : '<a class="btn ghost" href="'+esc(deliveryHref)+'" target="_blank" rel="noopener">Create Links</a>';
-	      const amountWithDate=(amount,value)=>fmt(amount)+(value?' on '+dateText(value):' (date not recorded)');
-	      const depositText=info.deposit>0?fmt(info.deposit):'No deposit requested';
-	      const depositPaidText=info.requestDeposit?(info.paid>0&&info.status!=='paid'?amountWithDate(info.paid,data.depositPaidDate):(info.status==='paid'&&info.deposit>0?amountWithDate(info.deposit,data.depositPaidDate):'Not received yet')):'Not applicable';
-	      const paidText=info.status==='paid'?amountWithDate(info.paid,data.paidDate):(info.paid>0?fmt(info.paid):'Not paid in full yet');
-	      const depositDateText=info.requestDeposit?(data.depositPaidDate?dateText(data.depositPaidDate):'Not received yet'):'No deposit requested';
-	      const fullDateText=info.status==='paid'?(data.paidDate?dateText(data.paidDate):'Date not recorded'):'Not paid in full yet';
-	      detail.innerHTML='<h1>'+esc(inv.client_name)+'</h1><p class="sub">Payment status: '+esc(info.summary)+'</p>'+ 
-	        '<div class="chips"><span class="chip '+esc(info.tone)+'">'+esc(info.label)+'</span><span class="chip">Invoice '+esc(dateText(inv.invoice_date))+'</span><span class="chip">Event '+esc(dateText(inv.event_date))+'</span><span class="chip '+esc(info.dueTone)+'">'+esc(info.dueLabel)+'</span></div>'+ 
-	        '<div class="box"><div class="row"><small>Grand Total</small><b>'+esc(fmt(info.grand))+'</b></div><div class="row"><small>Deposit Requested</small><b>'+esc(depositText)+'</b></div><div class="row"><small>Deposit Received</small><b>'+esc(depositPaidText)+'</b></div><div class="row"><small>Total Paid</small><b>'+esc(paidText)+'</b></div><div class="row"><small>Balance Due</small><b>'+esc(fmt(info.balance))+'</b></div></div>'+ 
-	        '<div class="box"><h3>Details</h3><div class="row"><small>Title</small><b>'+esc(inv.client_title||'')+'</b></div><div class="row"><small>Contact</small><b>'+esc(inv.client_contact||'—')+'</b></div><div class="row"><small>Venue</small><b>'+esc(inv.venue||'—')+'</b></div><div class="row"><small>Deposit Date</small><b>'+esc(depositDateText)+'</b></div><div class="row"><small>Full Payment Date</small><b>'+esc(fullDateText)+'</b></div><div class="row"><small>Updated</small><b>'+esc(inv.updated_at?new Date(inv.updated_at).toLocaleString():'—')+'</b></div></div>'+ 
-	        '<div class="toolbar"><a class="btn primary" href="/inv?id='+encodeURIComponent(inv.id)+'" target="_blank" rel="noopener">Open / Edit Invoice</a>'+deliveryAction+'<button id="deleteInvoiceBtn" class="btn danger" type="button">🗑 Delete</button></div>';
-	      document.getElementById('deleteInvoiceBtn').onclick = deleteInvoice;
-	      const viewDeliveryBtn=document.getElementById('viewDeliveryBtn');
-	      if(viewDeliveryBtn) viewDeliveryBtn.onclick=()=>openDeliveryRecord(relatedDelivery.id);
-	    }
-		    function sourceLabel(log){
-		      const ua=String(log.user_agent||'').toLowerCase();
-		      const isp=String(log.isp||'').toLowerCase();
-		      if(isp.includes('meta')||isp.includes('facebook')) return 'Meta preview';
-		      if(ua.includes('whatsapp')) return 'WhatsApp';
-		      if(ua.includes('instagram')) return 'Instagram';
-		      if(ua.includes('facebook')||ua.includes('facebot')||ua.includes('meta-externalagent')) return 'Meta preview';
-		      return 'Browser';
-		    }
-		    function ispLabel(log){
-		      const isp=String(log.isp||'').trim();
-		      if(isp) return isp;
-		      if(sourceLabel(log)==='Meta preview') return 'Meta';
-		      return 'ISP unknown';
-		    }
-	    function eventLabel(log){
-	      if(log.event_type==='password_success') return 'Login success';
-	      if(log.event_type==='password_failed') return 'Wrong password';
-	      if(log.event_type==='button_click') return (log.service?String(log.service).toUpperCase()+' link':'Link')+' clicked';
-	      if(log.event_type==='page_view') return 'Page opened';
-	      return String(log.event_type||'Activity').replace(/_/g,' ');
-	    }
-		    function logGroupKey(log){
-		      return [log.ip_address||'Unknown IP',log.city||'',log.country||'',sourceLabel(log),ispLabel(log)].join('|');
-		    }
-		    function renderLogRow(log){
-		      const important=log.event_type==='password_success'||log.event_type==='button_click';
-		      const place=[log.city,log.country].filter(Boolean).join(', ')||'Unknown location';
-		      return '<div class="log-row"><div class="log-time">'+esc(new Date(log.created_at).toLocaleString())+'</div><div class="log-main"><span class="log-event '+(important?'important':'')+'">'+esc(eventLabel(log))+'</span><div class="log-meta">'+esc(place)+' · '+esc(sourceLabel(log))+' · '+esc(log.ip_address||'Unknown IP')+' · '+esc(ispLabel(log))+'</div></div></div>';
-		    }
-	    function renderLogGroups(logs){
-	      const clean=(logs||[]).slice(0,50);
-	      if(!clean.length) return '<p class="sub">No logs yet.</p>';
-	      const groups=[];
-	      clean.forEach((log)=>{
-	        const key=logGroupKey(log);
-	        let group=groups.find((item)=>item.key===key);
-	        if(!group){
-	          const place=[log.city,log.country].filter(Boolean).join(', ')||'Unknown location';
-		          group={key,place,ip:log.ip_address||'Unknown IP',source:sourceLabel(log),isp:ispLabel(log),logs:[]};
-	          groups.push(group);
-	        }
-	        group.logs.push(log);
-	      });
-	      return groups.map((group,index)=>{
-	        const latest=group.logs[0]?.created_at?new Date(group.logs[0].created_at).toLocaleString():'';
-		        return '<details class="log-group" '+(index===0?'open':'')+'><summary><span class="log-title">'+esc(group.place)+' · '+esc(group.source)+' · '+esc(group.ip)+' · '+esc(group.isp)+'</span><span class="log-count">'+esc(group.logs.length)+' events · '+esc(latest)+'</span></summary><div class="log-events">'+group.logs.map(renderLogRow).join('')+'</div></details>';
-	      }).join('');
-	    }
-	    function renderDeliveryDetail(selectedDelivery){
-	      const selected=selectedDelivery;
-	      const linkMap=Object.fromEntries((selected.links||[]).map(l=>[l.service,l]));
-	      const services=['gd','db','wt','tn'];
-	      const linkRows=services.map(s=>{const l=linkMap[s]; return l?'<div class="row link-copy" data-url="'+esc(l.original_url)+'" title="Click to copy"><small>'+s.toUpperCase()+' <span class="copy-note">Click to copy</span></small><b style="max-width:70%;word-break:break-word">'+esc(l.original_url)+'</b></div>':'<div class="row"><small>'+s.toUpperCase()+'</small><b>—</b></div>';}).join('');
-	      const shortLink='https://starshots.pages.dev'+(selected.short_url||selected.delivery_url);
-	      const directLink='https://starshots.pages.dev'+selected.delivery_url;
-	      const relatedInvoice=selected.related_invoice||null;
-	      const deliveryEventDate=dateKey(deliveryDate(selected));
-	      const invoiceHref=relatedInvoice&&relatedInvoice.id
-	        ? '/inv?id='+encodeURIComponent(relatedInvoice.id)
-	        : createRecordUrl('/inv',{title:selected.title||'',name:selected.client_name||'',eventDate:deliveryEventDate});
-	      const invoiceLabel=relatedInvoice&&relatedInvoice.id?'View Invoice':'Create Invoice';
-	      detail.innerHTML = '<h1>'+esc(selected.client_name)+'</h1>'+ '<p class="sub">'+esc(selected.folder_name)+'</p>'+ '<div class="chips"><span class="chip">'+esc(selected.delivery_year)+'</span><span class="chip">Month '+esc(selected.delivery_month)+'</span><span class="chip ok">Opens '+esc(selected.stats?.opens||0)+'</span><span class="chip ok">Clicks '+esc(selected.stats?.clicks||0)+'</span></div>'+ '<div class="box"><div class="row link-copy" data-url="'+esc(shortLink)+'" title="Click to copy"><small>Short Link <span class="copy-note">Click to copy</span></small><b>'+esc(shortLink)+'</b></div><div class="row link-copy" data-url="'+esc(selected.password||'')+'" title="Click to copy"><small>Password <span class="copy-note">Click to copy</span></small><b>'+esc(selected.password||'')+'</b></div><div class="row link-copy" data-url="'+esc(directLink)+'" title="Click to copy"><small>Direct Link <span class="copy-note">Click to copy</span></small><b>'+esc(directLink)+'</b></div></div>'+ '<div class="box"><h3>Links</h3>' + linkRows + '</div>'+ '<div id="messageBox" class="box copyable" title="Click to copy message"><h3>Message <span class="copy-note">Click to copy</span></h3><pre>'+esc(selected.generated_text_whatsapp||'')+'</pre></div>'+ '<div class="box"><div class="box-head"><h3>Recent Logs</h3><button id="clearLogsBtn" class="quiet-action" type="button">Clear Logs</button></div>' + renderLogGroups(selected.stats?.logs||[]) + '</div>'+ '<div class="toolbar"><a class="btn primary" href="'+esc(invoiceHref)+'" target="_blank" rel="noopener">'+invoiceLabel+'</a><button id="copyLinkBtn" class="btn ghost" type="button">Copy Link</button><button id="deleteBtn" class="btn danger" type="button">🗑 Delete</button></div>';
-	      document.getElementById('copyLinkBtn').onclick = ()=>copyText('https://starshots.pages.dev' + (selected.short_url || selected.delivery_url));
-	      document.getElementById('messageBox').onclick = ()=>copyText(selected.generated_text_whatsapp||'');
-	      detail.querySelectorAll('.link-copy').forEach(row=>row.onclick=()=>copyText(row.dataset.url||''));
-	      document.getElementById('clearLogsBtn').onclick = clearSelectedLogs;
-	      document.getElementById('deleteBtn').onclick = deleteSelected;
-	    }
-	    function recordMatchesClient(record,client){
-	      if(!record||!client) return true;
-	      const recordClientId=String(record.client_id||'').trim();
-	      const clientId=String(client.client_id||client.id||'').trim();
-	      if(recordClientId&&clientId&&recordClientId===clientId) return true;
-	      const recordName=normalizeNameKey(record.client_name||record.name);
-	      const clientName=normalizeNameKey(client.name||client.client_name);
-	      return !!recordName&&!!clientName&&recordName===clientName;
-	    }
-	    function buildRecordRows(client=null){
-	      const byKey=new Map();
-	      const ensure=(key,seed={})=>{
-	        if(!byKey.has(key)) byKey.set(key,{key,name:seed.name||'Client',date:seed.date||null,delivery:null,invoice:null});
-	        const row=byKey.get(key);
-	        if(seed.name&&!row.name) row.name=seed.name;
-	        if(seed.date&&!row.date) row.date=seed.date;
-	        return row;
-	      };
-	      items.forEach((delivery)=>{
-	        if(client&&!recordMatchesClient(delivery,client)) return;
-	        const date=deliveryDate(delivery);
-	        const name=delivery.client_name||'Client';
-	        const key=(normalizeNameKey(name)||String(delivery.id))+'|'+(dateKey(date)||'delivery:'+delivery.id);
-	        const row=ensure(key,{name,date});
-	        row.delivery=delivery;
-	      });
-	      invoices.forEach((invoice)=>{
-	        if(client&&!recordMatchesClient(invoice,client)) return;
-	        const date=invoiceDate(invoice);
-	        const name=invoice.client_name||'Client';
-	        const key=(normalizeNameKey(name)||String(invoice.id))+'|'+(dateKey(date)||'invoice:'+invoice.id);
-	        const row=ensure(key,{name,date});
-	        row.invoice=invoice;
-	      });
-	      return [...byKey.values()].sort((a,b)=>(b.date?b.date.getTime():0)-(a.date?a.date.getTime():0)).slice(0,60);
-	    }
-    function renderDetail(){
-      if(!selected){
-        detailRows=[];
-        detail.innerHTML = '<h1>Choose A Client</h1><p class="sub">Client records will appear here.</p>';
-        return;
-      }
-      if(selected.type==='new-client') return renderNewClient();
-      if(selected.type==='client') return renderClientDetail(selected.data);
-      if(selected.type==='invoice') return renderInvoiceDetail(selected.data);
-      return renderDeliveryDetail(selected.data);
-    }
-	    async function openDb(fromSession=false){
-	      password=pass.value.trim();
-		      if(!password && !fromSession){loginStatus.textContent='Access key required.';loginStatus.className='status err';focusSoon(pass,{allowTouch:true});return;}
-	      loginStatus.textContent='Loading...'; loginStatus.className='status';
-	      loginBtn.disabled=true;
-	      loginBtn.classList.add('is-loading');
-	      const original=loginLabel.textContent;
-	      loginLabel.textContent='Opening...';
-	      try{ await checkAdmin(password); rememberAdminPassword(); await load(); fromSession ? revealDbApp() : showDbApp(); }
-		      catch(e){ clearAdminPassword(); if(dbTop)dbTop.classList.add('hidden'); if(dbPasswordTop)dbPasswordTop.classList.add('hidden'); loginStatus.textContent=e.message||'Wrong access key.'; loginStatus.className='status err'; focusSoon(pass,{allowTouch:true}); }
-	      finally{loginBtn.disabled=false;loginBtn.classList.remove('is-loading');loginLabel.textContent=original;}
-	    }
-	    loginBtn.onclick = () => openDb(false);
-	    toggleDbPass.onclick = togglePass;
-	    pass.onkeydown = e=>{ if(e.key==='Enter') openDb(false); };
-	    dbTabs.querySelectorAll('button').forEach(button=>button.onclick=()=>{ if(button.dataset.view===activeView) refreshDb(); else setView(button.dataset.view); });
-	    addClientBtn.onclick=()=>{selected={type:'new-client',id:'new-client',data:{title:'Ms.',name:q.value.trim(),eventDate:''}};renderList();renderDetail();};
-	    saveDbPasswordBtn.onclick = saveDbPassword;
-	    [newDbPassword, confirmDbPassword].forEach(input=>input.onkeydown=e=>{ if(e.key==='Enter') saveDbPassword(); });
-	    q.oninput = ()=>{ clearTimeout(window.t); window.t = setTimeout(()=>load().catch(e=>{if(String(e.message||'').toLowerCase().includes('unauthorized')){clearAdminPassword();showLoginAfterAuthLoss();}loginStatus.textContent=e.message||'Failed.';loginStatus.className='status err';}), 220); };
-    const remembered=rememberedAdminPassword();
-    if(remembered){openDb(true);}else stageAccessIntro();
-  </script>
-</body>
-</html>`;
-}
+// dbPage() removed — /db is now served as a static file from db/index.html
+
 
 export default {
   async fetch(request, env) {
@@ -3554,13 +2916,18 @@ export default {
         assetUrl.pathname = '/inv/';
         return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
       }
-      if (request.method === 'GET' && ['/db', '/db/'].includes(url.pathname)) {
-        return new Response(dbPage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      if (request.method === 'GET' && ['/db', '/db/', '/db/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/db/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
       }
       if (request.method === 'POST' && url.pathname === '/api/admin-check') return await handleAdminCheck(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-save') return await handleInvoiceSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/invoices-get') return await handleInvoiceGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-delete') return await handleInvoiceDelete(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/subscriptions-save') return await handleSubscriptionSave(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/subscriptions-get') return await handleSubscriptionGet(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/subscriptions-delete') return await handleSubscriptionDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
