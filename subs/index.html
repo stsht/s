@@ -245,6 +245,9 @@
     .money-prefix input{height:44px;padding:0!important;font-weight:800}
     .preview-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;padding:2px 2px 0}
     .preview-head .badge{font-size:12px;color:var(--muted)}
+    .preview-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+    .preview-actions .btn.primary{flex:0 0 auto}
+    .preview-actions .btn.ghost{height:auto;padding:0;border-radius:0}
     .preview-box{
       min-height:860px;border:1px solid var(--line);border-radius:26px;
       background:var(--soft);display:grid;place-items:center;padding:18px;overflow:auto
@@ -264,6 +267,9 @@
       body{padding:12px}.left,.right{padding:14px}
       .topbar{flex-direction:column;align-items:flex-start}
       .grid{grid-template-columns:1fr}.switch{width:100%}.actions{gap:6px}
+      .preview-head{align-items:flex-start;flex-direction:column}
+      .preview-actions{width:100%}
+      .preview-actions .btn.primary{flex:1}
     }
 
     /* ── Reveal / intro animation ─────────────────────────────── */
@@ -368,6 +374,10 @@
       margin-bottom:18px!important;
       padding-bottom:14px!important;
       border-bottom:1px solid var(--line)!important;
+    }
+    .topbar + .section{
+      border-top:0!important;
+      padding-top:0!important;
     }
     .brand{align-items:center!important}
     .ss-logo-top{
@@ -662,10 +672,6 @@
         </div>
       </div>
 
-      <div class="actions">
-        <button id="primaryBtn" class="btn primary" type="button">Generate &amp; Download</button>
-        <button id="resetBtn" class="btn ghost" type="button">Clear</button>
-      </div>
     </section>
 
     <section class="panel right reveal stagger-3">
@@ -674,7 +680,10 @@
           <div class="page-title" style="font-size:16px">Preview</div>
           <div class="page-sub">Canvas-based local JPG export</div>
         </div>
-        <div class="badge" id="platformBadge">Invoice • JPG</div>
+        <div class="preview-actions">
+          <button id="resetBtn" class="btn ghost" type="button">Clear</button>
+          <button id="primaryBtn" class="btn primary" type="button">Generate JPG</button>
+        </div>
       </div>
       <div class="preview-box">
         <div class="doc-wrap" id="canvasWrap">
@@ -789,7 +798,7 @@
       paidToggle.classList.toggle('active',!isInvoice);
       invoiceFields.classList.toggle('hidden',!isInvoice);
       paidFields.classList.toggle('hidden',isInvoice);
-      platformBadge.textContent=isInvoice?'Invoice • JPG':'Paid • JPG';
+      if(platformBadge)platformBadge.textContent=isInvoice?'Invoice • JPG':'Paid • JPG';
     }
     function updateStepperStates(){
       slotDownBtn.disabled=slot.value===STORAGE_VALUES[0];
