@@ -305,9 +305,13 @@
        /gate.css (.ss-gate-card) — these rules only own the dim
        overlay shell that holds it. */
     .gate-shell{position:fixed;inset:0;z-index:20;padding:18px;display:grid;place-items:center;overflow:auto;background:var(--bg)}
-    .gate-shell .password-wrap{width:100%}
+    .gate-shell .password-wrap{position:relative;width:100%}
     .gate-shell .password-wrap input[type="password"]{width:100%}
-    @media (prefers-color-scheme: dark){.gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
+    @media (prefers-color-scheme: dark){
+      body{background:#060708}
+      .gate-shell{background:radial-gradient(120% 140% at 50% 0%, #171816 0%, #090a0b 45%, #050506 100%)}
+      .gate-logo{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}
+    }
 
   </style>
   <link rel="stylesheet" href="/animate.css">
@@ -364,7 +368,7 @@
       <div class="topbar reveal stagger-1">
         <div class="brand">
           <a href="/" aria-label="Back to StarShots homepage">
-            <img class="ss-logo-top ss-bounce-in" src="/logo-hero.png" width="640" height="155" alt="StarShots logo" />
+            <img class="ss-logo-top" src="/logo-hero.png" width="640" height="155" alt="StarShots logo" />
           </a>
         </div>
         <div class="switch" id="modeSwitch" data-mode="invoice" aria-label="Mode switch">
@@ -427,6 +431,7 @@
             <div class="stepper">
               <button id="accessDownBtn" type="button" aria-label="Decrease">−</button>
               <div class="stepper-value"><select id="accessPeriod">
+                <option value="7">7 Days</option>
                 <option value="30" selected>30 Days</option>
                 <option value="60">60 Days</option>
                 <option value="90">90 Days</option>
@@ -597,9 +602,9 @@
     const jpgUpload=el('jpgUpload'), jpgStatus=el('jpgStatus');
 
     const STORAGE_VALUES=['500GB','1TB','1.5TB','2TB'];
-    const ACCESS_VALUES=['30','60','90'];
+    const ACCESS_VALUES=['7','30','60','90'];
     const SLOT_UNITS={'500GB':1,'1TB':2,'1.5TB':3,'2TB':4};
-    const PERIOD_MULTIPLIER={'30':1,'60':2,'90':3};
+    const PERIOD_MULTIPLIER={'7':1,'30':1,'60':2,'90':3};
     const FONT='"Cormorant Garamond","Times New Roman",Georgia,serif';
 
     let mode='INVOICE';
@@ -926,15 +931,16 @@
       ctx.font=`700 86px ${FONT}`;ctx.fillText(timeValue,x+w/2,y+302);
       ctx.restore();
     }
-    function baseCardHeader(ctx,titleText,pillText,pillBg,pillTextColor){
+    function baseCardHeader(ctx,titleText,pillText,pillBg,pillTextColor,options={}){
       const w=invoiceCanvas.width;
+      const titleSize=options.titleSize||72;
       ctx.textAlign='center';
-      /* Service name at top (above greeting) */
-      ctx.fillStyle='#9a8070';ctx.font=`700 34px ${FONT}`;ctx.fillText(serviceDisplayName(),w/2,184);
-      /* Greeting below service */
-      ctx.fillStyle='#1f1a17';ctx.font=`500 46px ${FONT}`;ctx.fillText(greeting(),w/2,246);
-      /* Big title */
-      ctx.font=`700 84px ${FONT}`;ctx.fillText(titleText,w/2,342);
+      /* Greeting on top line */
+      ctx.fillStyle='#1f1a17';ctx.font=`500 46px ${FONT}`;ctx.fillText(greeting(),w/2,206);
+      /* Service name in the middle */
+      ctx.fillStyle='#9a8070';ctx.font=`700 34px ${FONT}`;ctx.fillText(serviceDisplayName(),w/2,264);
+      /* Smaller title at the bottom */
+      ctx.fillStyle='#1f1a17';ctx.font=`700 ${titleSize}px ${FONT}`;ctx.fillText(titleText,w/2,346);
       /* Status pill */
       drawPill(ctx,pillText,w/2,416,pillBg,pillTextColor);
     }
@@ -991,10 +997,10 @@
       updatePrice();
       const ctx=invoiceCanvas.getContext('2d');const w=invoiceCanvas.width,h=invoiceCanvas.height;
       ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'warm');drawShell(ctx,w,h);
-      baseCardHeader(ctx,'Subscription Invoice','Payment QR Ready','rgba(114,78,52,0.16)','#6B462F');
-      drawTile(ctx,{x:170,y:470,w:540,h:180,label:'Date of Invoice',value:longDate(invDate)});
+      baseCardHeader(ctx,'Subscription Invoice','Payment QR Ready','rgba(114,78,52,0.12)','#6B462F',{titleSize:72});
+      drawTile(ctx,{x:170,y:470,w:540,h:180,label:'Date of Invoice',value:longDate(invDate),align:'center'});
       drawTile(ctx,{x:890,y:470,w:540,h:180,label:'Price',value:formatRupiah(calculatePrice()),subValue:parseMoney(manualPrice.value)>0?'Manual price':(rateMode==='discount'?'Discount rate':'Normal rate'),align:'center'});
-      drawTile(ctx,{x:170,y:680,w:540,h:160,label:'Service',value:serviceDisplayName()});
+      drawTile(ctx,{x:170,y:680,w:540,h:160,label:'Service',value:serviceDisplayName(),align:'center'});
       drawTile(ctx,{x:890,y:680,w:540,h:160,label:isICloudService()?'Storage':'Access Period',value:isICloudService()?slot.value:accessLabel(),subValue:isICloudService()?accessLabel():'',align:'center'});
       drawQrBlock(ctx);
       ctx.fillStyle='#1f1a17';ctx.font=`700 36px ${FONT}`;ctx.textAlign='center';
@@ -1011,11 +1017,11 @@
     function drawPaidCard(){
       const data=buildPaidData();if(!data)return false;
       const ctx=invoiceCanvas.getContext('2d');const w=invoiceCanvas.width,h=invoiceCanvas.height;
-      ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'green');drawShell(ctx,w,h);
-      baseCardHeader(ctx,'Subscription Confirmed','Payment Received','rgba(28,124,74,0.10)','#1c7c4a');
-      drawTile(ctx,{x:170,y:470,w:540,h:170,label:'Date of Payment',value:data.paymentDateLabel});
+      ctx.clearRect(0,0,w,h);drawBackground(ctx,w,h,'warm');drawShell(ctx,w,h);
+      baseCardHeader(ctx,'Subscription Confirmed','Payment Received','rgba(114,78,52,0.10)','#7A5A46',{titleSize:68});
+      drawTile(ctx,{x:170,y:470,w:540,h:170,label:'Date of Payment',value:data.paymentDateLabel,align:'center'});
       drawTile(ctx,{x:890,y:470,w:540,h:170,label:'Time of Payment',value:data.paymentTimeLabel,align:'center'});
-      drawTile(ctx,{x:170,y:670,w:540,h:170,label:'Service',value:data.serviceLabel});
+      drawTile(ctx,{x:170,y:670,w:540,h:170,label:'Service',value:data.serviceLabel,align:'center'});
       drawTile(ctx,{x:890,y:670,w:540,h:170,label:isICloudService()?'Storage':'Access Period',value:isICloudService()?data.slotLabel:data.accessPeriodLabel,subValue:isICloudService()?data.accessPeriodLabel:'',align:'center'});
       drawDetailCard(ctx,{x:170,y:900,w:590,h:500,label:'Start Access',dateValue:data.startDateLabel,timeValue:data.startTimeLabel});
       drawDetailCard(ctx,{x:840,y:900,w:590,h:500,label:'Expiry',dateValue:data.endDateLabel,timeValue:data.endTimeLabel});
