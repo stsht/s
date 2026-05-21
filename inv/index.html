@@ -1371,14 +1371,18 @@
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#11110F !important; --panel:#171613 !important; --line:#2B2823 !important; --line-strong:#3A352E !important;
+    --bg:#0b0c10 !important; --panel:#171613 !important; --line:#2B2823 !important; --line-strong:#3A352E !important;
     --text:#F4EEE5 !important; --muted:#B8AEA2 !important; --soft:#1D1B18 !important; --soft-2:#171613 !important;
     --accent:#F4EEE5 !important; --accent-2:#E8D8C4 !important; --blue:#CA9876 !important; --blue-soft:rgba(202,152,118,.14) !important;
     --shadow:0 24px 60px rgba(0,0,0,.28) !important; --shadow-soft:0 10px 28px rgba(0,0,0,.18) !important;
   }
 }
 html,body{background:var(--bg)!important;color:var(--text)!important}
-body{background:var(--bg)!important;font-family:"Playfair Display","Cormorant Garamond",serif!important;font-weight:500!important}
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+body, html, input, button, select, textarea, .ss-gate-title, h1, h2, h3, .btn, .service-btn, .check-copy, .summary-chip, .stepper-value {
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+body{background:var(--bg)!important;font-weight:500!important}
 body::before,body::after,.doodle-bg{display:none!important}
 .panel,.left,.right,.menu-card,.compact-item-card,.new-package-panel,.check-card,.summary-chip,.input-shell,.picker-shell,.readonly-shell,.stepper,.total-chip{
   background:var(--panel)!important;border-color:var(--line)!important;box-shadow:var(--shadow-soft)!important;
@@ -1468,19 +1472,30 @@ body{
   background-attachment:fixed;
 }
 .aurora{
-  position:fixed;inset:-10vmax;z-index:0;pointer-events:none;opacity:.55;
+  position:fixed;inset:-20vmax;z-index:0;pointer-events:none;opacity:0.75;
   background:
-    radial-gradient(38vmax 28vmax at 28% 38%, rgba(212,205,188,.20), transparent 60%),
-    radial-gradient(34vmax 26vmax at 72% 70%, rgba(200,192,175,.13), transparent 60%),
-    radial-gradient(28vmax 20vmax at 50% 18%, rgba(247,244,237,.22), transparent 55%);
-  filter:blur(60px) saturate(108%);
-  animation:drift 28s ease-in-out infinite alternate;
+    radial-gradient(circle at 25% 25%, rgba(66, 133, 244, 0.28) 0%, transparent 65%),
+    radial-gradient(circle at 75% 65%, rgba(138, 180, 248, 0.25) 0%, transparent 60%),
+    radial-gradient(circle at 50% 15%, rgba(194, 231, 255, 0.35) 0%, transparent 55%);
+  filter:blur(80px) saturate(110%);
+  animation:drift 25s ease-in-out infinite alternate;
   will-change:transform;
 }
+@media(prefers-color-scheme:dark){
+  .aurora{
+    opacity:0.7;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(20, 60, 140, 0.4) 0%, transparent 60%),
+      radial-gradient(circle at 80% 70%, rgba(13, 27, 72, 0.5) 0%, transparent 65%),
+      radial-gradient(circle at 50% 15%, rgba(30, 58, 148, 0.45) 0%, transparent 55%);
+    filter:blur(90px) saturate(120%);
+  }
+}
 @keyframes drift{
-  0%{transform:translate3d(-2%,-1%,0) scale(1)}
-  50%{transform:translate3d(2%,1.5%,0) scale(1.04)}
-  100%{transform:translate3d(-1%,2%,0) scale(1.02)}
+  0%  { transform:translate3d(-3%,-2%,0)  scale(1) rotate(0deg);    }
+  33% { transform:translate3d(2%,3%,0)  scale(1.04) rotate(2deg); }
+  66% { transform:translate3d(-2%,4%,0)   scale(0.98) rotate(-1deg); }
+  100%{ transform:translate3d(1%,-1%,0)   scale(1.02) rotate(1deg); }
 }
 .reveal{
   opacity:0;
