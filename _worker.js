@@ -2553,6 +2553,123 @@ async function handleSubscriptionDelete(request, env) {
   return json({ ok: true });
 }
 
+// ── Invoice packages (item catalogue) ──────────────────────────────
+// Powers the /inv autocomplete: 5 hardcoded defaults plus any custom
+// packages saved from the invoice generator. Schema lives in
+// db-migration-part-5.sql.
+
+const DEFAULT_INVOICE_PACKAGES = [
+  { id: 'school-basic',         name: 'School without Magician', price: 800000,  note: 'school celebration without magician',           is_default: true },
+  { id: 'school-magician',      name: 'School with Magician',    price: 1000000, note: 'school celebration with magician',              is_default: true },
+  { id: 'studio-special',       name: 'Studio Special',          price: 800000,  note: 'up to 1 hour',                                  is_default: true },
+  { id: 'intimate-party',       name: 'Intimate Party',          price: 1300000, note: 'up to 2 hours, suitable for family celebration', is_default: true },
+  { id: 'birthday-celebration', name: 'Birthday Celebration',    price: 1650000, note: 'up to 3.5 hours, suitable for Birthday Celebration', is_default: true }
+];
+
+function normalizeInvoicePackagePayload(raw = {}) {
+  const cleanInt = (v, fallback = 0) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+  return {
+    name: String(raw.name || '').trim().slice(0, 160),
+    price: cleanInt(raw.price, 0),
+    note: String(raw.note || '').trim().slice(0, 400)
+  };
+}
+
+async function handlePackagesGet(request, env) {
+  if (!(await verifyAdminRequest(request, env))) return json({ error: 'Unauthorized.' }, 401);
+  try {
+    const rows = await supabaseFetch(
+      env,
+      '/rest/v1/invoice_packages?select=*&order=is_default.desc,name.asc'
+    );
+    const packages = Array.isArray(rows) ? rows : [];
+    return json({ ok: true, packages });
+  } catch (error) {
+    // Schema-cache / missing-table tolerance, mirroring the subscription
+    // pattern. Surface the hardcoded defaults so /inv keeps working even
+    // before the migration is run.
+    if (isSchemaError(error)) {
+      return json({ ok: true, packages: DEFAULT_INVOICE_PACKAGES, fallback: true });
+    }
+    throw error;
+  }
+}
+
+async function handlePackageSave(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  const incoming = body.package || body;
+  const payload = normalizeInvoicePackagePayload(incoming);
+  if (!payload.name) return json({ error: 'Package name is required.' }, 400);
+  if (!payload.price) return json({ error: 'Package price is required.' }, 400);
+
+  const id = String(incoming.id || '').trim();
+
+  // If the row exists and is flagged as default, preserve that flag on update
+  // so we never accidentally lose a default's protection.
+  let existing = null;
+  if (id) {
+    existing = await supabaseFetch(
+      env,
+      `/rest/v1/invoice_packages?select=*&id=eq.${encodeURIComponent(id)}&limit=1`
+    )
+      .then((rows) => Array.isArray(rows) ? rows[0] : rows)
+      .catch(() => null);
+  }
+
+  if (id && existing) {
+    const rows = await supabaseFetch(
+      env,
+      `/rest/v1/invoice_packages?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload)
+      }
+    );
+    const saved = Array.isArray(rows) ? rows[0] : rows;
+    return json({ ok: true, package: saved });
+  }
+
+  const rows = await supabaseFetch(env, '/rest/v1/invoice_packages', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({ ...payload, is_default: false })
+  });
+  const saved = Array.isArray(rows) ? rows[0] : rows;
+  return json({ ok: true, package: saved });
+}
+
+async function handlePackageDelete(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  const id = String(body.id || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!id) return json({ error: 'Missing package id.' }, 400);
+
+  // Look up the row first so we can refuse to delete a default.
+  const existing = await supabaseFetch(
+    env,
+    `/rest/v1/invoice_packages?select=id,is_default&id=eq.${encodeURIComponent(id)}&limit=1`
+  )
+    .then((rows) => Array.isArray(rows) ? rows[0] : rows)
+    .catch(() => null);
+
+  if (!existing) return json({ error: 'Package not found.' }, 404);
+  if (existing.is_default) return json({ error: 'Default packages cannot be deleted.' }, 400);
+
+  await supabaseFetch(env, `/rest/v1/invoice_packages?id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' }
+  });
+  return json({ ok: true });
+}
+
 function rootHomepage() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2999,6 +3116,9 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-save') return await handleSubscriptionSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/subscriptions-get') return await handleSubscriptionGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-delete') return await handleSubscriptionDelete(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/packages') return await handlePackagesGet(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/packages-save') return await handlePackageSave(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/packages-delete') return await handlePackageDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
