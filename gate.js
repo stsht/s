@@ -270,10 +270,8 @@
     // (`brightness(0) invert(1) sepia(.08) saturate(.7)`), so the
     // droplets read like little flecks of the same paint as the
     // logo instead of disappearing into the dark background.
-    var dark = isDarkMode();
-    var splashColor = dark
-      ? (Math.random() < 0.55 ? '#f4eee5' : '#d8cbb6')
-      : (Math.random() < 0.55 ? '#d0bb99' : '#a79074');
+    var blues = ['#4285f4', '#8ab4f8', '#a8c7fa', '#c2e7ff', '#6ca0f6', '#3b82f6', '#1a73e8'];
+    var splashColor = blues[Math.floor(Math.random() * blues.length)];
     s.setProperty('--ss-splash-color', splashColor);
     brand.appendChild(el);
     el.addEventListener('animationend', function () {

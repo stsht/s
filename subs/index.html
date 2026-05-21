@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#F6F6F3" />
   <title>StarShots Subscription Generator</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Cormorant+Garamond:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
     :root{
       --bg:#F6F6F3;
       --panel:#FFFFFF;
@@ -30,7 +30,7 @@
       --radius-xl:30px;
       --radius-lg:22px;
       --radius-md:18px;
-      --doc-font:"Playfair Display","Cormorant Garamond",serif;
+      --doc-font:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     html,body{margin:0;min-height:100%}
@@ -171,12 +171,19 @@
       box-shadow:0 1px 0 rgba(255,255,255,.7) inset;
       transition:border-color .15s ease, box-shadow .15s ease;
     }
+    .input-shell{
+      display:flex !important;
+      align-items:center !important;
+    }
     .input-shell:focus-within,.picker-shell:focus-within,.stepper:focus-within{
       border-color:var(--line-strong);box-shadow:0 0 0 4px rgba(184,132,104,.10)
     }
     .input-shell input,.input-shell select,.picker-shell input{
-      width:100%;height:46px;border:0;outline:none;background:transparent;padding:0 14px;
-      color:var(--text);font:600 15px var(--doc-font);letter-spacing:.01em;border-radius:18px
+      width:100%;height:42px;border:0;outline:none;background:transparent;padding:0 14px;
+      color:var(--text);font:600 14px var(--doc-font);letter-spacing:.01em;border-radius:16px;
+      display:flex;
+      align-items:center;
+      line-height:normal;
     }
     .input-shell select{
       appearance:none;
@@ -241,9 +248,9 @@
     .qr-status{font-size:12px;font-weight:800;color:var(--accent);min-height:16px;line-height:1.35}
     .mini-preview{width:72px;height:72px;border-radius:14px;border:1px solid var(--line);background:#fff;object-fit:contain;padding:6px;box-shadow:var(--shadow-soft)}
     input[type="file"]{width:100%;font:600 13px var(--doc-font);color:var(--text);padding:11px 14px}
-    .money-prefix{display:flex;align-items:center;gap:8px;padding:0 14px;height:46px}
+    .money-prefix{display:flex;align-items:center;gap:8px;padding:0 14px;height:42px}
     .money-prefix span{font-size:12px;font-weight:800;color:var(--muted)}
-    .money-prefix input{height:44px;padding:0!important;font-weight:800}
+    .money-prefix input{height:40px;padding:0!important;font-weight:800}
     .preview-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;padding:2px 2px 0}
     .preview-head .badge{font-size:12px;color:var(--muted)}
     .preview-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
@@ -364,7 +371,7 @@
         var(--bg)!important;
       background-attachment:fixed;
       color:var(--text)!important;
-      font-family:"Playfair Display","Cormorant Garamond",serif!important;
+      font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif!important;
       font-weight:500!important;
     }
     .aurora,.doodle-bg{display:none!important}
@@ -742,7 +749,7 @@
     const SERVICE_ACCESS_VALUES=['7','15','30'];
     const SLOT_UNITS={'500GB':1,'1TB':2,'1.5TB':3,'2TB':4};
     const PERIOD_MULTIPLIER={'7':1,'30':1,'60':2,'90':3};
-    const FONT='"Playfair Display","Cormorant Garamond",serif';
+    const FONT='"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
     function toSmartTitleCase(str) {
       if (!str || typeof str !== 'string') return str || '';

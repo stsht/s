@@ -1020,8 +1020,8 @@ function privateAccessStyles() {
       --dur-card:1100ms;
       --dur-item:760ms;
       --dur-switch:500ms;
-      --gold:#d0bb99;
-      --gold-2:#a79074;
+      --gold:#8ab4f8;
+      --gold-2:#4285f4;
       background:
         radial-gradient(1100px 620px at 18% 8%, var(--glow2), transparent 60%),
         radial-gradient(900px 560px at 82% 92%, rgba(212,205,188,.06), transparent 55%),
@@ -1309,8 +1309,8 @@ function deliveryPageHtml(slug, delivery = null) {
       --dur-card:1100ms;
       --dur-item:760ms;
       --dur-switch:500ms;
-      --gold:#d0bb99;
-      --gold-2:#a79074;
+      --gold:#8ab4f8;
+      --gold-2:#4285f4;
       background: var(--bg);
       background-attachment:fixed;
       overflow-x:hidden;
