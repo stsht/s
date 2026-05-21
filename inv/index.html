@@ -547,6 +547,58 @@
       flex-wrap:wrap;
     }
 
+    .autocomplete-shell{position:relative}
+    .autocomplete-dropdown{
+      position:absolute;
+      top:100%;
+      left:0;
+      right:0;
+      z-index:30;
+      max-height:260px;
+      overflow:auto;
+      background:var(--panel);
+      border:1px solid var(--line);
+      border-radius:18px;
+      box-shadow:var(--shadow-soft);
+      margin-top:6px;
+      padding:4px;
+    }
+    .autocomplete-dropdown.hidden{display:none}
+    .autocomplete-item{
+      padding:10px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      transition:background .15s ease;
+    }
+    .autocomplete-item:hover,
+    .autocomplete-item.focused{background:rgba(31,26,23,.055)}
+    .autocomplete-item-name{font-size:15px;font-weight:700;color:var(--text)}
+    .autocomplete-item-meta{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+    .autocomplete-no-match{
+      padding:12px;
+      text-align:center;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .autocomplete-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:6px;
+      padding:6px 12px 8px;
+    }
+    .autocomplete-actions .btn{height:38px;padding:0 12px;font-size:13px}
+    .autocomplete-once-form{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:6px;
+      padding:6px 12px 10px;
+      align-items:stretch;
+    }
+    .autocomplete-once-form.hidden{display:none}
+    .autocomplete-once-form .input-shell{height:40px;padding:0 12px}
+    .autocomplete-once-form .btn{height:40px;padding:0 16px;font-size:13px}
+    .compact-item-note{margin-top:10px}
+
     .compact-item-top{
       display:grid;
       grid-template-columns:minmax(0,1fr) auto;
@@ -1681,9 +1733,12 @@ body{
           </div>
           <div class="menu-card">
             <div class="field">
-              <label for="packagePicker">Menu</label>
-              <div class="input-shell">
-                <select id="packagePicker"></select>
+              <label for="packageSearch">Menu</label>
+              <div class="autocomplete-shell">
+                <div class="input-shell">
+                  <input id="packageSearch" type="text" placeholder="Type to search items..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="packageDropdown" />
+                </div>
+                <div id="packageDropdown" class="autocomplete-dropdown hidden" role="listbox"></div>
               </div>
               <div class="hint italic" id="packagePickerHint"></div>
             </div>
@@ -2029,6 +2084,10 @@ body{
     }
 
     let PACKAGES = [...DEFAULT_PACKAGES, ...loadCustomPackages()];
+    const PACKAGE_MIGRATION_FLAG = 'starshots_invoice_packages_migrated_v1';
+    let cloudPackagesLoaded = false;
+    let autocompleteFocusIndex = -1;
+    let autocompleteUseOnceVisible = false;
 
     const MODES = ['invoice', 'deposit', 'paid'];
     const today = new Date().toISOString().slice(0, 10);
@@ -2060,6 +2119,7 @@ body{
       customQrDataUrl: '',
       invoiceId: '',
       pickerQty: 1,
+      selectedPackageId: '',
       items: []
     };
     let activeAdminPassword = 0;
@@ -2087,7 +2147,8 @@ body{
       eventDate: document.getElementById('eventDate'),
       eventTime: document.getElementById('eventTime'),
       invoiceDate: document.getElementById('invoiceDate'),
-      packagePicker: document.getElementById('packagePicker'),
+      packageSearch: document.getElementById('packageSearch'),
+      packageDropdown: document.getElementById('packageDropdown'),
       packagePickerHint: document.getElementById('packagePickerHint'),
       pickerQtyDown: document.getElementById('pickerQtyDown'),
       pickerQtyUp: document.getElementById('pickerQtyUp'),
@@ -2154,8 +2215,8 @@ body{
       return Math.random().toString(36).slice(2, 10);
     }
 
-    function makeItem(packageId = PACKAGES[0].id, qty = 1) {
-      return { id: makeId(), packageId, qty, discount: 0 };
+    function makeItem(packageId = (PACKAGES[0]?.id || ''), qty = 1) {
+      return { id: makeId(), packageId, qty, discount: 0, noteOverride: null };
     }
 
     function getPackageById(id) {
@@ -2163,10 +2224,113 @@ body{
     }
 
     function persistCustomPackages() {
+      // Cloud is the source of truth for custom packages. Local persistence
+      // is no longer needed once the migration to Supabase has run.
+    }
+
+    function normalizeCloudPackage(pkg = {}) {
+      const price = cleanNumber(pkg.price);
+      return {
+        id: String(pkg.id || ''),
+        name: String(pkg.name || ''),
+        price: price > 0 ? price : 0,
+        note: String(pkg.note || ''),
+        isDefault: !!pkg.is_default,
+        cloud: true
+      };
+    }
+
+    function sortPackages(list) {
+      return [...list].sort((a, b) => {
+        const aDefault = a?.isDefault ? 0 : 1;
+        const bDefault = b?.isDefault ? 0 : 1;
+        if (aDefault !== bDefault) return aDefault - bDefault;
+        return String(a?.name || '').localeCompare(String(b?.name || ''), 'en', { sensitivity: 'base' });
+      });
+    }
+
+    function ensureSelectedPackage() {
+      if (!PACKAGES.length) {
+        state.selectedPackageId = '';
+        return;
+      }
+      if (!state.selectedPackageId || !PACKAGES.some((pkg) => pkg.id === state.selectedPackageId)) {
+        state.selectedPackageId = PACKAGES[0].id;
+      }
+    }
+
+    async function bootstrapPackages() {
       try {
-        const customPackages = PACKAGES.filter((pkg) => !DEFAULT_PACKAGES.some((base) => base.id === pkg.id));
-        localStorage.setItem(CUSTOM_PACKAGE_STORAGE_KEY, JSON.stringify(customPackages));
-      } catch (error) {}
+        const res = await fetch('/api/packages');
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data?.ok && Array.isArray(data.packages)) {
+            const cloud = data.packages
+              .map(normalizeCloudPackage)
+              .filter((pkg) => pkg.id && pkg.name);
+            if (cloud.length) {
+              PACKAGES = sortPackages(cloud);
+              cloudPackagesLoaded = true;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load packages from cloud.', error);
+      }
+      try {
+        await migrateLocalCustomPackagesIfNeeded();
+      } catch (error) {
+        console.warn('Package migration failed.', error);
+      }
+      ensureSelectedPackage();
+      syncSearchInputFromSelection();
+      render();
+    }
+
+    async function migrateLocalCustomPackagesIfNeeded() {
+      if (!cloudPackagesLoaded) return;
+      if (localStorage.getItem(PACKAGE_MIGRATION_FLAG)) return;
+      const local = loadCustomPackages();
+      if (!local.length) {
+        localStorage.setItem(PACKAGE_MIGRATION_FLAG, '1');
+        localStorage.removeItem(CUSTOM_PACKAGE_STORAGE_KEY);
+        return;
+      }
+      const cloudNames = new Set(PACKAGES.map((pkg) => String(pkg.name || '').toLowerCase()));
+      const toUpload = local.filter((pkg) => !cloudNames.has(String(pkg.name || '').toLowerCase()));
+      if (!toUpload.length) {
+        localStorage.setItem(PACKAGE_MIGRATION_FLAG, '1');
+        localStorage.removeItem(CUSTOM_PACKAGE_STORAGE_KEY);
+        return;
+      }
+      let migrated = 0;
+      for (const pkg of toUpload) {
+        try {
+          const res = await fetch('/api/packages-save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: '', package: { name: pkg.name, price: pkg.price, note: pkg.note } })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.ok && data.package) {
+            const normalized = normalizeCloudPackage(data.package);
+            if (normalized.id && !PACKAGES.some((existing) => existing.id === normalized.id)) {
+              PACKAGES.push(normalized);
+              migrated++;
+            }
+          }
+        } catch (error) {
+          // Skip individual failures; keep going so partial migration succeeds.
+        }
+      }
+      if (migrated) {
+        PACKAGES = sortPackages(PACKAGES);
+      }
+      // Even on partial failure we mark as migrated so we don't loop forever
+      // on every page load. Any leftover localStorage entries can still be
+      // re-added manually via the Save to DB flow.
+      localStorage.setItem(PACKAGE_MIGRATION_FLAG, '1');
+      localStorage.removeItem(CUSTOM_PACKAGE_STORAGE_KEY);
     }
 
     function openNewPackagePanel() {
@@ -2181,7 +2345,7 @@ body{
       els.newPackageNote.value = '';
     }
 
-    function addCustomPackage() {
+    async function addCustomPackage() {
       const name = els.newPackageName.value.trim();
       const price = cleanNumber(els.newPackagePrice.value);
       const note = els.newPackageNote.value.trim();
@@ -2195,18 +2359,61 @@ body{
         return;
       }
 
-      const newPackage = {
-        id: `custom-${makeId()}`,
-        name,
-        price,
-        note: note || 'custom package'
-      };
+      // If the cloud table isn't reachable yet, fall back to a session-only
+      // entry so the user is never blocked from adding the item.
+      if (!cloudPackagesLoaded) {
+        const offlinePkg = {
+          id: 'temp-' + makeId() + makeId(),
+          name,
+          price,
+          note: note || '',
+          isDefault: false,
+          cloud: false,
+          temp: true
+        };
+        PACKAGES = sortPackages([...PACKAGES, offlinePkg]);
+        state.selectedPackageId = offlinePkg.id;
+        closeNewPackagePanel();
+        syncSearchInputFromSelection();
+        render();
+        setSaveStatus(`Added "${offlinePkg.name}" for this session (not synced to cloud).`);
+        return;
+      }
 
-      PACKAGES = [...PACKAGES, newPackage];
-      persistCustomPackages();
-      populatePackagePicker(newPackage.id);
-      closeNewPackagePanel();
-      render();
+      const password = currentAdminPassword();
+      if (password === null) {
+        setSaveStatus('Save canceled. Admin password is required.', true);
+        return;
+      }
+
+      const original = els.savePackageBtn.textContent;
+      els.savePackageBtn.textContent = 'Saving...';
+      els.savePackageBtn.disabled = true;
+      try {
+        const res = await fetch('/api/packages-save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password, package: { name, price, note } })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Unable to save package.');
+        const saved = normalizeCloudPackage(data.package || {});
+        if (!saved.id) throw new Error('Server returned an invalid package.');
+        PACKAGES = sortPackages([...PACKAGES.filter((pkg) => pkg.id !== saved.id), saved]);
+        state.selectedPackageId = saved.id;
+        rememberAdminPassword();
+        closeNewPackagePanel();
+        syncSearchInputFromSelection();
+        render();
+        setSaveStatus(`Saved "${saved.name}" to database.`);
+      } catch (error) {
+        if (String(error.message || '').toLowerCase().includes('unauthorized')) clearAdminPassword();
+        setSaveStatus(error.message || 'Unable to save package.', true);
+        alert(error.message || 'Unable to save package.');
+      } finally {
+        els.savePackageBtn.textContent = original;
+        els.savePackageBtn.disabled = false;
+      }
     }
 
     function formatIdr(value) {
@@ -2563,21 +2770,167 @@ body{
       render();
     }
 
-    function populatePackagePicker(selectedId = els.packagePicker.value) {
-      els.packagePicker.innerHTML = '';
-      PACKAGES.forEach((pkg) => {
-        const option = document.createElement('option');
-        option.value = pkg.id;
-        option.textContent = `${pkg.name} — ${formatIdr(pkg.price)}`;
-        els.packagePicker.appendChild(option);
-      });
-      els.packagePicker.value = PACKAGES.some((pkg) => pkg.id === selectedId) ? selectedId : PACKAGES[0].id;
+    function populatePackagePicker(selectedId = state.selectedPackageId) {
+      ensureSelectedPackage();
+      if (selectedId && PACKAGES.some((pkg) => pkg.id === selectedId)) {
+        state.selectedPackageId = selectedId;
+      }
+      syncSearchInputFromSelection();
+    }
+
+    function syncSearchInputFromSelection() {
+      const pkg = getPackageById(state.selectedPackageId);
+      if (els.packageSearch && document.activeElement !== els.packageSearch) {
+        els.packageSearch.value = pkg ? pkg.name : '';
+      }
       setPackagePickerText();
     }
 
     function setPackagePickerText() {
-      const pkg = getPackageById(els.packagePicker.value);
-      els.packagePickerHint.textContent = pkg.note;
+      const pkg = getPackageById(state.selectedPackageId);
+      els.packagePickerHint.textContent = pkg && pkg.note ? pkg.note : '';
+    }
+
+    function getFilteredPackages(rawQuery) {
+      const query = String(rawQuery || '').trim().toLowerCase();
+      if (!query) return PACKAGES;
+      return PACKAGES.filter((pkg) => String(pkg.name || '').toLowerCase().includes(query));
+    }
+
+    function setAutocompleteExpanded(open) {
+      if (!els.packageSearch) return;
+      els.packageSearch.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function openAutocompleteDropdown() {
+      autocompleteUseOnceVisible = false;
+      autocompleteFocusIndex = -1;
+      els.packageDropdown.classList.remove('hidden');
+      setAutocompleteExpanded(true);
+      renderAutocompleteDropdown();
+    }
+
+    function closeAutocompleteDropdown() {
+      autocompleteUseOnceVisible = false;
+      autocompleteFocusIndex = -1;
+      els.packageDropdown.classList.add('hidden');
+      setAutocompleteExpanded(false);
+    }
+
+    function renderAutocompleteDropdown() {
+      if (!els.packageDropdown) return;
+      const query = els.packageSearch.value;
+      const matches = getFilteredPackages(query);
+      const trimmed = query.trim();
+
+      if (!matches.length) {
+        const safeQuery = escapeHtml(trimmed || '');
+        const onceClass = autocompleteUseOnceVisible ? '' : ' hidden';
+        const actionsClass = autocompleteUseOnceVisible ? ' hidden' : '';
+        els.packageDropdown.innerHTML = `
+          <div class="autocomplete-no-match">
+            ${trimmed ? `No item matches &ldquo;${safeQuery}&rdquo;` : 'No items in catalogue yet.'}
+          </div>
+          <div class="autocomplete-actions${actionsClass}">
+            <button type="button" class="btn ghost" data-ac-action="use-once" ${trimmed ? '' : 'disabled'}>Use Once</button>
+            <button type="button" class="btn secondary" data-ac-action="save-db" ${trimmed ? '' : 'disabled'}>Save to DB</button>
+          </div>
+          <div class="autocomplete-once-form${onceClass}" data-ac-once>
+            <div class="input-shell"><input data-ac-once-price type="text" inputmode="numeric" placeholder="Price IDR" autocomplete="off" /></div>
+            <button type="button" class="btn primary" data-ac-action="confirm-once">Add</button>
+          </div>
+        `;
+        if (autocompleteUseOnceVisible) {
+          const priceInput = els.packageDropdown.querySelector('[data-ac-once-price]');
+          if (priceInput) {
+            requestAnimationFrame(() => priceInput.focus({ preventScroll: true }));
+          }
+        }
+        return;
+      }
+
+      const limit = matches.slice(0, 50);
+      if (autocompleteFocusIndex >= limit.length) autocompleteFocusIndex = -1;
+      els.packageDropdown.innerHTML = limit.map((pkg, idx) => {
+        const focused = idx === autocompleteFocusIndex ? ' focused' : '';
+        const meta = `${escapeHtml(formatIdr(pkg.price))}${pkg.note ? ' &middot; ' + escapeHtml(pkg.note) : ''}`;
+        return `
+          <div class="autocomplete-item${focused}" data-pkg-id="${escapeHtml(pkg.id)}" role="option" aria-selected="${idx === autocompleteFocusIndex}">
+            <div class="autocomplete-item-name">${escapeHtml(pkg.name)}</div>
+            <div class="autocomplete-item-meta">${meta}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function selectPackageFromAutocomplete(pkgId) {
+      const pkg = PACKAGES.find((p) => p.id === pkgId);
+      if (!pkg) return;
+      state.selectedPackageId = pkg.id;
+      els.packageSearch.value = pkg.name;
+      setPackagePickerText();
+      closeAutocompleteDropdown();
+    }
+
+    function showUseOnceForm() {
+      autocompleteUseOnceVisible = true;
+      renderAutocompleteDropdown();
+    }
+
+    function confirmUseOnce() {
+      const trimmed = els.packageSearch.value.trim();
+      if (!trimmed) {
+        els.packageSearch.focus();
+        return;
+      }
+      const priceInput = els.packageDropdown.querySelector('[data-ac-once-price]');
+      const price = cleanNumber(priceInput?.value || '');
+      if (!price) {
+        priceInput?.focus();
+        return;
+      }
+      const pkg = {
+        id: 'temp-' + makeId() + makeId(),
+        name: trimmed,
+        price,
+        note: '',
+        isDefault: false,
+        cloud: false,
+        temp: true
+      };
+      PACKAGES.push(pkg);
+      state.selectedPackageId = pkg.id;
+      state.items.push(makeItem(pkg.id, state.pickerQty));
+      els.packageSearch.value = '';
+      closeAutocompleteDropdown();
+      syncSearchInputFromSelection();
+      render();
+      setSaveStatus(`Added "${pkg.name}" once (not saved to DB).`);
+    }
+
+    function openSaveToDbFlow() {
+      const trimmed = els.packageSearch.value.trim();
+      closeAutocompleteDropdown();
+      openNewPackagePanel();
+      if (trimmed) {
+        els.newPackageName.value = trimmed;
+        // Trigger any input formatting consumers depend on.
+        els.newPackageName.dispatchEvent(new Event('input'));
+        els.newPackagePrice.focus();
+      }
+    }
+
+    function syncSelectionFromSearch() {
+      const query = els.packageSearch.value.trim().toLowerCase();
+      if (!query) return;
+      const exact = PACKAGES.find((pkg) => String(pkg.name || '').toLowerCase() === query);
+      if (exact) {
+        state.selectedPackageId = exact.id;
+      } else {
+        const partial = PACKAGES.find((pkg) => String(pkg.name || '').toLowerCase().includes(query));
+        if (partial) state.selectedPackageId = partial.id;
+      }
+      setPackagePickerText();
     }
 
     function updatePickerQty(delta) {
@@ -2587,8 +2940,14 @@ body{
       els.pickerQtyUp.disabled = state.pickerQty >= 3;
     }
 
-    function addItem(packageId = els.packagePicker.value, qty = state.pickerQty) {
-      state.items.push(makeItem(packageId, qty));
+    function addItem(packageId = state.selectedPackageId, qty = state.pickerQty) {
+      ensureSelectedPackage();
+      const id = packageId || state.selectedPackageId;
+      if (!id) {
+        if (els.packageSearch) els.packageSearch.focus();
+        return;
+      }
+      state.items.push(makeItem(id, qty));
       render();
     }
 
@@ -2621,6 +2980,8 @@ body{
         const card = document.createElement('div');
         card.className = 'compact-item-card';
         card.dataset.itemId = line.id;
+        const noteValue = line.noteOverride != null ? line.noteOverride : (line.pkg.note || '');
+        const notePlaceholder = line.pkg.note ? line.pkg.note : 'e.g. up to 2 hours';
         card.innerHTML = `
           <div class="compact-item-top">
             <div class="input-shell">
@@ -2646,11 +3007,19 @@ body{
               </div>
             </div>
           </div>
+          <div class="field compact-item-note">
+            <label>Note</label>
+            <div class="input-shell">
+              <input data-field="noteOverride" type="text" placeholder="${escapeHtml(notePlaceholder)}" value="${escapeHtml(noteValue)}" />
+            </div>
+          </div>
         `;
 
         card.querySelector('[data-action="delete"]').addEventListener('click', () => removeItem(line.id));
         card.querySelector('[data-field="packageId"]').addEventListener('change', (event) => {
-          updateItem(line.id, { packageId: event.target.value }, true);
+          // Switching the package resets the override so the new package's
+          // default note shows up. The user can still edit it again afterwards.
+          updateItem(line.id, { packageId: event.target.value, noteOverride: null }, true);
         });
         card.querySelector('[data-action="qty-down"]').addEventListener('click', () => {
           updateItem(line.id, { qty: Math.max(1, line.qty - 1) }, true);
@@ -2669,6 +3038,14 @@ body{
           const totals = computeTotals();
           const fresh = totals.lines.find((item) => item.id === line.id);
           if (fresh) event.target.value = fresh.discount ? String(fresh.discount) : '';
+          updateDerivedDisplays();
+        });
+
+        const noteInput = card.querySelector('[data-field="noteOverride"]');
+        noteInput.addEventListener('input', (event) => {
+          updateItem(line.id, { noteOverride: event.target.value }, false);
+        });
+        noteInput.addEventListener('blur', () => {
           updateDerivedDisplays();
         });
 
@@ -2746,16 +3123,19 @@ body{
           </div>
         `;
       } else {
-        els.previewItems.innerHTML = lines.map((line) => `
+        els.previewItems.innerHTML = lines.map((line) => {
+          const noteText = line.noteOverride != null ? line.noteOverride : (line.pkg.note || '');
+          return `
           <div class="items-row">
             <div>
               <div class="item-name">${escapeHtml(line.pkg.name)}</div>
-              ${line.pkg.note ? `<div class="item-note">${escapeHtml(line.pkg.note)}</div>` : ''}
+              ${noteText ? `<div class="item-note">${escapeHtml(noteText)}</div>` : ''}
             </div>
             <div class="cell-strong cell-qty">${line.qty}</div>
             <div class="cell-strong cell-amount">${formatIdr(line.base)}</div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       }
 
       const totalsLines = [];
@@ -2980,10 +3360,11 @@ body{
     }
 
     function revealInvoiceApp(skipGate = false) {
-      const showApp = () => {
+      const showApp = async () => {
         els.adminGate?.classList.add('hidden');
         els.appShell?.classList.remove('hidden');
         setAdminStatus('');
+        await bootstrapPackages();
         loadInvoiceFromUrl();
         focusSoon(els.clientName);
       };
@@ -3094,7 +3475,20 @@ body{
     }
 
     function customPackagesForSave() {
-      return PACKAGES.filter((pkg) => !DEFAULT_PACKAGES.some((base) => base.id === pkg.id));
+      // Persist the custom packages that this invoice actually uses so old
+      // invoices keep rendering even if those packages get deleted from the
+      // cloud catalogue. Defaults live in the catalogue and don't need to
+      // be embedded; temporary "Use Once" packages are not in the DB and
+      // MUST be embedded so the invoice can be restored.
+      const usedIds = new Set(state.items.map((item) => item.packageId));
+      return PACKAGES
+        .filter((pkg) => usedIds.has(pkg.id) && !pkg.isDefault)
+        .map((pkg) => ({
+          id: pkg.id,
+          name: pkg.name,
+          price: pkg.price,
+          note: pkg.note || ''
+        }));
     }
 
 	    function buildInvoicePayload() {
@@ -3237,12 +3631,19 @@ body{
       const existing = new Set(PACKAGES.map((pkg) => pkg.id));
       const clean = savedPackages
         .filter((pkg) => pkg && pkg.id && pkg.name)
-        .map((pkg) => ({ id: String(pkg.id), name: String(pkg.name), price: cleanNumber(pkg.price), note: String(pkg.note || 'custom package') }))
+        .map((pkg) => ({
+          id: String(pkg.id),
+          name: String(pkg.name),
+          price: cleanNumber(pkg.price),
+          note: String(pkg.note || ''),
+          isDefault: false,
+          cloud: false,
+          temp: String(pkg.id || '').startsWith('temp-') || String(pkg.id || '').startsWith('custom-')
+        }))
         .filter((pkg) => pkg.price > 0 && !existing.has(pkg.id));
       if (clean.length) {
-        PACKAGES = [...PACKAGES, ...clean];
-        persistCustomPackages();
-        populatePackagePicker();
+        PACKAGES = sortPackages([...PACKAGES, ...clean]);
+        populatePackagePicker(state.selectedPackageId);
       }
     }
 
@@ -3261,7 +3662,18 @@ body{
       state.eventDate = record.event_date || data.eventDate || '';
       state.eventTime = record.event_time || data.eventTime || '';
       state.invoiceDate = record.invoice_date || data.invoiceDate || today;
-      state.items = Array.isArray(data.items) ? data.items : [];
+      state.items = Array.isArray(data.items)
+        ? data.items.map((item) => ({
+            id: String(item?.id || makeId()),
+            packageId: String(item?.packageId || ''),
+            qty: Math.max(1, Math.min(3, parseInt(item?.qty, 10) || 1)),
+            discount: cleanNumber(item?.discount),
+            // null = fall back to package default note; '' = explicitly blank.
+            noteOverride: item && Object.prototype.hasOwnProperty.call(item, 'noteOverride') && item.noteOverride !== undefined
+              ? (item.noteOverride === null ? null : String(item.noteOverride))
+              : null
+          }))
+        : [];
 
       els.clientTitle.value = state.clientTitle;
       els.clientName.value = state.clientName;
@@ -3431,6 +3843,7 @@ body{
       state.customQrDataUrl = '';
       state.invoiceId = '';
       state.pickerQty = 1;
+      state.selectedPackageId = PACKAGES[0]?.id || '';
       state.items = [];
 
       els.clientTitle.value = state.clientTitle;
@@ -3444,7 +3857,9 @@ body{
       els.depositPaidDate.value = '';
       els.fullyPaid.checked = false;
       els.paidDate.value = '';
-      els.packagePicker.value = PACKAGES[0].id;
+      if (els.packageSearch) els.packageSearch.value = '';
+      closeAutocompleteDropdown();
+      syncSearchInputFromSelection();
       updatePickerQty(0);
       setPackagePickerText();
       updateDateInputDisplays();
@@ -3479,11 +3894,104 @@ body{
       el.addEventListener('change', syncPaidState);
     });
 
-    els.packagePicker.addEventListener('change', setPackagePickerText);
+    if (els.packageSearch) {
+      els.packageSearch.addEventListener('focus', () => openAutocompleteDropdown());
+      els.packageSearch.addEventListener('input', () => {
+        autocompleteFocusIndex = -1;
+        autocompleteUseOnceVisible = false;
+        if (els.packageDropdown.classList.contains('hidden')) openAutocompleteDropdown();
+        else renderAutocompleteDropdown();
+        syncSelectionFromSearch();
+      });
+      els.packageSearch.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          if (els.packageDropdown.classList.contains('hidden')) openAutocompleteDropdown();
+          const matches = getFilteredPackages(els.packageSearch.value);
+          if (!matches.length) return;
+          autocompleteFocusIndex = Math.min(matches.length - 1, autocompleteFocusIndex + 1);
+          renderAutocompleteDropdown();
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          const matches = getFilteredPackages(els.packageSearch.value);
+          if (!matches.length) return;
+          autocompleteFocusIndex = autocompleteFocusIndex <= 0 ? matches.length - 1 : autocompleteFocusIndex - 1;
+          renderAutocompleteDropdown();
+        } else if (event.key === 'Enter') {
+          const matches = getFilteredPackages(els.packageSearch.value);
+          if (matches.length) {
+            event.preventDefault();
+            const target = autocompleteFocusIndex >= 0 ? matches[autocompleteFocusIndex] : matches[0];
+            if (target) selectPackageFromAutocomplete(target.id);
+          } else {
+            event.preventDefault();
+            // No matches: surface the Use Once price field.
+            showUseOnceForm();
+          }
+        } else if (event.key === 'Escape') {
+          if (!els.packageDropdown.classList.contains('hidden')) {
+            event.preventDefault();
+            closeAutocompleteDropdown();
+          }
+        }
+      });
+      els.packageSearch.addEventListener('blur', () => {
+        // Defer close so click handlers on dropdown items still register.
+        setTimeout(() => {
+          if (document.activeElement && els.packageDropdown.contains(document.activeElement)) return;
+          closeAutocompleteDropdown();
+          syncSearchInputFromSelection();
+        }, 120);
+      });
+    }
+
+    if (els.packageDropdown) {
+      els.packageDropdown.addEventListener('mousedown', (event) => {
+        // Prevent the search input from blurring before a click registers.
+        if (event.target.closest('button, input')) return;
+        event.preventDefault();
+      });
+      els.packageDropdown.addEventListener('click', (event) => {
+        const item = event.target.closest('[data-pkg-id]');
+        if (item) {
+          selectPackageFromAutocomplete(item.dataset.pkgId);
+          return;
+        }
+        const action = event.target.closest('[data-ac-action]')?.dataset.acAction;
+        if (action === 'use-once') showUseOnceForm();
+        else if (action === 'save-db') openSaveToDbFlow();
+        else if (action === 'confirm-once') confirmUseOnce();
+      });
+      els.packageDropdown.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && event.target.matches('[data-ac-once-price]')) {
+          event.preventDefault();
+          confirmUseOnce();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          closeAutocompleteDropdown();
+          els.packageSearch.focus();
+        }
+      });
+      els.packageDropdown.addEventListener('input', (event) => {
+        // Live-format the Use Once price input with thousand separators.
+        if (event.target.matches('[data-ac-once-price]')) {
+          const digits = event.target.value.replace(/[^\d]/g, '');
+          event.target.value = digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+        }
+      });
+    }
+
+    document.addEventListener('mousedown', (event) => {
+      if (!els.packageDropdown || els.packageDropdown.classList.contains('hidden')) return;
+      if (els.packageDropdown.contains(event.target) || event.target === els.packageSearch) return;
+      closeAutocompleteDropdown();
+      syncSearchInputFromSelection();
+    });
+
     els.pickerQtyDown.addEventListener('click', () => updatePickerQty(-1));
     els.pickerQtyUp.addEventListener('click', () => updatePickerQty(1));
     els.addItemBtn.addEventListener('click', () => addItem());
-    els.addAnotherItemBtn.addEventListener('click', () => addItem(els.packagePicker.value, 1));
+    els.addAnotherItemBtn.addEventListener('click', () => addItem(state.selectedPackageId, 1));
     els.newPackageBtn.addEventListener('click', () => {
       if (els.newPackagePanel.classList.contains('hidden')) {
         openNewPackagePanel();
