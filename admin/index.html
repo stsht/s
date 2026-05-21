@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" class="ss-force-motion">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#f3f7fb">
+  <title>StarShots Dashboard</title>
+  <link rel="stylesheet" href="/animate.css">
+  <link rel="stylesheet" href="/gate.css">
+  <script src="/animate.js"></script>
+  <script src="/gate.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+    :root{
+      --bg:#f3f7fb;
+      --panel:#ffffff;
+      --card:#ffffff;
+      --solid:#ffffff;
+      --field:#f8faff;
+      --ink:#1f1a17;
+      --text:#1f1a17;
+      --soft:#5f6673;
+      --muted:#7b8492;
+      --line:#dfe7f2;
+      --line2:#d1dceb;
+      --accent:#4c8bf5;
+      --accent2:#1a73e8;
+      --accentSoft:rgba(66,133,244,.12);
+      --green:#357f58;
+      --danger:#bc3b42;
+      --ease-out:cubic-bezier(.22,1,.36,1);
+      --ease-spring:cubic-bezier(.16,1.1,.3,1);
+      --dur-item:760ms;
+      --gold:#8ab4f8;
+      --gold-2:#5f95f5;
+      color-scheme:light;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%}
+    body{
+      min-height:100dvh;
+      padding:max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+      color:var(--ink);
+      background:
+        radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.08), transparent 60%),
+        radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.08), transparent 55%),
+        #f3f7fb;
+      font:500 14px/1.45 "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+    }
+    .hidden{display:none!important}
+    .admin-shell{position:relative;z-index:1;max-width:1160px;min-height:calc(100dvh - 48px);margin:0 auto;display:flex;flex-direction:column;gap:18px}
+    .admin-stage{width:100%;display:grid;place-items:center;min-height:calc(100dvh - 48px)}
+    .admin-top{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0}
+    .logo-link{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+    .ss-logo-top{display:block;width:min(168px,44vw);height:auto}
+    .compact-pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--soft);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+    .compact-pill:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(138,180,248,.18)}
+    .dashboard{
+      display:flex;flex-direction:column;gap:18px;min-height:calc(100dvh - 126px);padding:26px;border:1px solid var(--line);border-radius:36px;
+      background:
+        linear-gradient(90deg,transparent 12%,rgba(138,180,248,.72) 50%,transparent 88%) top/100% 1px no-repeat,
+        linear-gradient(180deg,color-mix(in srgb,var(--panel) 96%,white 4%),var(--panel));
+      box-shadow:0 30px 90px rgba(15,23,42,.10),0 1px 0 rgba(255,255,255,.48) inset;
+    }
+    .dash-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,420px);align-items:end;gap:18px;margin-top:4px}
+    .dash-eyebrow{display:flex;align-items:center;gap:10px;margin:0 0 12px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+    .dash-eyebrow .dot{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(138,180,248,.18)}
+    h1{margin:0;color:var(--ink);font-size:clamp(30px,5vw,48px);font-weight:900;line-height:1.02;letter-spacing:-.04em}
+    .dash-head p{max-width:420px;margin:0;color:var(--soft);font-size:14.5px;line-height:1.55}
+    .tool-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .tool-card{
+      position:relative;min-height:178px;display:flex;flex-direction:column;justify-content:space-between;gap:18px;
+      text-decoration:none;border:1px solid var(--line);border-radius:20px;padding:18px;
+      background:linear-gradient(180deg, color-mix(in srgb, var(--solid) 96%, white 4%), var(--solid));
+      color:var(--ink);overflow:hidden;box-shadow:0 18px 44px -32px rgba(15,23,42,.22),0 1px 0 rgba(255,255,255,.5) inset;
+      transition:transform .25s var(--ease-out),border-color .25s var(--ease-out),box-shadow .3s var(--ease-out),background .3s var(--ease-out),opacity var(--dur-item) var(--ease-out);
+    }
+    .tool-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--gold),var(--gold-2));transform:scaleY(0);transform-origin:center;transition:transform .3s var(--ease-spring)}
+    .tool-card small{font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+    .tool-card strong{display:block;margin-top:12px;font-size:clamp(20px,2vw,25px);font-weight:900;line-height:1.05;letter-spacing:-.035em;color:var(--ink)}
+    .tool-card p{margin:0;color:var(--soft);font-size:14px;line-height:1.45;max-width:240px}
+    .tool-action{display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;border:1px solid var(--line);border-radius:999px;padding:6px 12px;color:var(--soft);font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;background:var(--card)}
+    @media(hover:hover) and (pointer:fine){
+      .tool-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb, var(--gold) 55%, var(--line));box-shadow:0 30px 62px -36px rgba(95,149,245,.24),0 8px 18px -14px rgba(95,149,245,.16);background:color-mix(in srgb, var(--solid) 94%, var(--gold) 6%)}
+      .tool-card:hover:before{transform:scaleY(1)}
+      .tool-card:hover .tool-action{border-color:transparent;background:var(--gold);color:#fff}
+    }
+    .tool-card:active{transform:translateY(0) scale(.992)}
+    .admin-top.is-settled .reveal,.dashboard.is-settled .reveal{transition-delay:0ms!important}
+    @media(max-width:980px){.dash-head{grid-template-columns:1fr;align-items:start}.tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){.dashboard{padding:18px;border-radius:26px}.tool-grid{grid-template-columns:1fr}.tool-card{min-height:156px;border-radius:14px}.admin-top{align-items:flex-start}}
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <header id="adminTop" class="admin-top hidden reveal" data-reveal>
+      <a class="logo-link" href="/admin" aria-label="StarShots admin dashboard"><img class="ss-logo-top" src="/logo-hero.png" alt="StarShots logo"></a>
+      <div class="compact-pill">Private</div>
+    </header>
+
+    <div id="adminStage" class="admin-stage">
+      <section id="adminGate" class="ss-gate-card" data-ss-gate-card aria-labelledby="admin-gate-title">
+        <div class="ss-gate-brand reveal" data-reveal>
+          <a class="logo-link" href="/" aria-label="Back to StarShots homepage">
+            <img class="ss-gate-logo ss-logo-hero" src="/logo-hero.png" alt="StarShots">
+          </a>
+        </div>
+        <p class="ss-gate-eyebrow reveal" data-reveal><span class="rule"></span><span class="dot" aria-hidden="true"></span>Private Workspace<span class="rule"></span></p>
+        <h1 id="admin-gate-title" class="mask-reveal ss-gate-title reveal" data-reveal><span>Dashboard</span></h1>
+        <div class="ss-gate-field reveal" data-reveal>
+          <label class="ss-gate-label" for="adminPassword">Access key</label>
+          <div class="password-wrap">
+            <input id="adminPassword" type="password" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" data-ss-gate-input>
+            <button id="toggleAdminPass" class="eye-btn" type="button" aria-label="Show access key">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>
+            </button>
+          </div>
+        </div>
+        <button id="adminOpen" class="ss-gate-button reveal" data-ss-gate-button data-reveal type="button">
+          <span class="spin" aria-hidden="true"></span>
+          <span class="label">Sign In</span>
+        </button>
+        <p id="adminStatus" class="ss-gate-status reveal" data-reveal role="status" aria-live="polite"></p>
+      </section>
+    </div>
+
+    <main id="dashboard" class="dashboard hidden">
+      <section class="dash-head reveal" data-reveal>
+        <div>
+          <p class="dash-eyebrow"><span class="dot" aria-hidden="true"></span>StarShots Private</p>
+          <h1>Dashboard</h1>
+        </div>
+        <p>Studio tools for delivery links, activity tracking, invoices, and client subscription documents.</p>
+      </section>
+
+      <section class="tool-grid" aria-label="StarShots tools">
+        <a class="tool-card reveal" data-reveal href="/inv"><span><small>Billing</small><strong>Invoice Generator</strong></span><p>Create invoice, deposit, and paid documents.</p><span class="tool-action">Open</span></a>
+        <a class="tool-card reveal" data-reveal href="/l"><span><small>Delivery</small><strong>Create Links</strong></span><p>Prepare short links and delivery messages.</p><span class="tool-action">Open</span></a>
+        <a class="tool-card reveal" data-reveal href="/db"><span><small>Activity</small><strong>Database & Activity</strong></span><p>Review saved links, invoices, subscriptions, and access logs.</p><span class="tool-action">Open</span></a>
+        <a class="tool-card reveal" data-reveal href="/subs"><span><small>Subscriptions</small><strong>Subscriptions</strong></span><p>Create subscription invoice and receipt JPGs.</p><span class="tool-action">Open</span></a>
+      </section>
+    </main>
+  </div>
+  <script>
+    const ADMIN_SESSION_KEY='starshots_admin_session_v1';
+    const ADMIN_SESSION_MS=15*60*1000;
+    const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches&&!document.documentElement.classList.contains('ss-force-motion');
+    const adminStage=document.getElementById('adminStage');
+    const topBar=document.getElementById('adminTop');
+    const gate=document.getElementById('adminGate');
+    const dashboard=document.getElementById('dashboard');
+    const pass=document.getElementById('adminPassword');
+    const toggleAdminPass=document.getElementById('toggleAdminPass');
+    const openBtn=document.getElementById('adminOpen');
+    const openLabel=openBtn.querySelector('.label');
+    const statusEl=document.getElementById('adminStatus');
+    const eyeSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.75 12S5.5 5.5 12 5.5 22.25 12 22.25 12 18.5 18.5 12 18.5 1.75 12 1.75 12Z"/><circle cx="12" cy="12" r="3.25"/></svg>';
+    const eyeOffSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 2.5 21.5 21.5"/><path d="M9.9 5.9A13.2 13.2 0 0 1 12 5.5c6.5 0 10.25 6.5 10.25 6.5a18 18 0 0 1-3.45 4.38"/><path d="M6.03 8.03C3.56 9.96 1.75 12 1.75 12S5.5 18.5 12 18.5c1.87 0 3.53-.38 4.98-1.04"/><path d="M10.59 10.59A3.25 3.25 0 0 0 15.18 15.18"/></svg>';
+    function isTouchViewport(){return window.matchMedia('(max-width: 640px), (pointer: coarse)').matches}
+    function focusSoon(el,options={}){if(!el)return;const{allowTouch=false,delay=60}=options;if(!allowTouch&&isTouchViewport())return;setTimeout(()=>el.focus({preventScroll:true}),delay)}
+    function rememberAdminPassword(){localStorage.removeItem(ADMIN_SESSION_KEY);sessionStorage.setItem(ADMIN_SESSION_KEY,JSON.stringify({expiresAt:Date.now()+ADMIN_SESSION_MS}))}
+    function clearAdminPassword(){sessionStorage.removeItem(ADMIN_SESSION_KEY);localStorage.removeItem(ADMIN_SESSION_KEY);sessionStorage.removeItem('starshots_admin_password');sessionStorage.removeItem('ss_admin_password')}
+    function rememberedAdminPassword(){localStorage.removeItem(ADMIN_SESSION_KEY);try{const raw=sessionStorage.getItem(ADMIN_SESSION_KEY);const saved=raw?JSON.parse(raw):null;if(saved&&Number(saved.expiresAt)>Date.now())return true;if(raw){clearAdminPassword();return false}}catch(e){clearAdminPassword();return false}return false}
+    function stageAccessIntro(){
+      if(window.StarShotsGate?.intro){
+        const handled=window.StarShotsGate.intro(gate,{root:gate,button:openBtn,input:pass});
+        if(handled||gate.dataset.ssGateIntro==='running'||gate.classList.contains('is-mounted')||gate.classList.contains('is-visible')) return;
+      }
+      gate.classList.add('is-mounted','is-visible');
+      gate.querySelectorAll('.reveal').forEach(el=>el.classList.add('is-visible'));
+      focusSoon(pass);
+    }
+    function revealDashboard(){
+      adminStage.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      topBar.classList.remove('hidden');
+      requestAnimationFrame(()=>{
+        topBar.classList.add('is-visible');
+        topBar.querySelectorAll('.reveal').forEach(el=>el.classList.add('is-visible'));
+        dashboard.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('is-visible'),reduceMotion?0:120+i*80));
+      });
+      statusEl.textContent='';
+      setTimeout(()=>dashboard.classList.add('is-settled'),reduceMotion?0:1200);
+    }
+    function showDashboard(){
+      if(adminStage.classList.contains('hidden')){revealDashboard();return}
+      gate.classList.add('is-leaving');
+      setTimeout(()=>{gate.classList.remove('is-mounted','is-visible','is-leaving','is-settled');revealDashboard()},reduceMotion?0:500);
+    }
+    async function checkAdmin(value){
+      const res=await fetch('/api/admin-check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:value})});
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok||!data.ok)throw new Error(data.error||'Unauthorized.');
+    }
+    async function openAdmin(){
+      const value=pass.value.trim();
+      if(!value){statusEl.textContent='Access key required.';statusEl.className='ss-gate-status error is-visible';focusSoon(pass,{allowTouch:true});return}
+      statusEl.textContent='Checking...';statusEl.className='ss-gate-status is-visible';
+      openBtn.disabled=true;openBtn.classList.add('is-loading');openLabel.textContent='Opening...';
+      try{await checkAdmin(value);rememberAdminPassword();showDashboard()}
+      catch(e){clearAdminPassword();statusEl.textContent=e.message||'Unauthorized.';statusEl.className='ss-gate-status error is-visible';focusSoon(pass,{allowTouch:true})}
+      finally{openBtn.disabled=false;openBtn.classList.remove('is-loading');openLabel.textContent='Sign In'}
+    }
+    function toggleGatePassword(){const show=pass.type==='password';pass.type=show?'text':'password';toggleAdminPass.innerHTML=show?eyeOffSvg:eyeSvg;toggleAdminPass.setAttribute('aria-label',show?'Hide access key':'Show access key');focusSoon(pass,{allowTouch:true})}
+    openBtn.addEventListener('click',openAdmin);
+    toggleAdminPass.addEventListener('click',toggleGatePassword);
+    pass.addEventListener('keydown',e=>{if(e.key==='Enter')openAdmin()});
+    (async()=>{const saved=rememberedAdminPassword();if(saved){try{await checkAdmin('');rememberAdminPassword();revealDashboard();return}catch(e){clearAdminPassword()}}stageAccessIntro()})();
+  </script>
+</body>
+</html>
