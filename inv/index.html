@@ -9,7 +9,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
     :root{
       --bg:#F6F6F3;
       --panel:#FFFFFF;
@@ -33,7 +33,7 @@
       --radius-xl:30px;
       --radius-lg:22px;
       --radius-md:18px;
-      --doc-font:"Cormorant Garamond","Times New Roman",Georgia,serif;
+      --doc-font:"Playfair Display","Cormorant Garamond",serif;
     }
 
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -569,9 +569,46 @@
       border-radius:12px;
       cursor:pointer;
       transition:background .15s ease;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
     }
     .autocomplete-item:hover,
     .autocomplete-item.focused{background:rgba(31,26,23,.055)}
+    .autocomplete-item-content{
+      flex:1;
+      min-width:0;
+    }
+    .autocomplete-item-actions{
+      display:flex;
+      gap:6px;
+      opacity:0.6;
+      transition:opacity 0.15s ease;
+    }
+    .autocomplete-item:hover .autocomplete-item-actions,
+    .autocomplete-item.focused .autocomplete-item-actions{
+      opacity:1;
+    }
+    .autocomplete-edit-btn,
+    .autocomplete-delete-btn{
+      background:none;
+      border:none;
+      padding:4px;
+      cursor:pointer;
+      font-size:14px;
+      border-radius:4px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:background 0.15s ease;
+    }
+    .autocomplete-edit-btn:hover{
+      background:rgba(0,0,0,0.06);
+    }
+    .autocomplete-delete-btn:hover{
+      background:rgba(209,75,75,0.1);
+    }
     .autocomplete-item-name{font-size:15px;font-weight:700;color:var(--text)}
     .autocomplete-item-meta{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
     .autocomplete-no-match{
@@ -1258,7 +1295,7 @@
     }
 
     .for-export,.for-export *{
-      font-family:"Cormorant Garamond","Times New Roman",Georgia,serif !important;
+      font-family:"Playfair Display","Cormorant Garamond",serif !important;
       letter-spacing:normal !important;
       text-shadow:none !important;
     }
@@ -1341,7 +1378,7 @@
   }
 }
 html,body{background:var(--bg)!important;color:var(--text)!important}
-body{background:var(--bg)!important;font-family:"Cormorant Garamond","Times New Roman",Georgia,serif!important;font-weight:500!important}
+body{background:var(--bg)!important;font-family:"Playfair Display","Cormorant Garamond",serif!important;font-weight:500!important}
 body::before,body::after,.doodle-bg{display:none!important}
 .panel,.left,.right,.menu-card,.compact-item-card,.new-package-panel,.check-card,.summary-chip,.input-shell,.picker-shell,.readonly-shell,.stepper,.total-chip{
   background:var(--panel)!important;border-color:var(--line)!important;box-shadow:var(--shadow-soft)!important;
@@ -2120,6 +2157,7 @@ body{
       invoiceId: '',
       pickerQty: 1,
       selectedPackageId: '',
+      editingPackageId: null,
       items: []
     };
     let activeAdminPassword = 0;
@@ -2343,6 +2381,8 @@ body{
       els.newPackageName.value = '';
       els.newPackagePrice.value = '';
       els.newPackageNote.value = '';
+      state.editingPackageId = null;
+      els.savePackageBtn.textContent = 'Save';
     }
 
     async function addCustomPackage() {
@@ -2363,7 +2403,7 @@ body{
       // entry so the user is never blocked from adding the item.
       if (!cloudPackagesLoaded) {
         const offlinePkg = {
-          id: 'temp-' + makeId() + makeId(),
+          id: state.editingPackageId || ('temp-' + makeId() + makeId()),
           name,
           price,
           note: note || '',
@@ -2371,12 +2411,16 @@ body{
           cloud: false,
           temp: true
         };
-        PACKAGES = sortPackages([...PACKAGES, offlinePkg]);
+        if (state.editingPackageId) {
+          PACKAGES = PACKAGES.map((p) => p.id === state.editingPackageId ? offlinePkg : p);
+        } else {
+          PACKAGES = sortPackages([...PACKAGES, offlinePkg]);
+        }
         state.selectedPackageId = offlinePkg.id;
         closeNewPackagePanel();
         syncSearchInputFromSelection();
         render();
-        setSaveStatus(`Added "${offlinePkg.name}" for this session (not synced to cloud).`);
+        setSaveStatus(state.editingPackageId ? `Updated "${offlinePkg.name}" (not synced to cloud).` : `Added "${offlinePkg.name}" for this session (not synced to cloud).`);
         return;
       }
 
@@ -2393,19 +2437,25 @@ body{
         const res = await fetch('/api/packages-save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password, package: { name, price, note } })
+          body: JSON.stringify({ password, package: { id: state.editingPackageId || undefined, name, price, note } })
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) throw new Error(data.error || 'Unable to save package.');
         const saved = normalizeCloudPackage(data.package || {});
         if (!saved.id) throw new Error('Server returned an invalid package.');
-        PACKAGES = sortPackages([...PACKAGES.filter((pkg) => pkg.id !== saved.id), saved]);
+        
+        if (state.editingPackageId) {
+          PACKAGES = sortPackages([...PACKAGES.filter((pkg) => pkg.id !== state.editingPackageId && pkg.id !== saved.id), saved]);
+        } else {
+          PACKAGES = sortPackages([...PACKAGES.filter((pkg) => pkg.id !== saved.id), saved]);
+        }
+        
         state.selectedPackageId = saved.id;
         rememberAdminPassword();
         closeNewPackagePanel();
         syncSearchInputFromSelection();
         render();
-        setSaveStatus(`Saved "${saved.name}" to database.`);
+        setSaveStatus(state.editingPackageId ? `Updated "${saved.name}" in database.` : `Saved "${saved.name}" to database.`);
       } catch (error) {
         if (String(error.message || '').toLowerCase().includes('unauthorized')) clearAdminPassword();
         setSaveStatus(error.message || 'Unable to save package.', true);
@@ -2675,6 +2725,28 @@ body{
       syncSharedState();
     }
 
+    function toSmartTitleCase(str) {
+      if (!str || typeof str !== 'string') return str || '';
+      const lowercaseWords = new Set([
+        'to', 'in', 'at', 'of', 'for', 'and', 'the', 'a', 'an', 'on', 'with', 'by', 'from', 'or', 'but'
+      ]);
+      const words = str.split(/\s+/);
+      const result = words.map((word, index) => {
+        if (!word) return '';
+        const isAllCap = /^[A-Z0-9]+$/.test(word);
+        const hasCamelCase = /^[a-z]+[A-Z]/.test(word);
+        if (isAllCap || hasCamelCase) {
+          return word;
+        }
+        const lowerWord = word.toLowerCase();
+        if (lowercaseWords.has(lowerWord) && index > 0 && index < words.length - 1) {
+          return lowerWord;
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      });
+      return result.join(' ');
+    }
+
     function escapeHtml(value) {
       return String(value)
         .replace(/&/g, '&amp;')
@@ -2854,10 +2926,19 @@ body{
       els.packageDropdown.innerHTML = limit.map((pkg, idx) => {
         const focused = idx === autocompleteFocusIndex ? ' focused' : '';
         const meta = `${escapeHtml(formatIdr(pkg.price))}${pkg.note ? ' &middot; ' + escapeHtml(pkg.note) : ''}`;
+        const isCustom = !DEFAULT_PACKAGES.some((p) => p.id === pkg.id);
         return `
           <div class="autocomplete-item${focused}" data-pkg-id="${escapeHtml(pkg.id)}" role="option" aria-selected="${idx === autocompleteFocusIndex}">
-            <div class="autocomplete-item-name">${escapeHtml(pkg.name)}</div>
-            <div class="autocomplete-item-meta">${meta}</div>
+            <div class="autocomplete-item-content">
+              <div class="autocomplete-item-name">${escapeHtml(pkg.name)}</div>
+              <div class="autocomplete-item-meta">${meta}</div>
+            </div>
+            ${isCustom ? `
+              <div class="autocomplete-item-actions">
+                <button type="button" class="autocomplete-edit-btn" data-action="edit-pkg" title="Edit Item">✏️</button>
+                <button type="button" class="autocomplete-delete-btn" data-action="delete-pkg" title="Delete Item">🗑️</button>
+              </div>
+            ` : ''}
           </div>
         `;
       }).join('');
@@ -2917,6 +2998,67 @@ body{
         // Trigger any input formatting consumers depend on.
         els.newPackageName.dispatchEvent(new Event('input'));
         els.newPackagePrice.focus();
+      }
+    }
+
+    function editCustomPackage(pkgId) {
+      const pkg = PACKAGES.find((p) => p.id === pkgId);
+      if (!pkg) return;
+      closeAutocompleteDropdown();
+      openNewPackagePanel();
+      els.newPackageName.value = pkg.name;
+      els.newPackagePrice.value = String(pkg.price);
+      els.newPackageNote.value = pkg.note || '';
+      state.editingPackageId = pkg.id;
+      els.savePackageBtn.textContent = 'Update Package';
+      // Trigger any input formatting
+      els.newPackageName.dispatchEvent(new Event('input'));
+      els.newPackagePrice.dispatchEvent(new Event('input'));
+    }
+
+    async function deleteCustomPackage(pkgId) {
+      const pkg = PACKAGES.find((p) => p.id === pkgId);
+      if (!pkg) return;
+      if (!confirm(`Are you sure you want to delete "${pkg.name}" from catalogue?`)) return;
+
+      closeAutocompleteDropdown();
+
+      if (!cloudPackagesLoaded || pkg.temp) {
+        PACKAGES = PACKAGES.filter((p) => p.id !== pkgId);
+        if (state.selectedPackageId === pkgId) {
+          state.selectedPackageId = PACKAGES[0]?.id || '';
+        }
+        syncSearchInputFromSelection();
+        render();
+        setSaveStatus(`Deleted "${pkg.name}" (not synced to cloud).`);
+        return;
+      }
+
+      const password = currentAdminPassword();
+      if (password === null) {
+        setSaveStatus('Delete canceled. Admin password is required.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/packages-delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password, id: pkg.id })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Unable to delete package.');
+        PACKAGES = PACKAGES.filter((p) => p.id !== pkgId);
+        if (state.selectedPackageId === pkgId) {
+          state.selectedPackageId = PACKAGES[0]?.id || '';
+        }
+        rememberAdminPassword();
+        syncSearchInputFromSelection();
+        render();
+        setSaveStatus(`Deleted "${pkg.name}" from database.`);
+      } catch (error) {
+        if (String(error.message || '').toLowerCase().includes('unauthorized')) clearAdminPassword();
+        setSaveStatus(error.message || 'Error deleting package.', true);
       }
     }
 
@@ -3045,7 +3187,10 @@ body{
         noteInput.addEventListener('input', (event) => {
           updateItem(line.id, { noteOverride: event.target.value }, false);
         });
-        noteInput.addEventListener('blur', () => {
+        noteInput.addEventListener('blur', (event) => {
+          const formatted = toSmartTitleCase(event.target.value);
+          event.target.value = formatted;
+          updateItem(line.id, { noteOverride: formatted !== '' ? formatted : null }, false);
           updateDerivedDisplays();
         });
 
@@ -3880,6 +4025,22 @@ body{
       el.addEventListener('input', syncSharedState);
       el.addEventListener('change', syncSharedState);
     });
+
+    // Smart Title Casing Blurs
+    els.clientName.addEventListener('blur', () => {
+      els.clientName.value = toSmartTitleCase(els.clientName.value);
+      syncSharedState();
+    });
+    els.venueInput.addEventListener('blur', () => {
+      els.venueInput.value = toSmartTitleCase(els.venueInput.value);
+      syncSharedState();
+    });
+    els.newPackageName.addEventListener('blur', () => {
+      els.newPackageName.value = toSmartTitleCase(els.newPackageName.value);
+    });
+    els.newPackageNote.addEventListener('blur', () => {
+      els.newPackageNote.value = toSmartTitleCase(els.newPackageNote.value);
+    });
     els.eventTime.addEventListener('input', handleTimeInput);
     els.eventTime.addEventListener('blur', handleTimeBlur);
     els.eventTime.addEventListener('change', handleTimeBlur);
@@ -3952,6 +4113,19 @@ body{
         event.preventDefault();
       });
       els.packageDropdown.addEventListener('click', (event) => {
+        const actionBtn = event.target.closest('[data-action]');
+        if (actionBtn) {
+          event.stopPropagation();
+          event.preventDefault();
+          const pkgId = actionBtn.closest('[data-pkg-id]')?.dataset.pkgId;
+          const action = actionBtn.dataset.action;
+          if (action === 'edit-pkg') {
+            editCustomPackage(pkgId);
+          } else if (action === 'delete-pkg') {
+            deleteCustomPackage(pkgId);
+          }
+          return;
+        }
         const item = event.target.closest('[data-pkg-id]');
         if (item) {
           selectPackageFromAutocomplete(item.dataset.pkgId);

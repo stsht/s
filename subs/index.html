@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#F6F6F3" />
   <title>StarShots Subscription Generator</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
     :root{
       --bg:#F6F6F3;
       --panel:#FFFFFF;
@@ -30,7 +30,7 @@
       --radius-xl:30px;
       --radius-lg:22px;
       --radius-md:18px;
-      --doc-font:"Cormorant Garamond","Times New Roman",Georgia,serif;
+      --doc-font:"Playfair Display","Cormorant Garamond",serif;
     }
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
     html,body{margin:0;min-height:100%}
@@ -364,7 +364,7 @@
         var(--bg)!important;
       background-attachment:fixed;
       color:var(--text)!important;
-      font-family:"Cormorant Garamond","Times New Roman",Georgia,serif!important;
+      font-family:"Playfair Display","Cormorant Garamond",serif!important;
       font-weight:500!important;
     }
     .aurora,.doodle-bg{display:none!important}
@@ -742,7 +742,29 @@
     const SERVICE_ACCESS_VALUES=['7','15','30'];
     const SLOT_UNITS={'500GB':1,'1TB':2,'1.5TB':3,'2TB':4};
     const PERIOD_MULTIPLIER={'7':1,'30':1,'60':2,'90':3};
-    const FONT='"Cormorant Garamond","Times New Roman",Georgia,serif';
+    const FONT='"Playfair Display","Cormorant Garamond",serif';
+
+    function toSmartTitleCase(str) {
+      if (!str || typeof str !== 'string') return str || '';
+      const lowercaseWords = new Set([
+        'to', 'in', 'at', 'of', 'for', 'and', 'the', 'a', 'an', 'on', 'with', 'by', 'from', 'or', 'but'
+      ]);
+      const words = str.split(/\s+/);
+      const result = words.map((word, index) => {
+        if (!word) return '';
+        const isAllCap = /^[A-Z0-9]+$/.test(word);
+        const hasCamelCase = /^[a-z]+[A-Z]/.test(word);
+        if (isAllCap || hasCamelCase) {
+          return word;
+        }
+        const lowerWord = word.toLowerCase();
+        if (lowercaseWords.has(lowerWord) && index > 0 && index < words.length - 1) {
+          return lowerWord;
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      });
+      return result.join(' ');
+    }
 
     let mode='INVOICE';
     let rateMode='normal';
@@ -1071,7 +1093,7 @@
       ctx.restore();
     }
     function drawTile(ctx,{x,y,w,h,label,value,subValue='',align='left'}){
-      ctx.save();drawRoundedRect(ctx,x,y,w,h,28);ctx.fillStyle='#f8f6f2';ctx.fill();
+      ctx.save();drawRoundedRect(ctx,x,y,w,h,28);ctx.fillStyle='#faf9f6';ctx.fill();
       ctx.textAlign=align;const tx=align==='center'?x+w/2:x+34;
       ctx.fillStyle='#9a8070';ctx.font=`700 24px ${FONT}`;ctx.fillText(label,tx,y+46);
       ctx.fillStyle='#1f1a17';ctx.font=`700 38px ${FONT}`;ctx.fillText(value,tx,y+102);
@@ -1079,7 +1101,7 @@
       ctx.restore();
     }
     function drawDetailCard(ctx,{x,y,w,h,label,dateValue,timeValue}){
-      ctx.save();drawRoundedRect(ctx,x,y,w,h,34);ctx.fillStyle='#f8f6f2';ctx.fill();
+      ctx.save();drawRoundedRect(ctx,x,y,w,h,34);ctx.fillStyle='#faf9f6';ctx.fill();
       ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillStyle='#9a8070';ctx.font=`700 24px ${FONT}`;ctx.fillText(label,x+w/2,y+54);
       ctx.fillStyle='#1f1a17';ctx.font=`700 56px ${FONT}`;ctx.fillText(dateValue,x+w/2,y+180);
@@ -1091,13 +1113,13 @@
       const titleSize=options.titleSize||72;
       ctx.textAlign='center';
       /* Greeting on top line */
-      ctx.fillStyle='#1f1a17';ctx.font=`500 46px ${FONT}`;ctx.fillText(greeting(),w/2,206);
-      /* Service name in the middle */
-      ctx.fillStyle='#9a8070';ctx.font=`700 34px ${FONT}`;ctx.fillText(serviceDisplayName(),w/2,264);
-      /* Smaller title at the bottom */
-      ctx.fillStyle='#1f1a17';ctx.font=`700 ${titleSize}px ${FONT}`;ctx.fillText(titleText,w/2,346);
+      ctx.fillStyle='#1f1a17';ctx.font=`500 46px ${FONT}`;ctx.fillText(greeting(),w/2,190);
+      /* Smaller title next (under greeting with spacing) */
+      ctx.fillStyle='#1f1a17';ctx.font=`700 ${titleSize}px ${FONT}`;ctx.fillText(titleText,w/2,280);
+      /* Service name */
+      ctx.fillStyle='#9a8070';ctx.font=`700 34px ${FONT}`;ctx.fillText(serviceDisplayName(),w/2,345);
       /* Status pill */
-      drawPill(ctx,pillText,w/2,416,pillBg,pillTextColor);
+      drawPill(ctx,pillText,w/2,415,pillBg,pillTextColor);
     }
     function drawQrBlock(ctx){
       const w=invoiceCanvas.width;
@@ -1383,7 +1405,7 @@
       node.addEventListener('input',()=>{markPaidManual(key);if(memberName.value.trim())validateMemberName(false);preview()});
       node.addEventListener('change',()=>{markPaidManual(key);preview()});
     });
-    memberName.addEventListener('blur',()=>validateMemberName(true));
+    memberName.addEventListener('blur',()=>{memberName.value=toSmartTitleCase(memberName.value);validateMemberName(true)});
     primaryBtn.addEventListener('click',primaryAction);
     resetBtn.addEventListener('click',resetForm);
     qrResetBtn.addEventListener('click',useDefaultQr);
