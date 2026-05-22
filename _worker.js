@@ -789,7 +789,11 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
 
   const query = String(q || '').toLowerCase();
   return [...byId.values(), ...legacy.values()]
-    .filter((client) => Number(client.invoice_count || 0) > 0 || Number(client.delivery_count || 0) > 0)
+    .filter((client) => (
+      client.source === 'client'
+      || Number(client.invoice_count || 0) > 0
+      || Number(client.delivery_count || 0) > 0
+    ))
     .filter((client) => !query || [
       client.title,
       client.name,
