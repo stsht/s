@@ -6,6 +6,11 @@ const OUT = process.argv[2] || './screenshots';
 await mkdir(OUT, { recursive: true });
 
 const VIEWS = [
+  // Pre-password gate — no session seed so the gate UI is what we capture.
+  { name: 'gate-desktop-light', url: '/db/', viewport: { width: 1440, height: 900 }, scheme: 'light', seedSession: false },
+  { name: 'gate-desktop-dark', url: '/db/', viewport: { width: 1440, height: 900 }, scheme: 'dark', seedSession: false },
+  { name: 'gate-mobile-light', url: '/db/', viewport: { width: 390, height: 844 }, scheme: 'light', seedSession: false },
+  { name: 'gate-mobile-dark', url: '/db/', viewport: { width: 390, height: 844 }, scheme: 'dark', seedSession: false },
   { name: 'db-desktop-light', url: '/db/', viewport: { width: 1440, height: 900 }, scheme: 'light' },
   { name: 'db-desktop-dark', url: '/db/', viewport: { width: 1440, height: 900 }, scheme: 'dark' },
   { name: 'db-mobile-light', url: '/db/', viewport: { width: 390, height: 844 }, scheme: 'light' },
@@ -25,12 +30,15 @@ try {
     const page = await context.newPage();
 
     // Pre-seed the shared session so the gate falls through to the workspace.
-    await page.addInitScript(() => {
-      sessionStorage.setItem(
-        'starshots_gate_private',
-        JSON.stringify({ expiresAt: Date.now() + 15 * 60 * 1000 }),
-      );
-    });
+    // Skip seeding for gate-* views so we capture the pre-password UI.
+    if (view.seedSession !== false) {
+      await page.addInitScript(() => {
+        sessionStorage.setItem(
+          'starshots_gate_private',
+          JSON.stringify({ expiresAt: Date.now() + 15 * 60 * 1000 }),
+        );
+      });
+    }
 
     // Stub out the data API so /db renders predictable empty/loaded state.
     await page.route('**/api/db**', (route) =>

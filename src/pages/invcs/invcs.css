@@ -821,6 +821,12 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
+  /* /inv pills in dark mode: previously the active pill kept color:var(--ink)
+   * (light) on a #fff background -> white text on white. Force readable
+   * dark-on-light, and brighten the inactive label so it stays legible
+   * on the dark soft surface. */
+  .mode-switch button{color:#cdd6e4}
+  .mode-switch button.active{background:#f6f8ff;color:#090b10}
   .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   .invoice-sheet,.invoice-sheet *{color-scheme:light}

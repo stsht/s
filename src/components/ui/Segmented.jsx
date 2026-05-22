@@ -5,11 +5,13 @@
  * for contextual page modes (e.g. /db: Clients/Subs/Invoices,
  * /inv: Invoice/Deposit/Paid).
  *
- * Renders the existing .segmented styles defined in invcs.css.
+ * Renders the isolated .pf-pillset styles defined in
+ * PrivateWorkspaceFrame.css (deliberately not .segmented so it does
+ * not collide with legacy /inv .segmented / .mode-switch rules).
  */
 export function Segmented({ value, onChange, options, ariaLabel }) {
   return (
-    <div className="segmented" role="tablist" aria-label={ariaLabel}>
+    <div className="pf-pillset" role="tablist" aria-label={ariaLabel}>
       {options.map((option) => {
         const active = value === option.value;
         return (

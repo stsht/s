@@ -98,10 +98,11 @@
   width: 100%;
 }
 
-/* Pills look — mirrors /inv .mode-switch (36px height, 10px caps, weight 800).
- * Targeted via .pf-pills .segmented so the shared Segmented component picks
- * up the /inv styling automatically. */
-.pf-pills .segmented {
+/* Pills look — isolated under .pf-pillset so it never collides with the
+ * legacy /inv .mode-switch or generic .segmented styles. Mirrors /inv
+ * pill sizing (36px height, 10px label, weight 800) but uses proper
+ * label case (no uppercase). */
+.pf-pillset {
   display: flex;
   gap: 3px;
   min-width: 0;
@@ -112,7 +113,7 @@
   background: var(--soft);
 }
 
-.pf-pills .segmented button {
+.pf-pillset button {
   flex: 1 1 0;
   min-width: 0;
   height: 36px;
@@ -122,11 +123,13 @@
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
-  text-transform: capitalize;
+  letter-spacing: 0;
+  text-transform: none;
   white-space: nowrap;
+  cursor: pointer;
 }
 
-.pf-pills .segmented button.active {
+.pf-pillset button.active {
   background: #fff;
   color: var(--ink);
   box-shadow: var(--shadow-soft);
@@ -203,7 +206,12 @@
   .pf-logo img {
     filter: invert(1) brightness(1.18);
   }
-  .pf-pills .segmented button.active {
+  .pf-pillset button {
+    /* Slightly brighter inactive text so it stays legible on the dark
+     * panel surface. */
+    color: #cdd6e4;
+  }
+  .pf-pillset button.active {
     background: #f6f8ff;
     color: #090b10;
   }
