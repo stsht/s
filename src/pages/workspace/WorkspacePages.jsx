@@ -40,7 +40,7 @@ function createRecordUrl(path, params) {
   return `${url.pathname}${url.search}`;
 }
 
-function PageChrome({ active, title, eyebrow = 'StarShots Private', aside, className = '', children }) {
+function PageChrome({ active, title, eyebrow = 'StarShots Private', aside, className = '', showHero = false, children }) {
   return (
     <main className={`workspace-page ${className}`.trim()}>
       <GlobalBackground />
@@ -55,13 +55,15 @@ function PageChrome({ active, title, eyebrow = 'StarShots Private', aside, class
             ))}
           </nav>
         </header>
-        <section className="workspace-hero">
-          <div>
-            <p className="hero-eyebrow"><span />{eyebrow}</p>
-            <h1>{title}</h1>
-          </div>
-          {aside ? <p className="hero-aside">{aside}</p> : null}
-        </section>
+        {showHero ? (
+          <section className="workspace-hero">
+            <div>
+              <p className="hero-eyebrow"><span />{eyebrow}</p>
+              <h1>{title}</h1>
+            </div>
+            {aside ? <p className="hero-aside">{aside}</p> : null}
+          </section>
+        ) : null}
         {children}
       </div>
     </main>
@@ -96,7 +98,13 @@ function useRemoteList(endpoint) {
   useEffect(() => {
     let alive = true;
     fetch(endpoint, { credentials: 'same-origin' })
-      .then((response) => response.json())
+      .then(async (response) => {
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          return { ok: false, error: json.error || `Unable to load (${response.status}).` };
+        }
+        return json;
+      })
       .then((json) => {
         if (!alive) return;
         setData(json);
@@ -296,13 +304,24 @@ export function DatabasePage() {
     <PageChrome active="/db/" title="Database" className={`db-page ${showDetail ? 'show-detail' : ''}`}>
       <section className="workspace-grid db-grid">
         <aside className="workspace-panel side-panel">
-          <div className="segmented">
-            <button className={tab === 'clients' ? 'active' : ''} onClick={() => setTab('clients')} type="button">Clients</button>
-            <button className={tab === 'subs' ? 'active' : ''} onClick={() => setTab('subs')} type="button">Subs</button>
-            <button className={tab === 'invoices' ? 'active' : ''} onClick={() => setTab('invoices')} type="button">Invoices</button>
-          </div>
+          <header className="db-panel-header">
+            <a className="db-panel-logo" href="/admin/" aria-label="StarShots Dashboard">
+              <img src="/logo-hero.png" alt="StarShots" />
+            </a>
+            <div className="segmented">
+              <button className={tab === 'clients' ? 'active' : ''} onClick={() => setTab('clients')} type="button">Clients</button>
+              <button className={tab === 'subs' ? 'active' : ''} onClick={() => setTab('subs')} type="button">Subs</button>
+              <button className={tab === 'invoices' ? 'active' : ''} onClick={() => setTab('invoices')} type="button">Invoices</button>
+            </div>
+          </header>
+          <nav className="db-tool-nav" aria-label="Private tools">
+            {navItems.map((item) => (
+              <a key={item.href} className={item.href === '/db/' ? 'active' : ''} href={item.href}>{item.label}</a>
+            ))}
+          </nav>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" />
           {tab === 'clients' ? <button className="add-client-button" type="button" onClick={openNewClient}>Create Client</button> : null}
+          {status ? <p className="empty-state db-side-status">{status}</p> : null}
           <div className="db-list">
             {activeRows.slice(0, 80).map((row, index) => {
               const title = row.client_name || row.name || row.title || row.slug;
