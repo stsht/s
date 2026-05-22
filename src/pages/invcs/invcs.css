@@ -819,6 +819,14 @@ dd{margin:0;text-align:right;font-weight:800}
   .db-panel-logo img{
     filter:invert(1) brightness(1.18);
   }
+  /* Pre-password gate logo — PasswordGate.jsx renders
+   * <img class="gate-logo"> inside .gate-page; invert it in dark
+   * mode so the brand stays visible on the deep-blue card. Scoped
+   * to .gate-page so it never bleeds into the after-password
+   * .pf-logo (which has its own invert rule). */
+  .gate-page .gate-logo{
+    filter:invert(1) brightness(1.18);
+  }
   .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
   /* /inv pills in dark mode: previously the active pill kept color:var(--ink)
