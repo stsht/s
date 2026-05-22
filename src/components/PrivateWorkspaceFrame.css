@@ -202,10 +202,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  /* Logo stays visible against deep blue. */
-  .pf-logo img {
-    filter: invert(1) brightness(1.18);
-  }
+  /* Logo dark-mode handled by <picture> swap in PrivateWorkspaceFrame
+   * (logo-hero-white.png). No filter needed here. */
   .pf-pillset button {
     /* Slightly brighter inactive text so it stays legible on the dark
      * panel surface. */

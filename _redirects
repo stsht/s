@@ -1,5 +1,7 @@
 /admin  /db/  301
 /admin/*  /db/  301
+/invcs  /inv/  301
+/invcs/*  /inv/  301
 /l  /l/index.html  200
 /l/*  /l/index.html  200
 /db  /db/index.html  200
@@ -8,9 +10,5 @@
 /g/*  /g/index.html  200
 /inv  /inv/index.html  200
 /inv/*  /inv/index.html  200
-/invcs  /invcs/index.html  200
-/invcs/*  /invcs/index.html  200
 /subs  /subs/index.html  200
 /subs/*  /subs/index.html  200
-/subs2  /subs2/index.html  200
-/subs2/*  /subs2/index.html  200

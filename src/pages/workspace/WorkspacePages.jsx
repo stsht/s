@@ -1,22 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import { Segmented, EmptyState } from '../../components/ui/index.js';
-
-const navItems = [
-  { href: '/admin/', label: 'Dashboard' },
-  { href: '/db/', label: 'Database' },
-  { href: '/l/', label: 'Links' },
-  { href: '/inv/', label: 'Invoice' },
-  { href: '/subs/', label: 'Subs' },
-];
-
-const tools = [
-  { href: '/inv/', eyebrow: 'Billing', title: 'Invoice Generator', body: 'Create invoice, deposit, and paid documents.' },
-  { href: '/l/', eyebrow: 'Delivery', title: 'Create Links', body: 'Prepare short links and delivery messages.' },
-  { href: '/db/', eyebrow: 'Activity', title: 'Database & Activity', body: 'Review clients, saved invoices, subscriptions, and access logs.' },
-  { href: '/subs/', eyebrow: 'Subscriptions', title: 'Subscriptions', body: 'Create storage and subscription invoices.' },
-];
 
 function rupiah(value) {
   const number = Number(value) || 0;
@@ -42,34 +26,11 @@ function createRecordUrl(path, params) {
   return `${url.pathname}${url.search}`;
 }
 
-function PageChrome({ active, title, eyebrow = 'StarShots Private', aside, className = '', showHero = false, children }) {
-  return (
-    <main className={`workspace-page ${className}`.trim()}>
-      <GlobalBackground />
-      <div className="workspace-shell">
-        <header className="workspace-topbar">
-          <a className="workspace-logo" href="/admin/" aria-label="StarShots Dashboard">
-            <img src="/logo-hero.png" alt="StarShots" />
-          </a>
-          <nav className="workspace-nav" aria-label="Private tools">
-            {navItems.map((item) => (
-              <a key={item.href} className={active === item.href ? 'active' : ''} href={item.href}>{item.label}</a>
-            ))}
-          </nav>
-        </header>
-        {showHero ? (
-          <section className="workspace-hero">
-            <div>
-              <p className="hero-eyebrow"><span />{eyebrow}</p>
-              <h1>{title}</h1>
-            </div>
-            {aside ? <p className="hero-aside">{aside}</p> : null}
-          </section>
-        ) : null}
-        {children}
-      </div>
-    </main>
-  );
+function PageChrome() {
+  // Removed: legacy /admin dashboard chrome. /db is now the workspace home;
+  // /l, /subs migrated to PrivateWorkspaceFrame. Kept as a placeholder to
+  // preserve historical export shape during cleanup but no longer rendered.
+  return null;
 }
 
 function ToolCard({ tool }) {
@@ -84,13 +45,9 @@ function ToolCard({ tool }) {
 }
 
 export function AdminDashboard() {
-  return (
-    <PageChrome active="/admin/" title="Dashboard" aside="Studio tools for delivery links, activity tracking, invoices, and client access.">
-      <section className="tool-grid">
-        {tools.map((tool) => <ToolCard key={tool.href} tool={tool} />)}
-      </section>
-    </PageChrome>
-  );
+  // /admin route removed; _redirects sends /admin → /db/. This export is
+  // retained as a no-op fallback so any stray import resolves cleanly.
+  return null;
 }
 
 function useRemoteList(endpoint) {
@@ -443,6 +400,7 @@ export function LinkGeneratorPage() {
   const [slug, setSlug] = useState('');
   const [service, setService] = useState('Google Drive');
   const [status, setStatus] = useState('');
+  const [mobileView, setMobileView] = useState('left');
   const shortSlug = useMemo(() => {
     const base = `${client}-${slug}-${service}`.toLowerCase().replace(/[^a-z0-9]+/g, '');
     let hash = 2166136261;
@@ -455,24 +413,41 @@ export function LinkGeneratorPage() {
     setStatus('Ready locally. Production save uses existing worker API.');
   }
 
+  const left = (
+    <form className="form-stack" onSubmit={save}>
+      <label>Client<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
+      <label>Gallery or folder slug<input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="Google Drive / Dropbox link" /></label>
+      <label>Service
+        <select value={service} onChange={(event) => setService(event.target.value)}>
+          <option>Google Drive</option>
+          <option>Dropbox</option>
+          <option>iCloud</option>
+          <option>USB</option>
+        </select>
+      </label>
+      <button className="primary-button" type="submit">Prepare Link</button>
+      <p className="download-status">{status}</p>
+    </form>
+  );
+
+  const right = (
+    <div className="preview-note-card">
+      <p className="eyebrow">Preview</p>
+      <h2>{client || 'Client'} Delivery</h2>
+      <p>Your gallery is ready. Open here:</p>
+      <strong>sshots.pages.dev/{shortSlug}</strong>
+    </div>
+  );
+
   return (
-    <PageChrome active="/l/" title="Link Generator" aside="Clean delivery messages and short-code previews.">
-      <section className="workspace-grid">
-        <form className="workspace-panel form-stack" onSubmit={save}>
-          <label>Client<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
-          <label>Gallery or folder slug<input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="Google Drive / Dropbox link" /></label>
-          <label>Service<select value={service} onChange={(event) => setService(event.target.value)}><option>Google Drive</option><option>Dropbox</option><option>iCloud</option><option>USB</option></select></label>
-          <button className="primary-button" type="submit">Prepare Link</button>
-          <p className="download-status">{status}</p>
-        </form>
-        <section className="workspace-panel preview-note-card">
-          <p className="eyebrow">Preview</p>
-          <h2>{client || 'Client'} Delivery</h2>
-          <p>Your gallery is ready. Open here:</p>
-          <strong>sshots.pages.dev/{shortSlug}</strong>
-        </section>
-      </section>
-    </PageChrome>
+    <PrivateWorkspaceFrame
+      active="/l/"
+      left={left}
+      right={right}
+      mobileView={mobileView}
+      onMobileViewChange={setMobileView}
+      mobileTabs={{ left: 'Form', right: 'Preview' }}
+    />
   );
 }
 
@@ -482,28 +457,45 @@ export function SubscriptionsPage() {
   const [storage, setStorage] = useState(500);
   const [duration, setDuration] = useState(30);
   const [rate, setRate] = useState(45000);
+  const [mobileView, setMobileView] = useState('left');
   const total = Math.round((Number(rate) || 0) * (Number(duration) || 0) / 30);
 
+  const left = (
+    <form className="form-stack">
+      <label>Service
+        <select value={service} onChange={(event) => setService(event.target.value)}>
+          <option>iCloud</option>
+          <option>Google Drive</option>
+          <option>Dropbox</option>
+        </select>
+      </label>
+      <label>Client name<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
+      <div className="two-col">
+        <label>Storage<input type="number" value={storage} onChange={(event) => setStorage(event.target.value)} /></label>
+        <label>Duration<input type="number" value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
+      </div>
+      <label>Monthly rate<input type="number" value={rate} onChange={(event) => setRate(event.target.value)} /></label>
+    </form>
+  );
+
+  const right = (
+    <div className="preview-note-card">
+      <p className="eyebrow">Invoice Preview</p>
+      <h2>{client || 'Client'}</h2>
+      <p>{service} storage, {storage}GB, {duration} days.</p>
+      <strong>{rupiah(total)}</strong>
+      <small>{today()}</small>
+    </div>
+  );
+
   return (
-    <PageChrome active="/subs/" title="Subscriptions" aside="Subscription invoices stay visually aligned with the private tools.">
-      <section className="workspace-grid">
-        <form className="workspace-panel form-stack">
-          <label>Service<select value={service} onChange={(event) => setService(event.target.value)}><option>iCloud</option><option>Google Drive</option><option>Dropbox</option></select></label>
-          <label>Client name<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
-          <div className="two-col">
-            <label>Storage<input type="number" value={storage} onChange={(event) => setStorage(event.target.value)} /></label>
-            <label>Duration<input type="number" value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
-          </div>
-          <label>Monthly rate<input type="number" value={rate} onChange={(event) => setRate(event.target.value)} /></label>
-        </form>
-        <section className="workspace-panel preview-note-card">
-          <p className="eyebrow">Invoice Preview</p>
-          <h2>{client || 'Client'}</h2>
-          <p>{service} storage, {storage}GB, {duration} days.</p>
-          <strong>{rupiah(total)}</strong>
-          <small>{today()}</small>
-        </section>
-      </section>
-    </PageChrome>
+    <PrivateWorkspaceFrame
+      active="/subs/"
+      left={left}
+      right={right}
+      mobileView={mobileView}
+      onMobileViewChange={setMobileView}
+      mobileTabs={{ left: 'Form', right: 'Preview' }}
+    />
   );
 }

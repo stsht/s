@@ -91,7 +91,13 @@ export function PasswordGate({ title, children }) {
     <main className="gate-page">
       <GlobalBackground />
       <form className="gate-card" onSubmit={openGate}>
-        <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+        {/* picture/source swap to a real white-on-transparent asset
+         * for dark mode — CSS filter:invert was unreliable on the
+         * existing PNG, so we ship a dedicated logo-hero-white.png. */}
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
         <p className="gate-eyebrow"><span />Private Workspace<span /></p>
         <h1>{title}</h1>
         <label htmlFor="gatePassword">Access key</label>

@@ -36,6 +36,9 @@ const NAV_ITEMS = [
  *   mobileTabs        - { left, right } labels for the bottom tabs.
  *                       Omit to hide the bar (selection-driven swap only).
  *   logoHref          - logo destination; defaults to "/db/".
+ *   showNav           - render the cross-tool nav row (default true);
+ *                       pass false for public/embed pages like the
+ *                       gallery delivery view.
  */
 export function PrivateWorkspaceFrame({
   active,
@@ -46,6 +49,7 @@ export function PrivateWorkspaceFrame({
   onMobileViewChange,
   mobileTabs,
   logoHref = '/db/',
+  showNav = true,
 }) {
   const showDetail = mobileView === 'right' && right !== null;
 
@@ -56,22 +60,30 @@ export function PrivateWorkspaceFrame({
         <aside className="pf-panel pf-panel--left">
           <header className="pf-header">
             <a className="pf-logo" href={logoHref} aria-label="StarShots Workspace">
-              <img src="/logo-hero.png" alt="StarShots" />
+              {/* Picture/source swap to a real white asset in dark
+               * mode keeps the brand visible on the deep-blue panel
+               * without relying on CSS filter:invert. */}
+              <picture>
+                <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+                <img src="/logo-hero.png" alt="StarShots" />
+              </picture>
             </a>
             {pills ? <div className="pf-pills">{pills}</div> : <div className="pf-pills" aria-hidden="true" />}
           </header>
-          <nav className="pf-nav" aria-label="Workspace tools">
-            {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                className={active === item.href ? 'active' : ''}
-                aria-current={active === item.href ? 'page' : undefined}
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
+          {showNav ? (
+            <nav className="pf-nav" aria-label="Workspace tools">
+              {NAV_ITEMS.map((item) => (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={active === item.href ? 'active' : ''}
+                  aria-current={active === item.href ? 'page' : undefined}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+          ) : null}
           {left}
         </aside>
         {right !== null ? (
