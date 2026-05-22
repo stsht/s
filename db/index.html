@@ -11,7 +11,7 @@
       color-scheme:light;
       --bg:#F6F6F3;--bg2:#F6F6F3;--card:#FFFFFF;--solid:#ffffff;--field:#f8f8f6;
       --ink:#1f1a17;--soft:#69645f;--muted:#98928b;--line:#e4e2dc;--line2:#d6d3cc;
-      --accent:#b88468;--accent2:#9a6f50;--accentSoft:rgba(184,132,104,.09);--disabled:#e5ded3;
+      --accent:#5f95f5;--accent2:#4f86ee;--accentSoft:rgba(95,149,245,.12);--disabled:#e5ded3;
       --green:#357f58;--danger:#bc3b42;--shadow:0 30px 90px rgba(30,30,28,.10);--shadow2:0 12px 34px rgba(30,30,28,.07);
       --glow1:rgba(255,255,255,.66);--glow2:rgba(212,205,188,.08);--grain:rgba(80,64,44,.028);
     }
@@ -19,16 +19,19 @@
       :root{
         color-scheme:dark;--bg:#0b0c10;--bg2:#0b0c10;--card:#171613;--solid:#1c1b17;--field:#141310;
         --ink:#f4eee5;--soft:#b8aea2;--muted:#8f8579;--line:#2b2823;--line2:#3a352e;
-        --accent:#ca9876;--accent2:#ad7f5d;--accentSoft:rgba(202,152,118,.14);--disabled:#2f2b26;
+        --accent:#8ab4f8;--accent2:#5f95f5;--accentSoft:rgba(138,180,248,.16);--disabled:#2f2b26;
         --green:#77d5a4;--danger:#ff737a;--shadow:0 30px 90px rgba(0,0,0,.36);--shadow2:0 14px 40px rgba(0,0,0,.24);
-        --glow1:rgba(255,239,216,.045);--glow2:rgba(202,152,118,.06);--grain:rgba(255,245,230,.026);
+        --glow1:rgba(138,180,248,.05);--glow2:rgba(66,133,244,.08);--grain:rgba(245,249,255,.026);
       }
     }
     *{box-sizing:border-box}
     html,body{margin:0;padding:0;min-height:100%}
     body{
       min-height:100dvh;font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;font-weight:500;color:var(--ink);
-      background:var(--bg);
+      background:
+        radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.08), transparent 60%),
+        radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.08), transparent 55%),
+        #f3f7fb;
       padding:18px;overflow-x:hidden;
     }
     body:before{display:none}
@@ -88,7 +91,7 @@
     .list::-webkit-scrollbar{display:none}
     .item-row{display:grid;grid-template-columns:1fr 42px;gap:8px;align-items:stretch}
     .item{border:1px solid var(--line);background:var(--solid);border-radius:20px;padding:14px;text-align:left;cursor:pointer;color:var(--ink);width:100%;min-height:auto;display:block}
-    .item.active{border-color:var(--accent);box-shadow:0 0 0 4px rgba(184,132,104,.09)}
+    .item.active{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95,149,245,.12)}
     .item b{display:block;font-size:15px}
     .item span{font-size:12px;color:var(--soft)}
     .more{border:1px solid var(--line)!important;background:var(--solid)!important;color:var(--soft)!important;border-radius:18px!important;min-height:auto!important;padding:0!important;font-size:22px!important;line-height:1!important;box-shadow:none!important}
@@ -115,12 +118,12 @@
       --dur-card:1100ms;
       --dur-item:760ms;
       --dur-switch:500ms;
-      --gold:#d0bb99;
-      --gold-2:#a79074;
+      --gold:#8ab4f8;
+      --gold-2:#5f95f5;
       background:
-        radial-gradient(1100px 620px at 18% 8%, var(--glow2), transparent 60%),
-        radial-gradient(900px 560px at 82% 92%, rgba(212,205,188,.06), transparent 55%),
-        var(--bg);
+        radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.08), transparent 60%),
+        radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.08), transparent 55%),
+        #f3f7fb;
       background-attachment:fixed;
       padding:max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
       overflow-x:hidden;
@@ -128,8 +131,8 @@
     @media(prefers-color-scheme:dark){
       body{
         background:
-          radial-gradient(1100px 620px at 18% 8%, rgba(202,152,118,.09), transparent 60%),
-          radial-gradient(900px 560px at 82% 92%, rgba(202,152,118,.05), transparent 55%),
+          radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.14), transparent 60%),
+          radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.10), transparent 55%),
           var(--bg);
       }
     }
@@ -393,7 +396,7 @@
 	    .row-menu a:hover,.row-menu button:hover{background:rgba(31,26,23,.055)!important;color:var(--ink)!important;transform:none!important}
 	    .row-menu .menu-delete{color:var(--danger)!important}
 	    .records-panel{display:grid;gap:8px;margin-top:18px}
-	    .record-row{display:grid;grid-template-columns:82px minmax(0,1fr) auto auto auto 28px;gap:12px;align-items:center;padding:11px 12px;border-radius:16px;background:rgba(31,26,23,.035)}
+	    .record-row{display:grid;grid-template-columns:82px minmax(0,1fr) auto auto 28px;gap:12px;align-items:center;padding:11px 12px;border-radius:16px;background:rgba(31,26,23,.035)}
 	    .record-date{font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;font-size:16px;font-weight:500;color:var(--soft);white-space:nowrap}
 	    .record-name{font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 	    .record-action{border:0!important;min-height:34px!important;padding:8px 12px!important;border-radius:12px!important;background:var(--solid)!important;color:var(--ink)!important;box-shadow:none!important;font-size:12px!important;font-weight:750!important;text-decoration:none!important;white-space:nowrap}
@@ -404,7 +407,7 @@
 	    .record-action.disabled,.record-action:disabled{opacity:.38;cursor:not-allowed;color:var(--soft)!important}
 	    @media(prefers-color-scheme:dark){.list .item-row:hover,.list .item-row.menu-open,.list .item-row:has(.item.active),.row-menu a:hover,.row-menu button:hover{background:rgba(255,255,255,.075)!important}}
 	    .chip{padding:6px 12px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-	    .chip.warn{color:#9a642d;background:rgba(184,132,104,.08);border-color:rgba(184,132,104,.14)}
+	    .chip.warn{color:#3f6fb8;background:rgba(95,149,245,.10);border-color:rgba(95,149,245,.18)}
 	    .chip.danger{color:var(--danger);background:rgba(188,59,66,.08);border-color:rgba(188,59,66,.16)}
 	    .box{border-radius:18px;background:var(--solid)}
 	    .link-copy{cursor:pointer;transition:background .15s ease,border-radius .15s ease,padding-inline .15s ease}
@@ -439,7 +442,7 @@
 	    .db-tabs{grid-template-columns:1fr 1fr}
 	    .status-tag{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;border:1px solid transparent;line-height:1.2}
 	    .status-tag.paid{color:var(--green);background:rgba(53,127,88,.10);border-color:rgba(53,127,88,.18)}
-	    .status-tag.invoice{color:#9a642d;background:rgba(184,132,104,.12);border-color:rgba(184,132,104,.22)}
+	    .status-tag.invoice{color:#3f6fb8;background:rgba(95,149,245,.12);border-color:rgba(95,149,245,.22)}
 	    .status-tag.expired{color:var(--danger);background:rgba(188,59,66,.10);border-color:rgba(188,59,66,.18)}
 	    .item-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
 	    .item-meta .item-sub{flex:0 1 auto}
@@ -882,10 +885,8 @@
 	        return;
 	      }
 	      const clientHtml = clients.map((client,i)=>{
-	        const subCount=Number(client.subscription_count||0);
-	        const meta=subCount?'<span class="item-sub">'+esc(subCount+(subCount===1?' subscription':' subscriptions'))+'</span>':'';
 	        return '<div class="item-row single"><button class="item '+(selected&&selected.type==='client'&&selected.id===client.id?'active':'')+'" data-type="client" data-i="'+i+'" title="'+esc(client.name||'Client')+'">'+
-	          '<span class="item-main client-main"><b class="item-name">'+esc(client.name||'Client')+'</b>'+meta+'</span>'+
+	          '<span class="item-main client-main"><b class="item-name">'+esc(client.name||'Client')+'</b></span>'+
 	        '</button></div>';
 	      }).join('') || '<p class="sub">No clients.</p>';
 	      list.innerHTML = '<h3 class="list-title">Clients</h3>'+clientHtml;
@@ -927,23 +928,16 @@
 	        const fields=recordActionFields(row,client);
 	        const linkHref=createRecordUrl('/l',fields,{invoiceId:row.invoice?.id||''});
 	        const invoiceHref=createRecordUrl('/inv',fields);
-	        const subsHref='/subs';
 	        const linkButton=row.delivery
 	          ? '<button class="record-action" data-action="view-delivery" data-id="'+esc(row.delivery.id)+'" type="button">View Links</button>'
 	          : '<a class="record-action missing" href="'+esc(linkHref)+'" target="_blank" rel="noopener">Create Links</a>';
 	        const invoiceButton=row.invoice
 	          ? '<a class="record-action" href="/inv?id='+encodeURIComponent(row.invoice.id)+'" target="_blank" rel="noopener">View Invoice</a>'
 	          : '<a class="record-action missing" href="'+esc(invoiceHref)+'" target="_blank" rel="noopener">Create Invoice</a>';
-	        const subsButton=row.subscription
-	          ? '<button class="record-action" data-action="view-subscription" data-id="'+esc(row.subscription.id)+'" type="button">Open/Edit Subscription</button>'
-	          : '<a class="record-action missing" href="'+esc(subsHref)+'" target="_blank" rel="noopener">Create Subscription</a>';
-	        return '<div class="record-row" data-i="'+i+'"><span class="record-date">'+esc(dateLabel(row.date))+'</span><span class="record-name">'+esc(row.name||client.name||'Client')+'</span>'+linkButton+invoiceButton+subsButton+'<button class="record-delete" data-action="delete-record" data-i="'+i+'" type="button" aria-label="Delete record">&times;</button></div>';
+	        return '<div class="record-row" data-i="'+i+'"><span class="record-date">'+esc(dateLabel(row.date))+'</span><span class="record-name">'+esc(row.name||client.name||'Client')+'</span>'+linkButton+invoiceButton+'<button class="record-delete" data-action="delete-record" data-i="'+i+'" type="button" aria-label="Delete record">&times;</button></div>';
 	      }).join('') || '<p class="sub">No records for this client yet.</p>';
-	      const subCount=Number(client.subscription_count||0);
-	      const subSummary=subCount?' · '+subCount+(subCount===1?' subscription':' subscriptions'):'';
-	      detail.innerHTML='<h1>'+esc(client.name||'Client')+'</h1><p class="sub">'+esc(client.delivery_count||0)+' links · '+esc(client.invoice_count||0)+' invoices'+esc(subSummary)+'</p><div class="records-panel">'+html+'</div>';
+	      detail.innerHTML='<h1>'+esc(client.name||'Client')+'</h1><p class="sub">'+esc(client.delivery_count||0)+' links · '+esc(client.invoice_count||0)+' invoices</p><div class="records-panel">'+html+'</div>';
 	      detail.querySelectorAll('[data-action="view-delivery"]').forEach(button=>button.onclick=()=>openDeliveryRecord(button.dataset.id));
-	      detail.querySelectorAll('[data-action="view-subscription"]').forEach(button=>button.onclick=()=>openSubscriptionRecord(button.dataset.id));
 	      detail.querySelectorAll('[data-action="delete-record"]').forEach(button=>button.onclick=()=>deleteRecordRow(Number(button.dataset.i)));
 	    }
 	    function renderNewClient(){
@@ -1191,7 +1185,7 @@
 	    function buildRecordRows(client=null){
 	      const byKey=new Map();
 	      const ensure=(key,seed={})=>{
-	        if(!byKey.has(key)) byKey.set(key,{key,name:seed.name||'Client',date:seed.date||null,delivery:null,invoice:null,subscription:null});
+	        if(!byKey.has(key)) byKey.set(key,{key,name:seed.name||'Client',date:seed.date||null,delivery:null,invoice:null});
 	        const row=byKey.get(key);
 	        if(seed.name&&!row.name) row.name=seed.name;
 	        if(seed.date&&!row.date) row.date=seed.date;
@@ -1212,17 +1206,6 @@
 	        const key=(normalizeNameKey(name)||String(invoice.id))+'|'+(dateKey(date)||'invoice:'+invoice.id);
 	        const row=ensure(key,{name,date});
 	        row.invoice=invoice;
-	      });
-	      // Subscriptions live on their own row per record so the timeline
-	      // shows the rental cadence without piling each one onto the
-	      // first delivery/invoice row that happens to share a date.
-	      subscriptions.forEach((subscription)=>{
-	        if(client&&!recordMatchesClient(subscription,client)) return;
-	        const date=subscriptionDate(subscription);
-	        const name=subscription.client_name||'Client';
-	        const key=(normalizeNameKey(name)||String(subscription.id))+'|sub:'+subscription.id;
-	        const row=ensure(key,{name,date});
-	        row.subscription=subscription;
 	      });
 	      return [...byKey.values()].sort((a,b)=>(b.date?b.date.getTime():0)-(a.date?a.date.getTime():0)).slice(0,80);
 	    }

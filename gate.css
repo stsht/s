@@ -36,7 +36,10 @@
    * starts on the same loop edge as the logo's draw-back. */
   --ss-gate-sheen-duration:4.2s;
   --ss-gate-gold:#8ab4f8;
-  --ss-gate-gold-2:#4285f4;
+  --ss-gate-gold-2:#5f95f5;
+  --ss-gate-blue:#5f95f5;
+  --ss-gate-blue-hover:#4f86ee;
+  --ss-gate-blue-shadow:rgba(95,149,245,.28);
 }
 
 .ss-gate-card{
@@ -126,6 +129,7 @@
   gap:10px!important;
   margin:0 0 11px!important;
   color:var(--muted,var(--soft,#8f8579))!important;
+  font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif!important;
   font-size:11px!important;
   font-weight:800!important;
   line-height:1.45!important;
@@ -174,10 +178,10 @@
   margin:0 0 var(--ss-gate-title-gap)!important;
   color:var(--ink,var(--text,#1f1a17))!important;
   font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif!important;
-  font-size:clamp(30px,5.2vw,40px)!important;
-  font-weight:800!important;
+  font-size:clamp(32px,4vw,38px)!important;
+  font-weight:950!important;
   line-height:1.02!important;
-  letter-spacing:-.025em!important;
+  letter-spacing:-.045em!important;
   text-align:center!important;
 }
 
@@ -196,6 +200,7 @@
   display:block!important;
   margin:0 0 8px!important;
   color:var(--muted,#8f8579)!important;
+  font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif!important;
   font-size:11px!important;
   font-weight:800!important;
   line-height:1.45!important;
@@ -232,7 +237,7 @@
 .ss-gate-card input[type="password"]:focus,
 .ss-gate-card .password-wrap input:focus{
   border-color:var(--ss-gate-gold)!important;
-  box-shadow:0 0 0 4px rgba(212,205,188,.14),0 12px 30px -18px rgba(212,205,188,.24)!important;
+  box-shadow:0 0 0 4px rgba(138,180,248,.22),0 12px 30px -18px rgba(95,149,245,.28)!important;
   background:color-mix(in srgb,var(--field,var(--panel,var(--card,#f8f8f6))) 96%,var(--ss-gate-gold) 4%)!important;
 }
 
@@ -280,19 +285,19 @@
   contain:paint!important;
   overflow:hidden!important;
   width:100%!important;
-  min-height:56px!important;
+  min-height:54px!important;
   height:auto!important;
   margin-top:24px!important;
-  border-radius:16px!important;
-  background:linear-gradient(135deg,#4285f4,#1a73e8)!important;
+  border-radius:18px!important;
+  background:var(--ss-gate-blue)!important;
   color:#ffffff!important;
   box-shadow:
-    0 1px 0 rgba(255,255,255,.16) inset,
-    0 14px 30px -12px rgba(66,133,244,.35)!important;
+    0 1px 0 rgba(255,255,255,.18) inset,
+    0 12px 24px -10px var(--ss-gate-blue-shadow)!important;
   font-family:"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif!important;
-  font-size:15px!important;
-  font-weight:800!important;
-  letter-spacing:.02em!important;
+  font-size:16px!important;
+  font-weight:600!important;
+  letter-spacing:0!important;
   gap:10px!important;
   -webkit-transition:opacity .25s var(--ss-gate-ease-out),box-shadow .25s var(--ss-gate-ease-out),-webkit-transform .25s var(--ss-gate-ease-out)!important;
   transition:opacity .25s var(--ss-gate-ease-out),box-shadow .25s var(--ss-gate-ease-out),transform .25s var(--ss-gate-ease-out)!important;
@@ -503,8 +508,9 @@
     transform:translateY(-2px)!important;
     box-shadow:
       0 1px 0 rgba(255,255,255,.16) inset,
-      0 22px 40px -14px rgba(26,26,26,.48),
-      0 6px 14px -6px rgba(26,26,26,.32)!important;
+      0 18px 34px -16px rgba(95,149,245,.42),
+      0 6px 14px -8px rgba(95,149,245,.26)!important;
+    background:var(--ss-gate-blue-hover)!important;
   }
 }
 
@@ -533,8 +539,8 @@
   .ss-gate-card #unlockBtn{
     min-height:54px!important;
     margin-top:22px!important;
-    border-radius:14px!important;
-    font-size:15px!important;
+    border-radius:18px!important;
+    font-size:16px!important;
   }
 }
 
@@ -583,9 +589,9 @@
   .ss-gate-card .btn.primary,
   .ss-gate-card .primary,
   .ss-gate-card #unlockBtn{
-    background:linear-gradient(135deg,#4285f4,#8ab4f8)!important;
+    background:#8ab4f8!important;
     color:#0b0c10!important;
-    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 14px 36px -12px rgba(66,133,244,.45)!important;
+    box-shadow:0 1px 0 rgba(255,255,255,.25) inset,0 14px 36px -12px rgba(138,180,248,.45)!important;
   }
 }
 
