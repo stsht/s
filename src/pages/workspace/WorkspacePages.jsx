@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
+import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
+import { Segmented, EmptyState } from '../../components/ui/index.js';
 
 const navItems = [
   { href: '/admin/', label: 'Dashboard' },
@@ -300,74 +302,134 @@ export function DatabasePage() {
     window.location.href = href;
   }
 
-  return (
-    <PageChrome active="/db/" title="Database" className={`db-page ${showDetail ? 'show-detail' : ''}`}>
-      <section className="workspace-grid db-grid">
-        <aside className="workspace-panel side-panel">
-          <header className="db-panel-header">
-            <a className="db-panel-logo" href="/admin/" aria-label="StarShots Dashboard">
-              <img src="/logo-hero.png" alt="StarShots" />
-            </a>
-            <div className="segmented">
-              <button className={tab === 'clients' ? 'active' : ''} onClick={() => setTab('clients')} type="button">Clients</button>
-              <button className={tab === 'subs' ? 'active' : ''} onClick={() => setTab('subs')} type="button">Subs</button>
-              <button className={tab === 'invoices' ? 'active' : ''} onClick={() => setTab('invoices')} type="button">Invoices</button>
-            </div>
-          </header>
-          <nav className="db-tool-nav" aria-label="Private tools">
-            {navItems.map((item) => (
-              <a key={item.href} className={item.href === '/db/' ? 'active' : ''} href={item.href}>{item.label}</a>
-            ))}
-          </nav>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" />
-          {tab === 'clients' ? <button className="add-client-button" type="button" onClick={openNewClient}>Create Client</button> : null}
-          {status ? <p className="empty-state db-side-status">{status}</p> : null}
-          <div className="db-list">
-            {activeRows.slice(0, 80).map((row, index) => {
-              const title = row.client_name || row.name || row.title || row.slug;
-              const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
-              const isClient = tab === 'clients';
-              return (
-                <button
-                  className={`db-list-row ${selected?.id === row.id ? 'active' : ''}`}
-                  key={row.id || index}
-                  onClick={() => isClient ? setSelected({ type: 'client', id: row.id, data: row }) : setSelected({ type: tab, id: row.id, data: row })}
-                  type="button"
-                >
-                  <strong>{title || 'Untitled'}</strong>
-                  {meta ? <span>{meta}</span> : null}
-                </button>
-              );
-            })}
-            {!status && activeRows.length === 0 ? <p className="empty-state">No records yet.</p> : null}
+  const tabs = [
+    { value: 'clients', label: 'Clients' },
+    { value: 'subs', label: 'Subs' },
+    { value: 'invoices', label: 'Invoices' },
+  ];
+
+  const tabHeading =
+    tab === 'subs' ? 'Subscriptions' : tab === 'invoices' ? 'Invoices' : 'Choose A Client';
+
+  const left = (
+    <>
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Search"
+      />
+      {tab === 'clients' ? (
+        <button className="add-client-button" type="button" onClick={openNewClient}>
+          Create Client
+        </button>
+      ) : null}
+      {status ? <EmptyState>{status}</EmptyState> : null}
+      <div className="db-list pf-list">
+        {activeRows.slice(0, 80).map((row, index) => {
+          const title = row.client_name || row.name || row.title || row.slug;
+          const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
+          const isClient = tab === 'clients';
+          return (
+            <button
+              className={`db-list-row ${selected?.id === row.id ? 'active' : ''}`}
+              key={row.id || index}
+              onClick={() =>
+                isClient
+                  ? setSelected({ type: 'client', id: row.id, data: row })
+                  : setSelected({ type: tab, id: row.id, data: row })
+              }
+              type="button"
+            >
+              <strong>{title || 'Untitled'}</strong>
+              {meta ? <span>{meta}</span> : null}
+            </button>
+          );
+        })}
+        {!status && activeRows.length === 0 ? <EmptyState>No records yet.</EmptyState> : null}
+      </div>
+    </>
+  );
+
+  const right = (
+    <>
+      {status ? <EmptyState>{status}</EmptyState> : null}
+      {!selected && !status ? <h2>{tabHeading}</h2> : null}
+      {selected?.type === 'new' ? (
+        <>
+          <button className="db-back-button" type="button" onClick={() => setSelected(null)}>
+            Back
+          </button>
+          <h2>Create Client</h2>
+          <ClientForm
+            draft={draft}
+            onChange={setDraft}
+            onCancel={() => setSelected(null)}
+            onSave={saveClient}
+            status={saveStatus}
+          />
+        </>
+      ) : null}
+      {selectedClient ? (
+        <ClientDetail
+          client={selectedClient}
+          invoices={invoices}
+          deliveries={data?.items || []}
+          onCreateEvent={createEventForClient}
+          onBack={() => setSelected(null)}
+        />
+      ) : null}
+      {selected && !selectedClient && selected.type !== 'new' ? (
+        <>
+          <button className="db-back-button" type="button" onClick={() => setSelected(null)}>
+            Back
+          </button>
+          <div className="list-stack">
+            <ListRow
+              title={
+                selected.data?.client_name ||
+                selected.data?.name ||
+                selected.data?.title ||
+                selected.data?.service
+              }
+              meta={
+                selected.data?.client_contact ||
+                selected.data?.contact ||
+                selected.data?.status ||
+                selected.data?.updated_at
+              }
+              amount={
+                selected.data?.total || selected.data?.grand_total || selected.data?.price
+                  ? rupiah(
+                      selected.data.total || selected.data.grand_total || selected.data.price,
+                    )
+                  : ''
+              }
+            />
           </div>
-        </aside>
-        <section className="workspace-panel db-detail-panel">
-          {status ? <p className="empty-state">{status}</p> : null}
-          {!selected && !status ? <h2>{tab === 'subs' ? 'Subscriptions' : tab === 'invoices' ? 'Invoices' : 'Choose A Client'}</h2> : null}
-          {selected?.type === 'new' ? (
-            <>
-              <button className="db-back-button" type="button" onClick={() => setSelected(null)}>Back</button>
-              <h2>Create Client</h2>
-              <ClientForm draft={draft} onChange={setDraft} onCancel={() => setSelected(null)} onSave={saveClient} status={saveStatus} />
-            </>
-          ) : null}
-          {selectedClient ? <ClientDetail client={selectedClient} invoices={invoices} deliveries={data?.items || []} onCreateEvent={createEventForClient} onBack={() => setSelected(null)} /> : null}
-          {selected && !selectedClient && selected.type !== 'new' ? (
-            <>
-              <button className="db-back-button" type="button" onClick={() => setSelected(null)}>Back</button>
-              <div className="list-stack">
-                <ListRow
-                  title={selected.data?.client_name || selected.data?.name || selected.data?.title || selected.data?.service}
-                  meta={selected.data?.client_contact || selected.data?.contact || selected.data?.status || selected.data?.updated_at}
-                  amount={selected.data?.total || selected.data?.grand_total || selected.data?.price ? rupiah(selected.data.total || selected.data.grand_total || selected.data.price) : ''}
-                />
-              </div>
-            </>
-          ) : null}
-        </section>
-      </section>
-    </PageChrome>
+        </>
+      ) : null}
+    </>
+  );
+
+  return (
+    <PrivateWorkspaceFrame
+      active="/db/"
+      className="db-page"
+      pills={
+        <Segmented
+          value={tab}
+          onChange={(next) => {
+            setTab(next);
+            setSelected(null);
+          }}
+          options={tabs}
+          ariaLabel="Database section"
+        />
+      }
+      left={left}
+      right={right}
+      showDetail={showDetail}
+    />
   );
 }
 

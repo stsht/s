@@ -3,8 +3,12 @@ import { GlobalBackground } from './GlobalBackground.jsx';
 
 const SESSION_MS = 15 * 60 * 1000;
 
-function sessionKey(title) {
-  return `starshots_gate_${title.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+// One shared session key across every private workspace page so that
+// signing in once unlocks /db, /l, /inv, /subs, etc. for the same browser tab.
+const SHARED_SESSION_KEY = 'starshots_gate_private';
+
+function sessionKey() {
+  return SHARED_SESSION_KEY;
 }
 
 function readSession(key) {
@@ -19,7 +23,7 @@ function readSession(key) {
 }
 
 export function PasswordGate({ title, children }) {
-  const key = useMemo(() => sessionKey(title), [title]);
+  const key = useMemo(() => sessionKey(), []);
   const [unlocked, setUnlocked] = useState(() => readSession(key));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

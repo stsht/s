@@ -1,0 +1,211 @@
+/* PrivateWorkspaceFrame
+ * Shared after-password shell used by every private workspace page.
+ * Owns: blue/dark canvas, two-panel grid, header (logo + contextual pills),
+ * low-emphasis cross-tool nav, mobile left/right switching.
+ *
+ * Depends on CSS variables defined in invcs.css:
+ *   --bg --panel --field --soft --ink --muted --line --line-strong
+ *   --accent --shadow --shadow-soft
+ */
+
+.pf-page {
+  min-height: 100dvh;
+  position: relative;
+  isolation: isolate;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.pf-shell {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1440px);
+  height: calc(100dvh - 36px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.pf-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel) 96%, white 4%),
+    var(--panel)
+  );
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.pf-panel--left {
+  padding: 18px;
+}
+
+.pf-panel--right {
+  padding: 26px;
+}
+
+.pf-panel__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.pf-panel--right .pf-panel__body {
+  gap: 16px;
+  overflow: auto;
+}
+
+/* Header: logo on the left, contextual pills right-aligned on the same row. */
+.pf-header {
+  display: grid;
+  grid-template-columns: minmax(112px, 132px) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.pf-logo {
+  display: inline-flex;
+}
+
+.pf-logo img {
+  width: 132px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.pf-pills {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.pf-pills > * {
+  min-width: 0;
+  width: 100%;
+}
+
+.pf-pills-spacer {
+  min-height: 36px;
+}
+
+/* Low-emphasis cross-tool nav, lives inside the left panel. */
+.pf-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin: 14px 0 4px;
+}
+
+.pf-nav a {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.pf-nav a.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel);
+}
+
+/* Generic scrollable list inside the left panel body. */
+.pf-list {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.pf-list::-webkit-scrollbar,
+.pf-panel__body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.pf-list,
+.pf-panel__body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pf-panel {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel) 94%, #26324d 6%),
+      var(--panel)
+    );
+  }
+  .pf-logo img {
+    filter: invert(1) brightness(1.18);
+  }
+  .pf-nav a.active {
+    background: #f6f8ff;
+    color: #090b10;
+    border-color: #f6f8ff;
+  }
+}
+
+/* Mobile: stacked, one screen at a time, switched via data-show-detail. */
+@media (max-width: 1023px) {
+  .pf-page {
+    padding: 12px;
+    overflow: auto;
+  }
+  .pf-shell {
+    height: auto;
+    min-height: calc(100dvh - 24px);
+    display: block;
+  }
+  .pf-panel--left {
+    min-height: calc(100dvh - 24px);
+  }
+  .pf-panel--right {
+    display: none;
+    margin-top: 14px;
+    min-height: calc(100dvh - 24px);
+  }
+  .pf-page[data-show-detail='true'] .pf-panel--left {
+    display: none;
+  }
+  .pf-page[data-show-detail='true'] .pf-panel--right {
+    display: flex;
+  }
+  .pf-header {
+    grid-template-columns: 116px minmax(0, 1fr);
+  }
+  .pf-logo img {
+    width: 116px;
+  }
+  .pf-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
