@@ -1,5 +1,5 @@
-/admin  /admin/index.html  200
-/admin/*  /admin/index.html  200
+/admin  /db/  301
+/admin/*  /db/  301
 /l  /l/index.html  200
 /l/*  /l/index.html  200
 /db  /db/index.html  200

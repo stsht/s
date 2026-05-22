@@ -564,6 +564,16 @@
 }
 
 @media(prefers-color-scheme:dark){
+  /* Pre-password gate logo: invert so the brand stays visible on the
+   * deep-blue/dark gate card. */
+  .ss-gate-card .gate-logo,
+  .ss-gate-card .ss-gate-logo,
+  .ss-gate-card .ss-logo-hero,
+  .gate-logo,
+  .ss-gate-logo,
+  .ss-logo-hero{
+    filter:invert(1) brightness(1.18);
+  }
   .ss-gate-card{
     --surface:#13151a;
     --card:#13151a;

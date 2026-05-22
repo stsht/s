@@ -21,18 +21,18 @@
 @media(prefers-color-scheme:dark){
   :root{
     color-scheme:dark;
-    --bg:#090b10;
-    --panel:#12151c;
-    --field:#171b24;
-    --soft:#0f1421;
+    --bg:#0a1226;
+    --panel:#121b35;
+    --field:#172241;
+    --soft:#0e1631;
     --ink:#f6f8ff;
     --muted:#a8b1c3;
-    --line:#252b37;
-    --line-strong:#33415c;
+    --line:#26314e;
+    --line-strong:#3a4870;
     --accent:#8ab4ff;
     --accent-2:#6ea0ff;
-    --shadow:0 30px 90px rgba(0,0,0,.36);
-    --shadow-soft:0 10px 30px rgba(0,0,0,.24);
+    --shadow:0 30px 90px rgba(0,0,0,.42);
+    --shadow-soft:0 10px 30px rgba(0,0,0,.30);
   }
 }
 
@@ -88,18 +88,18 @@ button{cursor:pointer}
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(1080px 620px at 54% 58%, rgba(43,86,235,.62), transparent 65%),
-      radial-gradient(800px 480px at 48% 72%, rgba(28,57,160,.58), transparent 64%),
-      radial-gradient(640px 380px at 88% 10%, rgba(37,99,235,.24), transparent 60%),
-      #090b10;
+      radial-gradient(1100px 640px at 54% 58%, rgba(70,128,255,.74), transparent 62%),
+      radial-gradient(880px 540px at 48% 72%, rgba(38,82,210,.68), transparent 62%),
+      radial-gradient(680px 400px at 88% 10%, rgba(96,144,255,.30), transparent 58%),
+      #0a1226;
   }
   .ss-aurora{
-    opacity:.78;
-    filter:blur(92px) saturate(132%);
+    opacity:.82;
+    filter:blur(96px) saturate(140%);
     background:
-      radial-gradient(circle at 50% 54%, rgba(62,109,255,.44) 0%, transparent 58%),
-      radial-gradient(circle at 54% 72%, rgba(35,77,217,.42) 0%, transparent 58%),
-      radial-gradient(circle at 78% 24%, rgba(138,180,255,.14) 0%, transparent 48%);
+      radial-gradient(circle at 50% 54%, rgba(82,134,255,.50) 0%, transparent 58%),
+      radial-gradient(circle at 54% 72%, rgba(46,96,235,.46) 0%, transparent 58%),
+      radial-gradient(circle at 78% 24%, rgba(150,196,255,.18) 0%, transparent 48%);
   }
 }
 @keyframes ssDrift{
@@ -821,6 +821,12 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
+  /* /inv pills in dark mode: previously the active pill kept color:var(--ink)
+   * (light) on a #fff background -> white text on white. Force readable
+   * dark-on-light, and brighten the inactive label so it stays legible
+   * on the dark soft surface. */
+  .mode-switch button{color:#cdd6e4}
+  .mode-switch button.active{background:#f6f8ff;color:#090b10}
   .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   .invoice-sheet,.invoice-sheet *{color-scheme:light}
