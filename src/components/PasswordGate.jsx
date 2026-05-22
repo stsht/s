@@ -31,6 +31,24 @@ export function PasswordGate({ title, children }) {
     sessionStorage.setItem(key, JSON.stringify({ expiresAt: Date.now() + SESSION_MS }));
   }, [key, unlocked]);
 
+  useEffect(() => {
+    if (!unlocked || import.meta.env.DEV) return;
+    let alive = true;
+    fetch('/api/admin-check', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then((response) => {
+        if (!alive || response.ok) return;
+        sessionStorage.removeItem(key);
+        setUnlocked(false);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [key, unlocked]);
+
   async function openGate(event) {
     event.preventDefault();
     const value = password.trim();
@@ -44,6 +62,7 @@ export function PasswordGate({ title, children }) {
     try {
       const response = await fetch('/api/admin-check', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: value }),
       });
