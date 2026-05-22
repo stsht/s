@@ -4,11 +4,21 @@
   "type": "module",
   "scripts": {
     "wrangler": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler",
-    "dev": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages dev .",
-    "deploy": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages deploy . --project-name starshots",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build && node scripts/copy-static.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "pages:dev": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages dev .",
+    "deploy": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages deploy dist --project-name starshots",
     "secret:admin": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages secret put ADMIN_PASSWORD --project-name starshots"
   },
+  "dependencies": {
+    "html2canvas": "1.4.1",
+    "react": "19.2.1",
+    "react-dom": "19.2.1"
+  },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "vite": "^6.4.2",
     "wrangler": "4.90.0"
   }
 }
