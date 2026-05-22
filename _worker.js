@@ -2027,6 +2027,11 @@ export default {
         assetUrl.pathname = '/db/';
         return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
       }
+      if (request.method === 'GET' && ['/g', '/g/', '/g/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/g/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
       if (request.method === 'POST' && url.pathname === '/api/admin-check') return await handleAdminCheck(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-save') return await handleInvoiceSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/invoices-get') return await handleInvoiceGet(request, env);

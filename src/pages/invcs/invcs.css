@@ -57,7 +57,7 @@ body{
   color:var(--ink);
   font:500 14px/1.45 var(--font);
   -webkit-font-smoothing:antialiased;
-  overflow:hidden;
+  overflow:auto;
 }
 button,input,select{font:inherit}
 button{cursor:pointer}
@@ -67,9 +67,9 @@ button{cursor:pointer}
   inset:0;
   z-index:0;
   background:
-    radial-gradient(980px 540px at 50% 58%, rgba(95,169,255,.30), transparent 66%),
-    radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.12), transparent 60%),
-    radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.12), transparent 55%),
+    radial-gradient(1040px 580px at 50% 58%, rgba(95,169,255,.44), transparent 66%),
+    radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.18), transparent 60%),
+    radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.20), transparent 55%),
     #f3f7fb;
 }
 .ss-aurora{
@@ -80,17 +80,17 @@ button{cursor:pointer}
   opacity:.62;
   filter:blur(78px) saturate(112%);
   background:
-    radial-gradient(circle at 25% 25%, rgba(66,133,244,.26) 0%, transparent 65%),
-    radial-gradient(circle at 75% 65%, rgba(138,180,248,.23) 0%, transparent 60%),
-    radial-gradient(circle at 50% 15%, rgba(194,231,255,.32) 0%, transparent 55%);
+    radial-gradient(circle at 25% 25%, rgba(66,133,244,.34) 0%, transparent 65%),
+    radial-gradient(circle at 75% 65%, rgba(138,180,248,.30) 0%, transparent 60%),
+    radial-gradient(circle at 50% 15%, rgba(194,231,255,.38) 0%, transparent 55%);
   animation:ssDrift 25s ease-in-out infinite alternate;
 }
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(960px 520px at 54% 58%, rgba(43,86,235,.44), transparent 65%),
-      radial-gradient(740px 420px at 48% 72%, rgba(28,57,160,.45), transparent 64%),
-      radial-gradient(600px 340px at 88% 10%, rgba(37,99,235,.16), transparent 60%),
+      radial-gradient(1080px 620px at 54% 58%, rgba(43,86,235,.62), transparent 65%),
+      radial-gradient(800px 480px at 48% 72%, rgba(28,57,160,.58), transparent 64%),
+      radial-gradient(640px 380px at 88% 10%, rgba(37,99,235,.24), transparent 60%),
       #090b10;
   }
   .ss-aurora{
@@ -352,6 +352,22 @@ dd{margin:0;text-align:right;font-weight:800}
   box-shadow:var(--shadow-soft);
 }
 .workspace-nav a.active{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.gallery-pill{
+  min-height:36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 16px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--panel) 82%,transparent);
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  box-shadow:var(--shadow-soft);
+}
 .workspace-hero{
   display:grid;
   grid-template-columns:minmax(0,1fr) minmax(280px,520px);
@@ -484,6 +500,47 @@ dd{margin:0;text-align:right;font-weight:800}
 .preview-note-card small{color:var(--muted);font-weight:800}
 .workspace-panel .primary-button{width:max-content;padding:0 22px}
 .workspace-panel input,.workspace-panel select{background:var(--field);color:var(--ink)}
+.gallery-page .workspace-hero{
+  grid-template-columns:minmax(0,1fr) minmax(220px,420px);
+}
+.gallery-panel{
+  min-height:0;
+}
+.gallery-link-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:18px;
+}
+.gallery-link-card{
+  min-height:74px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:0 18px;
+  border:1px solid var(--line);
+  border-radius:20px;
+  background:var(--field);
+  color:var(--ink);
+  text-decoration:none;
+  box-shadow:var(--shadow-soft);
+}
+.gallery-link-card:hover{border-color:var(--accent)}
+.gallery-link-card span{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-weight:900;
+}
+.gallery-link-card b{
+  color:var(--accent);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+}
 
 @media(prefers-color-scheme:dark){
   .gate-card,.tool-card,.workspace-panel,.panel{
@@ -491,6 +548,7 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
+  .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   .invoice-sheet,.invoice-sheet *{color-scheme:light}
 }
 .invoice-export-host{
@@ -535,6 +593,7 @@ dd{margin:0;text-align:right;font-weight:800}
   .workspace-logo img{width:168px}
   .workspace-nav{justify-content:flex-start}
   .workspace-hero,.workspace-grid,.tool-grid{grid-template-columns:1fr}
+  .gallery-link-grid{grid-template-columns:1fr}
   .workspace-hero h1{font-size:44px}
   .tool-card{min-height:190px}
 }

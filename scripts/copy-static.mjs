@@ -18,9 +18,7 @@ const files = [
   'payment-qr.png',
 ];
 
-const directories = [
-  'g',
-];
+const directories = [];
 
 for (const file of files) {
   const target = join(out, file);

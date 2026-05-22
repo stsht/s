@@ -4,7 +4,8 @@
 /l/*  /l/index.html  200
 /db  /db/index.html  200
 /db/*  /db/index.html  200
-/g/*  /g/:splat  200
+/g  /g/index.html  200
+/g/*  /g/index.html  200
 /inv  /inv/index.html  200
 /inv/*  /inv/index.html  200
 /invcs  /invcs/index.html  200
