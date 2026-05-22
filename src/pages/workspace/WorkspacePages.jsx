@@ -200,7 +200,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onCreateEvent, onBack }) {
+function ClientDetail({ client, invoices, deliveries, onCreateEvent }) {
   const records = buildClientRecords(client, invoices, deliveries);
   const title = client?.title || 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
@@ -210,7 +210,6 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onBack }) {
 
   return (
     <>
-      <button className="db-back-button" type="button" onClick={onBack}>Back</button>
       <div className="detail-heading">
         <div>
           <p className="eyebrow">Client</p>
@@ -252,6 +251,7 @@ export function DatabasePage() {
   const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState({ title: 'Ms.', name: '', contact: '' });
   const [saveStatus, setSaveStatus] = useState('');
+  const [mobileView, setMobileView] = useState('left');
   const endpoint = `/api/db${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
   const { data, status } = useRemoteList(endpoint);
   const clients = data?.clients || [];
@@ -259,7 +259,11 @@ export function DatabasePage() {
   const subscriptions = data?.subscriptions || [];
   const activeRows = tab === 'subs' ? subscriptions : tab === 'invoices' ? invoices : clients;
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
-  const showDetail = !!selected;
+
+  // Auto-switch to the right panel on mobile when a row is selected.
+  useEffect(() => {
+    if (selected) setMobileView('right');
+  }, [selected]);
 
   async function saveClient(event) {
     event.preventDefault();
@@ -324,7 +328,7 @@ export function DatabasePage() {
         </button>
       ) : null}
       {status ? <EmptyState>{status}</EmptyState> : null}
-      <div className="db-list pf-list">
+      <div className="db-list">
         {activeRows.slice(0, 80).map((row, index) => {
           const title = row.client_name || row.name || row.title || row.slug;
           const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
@@ -356,14 +360,14 @@ export function DatabasePage() {
       {!selected && !status ? <h2>{tabHeading}</h2> : null}
       {selected?.type === 'new' ? (
         <>
-          <button className="db-back-button" type="button" onClick={() => setSelected(null)}>
-            Back
-          </button>
           <h2>Create Client</h2>
           <ClientForm
             draft={draft}
             onChange={setDraft}
-            onCancel={() => setSelected(null)}
+            onCancel={() => {
+              setSelected(null);
+              setMobileView('left');
+            }}
             onSave={saveClient}
             status={saveStatus}
           />
@@ -375,14 +379,10 @@ export function DatabasePage() {
           invoices={invoices}
           deliveries={data?.items || []}
           onCreateEvent={createEventForClient}
-          onBack={() => setSelected(null)}
         />
       ) : null}
       {selected && !selectedClient && selected.type !== 'new' ? (
         <>
-          <button className="db-back-button" type="button" onClick={() => setSelected(null)}>
-            Back
-          </button>
           <div className="list-stack">
             <ListRow
               title={
@@ -414,13 +414,13 @@ export function DatabasePage() {
   return (
     <PrivateWorkspaceFrame
       active="/db/"
-      className="db-page"
       pills={
         <Segmented
           value={tab}
           onChange={(next) => {
             setTab(next);
             setSelected(null);
+            setMobileView('left');
           }}
           options={tabs}
           ariaLabel="Database section"
@@ -428,7 +428,12 @@ export function DatabasePage() {
       }
       left={left}
       right={right}
-      showDetail={showDetail}
+      mobileView={mobileView}
+      onMobileViewChange={(view) => {
+        if (view === 'left') setSelected(null);
+        setMobileView(view);
+      }}
+      mobileTabs={{ left: 'List', right: 'Detail' }}
     />
   );
 }
