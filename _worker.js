@@ -2007,9 +2007,29 @@ export default {
         assetUrl.pathname = '/inv/';
         return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
       }
+      if (request.method === 'GET' && ['/invcs', '/invcs/', '/invcs/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/invcs/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
+      if (request.method === 'GET' && ['/l', '/l/', '/l/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/l/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
+      if (request.method === 'GET' && ['/subs', '/subs/', '/subs/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/subs/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
       if (request.method === 'GET' && ['/db', '/db/', '/db/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/db/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
+      if (request.method === 'GET' && ['/g', '/g/', '/g/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/g/';
         return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
       }
       if (request.method === 'POST' && url.pathname === '/api/admin-check') return await handleAdminCheck(request, env);
