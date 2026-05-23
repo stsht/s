@@ -956,6 +956,24 @@ dd{margin:0;text-align:right;font-weight:800}
   .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   .invoice-sheet,.invoice-sheet *{color-scheme:light}
+  /* /inv composer panels match the Gemini-grey treatment used in
+   * /db /l /subs (PrivateWorkspaceFrame). Scoped to .composer-page so
+   * the outer .ss-bg blue glow keeps the page background, and
+   * .invoice-sheet keeps its hard-coded #fff (the JPG/export sheet
+   * stays untouched — it has its own `background:#fff` and forces
+   * `color-scheme:light` on every descendant via the rule above). */
+  .composer-page{
+    --panel:#1e2024;
+    --field:#1a1c20;
+    --soft:#16181b;
+    --line:#2c2f35;
+    --line-strong:#3a3e46;
+  }
+  .composer-page .panel,
+  .composer-page .editor-panel,
+  .composer-page .preview-panel{
+    background:var(--panel);
+  }
 }
 .invoice-export-host{
   position:fixed;
