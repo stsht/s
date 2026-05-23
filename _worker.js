@@ -2001,19 +2001,13 @@ export default {
 	      if (request.method === 'GET' && url.pathname === '/') {
 	        return new Response(rootHomepage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
 	      }
-	      if (request.method === 'GET' && ['/admin', '/admin/', '/admin/index.html'].includes(url.pathname)) {
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/admin/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
-	      }
+	      // /admin and /invcs were duplicate UI surfaces that we retired
+	      // in the unified-frame migration. _redirects sends /admin → /db/
+	      // and /invcs → /inv/. We intentionally do NOT short-circuit here
+	      // so the static _redirects file owns the behaviour.
 	      if (request.method === 'GET' && ['/inv', '/inv/', '/invoice', '/invoice/', '/inv/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/inv/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
-      }
-      if (request.method === 'GET' && ['/invcs', '/invcs/', '/invcs/index.html'].includes(url.pathname)) {
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/invcs/';
         return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
       }
       if (request.method === 'GET' && ['/l', '/l/', '/l/index.html'].includes(url.pathname)) {

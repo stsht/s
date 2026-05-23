@@ -819,6 +819,9 @@ dd{margin:0;text-align:right;font-weight:800}
   .db-panel-logo img{
     filter:invert(1) brightness(1.18);
   }
+  /* Pre-password gate logo: the dark variant ships as a real
+   * white-on-transparent asset (logo-hero-white.png) swapped via
+   * <picture> in PasswordGate.jsx. No filter needed. */
   .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
   /* /inv pills in dark mode: previously the active pill kept color:var(--ink)

@@ -13,6 +13,7 @@ const files = [
   'gate.css',
   'gate.js',
   'logo-hero.png',
+  'logo-hero-white.png',
   'logo.png',
   'logo.svg',
   'payment-qr.png',

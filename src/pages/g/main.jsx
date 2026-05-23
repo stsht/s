@@ -1,8 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
+import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import '../invcs/invcs.css';
 
+/**
+ * Gallery (public delivery) entrypoint.
+ *
+ * Routing/slug logic is owned by _worker.js — this page only handles
+ * the unlock POST and the rendered links. Slug parsing here just reads
+ * whatever path the worker delivered us; it does NOT regenerate or
+ * normalize the short-code so existing links keep working unchanged.
+ */
 function deliverySlug() {
   const parts = window.location.pathname.split('/').filter(Boolean);
   if (parts[0]?.toLowerCase() === 'g') return parts[1] || '';
@@ -22,45 +31,38 @@ function GalleryLinks({ payload }) {
     }).catch(() => {});
   }
 
-  return (
-    <main className="workspace-page gallery-page">
-      <GlobalBackground />
-      <div className="workspace-shell">
-        <header className="workspace-topbar">
-          <a className="workspace-logo" href="/" aria-label="StarShots">
-            <img src="/logo-hero.png" alt="StarShots" />
+  const heading = delivery.clientName ? `Hello, ${delivery.clientName}` : 'Private Delivery';
+  const subtitle = delivery.title || delivery.folderName || 'Your delivery links are ready.';
+
+  const left = (
+    <>
+      <p className="eyebrow">{subtitle}</p>
+      <h2>{heading}</h2>
+      <div className="gallery-link-grid">
+        {links.length ? links.map((link) => (
+          <a
+            className="gallery-link-card"
+            href={link.url}
+            key={link.service}
+            onClick={() => track(link.service)}
+            rel="noopener"
+            target="_blank"
+          >
+            <span>{link.label || link.service}</span>
+            <b>Open</b>
           </a>
-          <nav className="workspace-nav" aria-label="Delivery status">
-            <span className="gallery-pill">Private Delivery</span>
-          </nav>
-        </header>
-        <section className="workspace-hero">
-          <div>
-            <p className="hero-eyebrow"><span />StarShots Private</p>
-            <h1>{delivery.clientName ? `Hello, ${delivery.clientName}` : 'Private Delivery'}</h1>
-          </div>
-          <p className="hero-aside">{delivery.title || delivery.folderName || 'Your delivery links are ready.'}</p>
-        </section>
-        <section className="workspace-panel gallery-panel">
-          <p className="eyebrow">Available Links</p>
-          <div className="gallery-link-grid">
-            {links.length ? links.map((link) => (
-              <a
-                className="gallery-link-card"
-                href={link.url}
-                key={link.service}
-                onClick={() => track(link.service)}
-                rel="noopener"
-                target="_blank"
-              >
-                <span>{link.label || link.service}</span>
-                <b>Open</b>
-              </a>
-            )) : <p className="empty-state">No links available yet.</p>}
-          </div>
-        </section>
+        )) : <p className="empty-state">No links available yet.</p>}
       </div>
-    </main>
+    </>
+  );
+
+  return (
+    <PrivateWorkspaceFrame
+      active=""
+      showNav={false}
+      logoHref="/"
+      left={left}
+    />
   );
 }
 
@@ -119,7 +121,11 @@ function GalleryGate() {
     <main className="gate-page">
       <GlobalBackground />
       <form className="gate-card" onSubmit={unlock}>
-        <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+        {/* Real white-on-transparent asset for dark mode (no filter). */}
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
         <p className="gate-eyebrow"><span />Private Workspace<span /></p>
         <h1>Private Delivery</h1>
         <label htmlFor="galleryPassword">Access key</label>

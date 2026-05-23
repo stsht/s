@@ -10,12 +10,10 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        admin: page('admin/index.html'),
         db: page('db/index.html'),
         g: page('g/index.html'),
         l: page('l/index.html'),
         inv: page('inv/index.html'),
-        invcs: page('invcs/index.html'),
         subs: page('subs/index.html'),
       },
     },
