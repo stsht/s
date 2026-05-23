@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GlobalBackground } from './GlobalBackground.jsx';
 
 const SESSION_MS = 15 * 60 * 1000;
@@ -6,6 +6,14 @@ const SESSION_MS = 15 * 60 * 1000;
 // One shared session key across every private workspace page so that
 // signing in once unlocks /db, /l, /inv, /subs, etc. for the same browser tab.
 const SHARED_SESSION_KEY = 'starshots_gate_private';
+
+// Soft cap on the visible lockout countdown. The server's actual block
+// is short (60s, see _worker.js handleAdminCheck), but if the server
+// ever returned a longer Retry-After we still don't want to scare the
+// owner with a multi-minute timer. Anything past this falls back to a
+// generic "try again shortly" message and the user can attempt again
+// at their leisure (the next attempt re-checks against the server).
+const LOCKOUT_DISPLAY_CAP_S = 30;
 
 function sessionKey() {
   return SHARED_SESSION_KEY;
@@ -29,6 +37,12 @@ export function PasswordGate({ title, children }) {
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  // Lockout state. lockUntil is the timestamp (ms) at which the
+  // client-side cooldown expires. lockSeconds is the remaining seconds
+  // for the visible countdown.
+  const [lockUntil, setLockUntil] = useState(0);
+  const [lockSeconds, setLockSeconds] = useState(0);
+  const tickRef = useRef(null);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -53,8 +67,34 @@ export function PasswordGate({ title, children }) {
     return () => { alive = false; };
   }, [key, unlocked]);
 
+  // Drive the visible countdown while a lockout is active.
+  useEffect(() => {
+    if (!lockUntil) return undefined;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+      setLockSeconds(remaining);
+      if (remaining <= 0) {
+        setLockUntil(0);
+        setStatus('');
+      }
+    };
+    tick();
+    tickRef.current = setInterval(tick, 500);
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+      tickRef.current = null;
+    };
+  }, [lockUntil]);
+
+  function startLockout(retryAfterSeconds) {
+    const capped = Math.min(LOCKOUT_DISPLAY_CAP_S, Math.max(1, Math.round(Number(retryAfterSeconds) || 0)));
+    setLockUntil(Date.now() + capped * 1000);
+    setLockSeconds(capped);
+  }
+
   async function openGate(event) {
     event.preventDefault();
+    if (lockUntil && Date.now() < lockUntil) return;
     const value = password.trim();
     if (!value) {
       setStatus('Access key required.');
@@ -70,8 +110,24 @@ export function PasswordGate({ title, children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: value }),
       });
+
+      if (response.status === 429) {
+        // Server-imposed lockout — read Retry-After (seconds) and start
+        // the visible countdown. Cap the displayed value so the owner
+        // is never told to wait minutes.
+        const retryAfter = Number(response.headers.get('Retry-After')) || 30;
+        startLockout(retryAfter);
+        setStatus(`Too many attempts. Try again in ${Math.min(LOCKOUT_DISPLAY_CAP_S, Math.max(1, Math.round(retryAfter)))}s.`);
+        return;
+      }
+
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Unauthorized.');
+
+      // Successful unlock: clear any lingering lockout/status.
+      setLockUntil(0);
+      setLockSeconds(0);
+      setStatus('');
       setUnlocked(true);
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -86,6 +142,11 @@ export function PasswordGate({ title, children }) {
   }
 
   if (unlocked) return children;
+
+  const locked = lockUntil > 0 && lockSeconds > 0;
+  // Keep the live countdown visible to the user without overwriting
+  // any other status text the form already has.
+  const visibleStatus = locked ? `Too many attempts. Try again in ${lockSeconds}s.` : status;
 
   return (
     <main className="gate-page">
@@ -110,15 +171,16 @@ export function PasswordGate({ title, children }) {
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
+            disabled={locked}
           />
           <button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword((value) => !value)}>
             {showPassword ? 'Hide' : 'Show'}
           </button>
         </div>
-        <button className="gate-submit" type="submit" disabled={busy}>
-          {busy ? 'Opening...' : 'Sign In'}
+        <button className="gate-submit" type="submit" disabled={busy || locked}>
+          {busy ? 'Opening...' : locked ? `Wait ${lockSeconds}s` : 'Sign In'}
         </button>
-        <p className={`gate-status ${status.includes('Unauthorized') || status.includes('required') ? 'error' : ''}`}>{status}</p>
+        <p className={`gate-status ${visibleStatus.includes('Unauthorized') || visibleStatus.includes('required') || locked ? 'error' : ''}`}>{visibleStatus}</p>
       </form>
     </main>
   );

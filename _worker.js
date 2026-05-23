@@ -632,6 +632,13 @@ function enforceRateLimit(request, scope, rule, asJson = true) {
   return result.limited ? rateLimitedResponse(result.retryAfter, asJson) : null;
 }
 
+// Clear a rate-limit counter for a specific (scope, IP) pair. Used on
+// successful auth so the owner doesn't accumulate failed-attempt
+// pressure across legitimate sessions.
+function clearRateLimit(request, scope) {
+  RATE_LIMITS.delete(`${scope}:${clientIp(request)}`);
+}
+
 function cleanIspName(value = '') {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
@@ -1061,12 +1068,34 @@ function mobileSafeRevealScript() {
 }
 
 async function handleAdminCheck(request, env) {
-  const limited = enforceRateLimit(request, 'admin-check', { limit: 8, windowMs: 60 * 1000, blockMs: 15 * 60 * 1000 });
-  if (limited) return limited;
   const body = await request.json().catch(() => ({}));
   const password = String(body.password || '').trim();
-  if (!password && await verifyAdminSessionCookie(request, env)) return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
+
+  // Empty-password POSTs are session-revalidation pings from the
+  // PasswordGate useEffect. They can only succeed with a valid signed
+  // cookie, so they are not a brute-force surface. Skipping the rate
+  // limit here means routine page loads and tab refreshes don't
+  // contribute toward an owner lockout.
+  if (!password) {
+    if (await verifyAdminSessionCookie(request, env)) {
+      return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
+    }
+    return json({ error: 'Unauthorized.' }, 401);
+  }
+
+  // Real password attempt: rate-limit only this path. Tighter window
+  // but a much shorter block (60s) so a few mistypes do not lock the
+  // owner out for 15 minutes. Server-side protection still blocks
+  // sustained brute force.
+  const limited = enforceRateLimit(request, 'admin-check', { limit: 12, windowMs: 60 * 1000, blockMs: 60 * 1000 });
+  if (limited) return limited;
+
   if (!(await verifyAdminPassword(env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  // Success: drop the failed-attempt counter for this IP so a
+  // post-success refresh or a different password attempt later in
+  // the same window starts fresh.
+  clearRateLimit(request, 'admin-check');
   return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
 }
 
