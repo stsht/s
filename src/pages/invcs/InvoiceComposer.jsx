@@ -1,13 +1,19 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 
-const packageOptions = [
-  { name: 'School without Magician', note: 'school celebration without magician', price: 800000 },
-  { name: 'School with Magician', note: 'school celebration with magician', price: 1000000 },
-  { name: 'Studio Special', note: 'up to 1 hour', price: 800000 },
-  { name: 'Intimate Party', note: 'up to 2 hours, suitable for family celebration', price: 1300000 },
-  { name: 'Birthday Celebration', note: 'up to 3.5 hours, suitable for Birthday Celebration', price: 1650000 },
+// Hardcoded fallback catalogue. The catalogue is normally fetched
+// from the Supabase-backed /api/packages endpoint (see _worker.js
+// handlePackagesGet) and these values are kept as a safety net so
+// /inv keeps working when the API returns empty, fails, or is
+// unreachable. Same shape as the API rows: { id, name, price, note,
+// is_default }.
+const DEFAULT_PACKAGES = [
+  { id: 'school-basic',         name: 'School without Magician', price: 800000,  note: 'school celebration without magician',                is_default: true },
+  { id: 'school-magician',      name: 'School with Magician',    price: 1000000, note: 'school celebration with magician',                   is_default: true },
+  { id: 'studio-special',       name: 'Studio Special',          price: 800000,  note: 'up to 1 hour',                                       is_default: true },
+  { id: 'intimate-party',       name: 'Intimate Party',          price: 1300000, note: 'up to 2 hours, suitable for family celebration',     is_default: true },
+  { id: 'birthday-celebration', name: 'Birthday Celebration',    price: 1650000, note: 'up to 3.5 hours, suitable for Birthday Celebration', is_default: true },
 ];
 
 // Small words that stay lowercase when not the first word. Anything else is
@@ -77,6 +83,24 @@ function computeDepositDue(grandTotal, mode, customAmount) {
   return Math.min(total, floored);
 }
 
+// Inverse of computeDepositDue: for older invoice rows that only
+// stored a flat deposit_amount, infer the matching preset (or fall
+// back to 'custom') so the deposit selector hydrates predictably.
+// Tolerance is ±1% of the grand total to absorb prior rounding.
+function inferDepositMode(grandTotal, depositAmount) {
+  const total = Math.max(0, Math.round(Number(grandTotal) || 0));
+  const amount = Math.max(0, Math.round(Number(depositAmount) || 0));
+  if (total <= 0 || amount <= 0) return { mode: '20', customAmount: '' };
+  const tolerance = Math.max(1, Math.round(total * 0.01));
+  for (const preset of DEPOSIT_PRESETS) {
+    const expected = computeDepositDue(total, String(preset), '');
+    if (Math.abs(expected - amount) <= tolerance) {
+      return { mode: String(preset), customAmount: '' };
+    }
+  }
+  return { mode: 'custom', customAmount: String(amount) };
+}
+
 function rupiah(value) {
   const number = Number(value) || 0;
   return `Rp ${Math.round(number).toLocaleString('id-ID')}`;
@@ -87,9 +111,15 @@ function prettyDate(value) {
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`));
 }
 
-function emptyItem() {
-  const option = packageOptions[0];
-  return { id: crypto.randomUUID(), name: option.name, note: option.note, qty: 1, price: option.price };
+function emptyItem(packages) {
+  const option = (packages && packages[0]) || DEFAULT_PACKAGES[0];
+  return {
+    id: crypto.randomUUID(),
+    name: option.name,
+    note: option.note || '',
+    qty: 1,
+    price: Number(option.price) || 0,
+  };
 }
 
 function clamp(value, min, max) {
@@ -205,26 +235,171 @@ async function cropQrImage(file) {
   return output.toDataURL('image/png');
 }
 
+// Read the URL search params once on mount. Two flows:
+//   1. invoiceId=<id> -> fetch /api/invoices-get and hydrate the
+//      whole composer (title/name/contact/venue/dates/items/discount/
+//      deposit/QR) from the row + invoice_data blob.
+//   2. title/name/contact/eventDate (no invoiceId) -> just pre-fill
+//      Bill-To / Details for a fresh invoice draft created from /db.
+function readInitialQuery() {
+  if (typeof window === 'undefined') return {};
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      invoiceId: (params.get('invoiceId') || '').trim(),
+      title: (params.get('title') || '').trim(),
+      name: (params.get('name') || '').trim(),
+      contact: (params.get('contact') || '').trim(),
+      eventDate: (params.get('eventDate') || '').trim(),
+    };
+  } catch {
+    return {};
+  }
+}
+
 export function InvoiceComposer() {
+  const initial = useMemo(() => readInitialQuery(), []);
+
   const [mobileView, setMobileView] = useState('edit');
   const [mode, setMode] = useState('invoice');
-  const [title, setTitle] = useState('Ms.');
-  const [clientName, setClientName] = useState('');
-  const [contact, setContact] = useState('');
+  const [title, setTitle] = useState(initial.title || 'Ms.');
+  const [clientName, setClientName] = useState(initial.name || '');
+  const [contact, setContact] = useState(initial.contact || '');
   const [venue, setVenue] = useState('TBA');
-  const [eventDate, setEventDate] = useState('');
+  const [eventDate, setEventDate] = useState(initial.eventDate || '');
   const [issuedDate, setIssuedDate] = useState(today);
-  const [discount, setDiscount] = useState(250000);
+  // Discount defaults to 0 — never auto-prefill a value. If the
+  // operator wants a discount they type it; loaded invoices restore
+  // whatever was saved on the row.
+  const [discount, setDiscount] = useState(0);
   // Deposit mode is one of '20' | '30' | '50' | '100' | 'custom'.
   // Default '20' picks the 20% preset; computeDepositDue() then
   // applies the IDR-200,000 floor (capped at the grand total) so
   // small invoices never silently produce a 0 deposit.
   const [depositMode, setDepositMode] = useState('20');
   const [depositCustomAmount, setDepositCustomAmount] = useState('');
-  const [items, setItems] = useState(() => [emptyItem()]);
+  const [packages, setPackages] = useState(DEFAULT_PACKAGES);
+  const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
+  const [qrFileName, setQrFileName] = useState('');
   const [status, setStatus] = useState('');
+  const [hydrating, setHydrating] = useState(Boolean(initial.invoiceId));
   const documentRef = useRef(null);
+
+  // Load the package catalogue from Supabase on mount. If the API
+  // returns at least one row we use it; otherwise we keep the
+  // hardcoded defaults already in state. Network or schema errors
+  // are swallowed so a momentary outage never blanks the dropdown.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/packages', { credentials: 'same-origin' });
+        if (!response.ok) return;
+        const json = await response.json().catch(() => null);
+        const rows = Array.isArray(json?.packages) ? json.packages : [];
+        if (cancelled) return;
+        const cleaned = rows
+          .map((row) => ({
+            id: String(row.id || ''),
+            name: String(row.name || '').trim(),
+            note: String(row.note || '').trim(),
+            price: Math.max(0, Math.round(Number(row.price) || 0)),
+            is_default: !!row.is_default,
+          }))
+          .filter((row) => row.name);
+        if (cleaned.length) setPackages(cleaned);
+      } catch {
+        // Keep DEFAULT_PACKAGES already in state.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Hydrate from /api/invoices-get when ?invoiceId= is present. We
+  // read both the typed columns (client_title/name/contact/...) and
+  // the loose invoice_data blob, since older rows may only have the
+  // typed columns. Items default to a single line containing the
+  // grand_total when the blob has no item array. Deposit hydration
+  // prefers an explicit invoice_data.depositMode; otherwise it
+  // reverse-engineers the closest preset from deposit_amount via
+  // inferDepositMode().
+  useEffect(() => {
+    if (!initial.invoiceId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setHydrating(true);
+        const response = await fetch(
+          `/api/invoices-get?id=${encodeURIComponent(initial.invoiceId)}`,
+          { credentials: 'same-origin' },
+        );
+        if (!response.ok) return;
+        const payload = await response.json().catch(() => null);
+        const row = payload?.invoice;
+        if (!row || cancelled) return;
+        const data = (row.invoice_data && typeof row.invoice_data === 'object') ? row.invoice_data : {};
+
+        if (row.client_title) setTitle(String(row.client_title));
+        if (row.client_name != null) setClientName(String(row.client_name || ''));
+        if (row.client_contact != null) setContact(String(row.client_contact || ''));
+        if (data.venue != null || row.venue != null) setVenue(String(data.venue ?? row.venue ?? 'TBA'));
+        if (row.event_date != null) setEventDate(String(row.event_date || ''));
+        if (row.invoice_date) setIssuedDate(String(row.invoice_date));
+        if (row.status === 'invoice' || row.status === 'deposit' || row.status === 'paid') setMode(row.status);
+
+        // Discount: explicit blob value wins; otherwise stay at 0.
+        const blobDiscount = Number(data.discount);
+        if (Number.isFinite(blobDiscount) && blobDiscount >= 0) setDiscount(blobDiscount);
+
+        // Items: the blob is the source of truth when present; fall
+        // back to a single synthetic line carrying the row's
+        // grand_total so the preview never renders empty.
+        const blobItems = Array.isArray(data.items) ? data.items : null;
+        if (blobItems && blobItems.length) {
+          setItems(blobItems.map((item) => ({
+            id: String(item.id || crypto.randomUUID()),
+            name: String(item.name || ''),
+            note: String(item.note || ''),
+            qty: Number(item.qty) || 1,
+            price: Math.max(0, Math.round(Number(item.price) || 0)),
+          })));
+        } else if (Number.isFinite(Number(row.grand_total)) && Number(row.grand_total) > 0) {
+          const fallbackPrice = Math.max(0, Math.round(Number(row.grand_total) + (Number.isFinite(blobDiscount) ? blobDiscount : 0)));
+          setItems([{
+            id: crypto.randomUUID(),
+            name: 'Package',
+            note: '',
+            qty: 1,
+            price: fallbackPrice,
+          }]);
+        }
+
+        // Deposit: trust the explicit blob mode if it looks valid,
+        // otherwise reverse-engineer from the stored deposit_amount.
+        const blobMode = String(data.depositMode || '');
+        const validBlobMode = blobMode === 'custom'
+          || DEPOSIT_PRESETS.some((preset) => String(preset) === blobMode);
+        if (validBlobMode) {
+          setDepositMode(blobMode);
+          setDepositCustomAmount(String(data.depositCustomAmount || ''));
+        } else {
+          const inferred = inferDepositMode(row.grand_total, row.deposit_amount);
+          setDepositMode(inferred.mode);
+          setDepositCustomAmount(inferred.customAmount);
+        }
+
+        if (typeof data.qrSrc === 'string' && data.qrSrc) setQrSrc(data.qrSrc);
+        if (typeof data.qrFileName === 'string' && data.qrFileName) setQrFileName(data.qrFileName);
+      } catch (error) {
+        // Silently keep blank/defaults; the user can always re-fill.
+        if (!cancelled) console.warn('[inv] hydrate failed:', error);
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [initial.invoiceId]);
 
   const totals = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.price) || 0), 0);
@@ -238,12 +413,12 @@ export function InvoiceComposer() {
   }
 
   function applyPackage(id, packageName) {
-    const option = packageOptions.find((pkg) => pkg.name === packageName);
-    updateItem(id, option ? { name: option.name, note: option.note, price: option.price } : { name: packageName });
+    const option = packages.find((pkg) => pkg.name === packageName);
+    updateItem(id, option ? { name: option.name, note: option.note || '', price: Number(option.price) || 0 } : { name: packageName });
   }
 
   function addItem() {
-    setItems((current) => [...current, emptyItem()]);
+    setItems((current) => [...current, emptyItem(packages)]);
   }
 
   function removeItem(id) {
@@ -253,6 +428,7 @@ export function InvoiceComposer() {
   async function uploadQr(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setQrFileName(file.name);
     setStatus('Cropping QR...');
     try {
       setQrSrc(await cropQrImage(file));
@@ -322,6 +498,7 @@ export function InvoiceComposer() {
           issuedDate={issuedDate}
           setIssuedDate={setIssuedDate}
           items={items}
+          packages={packages}
           applyPackage={applyPackage}
           updateItem={updateItem}
           addItem={addItem}
@@ -334,6 +511,8 @@ export function InvoiceComposer() {
           setDepositCustomAmount={setDepositCustomAmount}
           totals={totals}
           uploadQr={uploadQr}
+          qrFileName={qrFileName}
+          hydrating={hydrating}
         />
         <PreviewPanel
           mode={mode}
@@ -374,18 +553,22 @@ function EditorPanel(props) {
       </header>
 
       <Fieldset title="Bill To">
-        <div className="two-col">
-          <label>Title<select value={props.title} onChange={(event) => props.setTitle(event.target.value)}><option>Ms.</option><option>Mr.</option><option>Mrs.</option><option>Family</option></select></label>
-          <label>Client name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} placeholder="Client name" /></label>
+        <div className="field-stack">
+          <div className="two-col">
+            <label>Title<select value={props.title} onChange={(event) => props.setTitle(event.target.value)}><option>Ms.</option><option>Mr.</option><option>Mrs.</option><option>Family</option></select></label>
+            <label>Client name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} placeholder="Client name" /></label>
+          </div>
+          <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} placeholder="Instagram / phone / email" /></label>
         </div>
-        <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} placeholder="Instagram / phone / email" /></label>
       </Fieldset>
 
       <Fieldset title="Details">
-        <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} /></label>
-        <div className="two-col">
-          <label>Event date<input type="date" value={props.eventDate} onChange={(event) => props.setEventDate(event.target.value)} /></label>
-          <label>Issued<input type="date" value={props.issuedDate} onChange={(event) => props.setIssuedDate(event.target.value)} /></label>
+        <div className="field-stack">
+          <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} /></label>
+          <div className="two-col">
+            <label>Event date<input type="date" value={props.eventDate} onChange={(event) => props.setEventDate(event.target.value)} /></label>
+            <label>Issued<input type="date" value={props.issuedDate} onChange={(event) => props.setIssuedDate(event.target.value)} /></label>
+          </div>
         </div>
       </Fieldset>
 
@@ -393,7 +576,14 @@ function EditorPanel(props) {
         <div className="item-list">
           {props.items.map((item) => (
             <div className="item-editor" key={item.id}>
-              <label>Package<select value={item.name} onChange={(event) => props.applyPackage(item.id, event.target.value)}>{packageOptions.map((pkg) => <option key={pkg.name} value={pkg.name}>{titleCasePackageText(pkg.name)}</option>)}</select></label>
+              <label>Package<select value={item.name} onChange={(event) => props.applyPackage(item.id, event.target.value)}>
+                {/* Allow custom package names loaded from saved invoices to remain visible
+                    in the dropdown even if the catalogue doesn't include them anymore. */}
+                {!props.packages.some((pkg) => pkg.name === item.name) && item.name ? (
+                  <option value={item.name}>{titleCasePackageText(item.name)}</option>
+                ) : null}
+                {props.packages.map((pkg) => <option key={pkg.id || pkg.name} value={pkg.name}>{titleCasePackageText(pkg.name)}</option>)}
+              </select></label>
               <label>Note<input value={item.note} onChange={(event) => props.updateItem(item.id, { note: event.target.value })} /></label>
               <div className="three-col">
                 <label>Qty<input type="number" min="1" value={item.qty} onChange={(event) => props.updateItem(item.id, { qty: event.target.value })} /></label>
@@ -407,54 +597,82 @@ function EditorPanel(props) {
       </Fieldset>
 
       <Fieldset title="Payment">
-        <label>Discount<input type="number" min="0" value={props.discount} onChange={(event) => props.setDiscount(event.target.value)} /></label>
-        <div className="deposit-block">
-          <span className="deposit-label">Deposit</span>
-          <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
-            {DEPOSIT_PRESETS.map((preset) => {
-              const value = String(preset);
-              const active = props.depositMode === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  className={active ? 'active' : ''}
-                  onClick={() => props.setDepositMode(value)}
-                >
-                  {preset}%
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              role="radio"
-              aria-checked={props.depositMode === 'custom'}
-              className={props.depositMode === 'custom' ? 'active' : ''}
-              onClick={() => props.setDepositMode('custom')}
-            >
-              Custom
-            </button>
+        <div className="field-stack">
+          <label>Discount<input type="number" min="0" value={props.discount} onChange={(event) => props.setDiscount(event.target.value)} placeholder="0" /></label>
+          <div className="deposit-block">
+            <span className="deposit-label">Deposit</span>
+            <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
+              {DEPOSIT_PRESETS.map((preset) => {
+                const value = String(preset);
+                const active = props.depositMode === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    className={active ? 'active' : ''}
+                    onClick={() => props.setDepositMode(value)}
+                  >
+                    {preset}%
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                role="radio"
+                aria-checked={props.depositMode === 'custom'}
+                className={props.depositMode === 'custom' ? 'active' : ''}
+                onClick={() => props.setDepositMode('custom')}
+              >
+                Custom
+              </button>
+            </div>
+            {props.depositMode === 'custom' ? (
+              <label className="deposit-custom">
+                Custom amount (IDR)
+                <input
+                  type="number"
+                  min="0"
+                  value={props.depositCustomAmount}
+                  onChange={(event) => props.setDepositCustomAmount(event.target.value)}
+                  placeholder="e.g. 500000"
+                />
+              </label>
+            ) : null}
           </div>
-          {props.depositMode === 'custom' ? (
-            <label className="deposit-custom">
-              Custom amount (IDR)
-              <input
-                type="number"
-                min="0"
-                value={props.depositCustomAmount}
-                onChange={(event) => props.setDepositCustomAmount(event.target.value)}
-                placeholder="e.g. 500000"
-              />
-            </label>
-          ) : null}
+          <QrUploadField onChange={props.uploadQr} fileName={props.qrFileName} />
+          <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
+          <div className="total-card"><span>Deposit Due</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
-        <label>Custom QR<input type="file" accept="image/*" onChange={props.uploadQr} /></label>
-        <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
-        <div className="total-card"><span>Deposit Due</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
       </Fieldset>
     </aside>
+  );
+}
+
+// Modern upload pill that hides the native browser file input. The
+// label wraps a visually-hidden <input type="file"> so a click on
+// the pill, or a keyboard activation on the input itself, both
+// trigger the picker. On selection the filename is shown subtly
+// underneath so the operator has feedback without affecting the
+// invoice JPG layout (the QR image inside the sheet is the only
+// thing that visually changes on export).
+function QrUploadField({ onChange, fileName }) {
+  return (
+    <div className="qr-upload">
+      <span className="qr-upload-label">Custom QR</span>
+      <label className="qr-upload-control">
+        <input type="file" accept="image/*" onChange={onChange} />
+        <span className="qr-upload-pill">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 16V4M12 4l-4 4M12 4l4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="qr-upload-text">Click to upload QR</span>
+        </span>
+      </label>
+      {fileName ? <span className="qr-upload-filename" title={fileName}>{fileName}</span> : null}
+    </div>
   );
 }
 
@@ -474,11 +692,18 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           <section className="sheet-grid">
             <div className="sheet-box">
               <p className="eyebrow">Bill To</p>
-              <dl><dt>Client</dt><dd>{title} {clientName || 'Client'}</dd><dt>Contact</dt><dd>{contact || '-'}</dd></dl>
+              <dl className="meta-list">
+                <div className="meta-row"><dt>Client</dt><dd>{title} {clientName || 'Client'}</dd></div>
+                <div className="meta-row"><dt>Contact</dt><dd>{contact || '-'}</dd></div>
+              </dl>
             </div>
             <div className="sheet-box">
               <p className="eyebrow">Details</p>
-              <dl><dt>Venue</dt><dd>{venue || 'TBA'}</dd><dt>Event Date</dt><dd>{prettyDate(eventDate)}</dd><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></dl>
+              <dl className="meta-list">
+                <div className="meta-row"><dt>Venue</dt><dd>{venue || 'TBA'}</dd></div>
+                <div className="meta-row"><dt>Event Date</dt><dd>{prettyDate(eventDate)}</dd></div>
+                <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
+              </dl>
             </div>
           </section>
           <section className="sheet-box line-table">
