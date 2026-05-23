@@ -632,6 +632,49 @@ function enforceRateLimit(request, scope, rule, asJson = true) {
   return result.limited ? rateLimitedResponse(result.retryAfter, asJson) : null;
 }
 
+// Clear a rate-limit counter for a specific (scope, IP) pair. Used on
+// successful auth so the owner doesn't accumulate failed-attempt
+// pressure across legitimate sessions.
+function clearRateLimit(request, scope) {
+  RATE_LIMITS.delete(`${scope}:${clientIp(request)}`);
+}
+
+// Read-only lockout check. Returns whether (scope, IP) is currently
+// blocked, WITHOUT incrementing the counter. Used so a successful
+// password attempt never contributes toward its own lockout.
+function checkLockout(request, scope) {
+  const now = Date.now();
+  const item = RATE_LIMITS.get(`${scope}:${clientIp(request)}`);
+  if (!item || !item.blockedUntil || item.blockedUntil <= now) {
+    return { limited: false, retryAfter: 0 };
+  }
+  return { limited: true, retryAfter: Math.ceil((item.blockedUntil - now) / 1000) };
+}
+
+// Record a single failed attempt against (scope, IP). Increments the
+// in-window counter and arms the block window once the limit is
+// exceeded. Successful attempts MUST NOT call this — see
+// handleAdminCheck for the failure-only flow.
+function recordFailure(request, scope, rule = {}) {
+  const now = Date.now();
+  sweepRateLimits(now);
+  const limit = Number(rule.limit) || 30;
+  const windowMs = Number(rule.windowMs) || 60 * 1000;
+  const blockMs = Number(rule.blockMs) || 30 * 1000;
+  const key = `${scope}:${clientIp(request)}`;
+  const item = RATE_LIMITS.get(key) || { count: 0, resetAt: now + windowMs, blockedUntil: 0 };
+  if (!item.resetAt || item.resetAt <= now) {
+    item.count = 0;
+    item.resetAt = now + windowMs;
+    item.blockedUntil = 0;
+  }
+  item.count += 1;
+  if (item.count > limit) {
+    item.blockedUntil = now + blockMs;
+  }
+  RATE_LIMITS.set(key, item);
+}
+
 function cleanIspName(value = '') {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
@@ -1061,12 +1104,39 @@ function mobileSafeRevealScript() {
 }
 
 async function handleAdminCheck(request, env) {
-  const limited = enforceRateLimit(request, 'admin-check', { limit: 8, windowMs: 60 * 1000, blockMs: 15 * 60 * 1000 });
-  if (limited) return limited;
   const body = await request.json().catch(() => ({}));
   const password = String(body.password || '').trim();
-  if (!password && await verifyAdminSessionCookie(request, env)) return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
-  if (!(await verifyAdminPassword(env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  // Empty-password POSTs are session-revalidation pings from the
+  // PasswordGate useEffect (and the cross-tab cookie probe). They
+  // can only succeed with a valid signed cookie, so they are not a
+  // brute-force surface. They MUST NOT count toward the lockout —
+  // routine page loads and tab refreshes would otherwise drain the
+  // budget and lock the owner out.
+  if (!password) {
+    if (await verifyAdminSessionCookie(request, env)) {
+      return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
+    }
+    return json({ error: 'Unauthorized.' }, 401);
+  }
+
+  // If this IP is currently locked out, refuse the attempt without
+  // verifying the password and without incrementing any counter.
+  // Block window is capped at 30s (see recordFailure default).
+  const lockout = checkLockout(request, 'admin-check');
+  if (lockout.limited) return rateLimitedResponse(lockout.retryAfter);
+
+  if (!(await verifyAdminPassword(env, password))) {
+    // ONLY failed attempts count toward the lockout. A correct
+    // password no longer increments the counter, so legitimate
+    // re-authentication never trips the limiter.
+    recordFailure(request, 'admin-check', { limit: 8, windowMs: 60 * 1000, blockMs: 30 * 1000 });
+    return json({ error: 'Unauthorized.' }, 401);
+  }
+
+  // Correct password: drop the failure counter for this IP entirely.
+  // Subsequent attempts in the same window start fresh.
+  clearRateLimit(request, 'admin-check');
   return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
 }
 
