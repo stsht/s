@@ -1511,6 +1511,98 @@ async function handleDbPasswordChange(request, env) {
   return json({ error: 'Admin password is managed by Cloudflare Secret. Run: npx wrangler pages secret put ADMIN_PASSWORD --project-name=starshots' }, 400);
 }
 
+// Cascade-delete a client and every record that belongs to them.
+//
+// Body shape (JSON):
+//   { id: "<uuid> | legacy:<normalized>", name?: "<display name>", password?: "..." }
+//
+// Match strategy mirrors how /api/db buckets records into client
+// summaries: a real client_id wins; otherwise we fall back to the
+// denormalized client_name string. We delete by both filters when
+// available so legacy rows missing client_id (older imports) are not
+// left orphaned. Slug, password-hash, and salt logic are untouched —
+// this handler only issues PostgREST DELETEs.
+async function handleClientDelete(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  const rawId = String(body.id || body.client_id || '').trim();
+  const clientName = String(body.name || body.client_name || '').trim();
+  const isRealId = !!rawId && !rawId.startsWith('legacy:');
+  if (!isRealId && !clientName) return json({ error: 'Missing client id or name.' }, 400);
+
+  const filters = [];
+  if (isRealId) filters.push(`client_id=eq.${encodeURIComponent(rawId)}`);
+  if (clientName) filters.push(`client_name=eq.${encodeURIComponent(clientName)}`);
+
+  // Step 1: collect all delivery ids that match any filter so we can
+  // clean their dependent rows (delivery_links, delivery_access_logs)
+  // before deleting the deliveries themselves. delivery_links and
+  // delivery_access_logs only carry delivery_id, not client_id, so we
+  // cannot delete them by client filter directly.
+  const deliveryIds = new Set();
+  for (const filter of filters) {
+    try {
+      const rows = await supabaseFetch(env, `/rest/v1/deliveries?select=id&${filter}`);
+      (Array.isArray(rows) ? rows : []).forEach((row) => {
+        if (row?.id) deliveryIds.add(String(row.id));
+      });
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+    }
+  }
+
+  if (deliveryIds.size > 0) {
+    const inList = [...deliveryIds].map((id) => encodeURIComponent(id)).join(',');
+    await supabaseFetch(env, `/rest/v1/delivery_access_logs?delivery_id=in.(${inList})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    }).catch(() => {});
+    await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=in.(${inList})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    }).catch(() => {});
+    await supabaseFetch(env, `/rest/v1/deliveries?id=in.(${inList})`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    }).catch(() => {});
+  }
+
+  // Step 2: invoices and subscriptions both denormalize client_name,
+  // so we issue one DELETE per filter on each table. Schema-cache
+  // tolerance mirrors the rest of the worker (subscriptions table may
+  // not exist in older deploys).
+  for (const filter of filters) {
+    await supabaseFetch(env, `/rest/v1/invoices?${filter}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    }).catch(() => {});
+  }
+  for (const filter of filters) {
+    try {
+      await supabaseFetch(env, `/rest/v1/subscriptions?${filter}`, {
+        method: 'DELETE',
+        headers: { Prefer: 'return=minimal' },
+      });
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+    }
+  }
+
+  // Step 3: drop the canonical client row last so the per-record
+  // FK ON DELETE SET NULL doesn't dirty the records we've already
+  // queued for deletion. Legacy buckets have no client row to drop.
+  if (isRealId) {
+    await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(rawId)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' },
+    }).catch(() => {});
+  }
+
+  return json({ ok: true });
+}
+
 
 function normalizeInvoicePayload(raw = {}) {
   const data = raw.invoice_data && typeof raw.invoice_data === 'object' ? raw.invoice_data : {};
@@ -2115,6 +2207,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
 	      if (request.method === 'GET' && url.pathname === '/api/db') return await handleDbSearch(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/clients-save') return await handleClientSave(request, env);
+	      if (request.method === 'POST' && url.pathname === '/api/clients-delete') return await handleClientDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-password') return await handleDbPasswordChange(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-delete') return await handleDbDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-clear-logs') return await handleDbClearLogs(request, env);
