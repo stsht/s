@@ -42,7 +42,21 @@ function json(data, status = 200, headers = {}) {
 }
 
 function getSupabase(env) {
-  const url = String(env.SUPABASE_URL || '').replace(/\/$/, '');
+  // Defensive normalisation. PostgREST returns PGRST125 ("Invalid path
+  // specified in request URL") whenever the request URL is malformed,
+  // and the two malformations we have observed in deploys are:
+  //   1. SUPABASE_URL with a trailing slash (or several) -> when our
+  //      canonical "/rest/v1/..." paths are appended the resulting
+  //      URL contains "//" after the host.
+  //   2. SUPABASE_URL configured to already include the "/rest/v1"
+  //      suffix -> appending "/rest/v1/..." again produces
+  //      "/rest/v1/rest/v1/...", which PostgREST rejects.
+  // Stripping both shapes here makes supabaseFetch robust regardless
+  // of how SUPABASE_URL is set at deploy time.
+  const raw = String(env.SUPABASE_URL || '').trim();
+  const url = raw
+    .replace(/\/+$/, '')
+    .replace(/\/rest\/v1(?:\/.*)?$/i, '');
   const key = env.SUPABASE_SECRET_KEY || '';
   if (!url || !key) throw new Error('Supabase environment variables are missing.');
   return { url, key };
@@ -50,7 +64,11 @@ function getSupabase(env) {
 
 async function supabaseFetch(env, path, options = {}) {
   const { url, key } = getSupabase(env);
-  const response = await fetch(`${url}${path}`, {
+  const cleanPath = String(path || '').startsWith('/') ? path : `/${path || ''}`;
+  // Collapse any accidental "//" inside the path portion (anywhere
+  // other than directly after the "https:" scheme separator).
+  const target = `${url}${cleanPath}`.replace(/([^:])\/{2,}/g, '$1/');
+  const response = await fetch(target, {
     ...options,
     headers: {
       apikey: key,
@@ -62,7 +80,13 @@ async function supabaseFetch(env, path, options = {}) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Supabase error ${response.status}`);
+    let parsed = null;
+    try { parsed = text ? JSON.parse(text) : null; } catch {}
+    const error = new Error(parsed?.message || text || `Supabase error ${response.status}`);
+    error.status = response.status;
+    error.code = parsed?.code || '';
+    error.supabase = true;
+    throw error;
   }
 
   if (response.status === 204) return null;
@@ -2165,7 +2189,18 @@ export default {
         return Response.redirect(`${url.origin}/g/${slug}`, 302);
       }
     } catch (error) {
-      if (url.pathname.startsWith('/api/')) return json({ error: error.message || 'Server error.' }, 500);
+      if (url.pathname.startsWith('/api/')) {
+        // Log full diagnostic detail (status, PostgREST code, message)
+        // server-side, but return a short user-facing message so the
+        // /db UI never paints a raw Supabase JSON blob across the
+        // panel. The client maps this into "Database request failed.
+        // Check API configuration."
+        if (error?.supabase) {
+          console.warn(`[api] ${url.pathname} supabase ${error.status || ''} ${error.code || ''} ${error.message || ''}`);
+          return json({ error: 'Database request failed. Check API configuration.', code: error.code || undefined }, 500);
+        }
+        return json({ error: error.message || 'Server error.' }, 500);
+      }
       return new Response(notFoundPage(url.pathname), { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
