@@ -3,11 +3,51 @@ import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 
 const packageOptions = [
-  { name: 'Studio (1 Hour with Cake & Decor)', note: 'custom package', price: 1700000 },
+  { name: 'School without Magician', note: 'school celebration without magician', price: 800000 },
+  { name: 'School with Magician', note: 'school celebration with magician', price: 1000000 },
   { name: 'Studio Special', note: 'up to 1 hour', price: 800000 },
   { name: 'Intimate Party', note: 'up to 2 hours, suitable for family celebration', price: 1300000 },
-  { name: 'Event Documentation', note: 'photo coverage and edited gallery', price: 2500000 },
+  { name: 'Birthday Celebration', note: 'up to 3.5 hours, suitable for Birthday Celebration', price: 1650000 },
 ];
+
+// Small words that stay lowercase when not the first word. Anything else is
+// Title-cased per word. Acronyms / intentional ALL-CAPS tokens (USB, QR, IDR)
+// are detected and preserved as typed.
+const TITLE_CASE_SMALL_WORDS = new Set([
+  'to', 'of', 'in', 'at', 'on', 'with', 'without', 'for', 'and', 'or',
+]);
+
+function titleCasePackageText(value) {
+  if (typeof value !== 'string' || !value) return value;
+  const parts = value.split(/(\s+)/);
+  let seenWord = false;
+  return parts
+    .map((part) => {
+      if (!part || /^\s+$/.test(part)) return part;
+      const isFirst = !seenWord;
+      seenWord = true;
+      const match = part.match(/^(\W*)([\w'.\-]+?)(\W*)$/);
+      if (!match) return part;
+      const [, lead, core, trail] = match;
+      // Preserve acronyms / intentional ALL CAPS (>= 2 letters, all uppercase).
+      const letters = core.replace(/[^A-Za-z]/g, '');
+      if (letters.length >= 2 && letters === letters.toUpperCase()) {
+        return part;
+      }
+      const lowered = core.toLowerCase();
+      if (!isFirst && TITLE_CASE_SMALL_WORDS.has(lowered)) {
+        return `${lead}${lowered}${trail}`;
+      }
+      const firstLetterIndex = core.search(/[A-Za-z]/);
+      if (firstLetterIndex === -1) return part; // pure number / punct token
+      const formatted =
+        core.slice(0, firstLetterIndex) +
+        core.charAt(firstLetterIndex).toUpperCase() +
+        core.slice(firstLetterIndex + 1).toLowerCase();
+      return `${lead}${formatted}${trail}`;
+    })
+    .join('');
+}
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -320,7 +360,7 @@ function EditorPanel(props) {
         <div className="item-list">
           {props.items.map((item) => (
             <div className="item-editor" key={item.id}>
-              <label>Package<select value={item.name} onChange={(event) => props.applyPackage(item.id, event.target.value)}>{packageOptions.map((pkg) => <option key={pkg.name}>{pkg.name}</option>)}</select></label>
+              <label>Package<select value={item.name} onChange={(event) => props.applyPackage(item.id, event.target.value)}>{packageOptions.map((pkg) => <option key={pkg.name} value={pkg.name}>{titleCasePackageText(pkg.name)}</option>)}</select></label>
               <label>Note<input value={item.note} onChange={(event) => props.updateItem(item.id, { note: event.target.value })} /></label>
               <div className="three-col">
                 <label>Qty<input type="number" min="1" value={item.qty} onChange={(event) => props.updateItem(item.id, { qty: event.target.value })} /></label>
@@ -371,8 +411,8 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           <section className="sheet-box line-table">
             <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
             {items.map((item) => (
-              <div className="line-row" key={item.id}>
-                <div><strong>{item.name}</strong><small>{item.note}</small></div>
+              <div key={item.id} className="line-row">
+                <div><strong>{titleCasePackageText(item.name)}</strong><small>{titleCasePackageText(item.note)}</small></div>
                 <span>{item.qty || 1}</span>
                 <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
               </div>
