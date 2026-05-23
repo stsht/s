@@ -812,43 +812,99 @@ dd{margin:0;text-align:right;font-weight:800}
   color:color-mix(in srgb,var(--danger) 70%,var(--muted) 30%);
 }
 
-/* Delete button reveal. The base style is shared by every
+/* Delete button reveal. Subtle hover-pill family for every
  * destructive action in /db (.db-row-delete on list rows,
- * .record-row-delete on event rows, .ghost-button.compact in the
- * client-detail header gets this colour via .db-delete-button).
+ * .record-row-delete on event rows, the top-right Delete Client
+ * action which reuses the .ghost-button.compact shape).
+ *
+ * Visual contract:
+ *   - At rest, row-level delete buttons are invisible and consume
+ *     no pointer events. The top-right Delete Client is always
+ *     visible but reads as a neutral ghost button — no red border.
+ *   - On hover/focus of the surrounding row (or the button itself),
+ *     a soft grey hover-pill appears (GitHub/Instagram-style fill).
+ *     The text tints red as a confirmation hint.
+ *   - The actual destructive intent is the click. On touch devices
+ *     a deliberate first tap arms the row (.armed); the now-visible
+ *     pill takes a second tap to fire. No modal, no popup.
+ *
  * Reveal rules:
- *   - Desktop (hover-capable pointers): hidden by default, revealed
- *     on `:hover`/`:focus-within` of the parent row, or on `.armed`.
- *   - Touch (no hover): hidden until the row's parent is `.armed`
- *     (set by a deliberate first tap on the row). Tapping the now-
- *     visible button performs the delete. This is the "tap to
- *     reveal, tap to confirm" pattern requested for mobile.
- *   - Always revealed when the button itself is focused, so keyboard
- *     navigation still finds it. */
+ *   - Desktop (hover-capable): :hover/:focus-within reveals.
+ *   - Touch (no hover): hidden until row is .armed.
+ *   - Always revealed when the button itself is focused so keyboard
+ *     navigation stays usable.
+ */
 .db-delete-button{
-  border:1px solid var(--danger);
+  border:0;
   background:transparent;
-  color:var(--danger);
-  font-weight:800;
+  color:var(--muted);
+  font-weight:700;
+  letter-spacing:.02em;
+  transition:background .14s ease, color .14s ease, border-color .14s ease;
 }
-.db-delete-button:hover{
-  background:color-mix(in srgb,var(--danger) 12%,transparent);
+.db-delete-button:hover,
+.db-delete-button:focus-visible{
+  background:color-mix(in srgb,var(--ink) 8%,transparent);
+  color:var(--danger);
+  outline:none;
+}
+.db-delete-button:active{
+  background:color-mix(in srgb,var(--danger) 14%,transparent);
+}
+/* Top-right Delete Client header action. Inline with Create Links /
+ * Create Invoice via .ghost-button.compact, so we keep the ghost
+ * shape (1px line border, soft surface) and only swap colour on
+ * hover/focus to the same hover-pill family. Red border surfaces
+ * only when the button is being pressed (active), as a one-shot
+ * "armed" cue without a separate confirm modal. */
+.detail-actions .db-delete-button.ghost-button.compact{
+  background:transparent;
+  color:var(--muted);
+  border:1px solid var(--line);
+}
+.detail-actions .db-delete-button.ghost-button.compact:hover,
+.detail-actions .db-delete-button.ghost-button.compact:focus-visible{
+  background:color-mix(in srgb,var(--ink) 8%,transparent);
+  color:var(--danger);
+  border-color:transparent;
+}
+.detail-actions .db-delete-button.ghost-button.compact:active{
+  border-color:var(--danger);
+  background:color-mix(in srgb,var(--danger) 14%,transparent);
 }
 .db-row-delete,
 .record-row-delete{
+  min-height:28px;
+  padding:0 12px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+  white-space:nowrap;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease, background .14s ease, color .14s ease;
+}
+/* List-row delete (Clients/Subs/Invoices tab). The list row is a
+ * vertical flex stack of strong + span; an absolutely-positioned
+ * pill at the right edge avoids reflowing the title/subtitle when
+ * it appears. Pill is small and subtle, so even on truncated text
+ * it reads as a row chip rather than a stamp. */
+.db-row-delete{
   position:absolute;
   right:10px;
   top:50%;
   transform:translateY(-50%);
-  min-height:30px;
-  padding:0 12px;
-  border-radius:999px;
-  font-size:11px;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .12s ease;
+}
+/* Event-row delete (inside ClientDetail). Sits in the grid as the
+ * 5th column so View Links / Create Invoice / Delete align cleanly
+ * on a single line, with reserved space — never overlapping. The
+ * column is reserved at all times (so the action group doesn't
+ * shift on hover); only the pill's opacity flips. */
+.record-row-delete{
+  position:static;
+  transform:none;
+  justify-self:end;
 }
 .db-list-row:focus-within .db-row-delete,
 .db-list-row.armed .db-row-delete,
@@ -911,7 +967,11 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .record-row{
   display:grid;
-  grid-template-columns:120px minmax(0,1fr) auto auto;
+  /* 5 columns: date | name | View Links | View Invoice | Delete.
+   * The delete column is reserved permanently so the View Links /
+   * View Invoice pair never shifts horizontally when the delete
+   * pill fades in on hover/arm. */
+  grid-template-columns:120px minmax(0,1fr) auto auto auto;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -1168,6 +1228,25 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .record-row a{
     width:100%;
+  }
+  /* Mobile single-column event rows: the delete pill collapses
+   * out of the layout entirely until the row is armed (first tap)
+   * or focused, so an invisible pill never takes its own row of
+   * vertical space. The .armed class then surfaces it as a normal
+   * inline-flex element so a second tap can confirm. */
+  .record-row-delete{
+    display:none;
+    width:100%;
+    justify-self:stretch;
+  }
+  .record-row.armed .record-row-delete,
+  .record-row:focus-within .record-row-delete,
+  .record-row-delete:focus-visible{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    opacity:1;
+    pointer-events:auto;
   }
   .client-form-grid{
     grid-template-columns:1fr;

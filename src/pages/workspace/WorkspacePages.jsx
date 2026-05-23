@@ -18,6 +18,47 @@ function dateLabel(value) {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Same formatter as dateLabel but returns an empty string when the
+// input is missing or unparseable, so callers can use it as a soft
+// fallback inside ternaries without printing the literal "No date".
+function softDateLabel(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Build the small grey subtitle line under each list-row title.
+// Goal: never expose a raw ISO/Postgres timestamp like
+// "2026-05-17T13:50:05.719653+00:00" — that's database language.
+//
+// Per-tab preference order:
+//   clients   - contact > formatted "last seen" date > nothing
+//   subs      - contact > service > status > formatted expiry/start > nothing
+//   invoices  - contact > status > formatted event/invoice date > nothing
+//
+// `service` and `status` are short human strings that happen to live
+// on the row and read fine as a subtitle. Anything that looks like a
+// date is run through softDateLabel() so the operator sees
+// "17 May 2026" instead of an ISO blob.
+function rowSubtitle(row, tab) {
+  if (!row) return '';
+  const contact = row.contact || row.client_contact;
+  if (contact) return String(contact);
+  if (tab === 'subs') {
+    if (row.service) return String(row.service);
+    if (row.status) return String(row.status);
+    return softDateLabel(row.expiry_date || row.start_date || row.updated_at || row.created_at);
+  }
+  if (tab === 'invoices') {
+    if (row.status) return String(row.status);
+    return softDateLabel(row.event_date || row.invoice_date || row.updated_at || row.created_at);
+  }
+  // clients tab: a contact is the natural subtitle. Fall back to the
+  // most recent date we have on the client row, formatted humanely.
+  return softDateLabel(row.last_event_date || row.updated_at || row.created_at);
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -515,7 +556,7 @@ export function DatabasePage() {
       <div className="db-list">
         {activeRows.slice(0, 80).map((row, index) => {
           const title = row.client_name || row.name || row.title || row.slug;
-          const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
+          const meta = rowSubtitle(row, tab);
           const isClient = tab === 'clients';
           const isSub = tab === 'subs';
           const isInvoice = tab === 'invoices';
@@ -635,7 +676,14 @@ export function DatabasePage() {
                 selected.data?.client_contact ||
                 selected.data?.contact ||
                 selected.data?.status ||
-                selected.data?.updated_at
+                softDateLabel(
+                  selected.data?.event_date ||
+                    selected.data?.invoice_date ||
+                    selected.data?.expiry_date ||
+                    selected.data?.start_date ||
+                    selected.data?.updated_at ||
+                    selected.data?.created_at,
+                )
               }
               amount={
                 selected.data?.total || selected.data?.grand_total || selected.data?.price
