@@ -38,7 +38,12 @@ const NAV_ITEMS = [
  *   logoHref          - logo destination; defaults to "/db/".
  *   showNav           - render the cross-tool nav row (default true);
  *                       pass false for public/embed pages like the
- *                       gallery delivery view.
+ *                       gallery delivery view, or for pages whose
+ *                       only context is themselves (e.g. /subs).
+ *   navItems          - override the cross-tool nav array. Defaults
+ *                       to the full NAV_ITEMS list. Pass a single
+ *                       item (e.g. just Database) for pages like /l
+ *                       that only need a back-link.
  */
 export function PrivateWorkspaceFrame({
   active,
@@ -50,8 +55,11 @@ export function PrivateWorkspaceFrame({
   mobileTabs,
   logoHref = '/db/',
   showNav = true,
+  navItems = NAV_ITEMS,
 }) {
   const showDetail = mobileView === 'right' && right !== null;
+  const navList = Array.isArray(navItems) ? navItems : [];
+  const renderNav = showNav && navList.length > 0;
 
   return (
     <main className="pf-page" data-show-detail={showDetail ? 'true' : undefined}>
@@ -70,9 +78,16 @@ export function PrivateWorkspaceFrame({
             </a>
             {pills ? <div className="pf-pills">{pills}</div> : <div className="pf-pills" aria-hidden="true" />}
           </header>
-          {showNav ? (
-            <nav className="pf-nav" aria-label="Workspace tools">
-              {NAV_ITEMS.map((item) => (
+          {renderNav ? (
+            <nav
+              className="pf-nav"
+              aria-label="Workspace tools"
+              // Override the default 4-column grid so a single back-link
+              // (e.g. /l => only "Database") spans the full row instead
+              // of sitting in a 1/4-width cell.
+              style={{ gridTemplateColumns: `repeat(${navList.length}, minmax(0, 1fr))` }}
+            >
+              {navList.map((item) => (
                 <a
                   key={item.href}
                   href={item.href}

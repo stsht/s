@@ -1,23 +1,56 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GlobalBackground } from './GlobalBackground.jsx';
 
 const SESSION_MS = 15 * 60 * 1000;
 
-// One shared session key across every private workspace page so that
-// signing in once unlocks /db, /l, /inv, /subs, etc. for the same browser tab.
+// One shared session key across every private workspace page. Stored
+// in localStorage (not sessionStorage) so signing in once unlocks
+// /db, /l, /inv, /subs across browser tabs without re-prompting.
 const SHARED_SESSION_KEY = 'starshots_gate_private';
+
+// Soft cap on the visible lockout countdown. Server-side block is
+// already 30s (see _worker.js handleAdminCheck), but if a future
+// server change ever returned a longer Retry-After we still don't
+// want to scare the owner with a multi-minute timer. Anything past
+// this falls back to the cap and the user can just retry.
+const LOCKOUT_DISPLAY_CAP_S = 30;
 
 function sessionKey() {
   return SHARED_SESSION_KEY;
 }
 
-function readSession(key) {
+function safeLocalGet(key) {
   try {
-    const raw = sessionStorage.getItem(key);
-    const saved = raw ? JSON.parse(raw) : null;
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore quota / private-mode errors */
+  }
+}
+
+function safeLocalRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+function readSession(key) {
+  const raw = safeLocalGet(key);
+  if (!raw) return false;
+  try {
+    const saved = JSON.parse(raw);
     if (saved && Number(saved.expiresAt) > Date.now()) return true;
   } catch {
-    sessionStorage.removeItem(key);
+    safeLocalRemove(key);
   }
   return false;
 }
@@ -25,18 +58,32 @@ function readSession(key) {
 export function PasswordGate({ title, children }) {
   const key = useMemo(() => sessionKey(), []);
   const [unlocked, setUnlocked] = useState(() => readSession(key));
+  // When there is no cached session, probe the HttpOnly cookie once
+  // before showing the gate. If the worker says the cookie is valid,
+  // we unlock immediately — that's how a new tab inherits the shared
+  // session without re-prompting. While probing we render nothing
+  // (a brief blank) instead of flashing the gate then content.
+  const [checking, setChecking] = useState(() => !readSession(key));
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+  // Lockout state. lockUntil is the timestamp (ms) at which the
+  // client-side cooldown expires. lockSeconds is the remaining
+  // seconds for the visible countdown.
+  const [lockUntil, setLockUntil] = useState(0);
+  const [lockSeconds, setLockSeconds] = useState(0);
+  const tickRef = useRef(null);
 
+  // One-shot cookie probe. Runs only when localStorage had no
+  // unexpired entry; success flips us to unlocked, failure leaves
+  // the gate visible.
   useEffect(() => {
-    if (!unlocked) return;
-    sessionStorage.setItem(key, JSON.stringify({ expiresAt: Date.now() + SESSION_MS }));
-  }, [key, unlocked]);
-
-  useEffect(() => {
-    if (!unlocked || import.meta.env.DEV) return;
+    if (!checking) return undefined;
+    if (import.meta.env.DEV) {
+      setChecking(false);
+      return undefined;
+    }
     let alive = true;
     fetch('/api/admin-check', {
       method: 'POST',
@@ -45,16 +92,51 @@ export function PasswordGate({ title, children }) {
       body: JSON.stringify({}),
     })
       .then((response) => {
-        if (!alive || response.ok) return;
-        sessionStorage.removeItem(key);
-        setUnlocked(false);
+        if (!alive) return;
+        if (response.ok) setUnlocked(true);
+        setChecking(false);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (alive) setChecking(false);
+      });
     return () => { alive = false; };
+  }, [checking]);
+
+  // Refresh the local cache whenever we're in an unlocked state so
+  // other tabs see the same SESSION_MS expiry window.
+  useEffect(() => {
+    if (!unlocked) return;
+    safeLocalSet(key, JSON.stringify({ expiresAt: Date.now() + SESSION_MS }));
   }, [key, unlocked]);
+
+  // Drive the visible countdown while a lockout is active.
+  useEffect(() => {
+    if (!lockUntil) return undefined;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockUntil - Date.now()) / 1000));
+      setLockSeconds(remaining);
+      if (remaining <= 0) {
+        setLockUntil(0);
+        setStatus('');
+      }
+    };
+    tick();
+    tickRef.current = setInterval(tick, 500);
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+      tickRef.current = null;
+    };
+  }, [lockUntil]);
+
+  function startLockout(retryAfterSeconds) {
+    const capped = Math.min(LOCKOUT_DISPLAY_CAP_S, Math.max(1, Math.round(Number(retryAfterSeconds) || 0)));
+    setLockUntil(Date.now() + capped * 1000);
+    setLockSeconds(capped);
+  }
 
   async function openGate(event) {
     event.preventDefault();
+    if (lockUntil && Date.now() < lockUntil) return;
     const value = password.trim();
     if (!value) {
       setStatus('Access key required.');
@@ -70,8 +152,24 @@ export function PasswordGate({ title, children }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: value }),
       });
+
+      if (response.status === 429) {
+        // Server-imposed lockout — read Retry-After (seconds) and start
+        // the visible countdown. Cap the displayed value at 30s so the
+        // owner is never told to wait minutes.
+        const retryAfter = Number(response.headers.get('Retry-After')) || 30;
+        startLockout(retryAfter);
+        setStatus(`Too many attempts. Try again in ${Math.min(LOCKOUT_DISPLAY_CAP_S, Math.max(1, Math.round(retryAfter)))}s.`);
+        return;
+      }
+
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Unauthorized.');
+
+      // Success: clear any lingering lockout/status and unlock.
+      setLockUntil(0);
+      setLockSeconds(0);
+      setStatus('');
       setUnlocked(true);
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -85,7 +183,14 @@ export function PasswordGate({ title, children }) {
     }
   }
 
+  // While the cookie probe is in flight, render nothing. This is
+  // brief on a fast network and avoids a flash of the gate UI when
+  // the user already has a valid shared session in another tab.
+  if (checking) return null;
   if (unlocked) return children;
+
+  const locked = lockUntil > 0 && lockSeconds > 0;
+  const visibleStatus = locked ? `Too many attempts. Try again in ${lockSeconds}s.` : status;
 
   return (
     <main className="gate-page">
@@ -110,15 +215,16 @@ export function PasswordGate({ title, children }) {
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
+            disabled={locked}
           />
           <button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword((value) => !value)}>
             {showPassword ? 'Hide' : 'Show'}
           </button>
         </div>
-        <button className="gate-submit" type="submit" disabled={busy}>
-          {busy ? 'Opening...' : 'Sign In'}
+        <button className="gate-submit" type="submit" disabled={busy || locked}>
+          {busy ? 'Opening...' : locked ? `Wait ${lockSeconds}s` : 'Sign In'}
         </button>
-        <p className={`gate-status ${status.includes('Unauthorized') || status.includes('required') ? 'error' : ''}`}>{status}</p>
+        <p className={`gate-status ${visibleStatus.includes('Unauthorized') || visibleStatus.includes('required') || locked ? 'error' : ''}`}>{visibleStatus}</p>
       </form>
     </main>
   );

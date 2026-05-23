@@ -401,20 +401,53 @@ export function LinkGeneratorPage() {
   const [service, setService] = useState('Google Drive');
   const [status, setStatus] = useState('');
   const [mobileView, setMobileView] = useState('left');
-  const shortSlug = useMemo(() => {
+  // Snapshot of the link/message produced by the most recent
+  // Generate Link click. The preview only renders these — the live
+  // hash from useMemo below is used as the *candidate* slug while
+  // the user is typing, but never displayed until they click
+  // Generate so the workflow has a clear before/after.
+  const [generated, setGenerated] = useState(false);
+  const [generatedSlug, setGeneratedSlug] = useState('');
+  const [generatedMessage, setGeneratedMessage] = useState('');
+  // Candidate short-code derived from the inputs. Hash logic
+  // unchanged — same FNV-style mix used previously, just gated
+  // behind the `generated` flag for display.
+  const candidateSlug = useMemo(() => {
     const base = `${client}-${slug}-${service}`.toLowerCase().replace(/[^a-z0-9]+/g, '');
     let hash = 2166136261;
     for (let index = 0; index < base.length; index += 1) hash = Math.imul(hash ^ base.charCodeAt(index), 16777619);
     return Math.abs(hash).toString(36).padStart(7, '0').slice(0, 12);
   }, [client, slug, service]);
 
-  async function save(event) {
+  // Editing any input after generation invalidates the preview so
+  // the displayed link always matches the displayed inputs.
+  useEffect(() => {
+    if (generated) {
+      setGenerated(false);
+      setStatus('');
+    }
+    // We intentionally do NOT depend on `generated` itself — that
+    // would cause an immediate re-toggle on the next render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, slug, service]);
+
+  async function generate(event) {
     event.preventDefault();
-    setStatus('Ready locally. Production save uses existing worker API.');
+    if (!client.trim() || !slug.trim()) {
+      setStatus('Fill in client and slug first.');
+      return;
+    }
+    setGeneratedSlug(candidateSlug);
+    setGeneratedMessage(
+      `Hi ${client.trim()}, your delivery is ready: https://sshots.pages.dev/${candidateSlug}`,
+    );
+    setGenerated(true);
+    setStatus('Link ready. Production save uses the existing worker API.');
+    setMobileView('right');
   }
 
   const left = (
-    <form className="form-stack" onSubmit={save}>
+    <form className="form-stack" onSubmit={generate}>
       <label>Client<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
       <label>Gallery or folder slug<input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="Google Drive / Dropbox link" /></label>
       <label>Service
@@ -425,28 +458,38 @@ export function LinkGeneratorPage() {
           <option>USB</option>
         </select>
       </label>
-      <button className="primary-button" type="submit">Prepare Link</button>
+      <button className="primary-button" type="submit">Generate Link</button>
       <p className="download-status">{status}</p>
     </form>
   );
 
-  const right = (
+  const right = generated ? (
+    <div className="preview-note-card">
+      <p className="eyebrow">Generated Link</p>
+      <h2>{client} Delivery</h2>
+      <p>Share this link with the client:</p>
+      <strong>sshots.pages.dev/{generatedSlug}</strong>
+      <p style={{ marginTop: 12 }}>{generatedMessage}</p>
+    </div>
+  ) : (
     <div className="preview-note-card">
       <p className="eyebrow">Preview</p>
-      <h2>{client || 'Client'} Delivery</h2>
-      <p>Your gallery is ready. Open here:</p>
-      <strong>sshots.pages.dev/{shortSlug}</strong>
+      <h2>Ready to generate</h2>
+      <p>Fill the form on the left, then tap Generate Link to produce the short URL and the share message.</p>
     </div>
   );
 
   return (
     <PrivateWorkspaceFrame
       active="/l/"
+      // /l only needs a back-link to the workspace home. No Links/
+      // Invoice/Subs in the nav row.
+      navItems={[{ href: '/db/', label: 'Database' }]}
       left={left}
       right={right}
       mobileView={mobileView}
       onMobileViewChange={setMobileView}
-      mobileTabs={{ left: 'Form', right: 'Preview' }}
+      mobileTabs={{ left: 'Form', right: 'Link' }}
     />
   );
 }
@@ -491,6 +534,9 @@ export function SubscriptionsPage() {
   return (
     <PrivateWorkspaceFrame
       active="/subs/"
+      // /subs is a leaf page; the nav row would just point back at
+      // itself or repeat /db. Hide it entirely for a cleaner header.
+      showNav={false}
       left={left}
       right={right}
       mobileView={mobileView}
