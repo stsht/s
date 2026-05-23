@@ -51,6 +51,32 @@ function titleCasePackageText(value) {
 
 const today = new Date().toISOString().slice(0, 10);
 
+// Deposit defaults: 20% of grand total, but never less than IDR
+// 200,000. The 200K floor is the operator's invoicing minimum;
+// it is capped at the grand total so a tiny invoice (smaller than
+// the floor itself) cannot ask for more than 100% deposit. The
+// preset ladder is the short list of common ratios; "custom" lets
+// the operator type a raw IDR override that bypasses the percent
+// calculation entirely (still capped at the grand total).
+const DEPOSIT_PRESETS = [20, 30, 50, 100];
+const DEPOSIT_MIN_IDR = 200000;
+
+function computeDepositDue(grandTotal, mode, customAmount) {
+  const total = Math.max(0, Math.round(Number(grandTotal) || 0));
+  if (total <= 0) return 0;
+  if (mode === 'custom') {
+    const raw = Math.max(0, Math.round(Number(customAmount) || 0));
+    return Math.min(total, raw);
+  }
+  const percent = Number(mode) || 0;
+  const fromPercent = Math.round((total * percent) / 100);
+  // Apply the IDR floor only when the percent calculation falls
+  // below it. Higher presets (30/50/100) skip the floor naturally
+  // since they already exceed it for any realistic invoice.
+  const floored = Math.max(fromPercent, DEPOSIT_MIN_IDR);
+  return Math.min(total, floored);
+}
+
 function rupiah(value) {
   const number = Number(value) || 0;
   return `Rp ${Math.round(number).toLocaleString('id-ID')}`;
@@ -189,7 +215,12 @@ export function InvoiceComposer() {
   const [eventDate, setEventDate] = useState('');
   const [issuedDate, setIssuedDate] = useState(today);
   const [discount, setDiscount] = useState(250000);
-  const [depositRate, setDepositRate] = useState(20);
+  // Deposit mode is one of '20' | '30' | '50' | '100' | 'custom'.
+  // Default '20' picks the 20% preset; computeDepositDue() then
+  // applies the IDR-200,000 floor (capped at the grand total) so
+  // small invoices never silently produce a 0 deposit.
+  const [depositMode, setDepositMode] = useState('20');
+  const [depositCustomAmount, setDepositCustomAmount] = useState('');
   const [items, setItems] = useState(() => [emptyItem()]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
   const [status, setStatus] = useState('');
@@ -198,9 +229,9 @@ export function InvoiceComposer() {
   const totals = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.price) || 0), 0);
     const grandTotal = Math.max(0, subtotal - (Number(discount) || 0));
-    const depositDue = Math.round(grandTotal * (Number(depositRate) || 0) / 100);
+    const depositDue = computeDepositDue(grandTotal, depositMode, depositCustomAmount);
     return { subtotal, grandTotal, depositDue };
-  }, [discount, depositRate, items]);
+  }, [discount, depositMode, depositCustomAmount, items]);
 
   function updateItem(id, patch) {
     setItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
@@ -297,8 +328,10 @@ export function InvoiceComposer() {
           removeItem={removeItem}
           discount={discount}
           setDiscount={setDiscount}
-          depositRate={depositRate}
-          setDepositRate={setDepositRate}
+          depositMode={depositMode}
+          setDepositMode={setDepositMode}
+          depositCustomAmount={depositCustomAmount}
+          setDepositCustomAmount={setDepositCustomAmount}
           totals={totals}
           uploadQr={uploadQr}
         />
@@ -374,12 +407,52 @@ function EditorPanel(props) {
       </Fieldset>
 
       <Fieldset title="Payment">
-        <div className="two-col">
-          <label>Discount<input type="number" min="0" value={props.discount} onChange={(event) => props.setDiscount(event.target.value)} /></label>
-          <label>Deposit %<input type="number" min="0" max="100" value={props.depositRate} onChange={(event) => props.setDepositRate(event.target.value)} /></label>
+        <label>Discount<input type="number" min="0" value={props.discount} onChange={(event) => props.setDiscount(event.target.value)} /></label>
+        <div className="deposit-block">
+          <span className="deposit-label">Deposit</span>
+          <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
+            {DEPOSIT_PRESETS.map((preset) => {
+              const value = String(preset);
+              const active = props.depositMode === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={active ? 'active' : ''}
+                  onClick={() => props.setDepositMode(value)}
+                >
+                  {preset}%
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={props.depositMode === 'custom'}
+              className={props.depositMode === 'custom' ? 'active' : ''}
+              onClick={() => props.setDepositMode('custom')}
+            >
+              Custom
+            </button>
+          </div>
+          {props.depositMode === 'custom' ? (
+            <label className="deposit-custom">
+              Custom amount (IDR)
+              <input
+                type="number"
+                min="0"
+                value={props.depositCustomAmount}
+                onChange={(event) => props.setDepositCustomAmount(event.target.value)}
+                placeholder="e.g. 500000"
+              />
+            </label>
+          ) : null}
         </div>
         <label>Custom QR<input type="file" accept="image/*" onChange={props.uploadQr} /></label>
         <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
+        <div className="total-card"><span>Deposit Due</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
       </Fieldset>
     </aside>
   );

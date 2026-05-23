@@ -4,12 +4,16 @@ import './PrivateWorkspaceFrame.css';
 /**
  * Cross-tool navigation rendered inside the left panel, low-emphasis.
  * "Dashboard" intentionally omitted now that /db is the workspace home.
+ *
+ * The three tool tabs (Links, Invoice, Subs) open in a new tab so the
+ * /db dashboard stays the operator's "home" tab — switching to a tool
+ * doesn't lose the current /db selection / scroll position.
  */
 const NAV_ITEMS = [
   { href: '/db/', label: 'Database' },
-  { href: '/l/', label: 'Links' },
-  { href: '/inv/', label: 'Invoice' },
-  { href: '/subs/', label: 'Subs' },
+  { href: '/l/', label: 'Links', target: '_blank' },
+  { href: '/inv/', label: 'Invoice', target: '_blank' },
+  { href: '/subs/', label: 'Subs', target: '_blank' },
 ];
 
 /**
@@ -91,6 +95,8 @@ export function PrivateWorkspaceFrame({
                 <a
                   key={item.href}
                   href={item.href}
+                  target={item.target || undefined}
+                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
                   className={active === item.href ? 'active' : ''}
                   aria-current={active === item.href ? 'page' : undefined}
                 >

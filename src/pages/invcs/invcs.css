@@ -243,6 +243,53 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
 .total-card span{color:var(--muted);font-size:12px;font-weight:800}
 .total-card strong{font-size:18px}
 
+/* Deposit selector. Replaces the old "Deposit %" numeric input
+ * which silently produced Rp 0 when blank. The preset row picks a
+ * percent (20/30/50/100) and applies the IDR-200,000 floor in JS;
+ * "Custom" reveals a free-form IDR input that bypasses the percent
+ * entirely. The preview/JPG layout is unchanged — only the editor
+ * gains controls. */
+.deposit-block{
+  margin-top:12px;
+  display:grid;
+  gap:10px;
+}
+.deposit-label{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+.deposit-presets{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+}
+.deposit-presets button{
+  min-width:0;
+  height:36px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.deposit-presets button.active{
+  background:#fff;
+  color:var(--ink);
+  box-shadow:var(--shadow-soft);
+}
+.deposit-custom{
+  display:grid;
+  gap:7px;
+}
+
 .preview-panel{display:flex;flex-direction:column;padding:18px}
 .preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 2px 14px}
 .preview-toolbar h2{margin:2px 0 0;font-size:28px;line-height:1.1;font-weight:900;letter-spacing:0}
@@ -636,6 +683,8 @@ dd{margin:0;text-align:right;font-weight:800}
   background:transparent;
   color:var(--ink);
   text-align:left;
+  position:relative;
+  cursor:pointer;
 }
 .db-list-row:hover,
 .db-list-row.active{
@@ -658,6 +707,78 @@ dd{margin:0;text-align:right;font-weight:800}
   color:var(--muted);
   font-size:12px;
   font-weight:650;
+}
+
+/* Subscription status tones (Subs tab). Active rows render in the
+ * default text colour; expired rows dim to muted; rows expiring
+ * within 3 days that haven't been settled (paid/solved/closed) read
+ * as red so renewals stay visible. Driven by subscriptionTone() in
+ * WorkspacePages.jsx. */
+.db-list-row.sub-expired strong,
+.db-list-row.sub-expired span{
+  color:var(--muted);
+  opacity:.7;
+}
+.db-list-row.sub-warning strong{
+  color:var(--danger);
+}
+.db-list-row.sub-warning span{
+  color:color-mix(in srgb,var(--danger) 70%,var(--muted) 30%);
+}
+
+/* Delete button reveal. The base style is shared by every
+ * destructive action in /db (.db-row-delete on list rows,
+ * .record-row-delete on event rows, .ghost-button.compact in the
+ * client-detail header gets this colour via .db-delete-button).
+ * Reveal rules:
+ *   - Desktop (hover-capable pointers): hidden by default, revealed
+ *     on `:hover`/`:focus-within` of the parent row, or on `.armed`.
+ *   - Touch (no hover): hidden until the row's parent is `.armed`
+ *     (set by a deliberate first tap on the row). Tapping the now-
+ *     visible button performs the delete. This is the "tap to
+ *     reveal, tap to confirm" pattern requested for mobile.
+ *   - Always revealed when the button itself is focused, so keyboard
+ *     navigation still finds it. */
+.db-delete-button{
+  border:1px solid var(--danger);
+  background:transparent;
+  color:var(--danger);
+  font-weight:800;
+}
+.db-delete-button:hover{
+  background:color-mix(in srgb,var(--danger) 12%,transparent);
+}
+.db-row-delete,
+.record-row-delete{
+  position:absolute;
+  right:10px;
+  top:50%;
+  transform:translateY(-50%);
+  min-height:30px;
+  padding:0 12px;
+  border-radius:999px;
+  font-size:11px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease;
+}
+.db-list-row:focus-within .db-row-delete,
+.db-list-row.armed .db-row-delete,
+.db-row-delete:focus-visible,
+.record-row:focus-within .record-row-delete,
+.record-row.armed .record-row-delete,
+.record-row-delete:focus-visible{
+  opacity:1;
+  pointer-events:auto;
+}
+@media(hover:hover){
+  .db-list-row:hover .db-row-delete,
+  .record-row:hover .record-row-delete{
+    opacity:1;
+    pointer-events:auto;
+  }
 }
 .db-detail-panel{
   overflow:auto;
@@ -712,6 +833,8 @@ dd{margin:0;text-align:right;font-weight:800}
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
+  position:relative;
+  cursor:pointer;
 }
 .record-row span{
   color:var(--muted);

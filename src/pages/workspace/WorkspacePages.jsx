@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import { Segmented, EmptyState } from '../../components/ui/index.js';
 
@@ -24,6 +24,32 @@ function createRecordUrl(path, params) {
     if (value) url.searchParams.set(key, value);
   });
   return `${url.pathname}${url.search}`;
+}
+
+// Map a subscription row to one of three visual states.
+//
+// active  - default, white/normal text.
+// expired - expiry_date has already passed; greyer/dimmer.
+// warning - expiry_date within the next 3 days AND the row hasn't been
+//           settled (status is anything other than paid/solved/closed).
+//           Rendered red so renewal stays visible.
+//
+// The rule intentionally checks `expiry_date` only — `start_date`
+// without an expiry is treated as still active. Returning a stable
+// className lets the styling live in CSS.
+const SUBS_SETTLED_STATUSES = new Set(['paid', 'solved', 'closed']);
+
+function subscriptionTone(sub = {}) {
+  const expiryRaw = sub.expiry_date || '';
+  if (!expiryRaw) return 'active';
+  const expiry = new Date(`${expiryRaw}T23:59:59Z`);
+  if (Number.isNaN(expiry.getTime())) return 'active';
+  const now = Date.now();
+  const diffDays = (expiry.getTime() - now) / 86400000;
+  if (diffDays < 0) return 'expired';
+  const status = String(sub.status || '').toLowerCase();
+  if (diffDays <= 3 && !SUBS_SETTLED_STATUSES.has(status)) return 'warning';
+  return 'active';
 }
 
 function PageChrome() {
@@ -64,9 +90,16 @@ function friendlyDbError(message) {
   return text;
 }
 
+// useRemoteList: fetch the /api/db payload and expose a refetch hook
+// so delete actions can refresh the dashboard without a full page
+// reload. The `version` counter triggers re-runs of the effect on
+// demand; the endpoint string is still the primary dependency so
+// switching tabs / search query also re-fetches.
 function useRemoteList(endpoint) {
   const [data, setData] = useState(null);
   const [status, setStatus] = useState('Loading...');
+  const [version, setVersion] = useState(0);
+  const refetch = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     let alive = true;
@@ -98,9 +131,9 @@ function useRemoteList(endpoint) {
         }
       });
     return () => { alive = false; };
-  }, [endpoint]);
+  }, [endpoint, version]);
 
-  return { data, status };
+  return { data, status, refetch };
 }
 
 function ListRow({ title, meta, amount }) {
@@ -181,7 +214,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onCreateEvent }) {
+function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteClient, onDeleteRecord }) {
   const records = buildClientRecords(client, invoices, deliveries);
   const title = client?.title || 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
@@ -198,8 +231,15 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent }) {
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
-          <a className="ghost-button compact" href={linkHref}>Create Links</a>
-          <a className="ghost-button compact" href={invoiceHref}>Create Invoice</a>
+          <a className="ghost-button compact" href={linkHref} target="_blank" rel="noopener noreferrer">Create Links</a>
+          <a className="ghost-button compact" href={invoiceHref} target="_blank" rel="noopener noreferrer">Create Invoice</a>
+          <button
+            type="button"
+            className="ghost-button compact db-delete-button"
+            onClick={() => onDeleteClient?.(client)}
+          >
+            Delete Client
+          </button>
         </div>
       </div>
       <div className="record-stack">
@@ -210,19 +250,71 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent }) {
           const eventInvoiceHref = row.invoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.invoice.id })
             : createRecordUrl('/inv/', { title: row.title || title, name: row.name || name, contact, eventDate: row.date });
+          // A row's stable identity is delivery.id ?? invoice.id ?? date —
+          // we use it to drive both the React key and the mobile "armed"
+          // state (parent owns the armed-id so only one row at a time
+          // can show its delete button on touch devices).
+          const recordKey = row.delivery?.id || row.invoice?.id || `${row.date}-${index}`;
           return (
-            <article className="record-row" key={`${row.date}-${index}`}>
-              <span>{dateLabel(row.date)}</span>
-              <strong>{row.name || name}</strong>
-              <a href={eventLinkHref}>{row.delivery?.id ? 'View Links' : 'Create Links'}</a>
-              <a href={eventInvoiceHref}>{row.invoice?.id ? 'View Invoice' : 'Create Invoice'}</a>
-            </article>
+            <RecordRow
+              key={recordKey}
+              recordKey={recordKey}
+              row={row}
+              fallbackName={name}
+              eventLinkHref={eventLinkHref}
+              eventInvoiceHref={eventInvoiceHref}
+              onDelete={() => onDeleteRecord?.(row)}
+            />
           );
         })}
         {!records.length ? <p className="empty-state">No events yet.</p> : null}
       </div>
       <button className="create-event-button" type="button" onClick={onCreateEvent}>Create Events</button>
     </>
+  );
+}
+
+// One event row inside the client detail. Owns its own armed state
+// so first-tap-reveals on touch devices doesn't propagate to the
+// inner anchors (which still navigate to /inv or /l in a new tab).
+// On desktop, CSS `:hover` reveals the delete button regardless of
+// the armed flag, so an intentional hover-then-click never costs an
+// extra tap.
+function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHref, onDelete }) {
+  const [armed, setArmed] = useState(false);
+  const handleArm = (event) => {
+    // Don't arm when the user is interacting with an inner action
+    // (anchor or the delete button itself); those handle their own
+    // events. The row is only the bare shell.
+    if (event.target.closest('a') || event.target.closest('button')) return;
+    setArmed((value) => !value);
+  };
+  return (
+    <article
+      className={`record-row${armed ? ' armed' : ''}`}
+      onClick={handleArm}
+      data-key={recordKey}
+    >
+      <span>{dateLabel(row.date)}</span>
+      <strong>{row.name || fallbackName}</strong>
+      <a href={eventLinkHref} target="_blank" rel="noopener noreferrer">
+        {row.delivery?.id ? 'View Links' : 'Create Links'}
+      </a>
+      <a href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
+        {row.invoice?.id ? 'View Invoice' : 'Create Invoice'}
+      </a>
+      <button
+        type="button"
+        className="db-delete-button record-row-delete"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete?.();
+        }}
+        aria-label="Delete event"
+      >
+        Delete
+      </button>
+    </article>
   );
 }
 
@@ -233,11 +325,25 @@ export function DatabasePage() {
   const [draft, setDraft] = useState({ title: 'Ms.', name: '', contact: '' });
   const [saveStatus, setSaveStatus] = useState('');
   const [mobileView, setMobileView] = useState('left');
+  // armedRowId: which list-row currently has its delete button revealed
+  // on touch devices. Desktop uses :hover and ignores this entirely.
+  const [armedRowId, setArmedRowId] = useState(null);
   const endpoint = `/api/db${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
-  const { data, status } = useRemoteList(endpoint);
-  const clients = data?.clients || [];
+  const { data, status, refetch } = useRemoteList(endpoint);
+  const rawClients = data?.clients || [];
   const invoices = data?.invoices || [];
   const subscriptions = data?.subscriptions || [];
+  // Sort clients alphabetically (case-insensitive) by display name
+  // for the Clients tab. Search/query filtering still happens server
+  // side via /api/db?q=... so the alphabetical ordering composes
+  // naturally with the filtered subset returned.
+  const clients = useMemo(() => {
+    return [...rawClients].sort((a, b) => {
+      const an = String(a?.name || a?.client_name || '').toLowerCase();
+      const bn = String(b?.name || b?.client_name || '').toLowerCase();
+      return an.localeCompare(bn);
+    });
+  }, [rawClients]);
   const activeRows = tab === 'subs' ? subscriptions : tab === 'invoices' ? invoices : clients;
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
 
@@ -245,6 +351,12 @@ export function DatabasePage() {
   useEffect(() => {
     if (selected) setMobileView('right');
   }, [selected]);
+
+  // Reset arming whenever the user changes tabs or search terms so a
+  // stale row id from a previous list cannot trigger a delete.
+  useEffect(() => {
+    setArmedRowId(null);
+  }, [tab, query]);
 
   async function saveClient(event) {
     event.preventDefault();
@@ -284,7 +396,98 @@ export function DatabasePage() {
       contact: client?.contact || '',
       eventDate: today(),
     });
-    window.location.href = href;
+    // Open the invoice composer in a new tab so /db keeps the
+    // current selection — matches the cross-tool nav buttons.
+    window.open(href, '_blank', 'noopener,noreferrer');
+  }
+
+  // Cascade-delete a client and every record bucketed under them.
+  // The legacy:<normalized> id case has no real client row to drop
+  // but still cleans the denormalized invoice/delivery/subscription
+  // rows the dashboard groups under that name.
+  async function deleteClient(client) {
+    if (!client) return;
+    const id = String(client.id || client.client_id || '');
+    const name = String(client.name || client.client_name || '');
+    if (!id && !name) return;
+    try {
+      const response = await fetch('/api/clients-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || 'Delete failed.');
+      setSelected(null);
+      setArmedRowId(null);
+      setMobileView('left');
+      refetch();
+    } catch (error) {
+      console.warn('[db] client delete failed:', error);
+      setSaveStatus(error?.message || 'Delete failed.');
+    }
+  }
+
+  // Delete a single subscription / invoice / delivery row. Used by
+  // the Subs and Invoices list and by record rows inside the client
+  // detail. After a successful delete we drop the armed flag and
+  // clear the selection if it pointed at the deleted row, then
+  // refetch.
+  async function deleteRecord({ kind, id, deliveryId, invoiceId }) {
+    let endpointPath = '';
+    let body = null;
+    if (kind === 'subscription') {
+      endpointPath = '/api/subscriptions-delete';
+      body = { id };
+    } else if (kind === 'invoice') {
+      endpointPath = '/api/invoices-delete';
+      body = { id };
+    } else if (kind === 'delivery') {
+      endpointPath = '/api/db-delete';
+      body = { id };
+    } else if (kind === 'event') {
+      // A unified event row that may carry both a delivery and an
+      // invoice. Issue both deletes in series; ignore individual
+      // failures so a partial cleanup still progresses.
+      if (deliveryId) {
+        await fetch('/api/db-delete', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: deliveryId }),
+        }).catch((error) => console.warn('[db] event delivery delete failed:', error));
+      }
+      if (invoiceId) {
+        await fetch('/api/invoices-delete', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: invoiceId }),
+        }).catch((error) => console.warn('[db] event invoice delete failed:', error));
+      }
+      setArmedRowId(null);
+      refetch();
+      return;
+    } else {
+      return;
+    }
+
+    try {
+      const response = await fetch(endpointPath, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || 'Delete failed.');
+      if (selected?.id === id) setSelected(null);
+      setArmedRowId(null);
+      refetch();
+    } catch (error) {
+      console.warn('[db] record delete failed:', error);
+    }
   }
 
   const tabs = [
@@ -314,20 +517,68 @@ export function DatabasePage() {
           const title = row.client_name || row.name || row.title || row.slug;
           const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
           const isClient = tab === 'clients';
+          const isSub = tab === 'subs';
+          const isInvoice = tab === 'invoices';
+          const rowId = row.id || `row-${index}`;
+          const isArmed = armedRowId === rowId;
+          const subTone = isSub ? subscriptionTone(row) : '';
+          const className = [
+            'db-list-row',
+            selected?.id === row.id ? 'active' : '',
+            isArmed ? 'armed' : '',
+            subTone ? `sub-${subTone}` : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
+          const handleSelect = () => {
+            if (isArmed) {
+              // Tapping a row that's already armed disarms it instead
+              // of reselecting (gives mobile users a way to back off).
+              setArmedRowId(null);
+            } else {
+              setArmedRowId(rowId);
+            }
+            if (isClient) {
+              setSelected({ type: 'client', id: row.id, data: row });
+            } else {
+              setSelected({ type: tab, id: row.id, data: row });
+            }
+          };
+          const handleDelete = (event) => {
+            event.stopPropagation();
+            if (isClient) {
+              deleteClient(row);
+            } else if (isSub) {
+              deleteRecord({ kind: 'subscription', id: row.id });
+            } else if (isInvoice) {
+              deleteRecord({ kind: 'invoice', id: row.id });
+            }
+          };
           return (
-            <button
-              className={`db-list-row ${selected?.id === row.id ? 'active' : ''}`}
-              key={row.id || index}
-              onClick={() =>
-                isClient
-                  ? setSelected({ type: 'client', id: row.id, data: row })
-                  : setSelected({ type: tab, id: row.id, data: row })
-              }
-              type="button"
+            <div
+              className={className}
+              key={rowId}
+              onClick={handleSelect}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  handleSelect();
+                }
+              }}
             >
               <strong>{title || 'Untitled'}</strong>
               {meta ? <span>{meta}</span> : null}
-            </button>
+              <button
+                type="button"
+                className="db-delete-button db-row-delete"
+                onClick={handleDelete}
+                aria-label={`Delete ${title || 'record'}`}
+              >
+                Delete
+              </button>
+            </div>
           );
         })}
         {!status && activeRows.length === 0 ? <EmptyState>No records yet.</EmptyState> : null}
@@ -360,6 +611,14 @@ export function DatabasePage() {
           invoices={invoices}
           deliveries={data?.items || []}
           onCreateEvent={createEventForClient}
+          onDeleteClient={deleteClient}
+          onDeleteRecord={(row) =>
+            deleteRecord({
+              kind: 'event',
+              deliveryId: row?.delivery?.id || '',
+              invoiceId: row?.invoice?.id || '',
+            })
+          }
         />
       ) : null}
       {selected && !selectedClient && selected.type !== 'new' ? (
