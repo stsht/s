@@ -164,10 +164,19 @@ function GalleryGate() {
     }
   }
 
-  // Admin probe still in flight — keep the page blank to avoid a
-  // flash of the password gate before auto-unlock lands.
-  if (checking) return null;
+  // Admin probe still in flight — instead of returning null (which
+  // produced a brief blank /g flash for both admins and public
+  // visitors after PR #56), render the normal gate shell with a
+  // subtle "Opening..." status. The form is disabled until the
+  // probe resolves so a public visitor doesn't accidentally submit
+  // an empty unlock; once `checking` flips off, the probe has
+  // either set `payload` (admin auto-unlock) or left it null
+  // (public visitor — gate stays visible and editable).
   if (payload) return <GalleryLinks payload={payload} />;
+
+  const gateBusy = busy || checking;
+  const gateStatus = checking ? 'Opening...' : status;
+  const gateStatusClass = status && !checking ? 'error' : '';
 
   return (
     <main className="gate-page">
@@ -190,15 +199,16 @@ function GalleryGate() {
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
+            disabled={checking}
           />
           <button type="button" aria-label="Toggle password visibility" onClick={() => setShowPassword((value) => !value)}>
             {showPassword ? 'Hide' : 'Show'}
           </button>
         </div>
-        <button className="gate-submit" type="submit" disabled={busy}>
-          {busy ? 'Opening...' : 'Sign In'}
+        <button className="gate-submit" type="submit" disabled={gateBusy}>
+          {gateBusy ? 'Opening...' : 'Sign In'}
         </button>
-        <p className={`gate-status ${status ? 'error' : ''}`}>{status}</p>
+        <p className={`gate-status ${gateStatusClass}`}>{gateStatus}</p>
       </form>
     </main>
   );
