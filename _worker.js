@@ -11,8 +11,9 @@ const SERVICES = [
   { key: 'tn', label: 'TransferNow' }
 ];
 
-const SHORT_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ1236789';
+const SHORT_ALPHABET = '1236789abcdefghijkmnopqrstuvwxyz';
 const SHORT_CODE_LENGTH = 12;
+const LEGACY_SHORT_CODE_LENGTH = 7;
 const GALLERY_PASSWORD_LENGTH = 6;
 const PUBLIC_SITE = 'https://starshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
@@ -320,6 +321,40 @@ function galleryCodeFromSlug(slug) {
   return `${parts[0]} ${titleCaseName(parts.slice(1).join(' '))}`.trim();
 }
 
+function legacyShortCodeFrom(baseSlug, password = '', clientName = '') {
+  const input = `${cleanSlug(baseSlug)}|${String(password || '').trim()}|${String(clientName || '').trim().toLowerCase()}`;
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  const alphabet = '23456789abcdefghjkmnpqrstuvwxyz';
+  let n = hash || 1;
+  let code = '';
+  for (let i = 0; i < 7; i += 1) {
+    code += alphabet[n % alphabet.length];
+    n = (Math.floor(n / alphabet.length) ^ Math.imul(i + 17, 2654435761)) >>> 0;
+  }
+  return code;
+}
+
+function seededShortCodeFrom(seed, baseSlug, password = '', clientName = '', deliveryId = '') {
+  const input = `${String(seed || '').trim()}|${String(deliveryId || '').trim()}|${cleanSlug(baseSlug)}|${String(password || '').trim()}|${String(clientName || '').trim().toLowerCase()}`;
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  let n = hash || 1;
+  let code = '';
+  for (let i = 0; i < 7; i += 1) {
+    code += SHORT_ALPHABET[n % SHORT_ALPHABET.length];
+    n = (Math.floor(n / SHORT_ALPHABET.length) ^ Math.imul(i + 23, 2654435761)) >>> 0;
+  }
+  return code;
+}
+
+
 
 function randomShortCode(length = SHORT_CODE_LENGTH) {
   let code = '';
@@ -330,14 +365,15 @@ function randomShortCode(length = SHORT_CODE_LENGTH) {
 }
 
 function cleanShortCode(value) {
-  const code = String(value || '').trim().toUpperCase();
+  const code = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (code.length === LEGACY_SHORT_CODE_LENGTH) return /^[a-z0-9]{7}$/.test(code) ? code : '';
   if (code.length !== SHORT_CODE_LENGTH) return '';
-  return new RegExp(`^[${SHORT_ALPHABET}]+$`).test(code) ? code : '';
+  return /^[1236789abcdefghijklmnopqrstuvwxyz]+$/.test(code) ? code : '';
 }
 
 function shortCodeFromText(value = '') {
   const text = String(value || '');
-  const match = text.match(/(?:https?:\/\/)?(?:www\.)?starshots\.pages\.dev\/([A-Za-z0-9]{12})(?![A-Za-z0-9-])/i);
+  const match = text.match(/(?:https?:\/\/)?(?:www\.)?starshots\.pages\.dev\/([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/i);
   return match ? cleanShortCode(match[1]) : '';
 }
 
@@ -723,10 +759,20 @@ async function insertLog(env, request, deliveryId, eventType, service = null) {
 }
 
 
+async function getLatestDeliveryBySlug(env, slug) {
+  const clean = cleanSlug(slug);
+  if (!clean) return null;
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/deliveries?select=*&base_slug=eq.${encodeURIComponent(clean)}&order=created_at.desc&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] : null;
+}
+
 async function getDeliveryByLookup(env, value) {
   const shortCode = cleanShortCode(value);
   if (shortCode) return getDeliveryByShortCode(env, shortCode);
-  return null;
+  return getLatestDeliveryBySlug(env, value);
 }
 
 function explicitShortCode(delivery = {}) {
@@ -891,7 +937,7 @@ function deliverySummary(delivery = null) {
     delivery_month: delivery.delivery_month || '',
     base_slug: delivery.base_slug || '',
     short_code: shortCode,
-    delivery_url: `/${shortCode}`,
+    delivery_url: shouldBlockFolderSlug(delivery) ? `/${shortCode}` : `/g/${delivery.base_slug}`,
     short_url: `/${shortCode}`
   };
 }
@@ -1407,7 +1453,7 @@ async function handleDbSearch(request, env) {
       generated_text_whatsapp: generatedText,
       generated_text_instagram: d.generated_text_instagram || generatedText,
       created_at: d.created_at,
-      delivery_url: `/${shortCode}`,
+      delivery_url: shouldBlockFolderSlug(d) ? `/${shortCode}` : `/g/${d.base_slug}`,
       short_code: shortCode,
       short_url: `/${shortCode}`,
       gallery_code: galleryCodeFromSlug(d.base_slug),
@@ -1443,69 +1489,6 @@ async function handleDbSearch(request, env) {
   return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionRows, clients });
 }
 
-async function handleDbBackfill(request, env) {
-  const body = await request.json().catch(() => ({}));
-  const password = String(body.password || '').trim();
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
-
-  try {
-    const deliveries = await supabaseFetch(env, '/rest/v1/deliveries?select=*');
-    if (!Array.isArray(deliveries)) return json({ ok: false, error: 'Failed to fetch deliveries.' }, 500);
-
-    let migrated = 0;
-    for (const d of deliveries) {
-      const code = cleanShortCode(d.short_code);
-      if (!code || code.length !== 12) {
-        // Needs migration!
-        const context = {
-          clientName: d.client_name,
-          folderName: d.folder_name,
-          title: d.title,
-        };
-        let newShortCode = '';
-        for (let i = 0; i < 20; i += 1) {
-          const candidate = await contextCode('short-code', 12, context, `${d.id}|${i}`);
-          const exists = deliveries.some(x => cleanShortCode(x.short_code) === candidate);
-          if (!exists) {
-            newShortCode = candidate;
-            break;
-          }
-        }
-        if (!newShortCode) newShortCode = randomShortCode(12);
-
-        const password = deliveryPasswordForDisplay(d);
-        const generatedText = buildDeliveryMessage(d.title || 'Ms.', d.client_name, newShortCode, password);
-
-        // Update delivery record
-        await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(d.id)}`, {
-          method: 'PATCH',
-          headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            short_code: newShortCode,
-            generated_text_whatsapp: generatedText,
-            generated_text_instagram: generatedText
-          })
-        });
-
-        // Update corresponding delivery_links
-        await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(d.id)}`, {
-          method: 'PATCH',
-          headers: { Prefer: 'return=minimal' },
-          body: JSON.stringify({
-            short_path: `/${newShortCode}`
-          })
-        }).catch(() => {});
-
-        migrated += 1;
-      }
-    }
-
-    return json({ ok: true, migrated });
-  } catch (error) {
-    console.error('[backfill] failed:', error);
-    return json({ ok: false, error: error.message }, 500);
-  }
-}
 
 async function handleClientSave(request, env) {
   const body = await request.json().catch(() => ({}));
@@ -2327,9 +2310,8 @@ export default {
 	      if (request.method === 'POST' && url.pathname === '/api/db-password') return await handleDbPasswordChange(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-delete') return await handleDbDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-clear-logs') return await handleDbClearLogs(request, env);
-	      if (request.method === 'POST' && url.pathname === '/api/db-backfill') return await handleDbBackfill(request, env);
 
-      const shortAliasMatch = url.pathname.match(/^\/([A-Za-z0-9]{12})\/?$/);
+      const shortAliasMatch = url.pathname.match(/^\/([a-z0-9]{7}|[a-z0-9]{12})\/?$/i);
       if (request.method === 'GET' && shortAliasMatch) {
         const limited = enforceRateLimit(request, 'short-alias', { limit: 40, windowMs: 60 * 1000, blockMs: 10 * 60 * 1000 }, false);
         if (limited) return limited;
@@ -2347,6 +2329,32 @@ export default {
         // walking the short-code space hit both this 404 and the
         // 40/min rate limit we already consumed above.
         return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      }
+
+      const galleryMatch = url.pathname.match(/^\/g\/([^/]+)\/?$/i);
+      if (request.method === 'GET' && galleryMatch) {
+        const limited = enforceRateLimit(request, 'gallery-slug', { limit: 60, windowMs: 60 * 1000, blockMs: 10 * 60 * 1000 }, false);
+        if (limited) return limited;
+        const slug = normalizeGalleryCode(decodeURIComponent(galleryMatch[1])) || cleanSlug(galleryMatch[1]);
+        if (slug && cleanSlug(galleryMatch[1]) !== slug) return Response.redirect(`${url.origin}/g/${slug}`, 302);
+        const delivery = await getLatestDeliveryBySlug(env, slug);
+        if (shouldBlockFolderSlug(delivery)) {
+          // Blocked-folder slugs (folders the admin marked
+          // not-public) get a generic 404. Indistinguishable from a
+          // slug that simply does not exist — an attacker can't tell
+          // "blocked" from "never existed".
+          return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        }
+        if (delivery) await insertLog(env, request, delivery.id, 'page_view');
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/g/';
+        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+      }
+
+      const oldDeliveryMatch = url.pathname.match(/^\/l\/([^/]+)\/?$/i);
+      if (request.method === 'GET' && oldDeliveryMatch) {
+        const slug = normalizeGalleryCode(decodeURIComponent(oldDeliveryMatch[1])) || cleanSlug(oldDeliveryMatch[1]);
+        return Response.redirect(`${url.origin}/g/${slug}`, 302);
       }
     } catch (error) {
       if (url.pathname.startsWith('/api/')) {
