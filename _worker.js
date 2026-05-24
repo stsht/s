@@ -11,7 +11,7 @@ const SERVICES = [
   { key: 'tn', label: 'TransferNow' }
 ];
 
-const SHORT_ALPHABET = '1236789abcdefghijklmnopqrstuvwxyz';
+const SHORT_ALPHABET = '1236789abcdefghijkmnopqrstuvwxyz';
 const SHORT_CODE_LENGTH = 12;
 const LEGACY_SHORT_CODE_LENGTH = 7;
 const GALLERY_PASSWORD_LENGTH = 6;
@@ -366,7 +366,7 @@ function cleanShortCode(value) {
   const code = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   if (code.length === LEGACY_SHORT_CODE_LENGTH) return /^[a-z0-9]{7}$/.test(code) ? code : '';
   if (code.length !== SHORT_CODE_LENGTH) return '';
-  return new RegExp(`^[${SHORT_ALPHABET}]+$`).test(code) ? code : '';
+  return /^[1236789abcdefghijklmnopqrstuvwxyz]+$/.test(code) ? code : '';
 }
 
 function shortCodeFromText(value = '') {
@@ -1498,6 +1498,70 @@ async function handleDbSearch(request, env) {
   return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionRows, clients });
 }
 
+async function handleDbBackfill(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  try {
+    const deliveries = await supabaseFetch(env, '/rest/v1/deliveries?select=*');
+    if (!Array.isArray(deliveries)) return json({ ok: false, error: 'Failed to fetch deliveries.' }, 500);
+
+    let migrated = 0;
+    for (const d of deliveries) {
+      const code = cleanShortCode(d.short_code);
+      if (!code || code.length !== 12) {
+        // Needs migration!
+        const context = {
+          clientName: d.client_name,
+          folderName: d.folder_name,
+          title: d.title,
+        };
+        let newShortCode = '';
+        for (let i = 0; i < 20; i += 1) {
+          const candidate = await contextCode('short-code', 12, context, `${d.id}|${i}`);
+          const exists = deliveries.some(x => cleanShortCode(x.short_code) === candidate);
+          if (!exists) {
+            newShortCode = candidate;
+            break;
+          }
+        }
+        if (!newShortCode) newShortCode = randomShortCode(12);
+
+        const password = deliveryPasswordForDisplay(d);
+        const generatedText = buildDeliveryMessage(d.title || 'Ms.', d.client_name, newShortCode, password);
+
+        // Update delivery record
+        await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(d.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            short_code: newShortCode,
+            generated_text_whatsapp: generatedText,
+            generated_text_instagram: generatedText
+          })
+        });
+
+        // Update corresponding delivery_links
+        await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(d.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            short_path: `/${newShortCode}`
+          })
+        }).catch(() => {});
+
+        migrated += 1;
+      }
+    }
+
+    return json({ ok: true, migrated });
+  } catch (error) {
+    console.error('[backfill] failed:', error);
+    return json({ ok: false, error: error.message }, 500);
+  }
+}
+
 async function handleClientSave(request, env) {
   const body = await request.json().catch(() => ({}));
   const password = String(body.password || '').trim();
@@ -2318,6 +2382,7 @@ export default {
 	      if (request.method === 'POST' && url.pathname === '/api/db-password') return await handleDbPasswordChange(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-delete') return await handleDbDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-clear-logs') return await handleDbClearLogs(request, env);
+	      if (request.method === 'POST' && url.pathname === '/api/db-backfill') return await handleDbBackfill(request, env);
 
       const shortAliasMatch = url.pathname.match(/^\/([a-z0-9]{7}|[a-z0-9]{12})\/?$/i);
       if (request.method === 'GET' && shortAliasMatch) {
@@ -2353,10 +2418,13 @@ export default {
           // "blocked" from "never existed".
           return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
-        if (delivery) await insertLog(env, request, delivery.id, 'page_view');
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/g/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        if (delivery) {
+          const shortCode = cleanShortCode(delivery.short_code) || explicitShortCode(delivery);
+          if (shortCode) {
+            return Response.redirect(`${url.origin}/${shortCode}`, 302);
+          }
+        }
+        return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
       }
 
       const oldDeliveryMatch = url.pathname.match(/^\/l\/([^/]+)\/?$/i);

@@ -537,9 +537,34 @@ export function DatabasePage() {
         placeholder="Search"
       />
       {tab === 'clients' ? (
-        <button className="add-client-button" type="button" onClick={openNewClient}>
-          Create Client
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="add-client-button" type="button" onClick={openNewClient} style={{ flex: 1 }}>
+            Create Client
+          </button>
+          <button
+            className="ghost-button compact"
+            type="button"
+            onClick={async () => {
+              if (confirm('Are you sure you want to backfill and migrate all shortcodes to 12-character safe alphabets?')) {
+                try {
+                  const res = await fetch('/api/db-backfill', { method: 'POST', credentials: 'same-origin' });
+                  const json = await res.json().catch(() => ({}));
+                  if (res.ok && json.ok) {
+                    alert(`Successfully migrated ${json.migrated || 0} records!`);
+                    refetch();
+                  } else {
+                    alert(`Migration failed: ${json.error || 'Unknown error'}`);
+                  }
+                } catch (e) {
+                  alert(`Migration error: ${e.message}`);
+                }
+              }
+            }}
+            style={{ width: 'auto', margin: 0, minHeight: '44px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, padding: '0 14px' }}
+          >
+            Migrate Codes
+          </button>
+        </div>
       ) : null}
       {status ? <EmptyState>{status}</EmptyState> : null}
       <div className="db-list">
