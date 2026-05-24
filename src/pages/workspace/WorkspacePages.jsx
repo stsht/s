@@ -712,6 +712,30 @@ const LINK_SERVICES = [
   { key: 'tn', label: 'TransferNow', placeholder: 'https://transfernow.net/...' },
 ];
 
+// Generated-message channel pills. The server returns a single
+// formal `generatedText` (the WA-formatted body); we build the IG
+// variant locally on top of the same shortLink + password so both
+// modes stay in sync. Mode is purely a display/copy toggle — nothing
+// in the saved snapshot or in /api/save changes between WA and IG.
+const LINK_MESSAGE_MODES = [
+  { value: 'wa', label: 'WhatsApp' },
+  { value: 'ig', label: 'Instagram' },
+];
+
+// Honorific normalisation. Folder names are typed casually
+// ("260524 mr sahputra"); on blur we collapse "mr"/"ms"/"mrs"/"dr"
+// (with or without a trailing dot, any case) onto the canonical
+// "Mr."/"Ms."/"Mrs."/"Dr." display form. The slug derivation
+// separately drops the honorific token so the gallery code reads
+// "260524-sahputra" rather than "260524-mr".
+const FOLDER_HONORIFIC_DISPLAY = new Map([
+  ['mr', 'Mr.'], ['mr.', 'Mr.'],
+  ['ms', 'Ms.'], ['ms.', 'Ms.'],
+  ['mrs', 'Mrs.'], ['mrs.', 'Mrs.'],
+  ['dr', 'Dr.'], ['dr.', 'Dr.'],
+]);
+const FOLDER_HONORIFIC_SLUG_TOKENS = new Set(['mr', 'ms', 'mrs', 'dr']);
+
 // Small string helpers — direct ports of the legacy helpers used
 // by the static /l page so the slug + password the worker stores
 // match what the client previewed.
@@ -732,6 +756,27 @@ function sanitizeSlugSegment(value) {
 
 function normalizeFolderName(value) {
   return cleanLinkText(String(value || '').replace(/\s*\(/g, ' ( ').replace(/\s*\)/g, ' ) '));
+}
+
+// Display normalisation applied on blur: title-cases the folder
+// name (e.g. "260524 mr sahputra" -> "260524 Mr. Sahputra") and
+// canonicalises honorific tokens to their dotted form. Numeric date
+// prefixes (YYMMDD/YYYYMMDD) round-trip unchanged because
+// `toTitleCase` leaves pure-digit tokens alone, and ordinal
+// suffixes after a number ("6Th" -> "6th") are normalised so the
+// stored folder reads naturally in the database.
+function titleCaseFolderName(value) {
+  const withHonorifics = String(value || '').replace(
+    /\b(mr|ms|mrs|dr)\.?\b/gi,
+    (match) => FOLDER_HONORIFIC_DISPLAY.get(match.toLowerCase()) || match,
+  );
+  // Defer the rest of the casing rules to the shared utility, then
+  // restore lowercase ordinal suffixes which `toTitleCase` over-
+  // capitalises ("6Th" -> "6th", "21St" -> "21st", etc.).
+  return toTitleCase(withHonorifics).replace(
+    /(\d+)(St|Nd|Rd|Th)\b/g,
+    (_, digits, suffix) => `${digits}${suffix.toLowerCase()}`,
+  );
 }
 
 function stripBracketed(value) {
@@ -760,7 +805,17 @@ function extractFolderParts(folder) {
       String(now.getDate()).padStart(2, '0');
   }
   const name = parts[cursor] || '';
-  return { date, name, suffix: sanitizeSlugSegment(suffix), normalized };
+  // Skip honorific slug tokens (mr/ms/mrs/dr) when picking the
+  // client-name segment. Folders typed as "260524 Mr Sahputra" keep
+  // their honorific in the rendered folder name (titleCaseFolderName
+  // canonicalises to "Mr.") but slugify as "260524-sahputra" so the
+  // gallery code stays a real name token.
+  let nameCursor = cursor;
+  while (nameCursor < parts.length && FOLDER_HONORIFIC_SLUG_TOKENS.has(parts[nameCursor])) {
+    nameCursor += 1;
+  }
+  const slugName = parts[nameCursor] || name;
+  return { date, name: slugName, suffix: sanitizeSlugSegment(suffix), normalized };
 }
 
 function buildBaseSlug(folder) {
@@ -843,7 +898,10 @@ function readInvoiceHandoff() {
   return null;
 }
 
-function buildPreviewMessage(title, clientName, info) {
+function buildPreviewMessageWa(title, clientName, info) {
+  // WhatsApp / formal channel — mirrors the worker's
+  // buildDeliveryMessage so a pre-save preview reads the same as
+  // what /api/save returns once it lands.
   const link = info.shortLink || info.directUrl;
   return `Dear ${cleanLinkText(title)} ${cleanLinkText(clientName)},
 
@@ -860,6 +918,22 @@ It has been our pleasure to serve you, and we look forward to welcoming you agai
 
 Warm regards,
 StarShots`;
+}
+
+function buildPreviewMessageIg(title, clientName, info) {
+  // Instagram / casual channel — short DM-friendly format. No
+  // bullet glyphs (Instagram strips list formatting), no formal
+  // preamble, single \u2728 sparkle for warmth. Honours the same
+  // shortLink + password contract as the WA variant so switching
+  // pills never desyncs the displayed credentials.
+  const link = info.shortLink || info.directUrl;
+  const name = cleanLinkText(clientName) || 'there';
+  return `Hi ${name}! Your StarShots delivery is ready \u2728
+
+${link}
+Password: ${info.pass}
+
+Enjoy the files \u2014 with love, StarShots`;
 }
 
 async function copyToClipboard(text) {
@@ -909,6 +983,12 @@ export function LinkGeneratorPage() {
   const [busy, setBusy] = useState(false);
   const [linkedInvoiceId, setLinkedInvoiceId] = useState('');
   const [mobileView, setMobileView] = useState('left');
+  // Active message channel — drives both the rendered textarea and
+  // the Copy button. WA stays the default since it's the formal
+  // delivery channel; IG is a one-pill switch for casual DMs. The
+  // saved snapshot stores both bodies so toggling pills is purely
+  // a display swap with no extra fetch / re-derivation.
+  const [messageMode, setMessageMode] = useState('wa');
   // Visual flash on the clickable preview cards / textarea so
   // operators get tactile feedback after a copy or open action.
   const [copyFlash, setCopyFlash] = useState('');
@@ -942,7 +1022,10 @@ export function LinkGeneratorPage() {
   // `shortLink`, and `generatedText` all prefer the saved snapshot
   // when its slug+pass+name still match the live inputs; otherwise
   // they fall back to the folder-derived preview values (with
-  // empty strings for the post-save-only fields).
+  // empty strings for the post-save-only fields). `generatedText`
+  // resolves to whichever channel the WA/IG pills currently
+  // select — the saved snapshot stores both, so pill toggles are
+  // a pure display swap.
   const info = useMemo(() => {
     const folder = normalizeFolderName(folderName);
     const slug = buildBaseSlug(folder);
@@ -953,6 +1036,9 @@ export function LinkGeneratorPage() {
     const cleanName = cleanLinkText(clientName);
     const matchesSaved =
       saved && saved.slug === slug && saved.pass === pass && saved.name === cleanName && saved.shortLink;
+    const activeChannelText = matchesSaved
+      ? (messageMode === 'ig' ? saved.generatedTextIg : saved.generatedTextWa) || ''
+      : '';
     return {
       folder,
       slug,
@@ -961,9 +1047,9 @@ export function LinkGeneratorPage() {
       directUrl,
       shortLink: matchesSaved ? saved.shortLink : '',
       displayPass: matchesSaved ? saved.password : pass,
-      generatedText: matchesSaved ? saved.generatedText : '',
+      generatedText: activeChannelText,
     };
-  }, [folderName, clientName, saved]);
+  }, [folderName, clientName, saved, messageMode]);
 
   // Any input change clears the saved snapshot and any leftover
   // status banner so editing-after-generate never shows a stale
@@ -999,7 +1085,14 @@ export function LinkGeneratorPage() {
   }
 
   function handleFolderNameBlur(event) {
-    const next = normalizeFolderName(event.target.value);
+    const cleaned = normalizeFolderName(event.target.value);
+    // Title-case + honorific normalisation runs only on blur so the
+    // user can type freely without the field rewriting itself on
+    // every keystroke. The slug derivation in `extractFolderParts`
+    // separately ignores honorific tokens so the gallery code stays
+    // consistent whether the folder reads "Mr Sahputra" or
+    // "Sahputra".
+    const next = titleCaseFolderName(cleaned);
     if (next !== event.target.value) setFolderName(next);
     markDirty();
   }
@@ -1071,13 +1164,15 @@ export function LinkGeneratorPage() {
         data.shortLink ||
         (data.shortUrl ? `${window.location.origin}${data.shortUrl}` : info.directUrl);
       const finalPassword = String(data.password || '').trim() || info.pass;
-      const finalMessage =
-        data.generatedText ||
-        buildPreviewMessage(title, name, {
-          ...info,
-          shortLink: finalShortLink,
-          pass: finalPassword,
-        });
+      const messageInfo = { ...info, shortLink: finalShortLink, pass: finalPassword };
+      // Server returns the formal WA-formatted text in `generatedText`.
+      // We use it as-is when present and rebuild the IG variant
+      // locally on the same shortLink+password so the two channels
+      // stay in lockstep regardless of which mode is active when
+      // the user clicks Generate.
+      const finalMessageWa =
+        data.generatedText || buildPreviewMessageWa(title, name, messageInfo);
+      const finalMessageIg = buildPreviewMessageIg(title, name, messageInfo);
 
       setSaved({
         slug: info.slug,
@@ -1086,10 +1181,15 @@ export function LinkGeneratorPage() {
         name,
         shortCode: data.shortCode || '',
         shortLink: finalShortLink,
-        generatedText: finalMessage,
+        generatedTextWa: finalMessageWa,
+        generatedTextIg: finalMessageIg,
       });
 
-      const copied = await copyToClipboard(finalMessage);
+      // Auto-copy the active channel — whichever pill is selected
+      // when Generate is clicked is the body the user actually
+      // wants to paste next.
+      const autoCopyText = messageMode === 'ig' ? finalMessageIg : finalMessageWa;
+      const copied = await copyToClipboard(autoCopyText);
       setStatus({
         text: copied ? 'Saved and copied.' : 'Saved. Please copy manually.',
         tone: 'success',
@@ -1298,6 +1398,17 @@ export function LinkGeneratorPage() {
       // /l only needs a back-link to the workspace home. No Links/
       // Invoice/Subs in the nav row.
       navItems={[{ href: '/db/', label: 'Database' }]}
+      // Channel pills (WA / IG) sit beside the logo via the shared
+      // pills slot. They only flip the rendered/copied message body
+      // — never the saved snapshot, which stores both variants.
+      pills={
+        <Segmented
+          value={messageMode}
+          onChange={setMessageMode}
+          options={LINK_MESSAGE_MODES}
+          ariaLabel="Message channel"
+        />
+      }
       left={left}
       right={right}
       mobileView={mobileView}
