@@ -813,8 +813,10 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     updated_at: seed.updated_at || seed.created_at || '',
     invoice_count: 0,
     delivery_count: 0,
+    subscription_count: 0,
     invoice_ids: [],
-    delivery_ids: []
+    delivery_ids: [],
+    subscription_ids: []
   });
 
   (Array.isArray(clientRows) ? clientRows : []).forEach((client) => {
@@ -854,12 +856,24 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     summary.delivery_ids.push(String(delivery.id));
   });
 
+  (Array.isArray(subscriptions) ? subscriptions : []).forEach((sub) => {
+    const summary = bucketFor(sub, 'subscription');
+    if (!summary) return;
+    summary.subscription_count += 1;
+    summary.subscription_ids.push(String(sub.id));
+    if (!summary.contact && sub.client_contact) summary.contact = cleanText(sub.client_contact, 240);
+    if (!summary.updated_at || new Date(sub.updated_at || sub.created_at || 0) > new Date(summary.updated_at || 0)) {
+      summary.updated_at = sub.updated_at || sub.created_at || summary.updated_at;
+    }
+  });
+
   const query = String(q || '').toLowerCase();
   return [...byId.values(), ...legacy.values()]
     .filter((client) => (
       client.source === 'client'
       || Number(client.invoice_count || 0) > 0
       || Number(client.delivery_count || 0) > 0
+      || Number(client.subscription_count || 0) > 0
     ))
     .filter((client) => !query || [
       client.title,
@@ -1308,11 +1322,20 @@ async function handleDbSearch(request, env) {
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
 
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
-  const deliveries = await supabaseFetch(
-    env,
-    '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200'
-  );
-  const allDeliveries = Array.isArray(deliveries) ? deliveries : [];
+  const [
+    deliveriesResult,
+    invoicesResult,
+    subscriptionsResult,
+    clientsResult
+  ] = await Promise.allSettled([
+    supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200'),
+    supabaseFetch(env, '/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
+    supabaseFetch(env, '/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
+    fetchClients(env)
+  ]);
+
+  if (deliveriesResult.status === 'rejected') throw deliveriesResult.reason;
+  const allDeliveries = Array.isArray(deliveriesResult.value) ? deliveriesResult.value : [];
   const filtered = allDeliveries;
 
   const ids = filtered.map((d) => d.id);
@@ -1320,22 +1343,40 @@ async function handleDbSearch(request, env) {
   let logs = [];
   if (ids.length) {
     const inList = ids.join(',');
-    links = await supabaseFetch(env, `/rest/v1/delivery_links?select=*&delivery_id=in.(${inList})&order=created_at.asc`);
-    logs = await supabaseFetch(env, `/rest/v1/delivery_access_logs?select=*&delivery_id=in.(${inList})&order=created_at.desc&limit=1000`);
+    const [linksResult, logsResult] = await Promise.allSettled([
+      supabaseFetch(env, `/rest/v1/delivery_links?select=*&delivery_id=in.(${inList})&order=created_at.asc`),
+      supabaseFetch(env, `/rest/v1/delivery_access_logs?select=*&delivery_id=in.(${inList})&order=created_at.desc&limit=1000`)
+    ]);
+    if (linksResult.status === 'fulfilled') links = linksResult.value;
+    if (logsResult.status === 'fulfilled') logs = logsResult.value;
   }
 	  links = Array.isArray(links) ? links : [];
 	  logs = Array.isArray(logs) ? logs : [];
-	  logs = await enrichLogsWithIpInfo(logs);
+  // Keep the dashboard load bounded to Supabase. ISP enrichment calls an
+  // external IP service and can add seconds on cold cache; the raw log data
+  // is enough for /db counts and detail rows.
+	  logs = logs.map((log) => ({ ...log, isp: '' }));
+  const linksByDelivery = new Map();
+  links.forEach((link) => {
+    const key = String(link.delivery_id || '');
+    if (!linksByDelivery.has(key)) linksByDelivery.set(key, []);
+    linksByDelivery.get(key).push(link);
+  });
+  const logsByDelivery = new Map();
+  logs.forEach((log) => {
+    const key = String(log.delivery_id || '');
+    if (!logsByDelivery.has(key)) logsByDelivery.set(key, []);
+    logsByDelivery.get(key).push(log);
+  });
 
   let invoiceRows = [];
   let allInvoices = [];
-  try {
-    const rawInvoices = await supabaseFetch(env, '/rest/v1/invoices?select=*&order=updated_at.desc&limit=200');
-    allInvoices = Array.isArray(rawInvoices) ? rawInvoices : [];
+  if (invoicesResult.status === 'fulfilled') {
+    allInvoices = Array.isArray(invoicesResult.value) ? invoicesResult.value : [];
     invoiceRows = q
       ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at].join(' ').toLowerCase().includes(q))
       : allInvoices;
-  } catch (error) {
+  } else {
     invoiceRows = [];
     allInvoices = [];
   }
@@ -1344,8 +1385,9 @@ async function handleDbSearch(request, env) {
   const latestDeliveryByClient = latestByClientKey(allDeliveries);
 
 	  const items = filtered.map((d) => {
-    const dl = links.filter((l) => l.delivery_id === d.id);
-    const lg = logs.filter((l) => l.delivery_id === d.id);
+    const deliveryId = String(d.id || '');
+    const dl = linksByDelivery.get(deliveryId) || [];
+    const lg = logsByDelivery.get(deliveryId) || [];
     const clicks = lg.filter((l) => l.event_type === 'button_click').length;
     const opens = lg.filter((l) => l.event_type === 'page_view' || l.event_type === 'password_success').length;
     const shortCode = deliveryShortCode(d);
@@ -1385,9 +1427,8 @@ async function handleDbSearch(request, env) {
   // break the entire /db dashboard for deliveries and invoices.
   let allSubscriptions = [];
   let subscriptionRows = [];
-  try {
-    const rawSubs = await supabaseFetch(env, '/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200');
-    allSubscriptions = Array.isArray(rawSubs) ? rawSubs : [];
+  if (subscriptionsResult.status === 'fulfilled') {
+    allSubscriptions = Array.isArray(subscriptionsResult.value) ? subscriptionsResult.value : [];
     subscriptionRows = q
       ? allSubscriptions.filter((sub) => [
           sub.client_name,
@@ -1403,13 +1444,13 @@ async function handleDbSearch(request, env) {
           sub.updated_at
         ].join(' ').toLowerCase().includes(q))
       : allSubscriptions;
-  } catch (error) {
-    if (!isSchemaError(error)) throw error;
+  } else {
+    if (!isSchemaError(subscriptionsResult.reason)) throw subscriptionsResult.reason;
     allSubscriptions = [];
     subscriptionRows = [];
   }
 
-  const clientRows = await fetchClients(env);
+  const clientRows = clientsResult.status === 'fulfilled' ? clientsResult.value : [];
   const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
 
   return json({ ok: true, items, invoices: invoiceRows, subscriptions: subscriptionRows, clients });

@@ -216,7 +216,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteClient, onDeleteRecord }) {
+function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteClient, onDeleteRecord, onClose }) {
   const records = buildClientRecords(client, invoices, deliveries);
   const title = client?.title || 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
@@ -241,6 +241,17 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
             onClick={() => onDeleteClient?.(client)}
           >
             Delete Client
+          </button>
+          <button
+            type="button"
+            className="db-close-button"
+            onClick={onClose}
+            aria-label="Close detail view"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
       </div>
@@ -346,8 +357,39 @@ export function DatabasePage() {
       return an.localeCompare(bn);
     });
   }, [rawClients]);
-  const activeRows = tab === 'subs' ? subscriptions : tab === 'invoices' ? invoices : clients;
+
+  const subClients = useMemo(() => {
+    return clients.filter(c => (c.subscription_count || 0) > 0 || (c.subscription_ids && c.subscription_ids.length > 0));
+  }, [clients]);
+
+  const getClientSubscription = useCallback((client) => {
+    const clientId = String(client?.id || '').trim();
+    const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
+    return subscriptions.find(sub => {
+      const subClientId = String(sub?.client_id || '').trim();
+      const subName = String(sub?.client_name || sub?.name || '').trim().toLowerCase();
+      if (clientId && subClientId && clientId === subClientId) return true;
+      return !!clientName && !!subName && clientName === subName;
+    });
+  }, [subscriptions]);
+
+  const activeRows = tab === 'subs' ? subClients : clients;
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
+
+  // Escape key listener to clear selection
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelected(null);
+        setArmedRowId(null);
+        setMobileView('left');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   // Auto-switch to the right panel on mobile when a row is selected.
   useEffect(() => {
@@ -495,11 +537,10 @@ export function DatabasePage() {
   const tabs = [
     { value: 'clients', label: 'Clients' },
     { value: 'subs', label: 'Subs' },
-    { value: 'invoices', label: 'Invoices' },
   ];
 
   const tabHeading =
-    tab === 'subs' ? 'Subscriptions' : tab === 'invoices' ? 'Invoices' : 'Choose A Client';
+    tab === 'subs' ? 'Subscriptions' : 'Choose A Client';
 
   const left = (
     <>
@@ -516,14 +557,16 @@ export function DatabasePage() {
       {status ? <EmptyState>{status}</EmptyState> : null}
       <div className="db-list">
         {activeRows.slice(0, 80).map((row, index) => {
-          const title = row.client_name || row.name || row.title || row.slug;
-          const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
           const isClient = tab === 'clients';
           const isSub = tab === 'subs';
-          const isInvoice = tab === 'invoices';
+          const title = row.client_name || row.name || row.title || row.slug;
+          const clientSub = isSub ? getClientSubscription(row) : null;
+          const subTone = clientSub ? subscriptionTone(clientSub) : '';
+          const meta = isSub && clientSub
+            ? `${clientSub.service || 'Subscription'} - ${clientSub.status || 'Active'}`
+            : (row.contact || row.client_contact || row.updated_at);
           const rowId = row.id || `row-${index}`;
           const isArmed = armedRowId === rowId;
-          const subTone = isSub ? subscriptionTone(row) : '';
           const className = [
             'db-list-row',
             selected?.id === row.id ? 'active' : '',
@@ -540,7 +583,7 @@ export function DatabasePage() {
             } else {
               setArmedRowId(rowId);
             }
-            if (isClient) {
+            if (isClient || isSub) {
               setSelected({ type: 'client', id: row.id, data: row });
             } else {
               setSelected({ type: tab, id: row.id, data: row });
@@ -548,12 +591,8 @@ export function DatabasePage() {
           };
           const handleDelete = (event) => {
             event.stopPropagation();
-            if (isClient) {
+            if (isClient || isSub) {
               deleteClient(row);
-            } else if (isSub) {
-              deleteRecord({ kind: 'subscription', id: row.id });
-            } else if (isInvoice) {
-              deleteRecord({ kind: 'invoice', id: row.id });
             }
           };
           return (
@@ -621,6 +660,11 @@ export function DatabasePage() {
               invoiceId: row?.invoice?.id || '',
             })
           }
+          onClose={() => {
+            setSelected(null);
+            setArmedRowId(null);
+            setMobileView('left');
+          }}
         />
       ) : null}
       {selected && !selectedClient && selected.type !== 'new' ? (
