@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import { Segmented, EmptyState } from '../../components/ui/index.js';
 
@@ -777,41 +778,229 @@ export function LinkGeneratorPage() {
   );
 }
 
+// /subs — paid-subscription confirmation card with a Generate JPG flow.
+//
+// Left panel: form inputs (title, client, service, payment date+time,
+// access period preset, start access date+time). Right panel: a live
+// preview of the receipt card and a Generate JPG button. The card is
+// pure Plus Jakarta Sans (no serif, no Playfair) and is rasterised by
+// html2canvas exactly the way /inv exports its invoice sheet.
+//
+// Expiry is computed strictly as start_date + N days where N is one
+// of 7/15/30 — never month-end math, so May with a 30-day period
+// stays at 30 days, not 31.
+
+const SUBS_PERIOD_OPTIONS = [
+  { value: 7, label: '7 Days' },
+  { value: 15, label: '15 Days' },
+  { value: 30, label: '30 Days' },
+];
+
+const SUBS_SERVICE_OPTIONS = ['iCloud', 'Google Drive', 'Dropbox', 'ChatGPT'];
+
+const SUBS_TITLE_OPTIONS = ['Mr.', 'Ms.', 'Mrs.', 'Family'];
+
+function fmtSubsDate(value) {
+  if (!value) return '-';
+  const [y, m, d] = String(value).split('-').map(Number);
+  if (!y || !m || !d) return '-';
+  // Build a noon-UTC date so en-US localisation never drifts a day
+  // on either side of midnight.
+  const dt = new Date(Date.UTC(y, m - 1, d, 12));
+  return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function fmtSubsTime(value) {
+  if (!value) return '-';
+  // Reference card uses the European "HH.mm" form (e.g. 20.21).
+  const [h = '00', mi = '00'] = String(value).split(':');
+  return `${h.padStart(2, '0')}.${mi.padStart(2, '0')}`;
+}
+
+function safeSubsToken(value) {
+  return String(value || '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function todaySubs() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function nowSubsTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function SubscriptionsPage() {
+  const [titlePrefix, setTitlePrefix] = useState('Mr.');
   const [client, setClient] = useState('');
   const [service, setService] = useState('iCloud');
-  const [storage, setStorage] = useState(500);
-  const [duration, setDuration] = useState(30);
-  const [rate, setRate] = useState(45000);
+  const [paymentDate, setPaymentDate] = useState(todaySubs);
+  const [paymentTime, setPaymentTime] = useState(nowSubsTime);
+  const [accessPeriod, setAccessPeriod] = useState(30);
+  const [startDate, setStartDate] = useState(todaySubs);
+  const [startTime, setStartTime] = useState(nowSubsTime);
   const [mobileView, setMobileView] = useState('left');
-  const total = Math.round((Number(rate) || 0) * (Number(duration) || 0) / 30);
+  const [status, setStatus] = useState('');
+  const cardRef = useRef(null);
+
+  // expiry = startDate + accessPeriod days. UTC arithmetic keeps the
+  // calculation timezone-agnostic: e.g. 2026-05-21 + 7 days is always
+  // 2026-05-28, never 2026-05-27 or 2026-05-29 on DST boundaries.
+  const expiryDate = useMemo(() => {
+    if (!startDate) return '';
+    const [y, m, d] = startDate.split('-').map(Number);
+    if (!y || !m || !d) return '';
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + (Number(accessPeriod) || 0));
+    return dt.toISOString().slice(0, 10);
+  }, [startDate, accessPeriod]);
+
+  async function downloadJpg() {
+    if (!cardRef.current) return;
+    setStatus('Rendering JPG...');
+    if (document.fonts?.ready) {
+      try { await document.fonts.ready; } catch {}
+    }
+    // Clone the card into an off-screen export host so the rasterised
+    // output is independent of the live preview viewport (which can be
+    // narrower than the card on mobile). The host pins the card at a
+    // stable 720px width regardless of the surrounding layout.
+    const exportHost = document.createElement('div');
+    exportHost.className = 'subs-export-host';
+    const cloned = cardRef.current.cloneNode(true);
+    exportHost.appendChild(cloned);
+    document.body.appendChild(exportHost);
+    try {
+      const canvas = await html2canvas(cloned, {
+        backgroundColor: '#ffffff',
+        scale: Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 2)),
+        useCORS: true,
+        allowTaint: true,
+        imageTimeout: 0,
+        logging: false,
+        windowWidth: 800,
+        windowHeight: 1200,
+      });
+      const link = document.createElement('a');
+      link.download = `subscription-paid-${safeSubsToken(service) || 'service'}-${safeSubsToken(client) || 'client'}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 1.0);
+      link.click();
+      setStatus('JPG ready.');
+    } catch (error) {
+      setStatus(error.message || 'Failed to render JPG.');
+    } finally {
+      exportHost.remove();
+    }
+  }
 
   const left = (
-    <form className="form-stack">
+    <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
+      <div className="two-col">
+        <label>Title
+          <select value={titlePrefix} onChange={(event) => setTitlePrefix(event.target.value)}>
+            {SUBS_TITLE_OPTIONS.map((option) => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+        <label>Client name
+          <input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" />
+        </label>
+      </div>
       <label>Service
         <select value={service} onChange={(event) => setService(event.target.value)}>
-          <option>iCloud</option>
-          <option>Google Drive</option>
-          <option>Dropbox</option>
+          {SUBS_SERVICE_OPTIONS.map((option) => <option key={option}>{option}</option>)}
         </select>
       </label>
-      <label>Client name<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
       <div className="two-col">
-        <label>Storage<input type="number" value={storage} onChange={(event) => setStorage(event.target.value)} /></label>
-        <label>Duration<input type="number" value={duration} onChange={(event) => setDuration(event.target.value)} /></label>
+        <label>Date of Payment
+          <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
+        </label>
+        <label>Time of Payment
+          <input type="time" value={paymentTime} onChange={(event) => setPaymentTime(event.target.value)} />
+        </label>
       </div>
-      <label>Monthly rate<input type="number" value={rate} onChange={(event) => setRate(event.target.value)} /></label>
+      <label>Access Period
+        <select value={accessPeriod} onChange={(event) => setAccessPeriod(Number(event.target.value))}>
+          {SUBS_PERIOD_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </label>
+      <div className="two-col">
+        <label>Start Access
+          <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+        </label>
+        <label>Start Time
+          <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+        </label>
+      </div>
     </form>
   );
 
+  const periodLabel = SUBS_PERIOD_OPTIONS.find((option) => option.value === Number(accessPeriod))?.label
+    || `${accessPeriod} Days`;
+
   const right = (
-    <div className="preview-note-card">
-      <p className="eyebrow">Invoice Preview</p>
-      <h2>{client || 'Client'}</h2>
-      <p>{service} storage, {storage}GB, {duration} days.</p>
-      <strong>{rupiah(total)}</strong>
-      <small>{today()}</small>
-    </div>
+    <>
+      <header className="subs-toolbar">
+        <div>
+          <p className="eyebrow">Live Preview</p>
+          <h2>Subscription Receipt</h2>
+        </div>
+        <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+      </header>
+      <div className="subs-canvas">
+        <article className="subs-card" ref={cardRef}>
+          <header className="subs-card-head">
+            <p className="subs-greeting">Hello, {titlePrefix} {client || 'Client'}!</p>
+            <p className="subs-service-tag">{service}</p>
+            <h1 className="subs-title">Subscription Confirmed</h1>
+            <p className="subs-eyebrow">Payment Received</p>
+          </header>
+          <section className="subs-grid">
+            <div className="subs-tile">
+              <span className="subs-tile-label">Date of Payment</span>
+              <strong>{fmtSubsDate(paymentDate)}</strong>
+            </div>
+            <div className="subs-tile">
+              <span className="subs-tile-label">Time of Payment</span>
+              <strong>{fmtSubsTime(paymentTime)}</strong>
+            </div>
+            <div className="subs-tile">
+              <span className="subs-tile-label">Service</span>
+              <strong>{service}</strong>
+            </div>
+            <div className="subs-tile">
+              <span className="subs-tile-label">Access Period</span>
+              <strong>{periodLabel}</strong>
+            </div>
+          </section>
+          <section className="subs-period">
+            <div className="subs-period-card">
+              <span className="subs-tile-label">Start Access</span>
+              <strong className="subs-period-date">{fmtSubsDate(startDate)}</strong>
+              <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
+            </div>
+            <div className="subs-period-card">
+              <span className="subs-tile-label">Expiry</span>
+              <strong className="subs-period-date">{fmtSubsDate(expiryDate)}</strong>
+              <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
+            </div>
+          </section>
+          <footer className="subs-card-foot">
+            <p className="subs-foot-title">This card serves as your confirmed subscription receipt</p>
+            <p className="subs-foot-sub">Please keep this JPG for your subscription history and future reference.</p>
+            <div className="subs-foot-meta">
+              <span>This confirmation is automatically generated and valid without signature.</span>
+              <strong>@starshots.id</strong>
+            </div>
+          </footer>
+        </article>
+      </div>
+      <p className="download-status">{status}</p>
+    </>
   );
 
   return (
