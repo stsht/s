@@ -733,7 +733,12 @@ export function LinkGeneratorPage() {
 
   const left = (
     <form className="form-stack" onSubmit={generate}>
-      <label>Client<input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" /></label>
+      {/* Client is the only human-text field on /l — title-case it
+          on blur so "jess" becomes "Jess". The slug field is a raw
+          gallery/folder URL and the service is a select, so neither
+          gets normalised: per the /l brief we MUST NOT touch URLs,
+          slugs, IDs, or hashes. */}
+      <label>Client<input value={client} onChange={(event) => setClient(event.target.value)} onBlur={onBlurTitleCase(setClient)} placeholder="Client name" /></label>
       <label>Gallery or folder slug<input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="Google Drive / Dropbox link" /></label>
       <label>Service
         <select value={service} onChange={(event) => setService(event.target.value)}>
