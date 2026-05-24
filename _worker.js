@@ -733,6 +733,12 @@ async function lookupIpIsp(ip) {
   return isp;
 }
 
+// IP/ISP enrichment helper. No longer called by /api/db (the
+// dashboard payload now skips this enrichment to keep first-paint
+// fast — see the comment block in handleDbSearch). Kept here so a
+// future per-delivery details endpoint can lazy-load ISP lookups
+// for an expanded log view without re-deriving the cache /
+// timeout / fan-out cap.
 async function enrichLogsWithIpInfo(logs = []) {
   if (!Array.isArray(logs) || !logs.length) return [];
   const ips = [...new Set(logs.map((log) => String(log.ip_address || '').trim()).filter(Boolean))].slice(0, 40);
@@ -1262,19 +1268,57 @@ async function handleSave(request, env) {
 }
 
 async function handleUnlock(request, env) {
-  const limited = enforceRateLimit(request, 'gallery-unlock', { limit: 12, windowMs: 60 * 1000, blockMs: 15 * 60 * 1000 });
-  if (limited) return limited;
-  const body = await request.json();
+  // Body is parsed up-front so we can branch on whether this is a real
+  // password attempt (counts toward the gallery rate limit) or an
+  // empty-password probe (does not — see below).
+  const body = await request.json().catch(() => ({}));
   const lookup = String(body.slug || body.shortCode || '').trim();
   const password = String(body.password || '').trim();
-  const delivery = await getDeliveryByLookup(env, lookup);
-  if (!delivery) return json({ error: 'Delivery not found.' }, 404);
-  if (!(await verifyGalleryPassword(delivery, password))) {
-    await insertLog(env, request, delivery.id, 'password_failed');
-    return json({ error: 'Wrong password.' }, 401);
+
+  // Admin-session bypass.
+  //
+  // /db opens View Links straight to /<short>, which lands on the
+  // gallery page. Authenticated admins should not need to remember
+  // each delivery's gallery password; if the request carries a valid
+  // signed admin session cookie (HttpOnly, set by /api/admin-check),
+  // we skip gallery-password verification and the per-IP gallery
+  // lockout entirely. The cookie is HttpOnly so it never reaches the
+  // frontend — the server is the only thing that can read it.
+  //
+  // Public visitors are unaffected: with no admin cookie they go down
+  // the existing password / rate-limit path.
+  const adminBypass = await verifyAdminSessionCookie(request, env);
+
+  // Rate-limit only real password attempts. Two reasons:
+  //   1. The gallery page now does an empty-password probe on mount
+  //      so an authenticated admin auto-unlocks. We do not want
+  //      legitimate page loads to drain the public 12/min budget.
+  //   2. Empty-password requests cannot succeed (verifyGalleryPassword
+  //      always rejects them), so they are not a brute-force surface.
+  // Real password attempts still consume the budget exactly as before.
+  if (!adminBypass && password) {
+    const limited = enforceRateLimit(request, 'gallery-unlock', { limit: 12, windowMs: 60 * 1000, blockMs: 15 * 60 * 1000 });
+    if (limited) return limited;
   }
 
-  await insertLog(env, request, delivery.id, 'password_success');
+  const delivery = await getDeliveryByLookup(env, lookup);
+  if (!delivery) return json({ error: 'Delivery not found.' }, 404);
+
+  if (adminBypass) {
+    // Distinct event so admin previews don't pollute the
+    // password_success / opens stats with operator-side traffic.
+    await insertLog(env, request, delivery.id, 'admin_unlock');
+  } else {
+    if (!password || !(await verifyGalleryPassword(delivery, password))) {
+      // Only count an attempt as failed when a password was actually
+      // submitted. Empty-password probes return the same 401 shape
+      // but don't add a password_failed row.
+      if (password) await insertLog(env, request, delivery.id, 'password_failed');
+      return json({ error: 'Wrong password.' }, 401);
+    }
+    await insertLog(env, request, delivery.id, 'password_success');
+  }
+
   const rows = await getLinksByDeliveryId(env, delivery.id);
   const links = SERVICES.map((service) => {
     const row = rows.find((item) => item.service === service.key);
@@ -1308,46 +1352,99 @@ async function handleDbSearch(request, env) {
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
 
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
-  const deliveries = await supabaseFetch(
-    env,
-    '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200'
-  );
-  const allDeliveries = Array.isArray(deliveries) ? deliveries : [];
-  const filtered = allDeliveries;
 
-  const ids = filtered.map((d) => d.id);
+  // Parallelize the four independent top-level reads. Each call hits
+  // a different Supabase table and none depend on each other, so the
+  // total wall time drops from sum-of-latencies to max-of-latencies.
+  // Schema-cache / missing-table errors on the optional tables
+  // (invoices, subscriptions) are swallowed and surface as empty
+  // arrays — same tolerance pattern the previous serial version had,
+  // just expressed inline so a single failure cannot reject the
+  // whole Promise.all batch.
+  const tolerantSupabase = async (path) => {
+    try {
+      const rows = await supabaseFetch(env, path);
+      return Array.isArray(rows) ? rows : [];
+    } catch (error) {
+      if (isSchemaError(error)) return [];
+      throw error;
+    }
+  };
+
+  const [allDeliveries, allInvoices, allSubscriptions, clientRows] = await Promise.all([
+    supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200')
+      .then((rows) => Array.isArray(rows) ? rows : []),
+    tolerantSupabase('/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
+    tolerantSupabase('/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
+    fetchClients(env),
+  ]);
+
+  // Delivery-scoped reads (links + access logs) depend on the
+  // delivery id list, so they wait on the deliveries query — but
+  // the two queries themselves run in parallel.
+  const ids = allDeliveries.map((d) => d.id);
   let links = [];
   let logs = [];
   if (ids.length) {
     const inList = ids.join(',');
-    links = await supabaseFetch(env, `/rest/v1/delivery_links?select=*&delivery_id=in.(${inList})&order=created_at.asc`);
-    logs = await supabaseFetch(env, `/rest/v1/delivery_access_logs?select=*&delivery_id=in.(${inList})&order=created_at.desc&limit=1000`);
+    [links, logs] = await Promise.all([
+      supabaseFetch(env, `/rest/v1/delivery_links?select=*&delivery_id=in.(${inList})&order=created_at.asc`)
+        .then((rows) => Array.isArray(rows) ? rows : []),
+      supabaseFetch(env, `/rest/v1/delivery_access_logs?select=*&delivery_id=in.(${inList})&order=created_at.desc&limit=1000`)
+        .then((rows) => Array.isArray(rows) ? rows : []),
+    ]);
   }
-	  links = Array.isArray(links) ? links : [];
-	  logs = Array.isArray(logs) ? logs : [];
-	  logs = await enrichLogsWithIpInfo(logs);
 
-  let invoiceRows = [];
-  let allInvoices = [];
-  try {
-    const rawInvoices = await supabaseFetch(env, '/rest/v1/invoices?select=*&order=updated_at.desc&limit=200');
-    allInvoices = Array.isArray(rawInvoices) ? rawInvoices : [];
-    invoiceRows = q
-      ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at].join(' ').toLowerCase().includes(q))
-      : allInvoices;
-  } catch (error) {
-    invoiceRows = [];
-    allInvoices = [];
+  // External IP/ISP enrichment used to fan out up to 40 calls to
+  // ipwho.is on every dashboard load. That added ~1-3s of network
+  // latency to the first paint and wasn't visible anywhere on the
+  // initial /db render anyway — the ISP value only shows up inside
+  // a delivery's expanded log details. Drop it from the dashboard
+  // payload entirely; logs still carry ip_address / country / city
+  // verbatim, and a future per-delivery endpoint can re-introduce
+  // ISP enrichment lazily if needed.
+
+  // Group links and logs by delivery_id once so the items.map below
+  // is O(N + M + K) instead of O(N * (M + K)). The previous code
+  // ran links.filter(...) and logs.filter(...) inside the map, so
+  // every delivery rescanned the entire links + logs arrays. With
+  // 200 deliveries × up to 1,000 logs that was 200,000 comparisons
+  // per request; the Map lookup is one read.
+  const linksByDelivery = new Map();
+  for (const link of links) {
+    const id = String(link?.delivery_id || '');
+    if (!id) continue;
+    let bucket = linksByDelivery.get(id);
+    if (!bucket) { bucket = []; linksByDelivery.set(id, bucket); }
+    bucket.push(link);
   }
+  const logsByDelivery = new Map();
+  for (const log of logs) {
+    const id = String(log?.delivery_id || '');
+    if (!id) continue;
+    let bucket = logsByDelivery.get(id);
+    if (!bucket) { bucket = []; logsByDelivery.set(id, bucket); }
+    bucket.push(log);
+  }
+
+  const invoiceRows = q
+    ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at].join(' ').toLowerCase().includes(q))
+    : allInvoices;
 
   const latestInvoiceByClient = latestByClientKey(allInvoices);
   const latestDeliveryByClient = latestByClientKey(allDeliveries);
 
-	  const items = filtered.map((d) => {
-    const dl = links.filter((l) => l.delivery_id === d.id);
-    const lg = logs.filter((l) => l.delivery_id === d.id);
-    const clicks = lg.filter((l) => l.event_type === 'button_click').length;
-    const opens = lg.filter((l) => l.event_type === 'page_view' || l.event_type === 'password_success').length;
+  const items = allDeliveries.map((d) => {
+    const key = String(d.id);
+    const dl = linksByDelivery.get(key) || [];
+    const lg = logsByDelivery.get(key) || [];
+    let clicks = 0;
+    let opens = 0;
+    for (const log of lg) {
+      const type = log?.event_type;
+      if (type === 'button_click') clicks += 1;
+      else if (type === 'page_view' || type === 'password_success') opens += 1;
+    }
     const shortCode = deliveryShortCode(d);
     const displayPassword = deliveryPasswordForDisplay(d);
     const generatedText = d.generated_text_whatsapp || (displayPassword ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
@@ -1375,44 +1472,30 @@ async function handleDbSearch(request, env) {
     };
   });
 
-  invoiceRows = invoiceRows.map((inv) => ({
+  const invoicesWithRelated = invoiceRows.map((inv) => ({
     ...inv,
     related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
   }));
 
-  // Subscriptions are read separately so a missing/old subscriptions
-  // table (e.g. before db-migration-part-4.sql is applied) does not
-  // break the entire /db dashboard for deliveries and invoices.
-  let allSubscriptions = [];
-  let subscriptionRows = [];
-  try {
-    const rawSubs = await supabaseFetch(env, '/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200');
-    allSubscriptions = Array.isArray(rawSubs) ? rawSubs : [];
-    subscriptionRows = q
-      ? allSubscriptions.filter((sub) => [
-          sub.client_name,
-          sub.client_contact,
-          sub.service,
-          sub.storage_slot,
-          sub.status,
-          sub.invoice_date,
-          sub.payment_date,
-          sub.start_date,
-          sub.expiry_date,
-          sub.created_at,
-          sub.updated_at
-        ].join(' ').toLowerCase().includes(q))
-      : allSubscriptions;
-  } catch (error) {
-    if (!isSchemaError(error)) throw error;
-    allSubscriptions = [];
-    subscriptionRows = [];
-  }
+  const subscriptionRows = q
+    ? allSubscriptions.filter((sub) => [
+        sub.client_name,
+        sub.client_contact,
+        sub.service,
+        sub.storage_slot,
+        sub.status,
+        sub.invoice_date,
+        sub.payment_date,
+        sub.start_date,
+        sub.expiry_date,
+        sub.created_at,
+        sub.updated_at
+      ].join(' ').toLowerCase().includes(q))
+    : allSubscriptions;
 
-  const clientRows = await fetchClients(env);
   const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
 
-  return json({ ok: true, items, invoices: invoiceRows, subscriptions: subscriptionRows, clients });
+  return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionRows, clients });
 }
 
 async function handleClientSave(request, env) {
