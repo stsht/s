@@ -1391,7 +1391,8 @@ dd{margin:0;text-align:right;font-weight:800}
   background:#fff;
   color-scheme:light;
 }
-.subs-export-host .subs-card{
+.subs-export-host .subs-card,
+.subs-export-host .subs-invoice-card{
   width:720px;
 }
 
@@ -1415,5 +1416,186 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .subs-grid,.subs-period{
     gap:10px;
+  }
+}
+
+
+/* /subs invoice card.
+ *
+ * Sibling of .subs-card (paid receipt) — same 720px white sheet,
+ * same beige tile fill, same Plus Jakarta Sans family — but laid
+ * out as a subscription bill: header with logo + INV-#, bill-to /
+ * service-details split, single line item, payment block with QR
+ * and totals, shared footer.
+ */
+.subs-invoice-card{
+  width:min(100%,720px);
+  padding:40px 44px;
+  border:1px solid #e9edf5;
+  border-radius:32px;
+  background:#fff;
+  color:#1f1a17;
+  box-shadow:0 24px 64px rgba(15,23,42,.12);
+  font-family:var(--font);
+  display:flex;
+  flex-direction:column;
+  gap:22px;
+}
+.subs-invoice-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding-bottom:18px;
+  border-bottom:1px solid #efeae1;
+}
+.subs-invoice-logo{
+  width:160px;
+  max-width:60%;
+  height:auto;
+  display:block;
+}
+.subs-invoice-meta{
+  display:grid;
+  gap:6px;
+  text-align:right;
+}
+.subs-invoice-meta .subs-eyebrow{
+  margin:0;
+}
+.subs-invoice-meta strong{
+  font-size:15px;
+  font-weight:800;
+  color:#1f1a17;
+  letter-spacing:.04em;
+  font-family:var(--font);
+}
+.subs-invoice-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+/* Left-aligned variant of .subs-tile used by Bill To / Service
+ * Details. Inherits the beige fill and label tone from .subs-tile;
+ * overrides only alignment + minor type weights so the address-
+ * style content reads naturally. */
+.subs-tile.subs-tile--list{
+  align-items:flex-start;
+  text-align:left;
+  gap:6px;
+  padding:18px 22px;
+  min-height:120px;
+}
+.subs-tile.subs-tile--list strong{
+  font-size:17px;
+  font-weight:800;
+  color:#1f1a17;
+  font-family:var(--font);
+}
+.subs-tile.subs-tile--list p{
+  margin:0;
+  color:#1f1a17;
+  font-size:13px;
+  font-weight:600;
+}
+.subs-invoice-line{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:18px 22px;
+  border:1px solid #efeae1;
+  border-radius:18px;
+  background:#fff;
+}
+.subs-invoice-line strong{
+  display:block;
+  font-size:15px;
+  font-weight:800;
+  color:#1f1a17;
+  font-family:var(--font);
+}
+.subs-invoice-line small{
+  display:block;
+  margin-top:4px;
+  color:#a08a73;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.02em;
+}
+.subs-invoice-line span{
+  font-size:18px;
+  font-weight:800;
+  color:#1f1a17;
+  white-space:nowrap;
+}
+.subs-invoice-pay{
+  display:grid;
+  grid-template-columns:minmax(0,200px) minmax(0,1fr);
+  gap:24px;
+  align-items:center;
+  padding:22px;
+  border-radius:24px;
+  background:#f4f1ec;
+}
+.subs-invoice-qr{
+  width:100%;
+  max-width:200px;
+  height:auto;
+  display:block;
+  margin:0 auto;
+  border:1px solid #efeae1;
+  border-radius:16px;
+  background:#fff;
+  padding:12px;
+  image-rendering:pixelated;
+}
+.subs-invoice-totals{
+  display:grid;
+  gap:10px;
+}
+.subs-invoice-totals p{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:12px;
+  margin:0;
+  padding-bottom:8px;
+  border-bottom:1px dashed #e2dccf;
+}
+.subs-invoice-totals p:last-child{
+  border-bottom:0;
+  padding-bottom:0;
+}
+.subs-invoice-totals span{
+  color:#a08a73;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.subs-invoice-totals strong{
+  font-size:15px;
+  font-weight:800;
+  color:#1f1a17;
+  font-family:var(--font);
+  white-space:nowrap;
+}
+.subs-invoice-totals p:first-child strong{
+  font-size:22px;
+}
+
+@media(max-width:1023px){
+  .subs-invoice-card{
+    padding:28px 22px;
+    gap:18px;
+  }
+  .subs-invoice-grid{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .subs-invoice-pay{
+    grid-template-columns:1fr;
+    gap:18px;
   }
 }
