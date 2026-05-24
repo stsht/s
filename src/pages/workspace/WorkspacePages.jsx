@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import { Segmented, EmptyState } from '../../components/ui/index.js';
+import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
 function rupiah(value) {
   const number = Number(value) || 0;
@@ -830,41 +831,12 @@ const SUBS_DURATION_OPTIONS = [
   { value: '30', label: '30 Days' },
 ];
 
-// Title-case helper for /subs human-facing display text.
-//
-// Capitalises the first letter of each word except for a small set
-// of connector words (kept lowercase mid-sentence) and a curated
-// list of brand/acronym tokens whose canonical casing must be
-// preserved. The helper is display-only — it never mutates the
-// state value as the user types, so the input field still echoes
-// what they typed.
-const SUBS_TITLE_LOWERCASE = new Set(['to', 'of', 'in', 'at', 'on', 'and', 'or', 'for', 'with', 'without', 'via']);
-const SUBS_TITLE_PRESERVE = ['ChatGPT', 'iCloud', 'IDR', 'QR', 'USB', 'GB', 'TB', 'Copilot', 'StarShots', 'Mr.', 'Ms.', 'Mrs.'];
-const SUBS_TITLE_PRESERVE_LOOKUP = new Map(
-  SUBS_TITLE_PRESERVE.map((token) => [token.toLowerCase(), token]),
-);
-
-function toSubsTitleCase(value) {
-  const text = String(value || '').trim();
-  if (!text) return '';
-  // Split on whitespace runs while preserving them so multi-space
-  // input round-trips faithfully. /(\s+)/ keeps the separators in
-  // the array so we can reassemble without re-collapsing them.
-  return text
-    .split(/(\s+)/)
-    .map((part, index) => {
-      if (/^\s+$/.test(part)) return part;
-      const preserved = SUBS_TITLE_PRESERVE_LOOKUP.get(part.toLowerCase());
-      if (preserved) return preserved;
-      const lower = part.toLowerCase();
-      // Connector words drop to lowercase only when they're not the
-      // leading word — a sentence opening with a lowercase "of"
-      // reads broken.
-      if (index > 0 && SUBS_TITLE_LOWERCASE.has(lower)) return lower;
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
-    })
-    .join('');
-}
+// Title-case rules (small-words, preserve list, regex token matcher)
+// live in `src/utils/titleCase.js` so /subs and /inv share the exact
+// same display normalisation. Older versions of this file kept a
+// local `toSubsTitleCase` helper; it has been replaced by
+// `toTitleCase` from the shared utility, with `onBlurTitleCase` used
+// to normalise text inputs on blur.
 
 function fmtSubsDate(value) {
   if (!value) return '-';
@@ -1032,7 +1004,7 @@ export function SubscriptionsPage() {
           </select>
         </label>
         <label>Client name
-          <input value={client} onChange={(event) => setClient(event.target.value)} placeholder="Client name" />
+          <input value={client} onChange={(event) => setClient(event.target.value)} onBlur={onBlurTitleCase(setClient)} placeholder="Client Name" />
         </label>
       </div>
       <label>Service
@@ -1108,7 +1080,7 @@ export function SubscriptionsPage() {
 
   // Display-only title-cased client name. State stays raw so the
   // input field echoes whatever the user typed verbatim.
-  const displayClient = toSubsTitleCase(client) || 'Client';
+  const displayClient = toTitleCase(client) || 'Client';
 
   // Whether the active service supports storage AND a value was
   // chosen. Drives both the invoice card's storage line and the

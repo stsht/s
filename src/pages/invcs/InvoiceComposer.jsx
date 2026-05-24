@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
+import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
 // Hardcoded fallback catalogue. The catalogue is normally fetched
 // from the Supabase-backed /api/packages endpoint (see _worker.js
@@ -16,44 +17,11 @@ const DEFAULT_PACKAGES = [
   { id: 'birthday-celebration', name: 'Birthday Celebration',    price: 1650000, note: 'up to 3.5 hours, suitable for Birthday Celebration', is_default: true },
 ];
 
-// Small words that stay lowercase when not the first word. Anything else is
-// Title-cased per word. Acronyms / intentional ALL-CAPS tokens (USB, QR, IDR)
-// are detected and preserved as typed.
-const TITLE_CASE_SMALL_WORDS = new Set([
-  'to', 'of', 'in', 'at', 'on', 'with', 'without', 'for', 'and', 'or',
-]);
-
-function titleCasePackageText(value) {
-  if (typeof value !== 'string' || !value) return value;
-  const parts = value.split(/(\s+)/);
-  let seenWord = false;
-  return parts
-    .map((part) => {
-      if (!part || /^\s+$/.test(part)) return part;
-      const isFirst = !seenWord;
-      seenWord = true;
-      const match = part.match(/^(\W*)([\w'.\-]+?)(\W*)$/);
-      if (!match) return part;
-      const [, lead, core, trail] = match;
-      // Preserve acronyms / intentional ALL CAPS (>= 2 letters, all uppercase).
-      const letters = core.replace(/[^A-Za-z]/g, '');
-      if (letters.length >= 2 && letters === letters.toUpperCase()) {
-        return part;
-      }
-      const lowered = core.toLowerCase();
-      if (!isFirst && TITLE_CASE_SMALL_WORDS.has(lowered)) {
-        return `${lead}${lowered}${trail}`;
-      }
-      const firstLetterIndex = core.search(/[A-Za-z]/);
-      if (firstLetterIndex === -1) return part; // pure number / punct token
-      const formatted =
-        core.slice(0, firstLetterIndex) +
-        core.charAt(firstLetterIndex).toUpperCase() +
-        core.slice(firstLetterIndex + 1).toLowerCase();
-      return `${lead}${formatted}${trail}`;
-    })
-    .join('');
-}
+// Title-case rules (small-words set, preserve list, regex token
+// matcher) live in `src/utils/titleCase.js` so /subs and /inv share
+// the exact same display normalisation. The composer used to carry
+// a local `titleCasePackageText` helper here; that has been removed
+// in favour of `toTitleCase` from the shared utility.
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -556,15 +524,15 @@ function EditorPanel(props) {
         <div className="field-stack">
           <div className="two-col">
             <label>Title<select value={props.title} onChange={(event) => props.setTitle(event.target.value)}><option>Ms.</option><option>Mr.</option><option>Mrs.</option><option>Family</option></select></label>
-            <label>Client name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} placeholder="Client name" /></label>
+            <label>Client name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} onBlur={onBlurTitleCase(props.setClientName)} placeholder="Client Name" /></label>
           </div>
-          <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} placeholder="Instagram / phone / email" /></label>
+          <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} onBlur={onBlurTitleCase(props.setContact)} placeholder="Instagram / Phone / Email" /></label>
         </div>
       </Fieldset>
 
       <Fieldset title="Details">
         <div className="field-stack">
-          <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} /></label>
+          <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} onBlur={onBlurTitleCase(props.setVenue)} placeholder="Venue" /></label>
           <div className="two-col">
             <label>Event date<input type="date" value={props.eventDate} onChange={(event) => props.setEventDate(event.target.value)} /></label>
             <label>Issued<input type="date" value={props.issuedDate} onChange={(event) => props.setIssuedDate(event.target.value)} /></label>
@@ -580,11 +548,14 @@ function EditorPanel(props) {
                 {/* Allow custom package names loaded from saved invoices to remain visible
                     in the dropdown even if the catalogue doesn't include them anymore. */}
                 {!props.packages.some((pkg) => pkg.name === item.name) && item.name ? (
-                  <option value={item.name}>{titleCasePackageText(item.name)}</option>
+                  <option value={item.name}>{toTitleCase(item.name)}</option>
                 ) : null}
-                {props.packages.map((pkg) => <option key={pkg.id || pkg.name} value={pkg.name}>{titleCasePackageText(pkg.name)}</option>)}
+                {props.packages.map((pkg) => <option key={pkg.id || pkg.name} value={pkg.name}>{toTitleCase(pkg.name)}</option>)}
               </select></label>
-              <label>Note<input value={item.note} onChange={(event) => props.updateItem(item.id, { note: event.target.value })} /></label>
+              <label>Note<input value={item.note} onChange={(event) => props.updateItem(item.id, { note: event.target.value })} onBlur={(event) => {
+                const next = maybeTitleCase(event.target.value.trim());
+                if (next !== item.note) props.updateItem(item.id, { note: next });
+              }} placeholder="Optional note" /></label>
               <div className="three-col">
                 <label>Qty<input type="number" min="1" value={item.qty} onChange={(event) => props.updateItem(item.id, { qty: event.target.value })} /></label>
                 <label>Amount<input type="number" min="0" value={item.price} onChange={(event) => props.updateItem(item.id, { price: event.target.value })} /></label>
@@ -693,14 +664,14 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
             <div className="sheet-box">
               <p className="eyebrow">Bill To</p>
               <dl className="meta-list">
-                <div className="meta-row"><dt>Client</dt><dd>{title} {clientName || 'Client'}</dd></div>
-                <div className="meta-row"><dt>Contact</dt><dd>{contact || '-'}</dd></div>
+                <div className="meta-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
+                <div className="meta-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
               </dl>
             </div>
             <div className="sheet-box">
               <p className="eyebrow">Details</p>
               <dl className="meta-list">
-                <div className="meta-row"><dt>Venue</dt><dd>{venue || 'TBA'}</dd></div>
+                <div className="meta-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
                 <div className="meta-row"><dt>Event Date</dt><dd>{prettyDate(eventDate)}</dd></div>
                 <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
               </dl>
@@ -710,7 +681,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
             <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
             {items.map((item) => (
               <div key={item.id} className="line-row">
-                <div><strong>{titleCasePackageText(item.name)}</strong><small>{titleCasePackageText(item.note)}</small></div>
+                <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
                 <span>{item.qty || 1}</span>
                 <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
               </div>
