@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
@@ -69,10 +69,57 @@ function GalleryLinks({ payload }) {
 function GalleryGate() {
   const slug = useMemo(() => deliverySlug(), []);
   const [payload, setPayload] = useState(null);
+  // checking = the one-shot admin-bypass probe is still in flight.
+  // While true we render nothing so an authenticated admin (cookie
+  // already set by /db) never sees the password gate flash before
+  // the auto-unlock resolves. A public visitor's probe returns 401
+  // quickly and the gate then renders.
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Admin auto-unlock probe.
+  //
+  // POSTs an empty-password unlock with credentials so the worker
+  // can read the HttpOnly admin session cookie. The cookie is never
+  // exposed to JS — only the server can verify it. If the worker
+  // accepts (admin session valid), it returns the same payload as a
+  // successful password unlock and we bypass the gate. If it rejects
+  // (no/expired admin session), the response is 401 and we show the
+  // gate as before.
+  //
+  // Empty-password probes do not count toward the gallery 12/min
+  // rate limit (see handleUnlock in _worker.js), so this single
+  // mount-time call never burns a public visitor's password budget.
+  useEffect(() => {
+    let alive = true;
+    if (!slug) {
+      setChecking(false);
+      return undefined;
+    }
+    if (import.meta.env.DEV) {
+      setChecking(false);
+      return undefined;
+    }
+    fetch('/api/unlock', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, password: '' }),
+    })
+      .then(async (response) => {
+        if (!alive) return;
+        if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          if (data?.ok) setPayload(data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) setChecking(false); });
+    return () => { alive = false; };
+  }, [slug]);
 
   async function unlock(event) {
     event.preventDefault();
@@ -91,6 +138,7 @@ function GalleryGate() {
     try {
       const response = await fetch('/api/unlock', {
         method: 'POST',
+        credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ slug, password: value }),
       });
@@ -115,6 +163,9 @@ function GalleryGate() {
     }
   }
 
+  // Admin probe still in flight — keep the page blank to avoid a
+  // flash of the password gate before auto-unlock lands.
+  if (checking) return null;
   if (payload) return <GalleryLinks payload={payload} />;
 
   return (

@@ -20,6 +20,55 @@ function dateLabel(value) {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Whether a string is a contact value worth showing under a client
+// row. Used by /db's left list to scrub raw timestamps (e.g.
+// "2026-05-17T13:08:21.123Z") and other non-contact metadata that
+// previously leaked into the visible meta line. Accepts only the
+// three shapes the design calls out: phone, Instagram handle/URL,
+// or email. Anything else (ISO dates, normalized slugs, empty
+// strings) is rejected and the meta line is hidden.
+function isHumanReadableContact(value) {
+  const v = String(value || '').trim();
+  if (!v) return false;
+  // Discard timestamp-shaped strings outright. Both the full ISO
+  // form and bare YYYY-MM-DD count — the dashboard never wants
+  // these on a client card.
+  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) return false;
+  // Email — at least one '@' separating two non-empty halves.
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return true;
+  // Instagram — handle (@name) or full instagram.com URL.
+  if (/^@[a-zA-Z0-9._]+$/.test(v)) return true;
+  if (/instagram\.com\//i.test(v)) return true;
+  // Phone — digits with optional +, spaces, dashes, parens. At
+  // least 6 digits in total so 4-digit years can't masquerade.
+  const digits = v.replace(/[^\d]/g, '');
+  if (digits.length >= 6 && /^\+?[\d\s\-().]+$/.test(v)) return true;
+  return false;
+}
+
+// Inline X glyph used by every list/row delete control on /db.
+// Stroke-only path so the icon picks up `currentColor`, which lets
+// CSS swap idle/hover palettes without touching the SVG markup.
+function DeleteIcon() {
+  return (
+    <svg
+      className="row-delete-icon"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M4 4 L12 12 M12 4 L4 12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -276,45 +325,37 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
   );
 }
 
-// One event row inside the client detail. Owns its own armed state
-// so first-tap-reveals on touch devices doesn't propagate to the
-// inner anchors (which still navigate to /inv or /l in a new tab).
-// On desktop, CSS `:hover` reveals the delete button regardless of
-// the armed flag, so an intentional hover-then-click never costs an
-// extra tap.
+// One event row inside the client detail. The delete control is a
+// permanent X glyph at the far right of the row — no hover/tap-to-
+// reveal flow. The row's grid lays out date / name / View Links /
+// View Invoice / X in that order; the X column is a fixed width so
+// the inner action anchors shift left and never overlap the X. The
+// row itself stays a plain shell (no click handler) so taps inside
+// it never accidentally arm a delete; only the explicit X press
+// triggers onDelete.
 function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHref, onDelete }) {
-  const [armed, setArmed] = useState(false);
-  const handleArm = (event) => {
-    // Don't arm when the user is interacting with an inner action
-    // (anchor or the delete button itself); those handle their own
-    // events. The row is only the bare shell.
-    if (event.target.closest('a') || event.target.closest('button')) return;
-    setArmed((value) => !value);
-  };
+  const linkLabel = row.delivery?.id ? 'View Links' : 'Create Links';
+  const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
   return (
-    <article
-      className={`record-row${armed ? ' armed' : ''}`}
-      onClick={handleArm}
-      data-key={recordKey}
-    >
+    <article className="record-row" data-key={recordKey}>
       <span>{dateLabel(row.date)}</span>
       <strong>{row.name || fallbackName}</strong>
       <a href={eventLinkHref} target="_blank" rel="noopener noreferrer">
-        {row.delivery?.id ? 'View Links' : 'Create Links'}
+        {linkLabel}
       </a>
       <a href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
-        {row.invoice?.id ? 'View Invoice' : 'Create Invoice'}
+        {invoiceLabel}
       </a>
       <button
         type="button"
-        className="db-delete-button record-row-delete"
+        className="row-delete-x"
         onClick={(event) => {
           event.stopPropagation();
           onDelete?.();
         }}
         aria-label="Delete event"
       >
-        Delete
+        <DeleteIcon />
       </button>
     </article>
   );
@@ -327,9 +368,6 @@ export function DatabasePage() {
   const [draft, setDraft] = useState({ title: 'Ms.', name: '', contact: '' });
   const [saveStatus, setSaveStatus] = useState('');
   const [mobileView, setMobileView] = useState('left');
-  // armedRowId: which list-row currently has its delete button revealed
-  // on touch devices. Desktop uses :hover and ignores this entirely.
-  const [armedRowId, setArmedRowId] = useState(null);
   const endpoint = `/api/db${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
   const { data, status, refetch } = useRemoteList(endpoint);
   const rawClients = data?.clients || [];
@@ -353,12 +391,6 @@ export function DatabasePage() {
   useEffect(() => {
     if (selected) setMobileView('right');
   }, [selected]);
-
-  // Reset arming whenever the user changes tabs or search terms so a
-  // stale row id from a previous list cannot trigger a delete.
-  useEffect(() => {
-    setArmedRowId(null);
-  }, [tab, query]);
 
   async function saveClient(event) {
     event.preventDefault();
@@ -422,7 +454,6 @@ export function DatabasePage() {
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || 'Delete failed.');
       setSelected(null);
-      setArmedRowId(null);
       setMobileView('left');
       refetch();
     } catch (error) {
@@ -433,9 +464,8 @@ export function DatabasePage() {
 
   // Delete a single subscription / invoice / delivery row. Used by
   // the Subs and Invoices list and by record rows inside the client
-  // detail. After a successful delete we drop the armed flag and
-  // clear the selection if it pointed at the deleted row, then
-  // refetch.
+  // detail. After a successful delete we clear the selection if it
+  // pointed at the deleted row, then refetch.
   async function deleteRecord({ kind, id, deliveryId, invoiceId }) {
     let endpointPath = '';
     let body = null;
@@ -468,7 +498,6 @@ export function DatabasePage() {
           body: JSON.stringify({ id: invoiceId }),
         }).catch((error) => console.warn('[db] event invoice delete failed:', error));
       }
-      setArmedRowId(null);
       refetch();
       return;
     } else {
@@ -485,7 +514,6 @@ export function DatabasePage() {
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || 'Delete failed.');
       if (selected?.id === id) setSelected(null);
-      setArmedRowId(null);
       refetch();
     } catch (error) {
       console.warn('[db] record delete failed:', error);
@@ -517,29 +545,45 @@ export function DatabasePage() {
       <div className="db-list">
         {activeRows.slice(0, 80).map((row, index) => {
           const title = row.client_name || row.name || row.title || row.slug;
-          const meta = row.contact || row.client_contact || row.service || row.status || row.updated_at;
           const isClient = tab === 'clients';
           const isSub = tab === 'subs';
           const isInvoice = tab === 'invoices';
+          // Meta rules per tab:
+          //   - Clients: only show contact when it parses as a real
+          //     phone / Instagram / email (isHumanReadableContact).
+          //     Anything else (ISO timestamps, normalized slugs,
+          //     missing contact) hides the secondary line entirely
+          //     so the list shows just the client name.
+          //   - Subs / Invoices: keep the existing service/status
+          //     fallback but filter out timestamp-shaped values so
+          //     the dashboard never paints "2026-05-17T13:08:21..."
+          //     under a row.
+          let meta = '';
+          if (isClient) {
+            const contact = row.contact || row.client_contact || '';
+            meta = isHumanReadableContact(contact) ? contact : '';
+          } else {
+            const candidate =
+              row.contact ||
+              row.client_contact ||
+              row.service ||
+              row.status ||
+              row.updated_at ||
+              '';
+            if (candidate && !/^\d{4}-\d{2}-\d{2}(T|$)/.test(String(candidate).trim())) {
+              meta = candidate;
+            }
+          }
           const rowId = row.id || `row-${index}`;
-          const isArmed = armedRowId === rowId;
           const subTone = isSub ? subscriptionTone(row) : '';
           const className = [
             'db-list-row',
             selected?.id === row.id ? 'active' : '',
-            isArmed ? 'armed' : '',
             subTone ? `sub-${subTone}` : '',
           ]
             .filter(Boolean)
             .join(' ');
           const handleSelect = () => {
-            if (isArmed) {
-              // Tapping a row that's already armed disarms it instead
-              // of reselecting (gives mobile users a way to back off).
-              setArmedRowId(null);
-            } else {
-              setArmedRowId(rowId);
-            }
             if (isClient) {
               setSelected({ type: 'client', id: row.id, data: row });
             } else {
@@ -570,15 +614,17 @@ export function DatabasePage() {
                 }
               }}
             >
-              <strong>{title || 'Untitled'}</strong>
-              {meta ? <span>{meta}</span> : null}
+              <div className="db-list-row-text">
+                <strong>{title || 'Untitled'}</strong>
+                {meta ? <span>{meta}</span> : null}
+              </div>
               <button
                 type="button"
-                className="db-delete-button db-row-delete"
+                className="row-delete-x"
                 onClick={handleDelete}
                 aria-label={`Delete ${title || 'record'}`}
               >
-                Delete
+                <DeleteIcon />
               </button>
             </div>
           );

@@ -758,24 +758,28 @@ dd{margin:0;text-align:right;font-weight:800}
 .db-list-row{
   width:100%;
   min-height:58px;
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  justify-content:center;
-  gap:4px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 28px;
+  align-items:center;
+  column-gap:10px;
   border:1px solid transparent;
   border-radius:18px;
   padding:10px 14px;
   background:transparent;
   color:var(--ink);
   text-align:left;
-  position:relative;
   cursor:pointer;
 }
 .db-list-row:hover,
 .db-list-row.active{
   border-color:var(--line);
   background:var(--field);
+}
+.db-list-row-text{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
 }
 .db-list-row strong{
   max-width:100%;
@@ -812,19 +816,68 @@ dd{margin:0;text-align:right;font-weight:800}
   color:color-mix(in srgb,var(--danger) 70%,var(--muted) 30%);
 }
 
-/* Delete button reveal. The base style is shared by every
- * destructive action in /db (.db-row-delete on list rows,
- * .record-row-delete on event rows, .ghost-button.compact in the
- * client-detail header gets this colour via .db-delete-button).
- * Reveal rules:
- *   - Desktop (hover-capable pointers): hidden by default, revealed
- *     on `:hover`/`:focus-within` of the parent row, or on `.armed`.
- *   - Touch (no hover): hidden until the row's parent is `.armed`
- *     (set by a deliberate first tap on the row). Tapping the now-
- *     visible button performs the delete. This is the "tap to
- *     reveal, tap to confirm" pattern requested for mobile.
- *   - Always revealed when the button itself is focused, so keyboard
- *     navigation still finds it. */
+/* Permanent X delete control. Same shape and palette across every
+ * /db row (list rows in Clients/Subs/Invoices and event rows
+ * inside the client detail). It lives in its own grid column at
+ * the far right of the row so the inner action anchors (View
+ * Links / View Invoice) shift left and never overlap it.
+ *
+ * Palette is fixed so the control reads the same in light and
+ * dark themes:
+ *   - idle:  #8A8F98 icon on #F2F3F5 fill
+ *   - hover: #FFFFFF icon on #1F1A17 fill
+ *   - focus: matches hover so keyboard navigation finds the same
+ *     visual target as a mouse user.
+ *
+ * Row-level hover does NOT change the X's palette — only direct
+ * hover/focus on the X itself does. That keeps the destructive
+ * affordance visually quiet until the user actually targets it.
+ *
+ * Note: the older `.db-delete-button`, `.db-row-delete`,
+ * `.record-row-delete`, and `.armed` reveal rules that this block
+ * replaces have been deleted. The detail-heading "Delete Client"
+ * pill still uses `.ghost-button.compact.db-delete-button` and is
+ * styled separately below. */
+.row-delete-x{
+  width:28px;
+  height:28px;
+  min-height:28px;
+  padding:0;
+  border:0;
+  border-radius:8px;
+  background:#F2F3F5;
+  color:#8A8F98;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:background .12s ease,color .12s ease;
+}
+.row-delete-x:hover,
+.row-delete-x:focus-visible{
+  background:#1F1A17;
+  color:#FFFFFF;
+  outline:none;
+}
+.row-delete-icon{
+  display:block;
+}
+@media(prefers-color-scheme:dark){
+  /* Keep the same physical palette in dark mode — the X is a
+   * fixed UI affordance that should read identically regardless
+   * of theme. The idle fill is bright enough to remain visible
+   * against the dark panel background, and the hover state stays
+   * dark-on-light just like the screenshots. */
+  .row-delete-x{background:#F2F3F5;color:#8A8F98}
+  .row-delete-x:hover,
+  .row-delete-x:focus-visible{background:#1F1A17;color:#FFFFFF}
+}
+
+/* The "Delete Client" header button keeps its existing red
+ * ghost-button treatment — it's a deliberate, prominent control
+ * rather than a per-row affordance, and removing the row-level
+ * red delete style above does not affect it. */
 .db-delete-button{
   border:1px solid var(--danger);
   background:transparent;
@@ -833,38 +886,6 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .db-delete-button:hover{
   background:color-mix(in srgb,var(--danger) 12%,transparent);
-}
-.db-row-delete,
-.record-row-delete{
-  position:absolute;
-  right:10px;
-  top:50%;
-  transform:translateY(-50%);
-  min-height:30px;
-  padding:0 12px;
-  border-radius:999px;
-  font-size:11px;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .12s ease;
-}
-.db-list-row:focus-within .db-row-delete,
-.db-list-row.armed .db-row-delete,
-.db-row-delete:focus-visible,
-.record-row:focus-within .record-row-delete,
-.record-row.armed .record-row-delete,
-.record-row-delete:focus-visible{
-  opacity:1;
-  pointer-events:auto;
-}
-@media(hover:hover){
-  .db-list-row:hover .db-row-delete,
-  .record-row:hover .record-row-delete{
-    opacity:1;
-    pointer-events:auto;
-  }
 }
 .db-detail-panel{
   overflow:auto;
@@ -910,8 +931,13 @@ dd{margin:0;text-align:right;font-weight:800}
   margin-top:12px;
 }
 .record-row{
+  /* date / name / View Links / View Invoice / X
+   * The trailing 28px column is the permanent .row-delete-x. The
+   * three middle columns are auto so the inner anchors size to
+   * their text and shift left as the X column reserves its space —
+   * actions never overlap the delete affordance. */
   display:grid;
-  grid-template-columns:120px minmax(0,1fr) auto auto;
+  grid-template-columns:120px minmax(0,1fr) auto auto 28px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -919,8 +945,6 @@ dd{margin:0;text-align:right;font-weight:800}
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
-  position:relative;
-  cursor:pointer;
 }
 .record-row span{
   color:var(--muted);
@@ -1160,14 +1184,24 @@ dd{margin:0;text-align:right;font-weight:800}
     justify-content:flex-start;
   }
   .record-row{
+    /* Stack vertically on narrow viewports — the X moves out of
+     * the trailing column and pins to the top-right corner so it
+     * never overlaps the now full-width action anchors. */
     grid-template-columns:1fr;
     align-items:start;
+    position:relative;
+    padding-right:46px;
   }
   .record-row strong{
     white-space:normal;
   }
   .record-row a{
     width:100%;
+  }
+  .record-row .row-delete-x{
+    position:absolute;
+    top:10px;
+    right:10px;
   }
   .client-form-grid{
     grid-template-columns:1fr;
