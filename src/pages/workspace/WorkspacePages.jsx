@@ -419,7 +419,6 @@ export function DatabasePage() {
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setSelected(null);
-        setArmedRowId(null);
         setMobileView('left');
       }
     };
@@ -598,23 +597,17 @@ export function DatabasePage() {
             meta = `${clientSub.service || 'Subscription'} - ${clientSub.status || 'Active'}`;
           }
           const rowId = row.id || `row-${index}`;
-          const isArmed = armedRowId === rowId;
           const className = [
             'db-list-row',
             selected?.id === row.id ? 'active' : '',
-            isArmed ? 'armed' : '',
             subTone ? `sub-${subTone}` : '',
           ]
             .filter(Boolean)
             .join(' ');
           const handleSelect = () => {
-            if (isArmed) {
-              // Tapping a row that's already armed disarms it instead
-              // of reselecting (gives mobile users a way to back off).
-              setArmedRowId(null);
-            } else {
-              setArmedRowId(rowId);
-            }
+            // Delete X is now a permanent control on every row, so
+            // taps just select. The previous arm/disarm dance was
+            // removed along with armedRowId state in PR #56.
             if (isClient || isSub) {
               setSelected({ type: 'client', id: row.id, data: row });
             } else {
@@ -696,7 +689,6 @@ export function DatabasePage() {
           }
           onClose={() => {
             setSelected(null);
-            setArmedRowId(null);
             setMobileView('left');
           }}
         />
