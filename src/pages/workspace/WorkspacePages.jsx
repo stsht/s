@@ -799,7 +799,7 @@ const SUBS_PERIOD_OPTIONS = [
   { value: 30, label: '30 Days' },
 ];
 
-const SUBS_SERVICE_OPTIONS = ['iCloud', 'Google Drive', 'Dropbox', 'ChatGPT'];
+const SUBS_SERVICE_OPTIONS = ['iCloud', 'Google Drive', 'Dropbox', 'ChatGPT', 'Copilot'];
 
 const SUBS_TITLE_OPTIONS = ['Mr.', 'Ms.', 'Mrs.', 'Family'];
 
@@ -807,6 +807,64 @@ const SUBS_MODE_OPTIONS = [
   { value: 'invoice', label: 'Invoice' },
   { value: 'paid', label: 'Paid' },
 ];
+
+// Storage is service-specific. Non-storage services (ChatGPT,
+// Copilot) hide the storage input entirely and the generated card
+// omits the storage line. Storage products keep the dropdown but
+// allow blank — a blank value also drops the storage line from the
+// JPG. The dropdown values include their unit so the card can
+// render them verbatim ("200 GB", "1.5 TB") instead of stitching a
+// number onto a static suffix.
+const SUBS_STORAGE_OPTIONS = ['200 GB', '400 GB', '500 GB', '1 TB', '1.5 TB', '2 TB'];
+const SUBS_NON_STORAGE_SERVICES = new Set(['ChatGPT', 'Copilot']);
+
+// Duration dropdown for invoice mode. Includes a blank entry so a
+// subscription bill that doesn't tie to a fixed term (e.g. ad-hoc
+// access) can omit the duration line. Paid mode uses
+// SUBS_PERIOD_OPTIONS unchanged because the expiry calculation
+// always needs a non-blank period.
+const SUBS_DURATION_OPTIONS = [
+  { value: '', label: '—' },
+  { value: '7', label: '7 Days' },
+  { value: '15', label: '15 Days' },
+  { value: '30', label: '30 Days' },
+];
+
+// Title-case helper for /subs human-facing display text.
+//
+// Capitalises the first letter of each word except for a small set
+// of connector words (kept lowercase mid-sentence) and a curated
+// list of brand/acronym tokens whose canonical casing must be
+// preserved. The helper is display-only — it never mutates the
+// state value as the user types, so the input field still echoes
+// what they typed.
+const SUBS_TITLE_LOWERCASE = new Set(['to', 'of', 'in', 'at', 'on', 'and', 'or', 'for', 'with', 'without', 'via']);
+const SUBS_TITLE_PRESERVE = ['ChatGPT', 'iCloud', 'IDR', 'QR', 'USB', 'GB', 'TB', 'Copilot', 'StarShots', 'Mr.', 'Ms.', 'Mrs.'];
+const SUBS_TITLE_PRESERVE_LOOKUP = new Map(
+  SUBS_TITLE_PRESERVE.map((token) => [token.toLowerCase(), token]),
+);
+
+function toSubsTitleCase(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  // Split on whitespace runs while preserving them so multi-space
+  // input round-trips faithfully. /(\s+)/ keeps the separators in
+  // the array so we can reassemble without re-collapsing them.
+  return text
+    .split(/(\s+)/)
+    .map((part, index) => {
+      if (/^\s+$/.test(part)) return part;
+      const preserved = SUBS_TITLE_PRESERVE_LOOKUP.get(part.toLowerCase());
+      if (preserved) return preserved;
+      const lower = part.toLowerCase();
+      // Connector words drop to lowercase only when they're not the
+      // leading word — a sentence opening with a lowercase "of"
+      // reads broken.
+      if (index > 0 && SUBS_TITLE_LOWERCASE.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join('');
+}
 
 function fmtSubsDate(value) {
   if (!value) return '-';
@@ -860,13 +918,21 @@ export function SubscriptionsPage() {
   const [service, setService] = useState('iCloud');
   // Shared price input. Used as Total in invoice mode and as Paid
   // Amount in paid mode — same number, different role per mode.
+  // In paid mode the field is rendered read-only so the user has
+  // to switch back to invoice mode to change the amount.
   const [price, setPrice] = useState(100000);
-  // Invoice-only fields.
-  const [storage, setStorage] = useState(200);
-  const [duration, setDuration] = useState(30);
+  // Invoice-only fields. Storage is a free-form select value (e.g.
+  // "200 GB"); blank means "no storage" and removes the line from
+  // the rendered card. Duration is a string ('7'|'15'|'30'|'') so
+  // the empty option in SUBS_DURATION_OPTIONS round-trips cleanly.
+  const [storage, setStorage] = useState('');
+  const [duration, setDuration] = useState('30');
   const [issuedDate, setIssuedDate] = useState(todaySubs);
-  const [dueDate, setDueDate] = useState(() => addDays(todaySubs(), 7));
-  // Paid-only fields.
+  // Paid-only fields. paymentDate / paymentTime / startDate /
+  // startTime initialise to "now" on mount and re-snap to "now"
+  // every time the user switches into Paid mode (see effect below)
+  // so the receipt always carries the real-world payment moment
+  // without manual edits.
   const [paymentDate, setPaymentDate] = useState(todaySubs);
   const [paymentTime, setPaymentTime] = useState(nowSubsTime);
   const [accessPeriod, setAccessPeriod] = useState(30);
@@ -875,6 +941,27 @@ export function SubscriptionsPage() {
   const [mobileView, setMobileView] = useState('left');
   const [status, setStatus] = useState('');
   const cardRef = useRef(null);
+  // Track the previous mode so the refresh-on-switch effect only
+  // fires on actual transitions into 'paid', not on the very first
+  // render or on unrelated re-renders.
+  const previousModeRef = useRef(mode);
+
+  // Refresh paid-mode date/time fields each time the user switches
+  // into Paid. Workflow: build invoice → wait for client to pay →
+  // click Paid → the receipt automatically uses the current real
+  // payment moment. Manual edits afterwards still apply (we only
+  // re-snap on the transition itself).
+  useEffect(() => {
+    if (previousModeRef.current !== 'paid' && mode === 'paid') {
+      const dateNow = todaySubs();
+      const timeNow = nowSubsTime();
+      setPaymentDate(dateNow);
+      setPaymentTime(timeNow);
+      setStartDate(dateNow);
+      setStartTime(timeNow);
+    }
+    previousModeRef.current = mode;
+  }, [mode]);
 
   // expiry = startDate + accessPeriod days (paid mode only).
   const expiryDate = useMemo(
@@ -954,26 +1041,37 @@ export function SubscriptionsPage() {
         </select>
       </label>
       <label>{mode === 'paid' ? 'Paid Amount (IDR)' : 'Price (IDR)'}
-        <input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} />
+        <input
+          type="number"
+          min="0"
+          value={price}
+          onChange={(event) => setPrice(event.target.value)}
+          readOnly={mode === 'paid'}
+          aria-readonly={mode === 'paid'}
+        />
       </label>
       {mode === 'invoice' ? (
         <>
-          <div className="two-col">
-            <label>Storage (GB)
-              <input type="number" min="0" value={storage} onChange={(event) => setStorage(event.target.value)} />
+          {!SUBS_NON_STORAGE_SERVICES.has(service) ? (
+            <label>Storage
+              <select value={storage} onChange={(event) => setStorage(event.target.value)}>
+                <option value="">—</option>
+                {SUBS_STORAGE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
             </label>
-            <label>Duration (days)
-              <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} />
-            </label>
-          </div>
-          <div className="two-col">
-            <label>Date Issued
-              <input type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} />
-            </label>
-            <label>Due Date
-              <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
-            </label>
-          </div>
+          ) : null}
+          <label>Duration
+            <select value={duration} onChange={(event) => setDuration(event.target.value)}>
+              {SUBS_DURATION_OPTIONS.map((option) => (
+                <option key={option.value || 'blank'} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>Date Issued
+            <input type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} />
+          </label>
         </>
       ) : (
         <>
@@ -1008,6 +1106,26 @@ export function SubscriptionsPage() {
   const periodLabel = SUBS_PERIOD_OPTIONS.find((option) => option.value === Number(accessPeriod))?.label
     || `${accessPeriod} Days`;
 
+  // Display-only title-cased client name. State stays raw so the
+  // input field echoes whatever the user typed verbatim.
+  const displayClient = toSubsTitleCase(client) || 'Client';
+
+  // Whether the active service supports storage AND a value was
+  // chosen. Drives both the invoice card's storage line and the
+  // line-item subtitle so the two stay in sync.
+  const showStorage = !SUBS_NON_STORAGE_SERVICES.has(service) && Boolean(storage);
+  const showDuration = Boolean(duration);
+  const durationLabel = showDuration
+    ? (SUBS_DURATION_OPTIONS.find((option) => option.value === String(duration))?.label
+       || `${duration} Days`)
+    : '';
+  // Subtitle pieces — joined with " · " only when present so
+  // omitting both yields an empty subtitle (small element collapses
+  // via :empty styling).
+  const lineSubtitle = [showStorage ? storage : '', durationLabel]
+    .filter(Boolean)
+    .join(' \u00b7 ');
+
   // Paid receipt card. The 2x2 meta grid intentionally drops the
   // redundant "Service" tile (already shown in the eyebrow tag at
   // the top of the card) and replaces it with the Paid Amount, so
@@ -1015,7 +1133,7 @@ export function SubscriptionsPage() {
   const paidCard = (
     <article className="subs-card" ref={cardRef}>
       <header className="subs-card-head">
-        <p className="subs-greeting">Hello, {titlePrefix} {client || 'Client'}!</p>
+        <p className="subs-greeting">Hello, {titlePrefix} {displayClient}!</p>
         <p className="subs-service-tag">{service}</p>
         <h1 className="subs-title">Subscription Confirmed</h1>
         <p className="subs-eyebrow">Payment Received</p>
@@ -1063,7 +1181,8 @@ export function SubscriptionsPage() {
 
   // Invoice card. Compact subscription bill: header with logo + INV-#,
   // bill-to / service-details tiles, line-item row, payment block with
-  // QR + totals (Total / Issued / Due), and a shared footer.
+  // QR + totals (Total / Issued — no Due row, single date convention),
+  // and a shared footer.
   const invoiceCard = (
     <article className="subs-invoice-card" ref={cardRef}>
       <header className="subs-invoice-head">
@@ -1076,19 +1195,19 @@ export function SubscriptionsPage() {
       <section className="subs-invoice-grid">
         <div className="subs-tile subs-tile--list">
           <span className="subs-tile-label">Bill To</span>
-          <strong>{titlePrefix} {client || 'Client'}</strong>
+          <strong>{titlePrefix} {displayClient}</strong>
         </div>
         <div className="subs-tile subs-tile--list">
           <span className="subs-tile-label">Service Details</span>
           <p>{service}</p>
-          <p>Storage: {storage || 0} GB</p>
-          <p>Duration: {duration || 0} Days</p>
+          {showStorage ? <p>Storage: {storage}</p> : null}
+          {showDuration ? <p>Duration: {durationLabel}</p> : null}
         </div>
       </section>
       <section className="subs-invoice-line">
         <div>
-          <strong>{service} subscription</strong>
-          <small>{storage || 0} GB · {duration || 0} Days</small>
+          <strong>{service} Subscription</strong>
+          {lineSubtitle ? <small>{lineSubtitle}</small> : null}
         </div>
         <span>{rupiah(price)}</span>
       </section>
@@ -1097,12 +1216,11 @@ export function SubscriptionsPage() {
         <div className="subs-invoice-totals">
           <p><span>Total</span><strong>{rupiah(price)}</strong></p>
           <p><span>Issued</span><strong>{fmtSubsDate(issuedDate)}</strong></p>
-          <p><span>Due</span><strong>{fmtSubsDate(dueDate)}</strong></p>
         </div>
       </section>
       <footer className="subs-card-foot">
-        <p className="subs-foot-title">Thanks for trusting StarShots</p>
-        <p className="subs-foot-sub">Please complete payment by the due date to keep your subscription active.</p>
+        <p className="subs-foot-title">Thanks for Trusting StarShots</p>
+        <p className="subs-foot-sub">Please complete payment to keep your subscription active.</p>
         <div className="subs-foot-meta">
           <span>This invoice is automatically generated and valid without signature.</span>
           <strong>@starshots.id</strong>
