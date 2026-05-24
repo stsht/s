@@ -11,9 +11,8 @@ const SERVICES = [
   { key: 'tn', label: 'TransferNow' }
 ];
 
-const SHORT_ALPHABET = '1236789abcdefghijklmnopqrstuvwxyz';
+const SHORT_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ1236789';
 const SHORT_CODE_LENGTH = 12;
-const LEGACY_SHORT_CODE_LENGTH = 7;
 const GALLERY_PASSWORD_LENGTH = 6;
 const PUBLIC_SITE = 'https://starshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
@@ -321,38 +320,6 @@ function galleryCodeFromSlug(slug) {
   return `${parts[0]} ${titleCaseName(parts.slice(1).join(' '))}`.trim();
 }
 
-function legacyShortCodeFrom(baseSlug, password = '', clientName = '') {
-  const input = `${cleanSlug(baseSlug)}|${String(password || '').trim()}|${String(clientName || '').trim().toLowerCase()}`;
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  }
-  const alphabet = '23456789abcdefghjkmnpqrstuvwxyz';
-  let n = hash || 1;
-  let code = '';
-  for (let i = 0; i < 7; i += 1) {
-    code += alphabet[n % alphabet.length];
-    n = (Math.floor(n / alphabet.length) ^ Math.imul(i + 17, 2654435761)) >>> 0;
-  }
-  return code;
-}
-
-function seededShortCodeFrom(seed, baseSlug, password = '', clientName = '', deliveryId = '') {
-  const input = `${String(seed || '').trim()}|${String(deliveryId || '').trim()}|${cleanSlug(baseSlug)}|${String(password || '').trim()}|${String(clientName || '').trim().toLowerCase()}`;
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  }
-  let n = hash || 1;
-  let code = '';
-  for (let i = 0; i < 7; i += 1) {
-    code += SHORT_ALPHABET[n % SHORT_ALPHABET.length];
-    n = (Math.floor(n / SHORT_ALPHABET.length) ^ Math.imul(i + 23, 2654435761)) >>> 0;
-  }
-  return code;
-}
 
 function randomShortCode(length = SHORT_CODE_LENGTH) {
   let code = '';
@@ -363,15 +330,14 @@ function randomShortCode(length = SHORT_CODE_LENGTH) {
 }
 
 function cleanShortCode(value) {
-  const code = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (code.length === LEGACY_SHORT_CODE_LENGTH) return /^[a-z0-9]{7}$/.test(code) ? code : '';
+  const code = String(value || '').trim().toUpperCase();
   if (code.length !== SHORT_CODE_LENGTH) return '';
   return new RegExp(`^[${SHORT_ALPHABET}]+$`).test(code) ? code : '';
 }
 
 function shortCodeFromText(value = '') {
   const text = String(value || '');
-  const match = text.match(/(?:https?:\/\/)?(?:www\.)?starshots\.pages\.dev\/([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/i);
+  const match = text.match(/(?:https?:\/\/)?(?:www\.)?starshots\.pages\.dev\/([A-Za-z0-9]{12})(?![A-Za-z0-9-])/i);
   return match ? cleanShortCode(match[1]) : '';
 }
 
@@ -384,22 +350,13 @@ function deliveryPasswordForDisplay(delivery = {}) {
 }
 
 function deliveryShortCode(delivery = {}) {
-  const stored = cleanShortCode(delivery.short_code);
-  if (stored) return stored;
-  const fromText = shortCodeFromText(delivery.generated_text_whatsapp) || shortCodeFromText(delivery.generated_text_instagram);
-  if (fromText) return fromText;
-  const displayPassword = deliveryPasswordForDisplay(delivery);
-  return legacyShortCodeFrom(delivery.base_slug, displayPassword, delivery.client_name);
+  return cleanShortCode(delivery.short_code);
 }
 
 function deliveryMatchesShortCode(delivery, target, env) {
   const code = cleanShortCode(target);
   if (!code) return false;
-  if (deliveryShortCode(delivery) === code) return true;
-  const plainPassword = deliveryPasswordForDisplay(delivery);
-  if (plainPassword && legacyShortCodeFrom(delivery.base_slug, plainPassword, delivery.client_name) === code) return true;
-  const legacySeed = String(env.LEGACY_SHORT_SEED || '').trim();
-  return !!legacySeed && seededShortCodeFrom(legacySeed, delivery.base_slug, plainPassword, delivery.client_name, delivery.id) === code;
+  return deliveryShortCode(delivery) === code;
 }
 
 async function uniqueShortCode(env, context = {}) {
@@ -733,6 +690,12 @@ async function lookupIpIsp(ip) {
   return isp;
 }
 
+// IP/ISP enrichment helper. No longer called by /api/db (the
+// dashboard payload now skips this enrichment to keep first-paint
+// fast — see the comment block in handleDbSearch). Kept here so a
+// future per-delivery details endpoint can lazy-load ISP lookups
+// for an expanded log view without re-deriving the cache /
+// timeout / fan-out cap.
 async function enrichLogsWithIpInfo(logs = []) {
   if (!Array.isArray(logs) || !logs.length) return [];
   const ips = [...new Set(logs.map((log) => String(log.ip_address || '').trim()).filter(Boolean))].slice(0, 40);
@@ -759,20 +722,11 @@ async function insertLog(env, request, deliveryId, eventType, service = null) {
   }).catch(() => {});
 }
 
-async function getLatestDeliveryBySlug(env, slug) {
-  const clean = cleanSlug(slug);
-  if (!clean) return null;
-  const rows = await supabaseFetch(
-    env,
-    `/rest/v1/deliveries?select=*&base_slug=eq.${encodeURIComponent(clean)}&order=created_at.desc&limit=1`
-  );
-  return Array.isArray(rows) ? rows[0] : null;
-}
 
 async function getDeliveryByLookup(env, value) {
   const shortCode = cleanShortCode(value);
   if (shortCode) return getDeliveryByShortCode(env, shortCode);
-  return getLatestDeliveryBySlug(env, value);
+  return null;
 }
 
 function explicitShortCode(delivery = {}) {
@@ -937,7 +891,7 @@ function deliverySummary(delivery = null) {
     delivery_month: delivery.delivery_month || '',
     base_slug: delivery.base_slug || '',
     short_code: shortCode,
-    delivery_url: shouldBlockFolderSlug(delivery) ? `/${shortCode}` : `/g/${delivery.base_slug}`,
+    delivery_url: `/${shortCode}`,
     short_url: `/${shortCode}`
   };
 }
@@ -1276,19 +1230,57 @@ async function handleSave(request, env) {
 }
 
 async function handleUnlock(request, env) {
-  const limited = enforceRateLimit(request, 'gallery-unlock', { limit: 12, windowMs: 60 * 1000, blockMs: 15 * 60 * 1000 });
-  if (limited) return limited;
-  const body = await request.json();
+  // Body is parsed up-front so we can branch on whether this is a real
+  // password attempt (counts toward the gallery rate limit) or an
+  // empty-password probe (does not — see below).
+  const body = await request.json().catch(() => ({}));
   const lookup = String(body.slug || body.shortCode || '').trim();
   const password = String(body.password || '').trim();
-  const delivery = await getDeliveryByLookup(env, lookup);
-  if (!delivery) return json({ error: 'Delivery not found.' }, 404);
-  if (!(await verifyGalleryPassword(delivery, password))) {
-    await insertLog(env, request, delivery.id, 'password_failed');
-    return json({ error: 'Wrong password.' }, 401);
+
+  // Admin-session bypass.
+  //
+  // /db opens View Links straight to /<short>, which lands on the
+  // gallery page. Authenticated admins should not need to remember
+  // each delivery's gallery password; if the request carries a valid
+  // signed admin session cookie (HttpOnly, set by /api/admin-check),
+  // we skip gallery-password verification and the per-IP gallery
+  // lockout entirely. The cookie is HttpOnly so it never reaches the
+  // frontend — the server is the only thing that can read it.
+  //
+  // Public visitors are unaffected: with no admin cookie they go down
+  // the existing password / rate-limit path.
+  const adminBypass = await verifyAdminSessionCookie(request, env);
+
+  // Rate-limit only real password attempts. Two reasons:
+  //   1. The gallery page now does an empty-password probe on mount
+  //      so an authenticated admin auto-unlocks. We do not want
+  //      legitimate page loads to drain the public 12/min budget.
+  //   2. Empty-password requests cannot succeed (verifyGalleryPassword
+  //      always rejects them), so they are not a brute-force surface.
+  // Real password attempts still consume the budget exactly as before.
+  if (!adminBypass && password) {
+    const limited = enforceRateLimit(request, 'gallery-unlock', { limit: 12, windowMs: 60 * 1000, blockMs: 15 * 60 * 1000 });
+    if (limited) return limited;
   }
 
-  await insertLog(env, request, delivery.id, 'password_success');
+  const delivery = await getDeliveryByLookup(env, lookup);
+  if (!delivery) return json({ error: 'Delivery not found.' }, 404);
+
+  if (adminBypass) {
+    // Distinct event so admin previews don't pollute the
+    // password_success / opens stats with operator-side traffic.
+    await insertLog(env, request, delivery.id, 'admin_unlock');
+  } else {
+    if (!password || !(await verifyGalleryPassword(delivery, password))) {
+      // Only count an attempt as failed when a password was actually
+      // submitted. Empty-password probes return the same 401 shape
+      // but don't add a password_failed row.
+      if (password) await insertLog(env, request, delivery.id, 'password_failed');
+      return json({ error: 'Wrong password.' }, 401);
+    }
+    await insertLog(env, request, delivery.id, 'password_success');
+  }
+
   const rows = await getLinksByDeliveryId(env, delivery.id);
   const links = SERVICES.map((service) => {
     const row = rows.find((item) => item.service === service.key);
@@ -1322,78 +1314,86 @@ async function handleDbSearch(request, env) {
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
 
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
-  const [
-    deliveriesResult,
-    invoicesResult,
-    subscriptionsResult,
-    clientsResult
-  ] = await Promise.allSettled([
-    supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200'),
-    supabaseFetch(env, '/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
-    supabaseFetch(env, '/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
-    fetchClients(env)
+
+  // Parallelize the four independent top-level reads. Each call hits
+  // a different Supabase table and none depend on each other, so the
+  // total wall time drops from sum-of-latencies to max-of-latencies.
+  const tolerantSupabase = async (path) => {
+    try {
+      const rows = await supabaseFetch(env, path);
+      return Array.isArray(rows) ? rows : [];
+    } catch (error) {
+      if (isSchemaError(error)) return [];
+      throw error;
+    }
+  };
+
+  const [allDeliveries, allInvoices, allSubscriptions, clientRows] = await Promise.all([
+    supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200')
+      .then((rows) => Array.isArray(rows) ? rows : []),
+    tolerantSupabase('/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
+    tolerantSupabase('/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
+    fetchClients(env),
   ]);
 
-  if (deliveriesResult.status === 'rejected') throw deliveriesResult.reason;
-  const allDeliveries = Array.isArray(deliveriesResult.value) ? deliveriesResult.value : [];
-  const filtered = allDeliveries;
-
-  const ids = filtered.map((d) => d.id);
+  // Delivery-scoped reads (links + access logs) depend on the
+  // delivery id list, so they wait on the deliveries query — but
+  // the two queries themselves run in parallel.
+  const ids = allDeliveries.map((d) => d.id);
   let links = [];
   let logs = [];
   if (ids.length) {
     const inList = ids.join(',');
-    const [linksResult, logsResult] = await Promise.allSettled([
-      supabaseFetch(env, `/rest/v1/delivery_links?select=*&delivery_id=in.(${inList})&order=created_at.asc`),
+    [links, logs] = await Promise.all([
+      supabaseFetch(env, `/rest/v1/delivery_links?select=*&delivery_id=in.(${inList})&order=created_at.asc`)
+        .then((rows) => Array.isArray(rows) ? rows : []),
       supabaseFetch(env, `/rest/v1/delivery_access_logs?select=*&delivery_id=in.(${inList})&order=created_at.desc&limit=1000`)
+        .then((rows) => Array.isArray(rows) ? rows : []),
     ]);
-    if (linksResult.status === 'fulfilled') links = linksResult.value;
-    if (logsResult.status === 'fulfilled') logs = logsResult.value;
   }
-	  links = Array.isArray(links) ? links : [];
-	  logs = Array.isArray(logs) ? logs : [];
-  // Keep the dashboard load bounded to Supabase. ISP enrichment calls an
-  // external IP service and can add seconds on cold cache; the raw log data
-  // is enough for /db counts and detail rows.
-	  logs = logs.map((log) => ({ ...log, isp: '' }));
-  const linksByDelivery = new Map();
-  links.forEach((link) => {
-    const key = String(link.delivery_id || '');
-    if (!linksByDelivery.has(key)) linksByDelivery.set(key, []);
-    linksByDelivery.get(key).push(link);
-  });
-  const logsByDelivery = new Map();
-  logs.forEach((log) => {
-    const key = String(log.delivery_id || '');
-    if (!logsByDelivery.has(key)) logsByDelivery.set(key, []);
-    logsByDelivery.get(key).push(log);
-  });
 
-  let invoiceRows = [];
-  let allInvoices = [];
-  if (invoicesResult.status === 'fulfilled') {
-    allInvoices = Array.isArray(invoicesResult.value) ? invoicesResult.value : [];
-    invoiceRows = q
-      ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at].join(' ').toLowerCase().includes(q))
-      : allInvoices;
-  } else {
-    invoiceRows = [];
-    allInvoices = [];
+  // External IP/ISP enrichment dropped from the dashboard load payload entirely;
+  // logs still carry ip_address / country / city verbatim.
+
+  // Group links and logs by delivery_id once so the items.map below is O(N)
+  const linksByDelivery = new Map();
+  for (const link of links) {
+    const id = String(link?.delivery_id || '');
+    if (!id) continue;
+    let bucket = linksByDelivery.get(id);
+    if (!bucket) { bucket = []; linksByDelivery.set(id, bucket); }
+    bucket.push(link);
   }
+  const logsByDelivery = new Map();
+  for (const log of logs) {
+    const id = String(log?.delivery_id || '');
+    if (!id) continue;
+    let bucket = logsByDelivery.get(id);
+    if (!bucket) { bucket = []; logsByDelivery.set(id, bucket); }
+    bucket.push(log);
+  }
+
+  const invoiceRows = q
+    ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at].join(' ').toLowerCase().includes(q))
+    : allInvoices;
 
   const latestInvoiceByClient = latestByClientKey(allInvoices);
   const latestDeliveryByClient = latestByClientKey(allDeliveries);
 
-	  const items = filtered.map((d) => {
-    const deliveryId = String(d.id || '');
-    const dl = linksByDelivery.get(deliveryId) || [];
-    const lg = logsByDelivery.get(deliveryId) || [];
-    const clicks = lg.filter((l) => l.event_type === 'button_click').length;
-    const opens = lg.filter((l) => l.event_type === 'page_view' || l.event_type === 'password_success').length;
+  const items = allDeliveries.map((d) => {
+    const key = String(d.id);
+    const dl = linksByDelivery.get(key) || [];
+    const lg = logsByDelivery.get(key) || [];
+    let clicks = 0;
+    let opens = 0;
+    for (const log of lg) {
+      const type = log?.event_type;
+      if (type === 'button_click') clicks += 1;
+      else if (type === 'page_view' || type === 'password_success') opens += 1;
+    }
     const shortCode = deliveryShortCode(d);
     const displayPassword = deliveryPasswordForDisplay(d);
     const generatedText = d.generated_text_whatsapp || (displayPassword ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
-    const folderSlugBlocked = shouldBlockFolderSlug(d);
     return {
       id: d.id,
       title: d.title,
@@ -1407,7 +1407,7 @@ async function handleDbSearch(request, env) {
       generated_text_whatsapp: generatedText,
       generated_text_instagram: d.generated_text_instagram || generatedText,
       created_at: d.created_at,
-      delivery_url: folderSlugBlocked ? `/${shortCode}` : `/g/${d.base_slug}`,
+      delivery_url: `/${shortCode}`,
       short_code: shortCode,
       short_url: `/${shortCode}`,
       gallery_code: galleryCodeFromSlug(d.base_slug),
@@ -1417,43 +1417,94 @@ async function handleDbSearch(request, env) {
     };
   });
 
-  invoiceRows = invoiceRows.map((inv) => ({
+  const invoicesWithRelated = invoiceRows.map((inv) => ({
     ...inv,
     related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
   }));
 
-  // Subscriptions are read separately so a missing/old subscriptions
-  // table (e.g. before db-migration-part-4.sql is applied) does not
-  // break the entire /db dashboard for deliveries and invoices.
-  let allSubscriptions = [];
-  let subscriptionRows = [];
-  if (subscriptionsResult.status === 'fulfilled') {
-    allSubscriptions = Array.isArray(subscriptionsResult.value) ? subscriptionsResult.value : [];
-    subscriptionRows = q
-      ? allSubscriptions.filter((sub) => [
-          sub.client_name,
-          sub.client_contact,
-          sub.service,
-          sub.storage_slot,
-          sub.status,
-          sub.invoice_date,
-          sub.payment_date,
-          sub.start_date,
-          sub.expiry_date,
-          sub.created_at,
-          sub.updated_at
-        ].join(' ').toLowerCase().includes(q))
-      : allSubscriptions;
-  } else {
-    if (!isSchemaError(subscriptionsResult.reason)) throw subscriptionsResult.reason;
-    allSubscriptions = [];
-    subscriptionRows = [];
-  }
+  const subscriptionRows = q
+    ? allSubscriptions.filter((sub) => [
+        sub.client_name,
+        sub.client_contact,
+        sub.service,
+        sub.storage_slot,
+        sub.status,
+        sub.invoice_date,
+        sub.payment_date,
+        sub.start_date,
+        sub.expiry_date,
+        sub.created_at,
+        sub.updated_at
+      ].join(' ').toLowerCase().includes(q))
+    : allSubscriptions;
 
-  const clientRows = clientsResult.status === 'fulfilled' ? clientsResult.value : [];
   const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
 
-  return json({ ok: true, items, invoices: invoiceRows, subscriptions: subscriptionRows, clients });
+  return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionRows, clients });
+}
+
+async function handleDbBackfill(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  try {
+    const deliveries = await supabaseFetch(env, '/rest/v1/deliveries?select=*');
+    if (!Array.isArray(deliveries)) return json({ ok: false, error: 'Failed to fetch deliveries.' }, 500);
+
+    let migrated = 0;
+    for (const d of deliveries) {
+      const code = cleanShortCode(d.short_code);
+      if (!code || code.length !== 12) {
+        // Needs migration!
+        const context = {
+          clientName: d.client_name,
+          folderName: d.folder_name,
+          title: d.title,
+        };
+        let newShortCode = '';
+        for (let i = 0; i < 20; i += 1) {
+          const candidate = await contextCode('short-code', 12, context, `${d.id}|${i}`);
+          const exists = deliveries.some(x => cleanShortCode(x.short_code) === candidate);
+          if (!exists) {
+            newShortCode = candidate;
+            break;
+          }
+        }
+        if (!newShortCode) newShortCode = randomShortCode(12);
+
+        const password = deliveryPasswordForDisplay(d);
+        const generatedText = buildDeliveryMessage(d.title || 'Ms.', d.client_name, newShortCode, password);
+
+        // Update delivery record
+        await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(d.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            short_code: newShortCode,
+            generated_text_whatsapp: generatedText,
+            generated_text_instagram: generatedText
+          })
+        });
+
+        // Update corresponding delivery_links
+        await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(d.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({
+            short_path: `/${newShortCode}`
+          })
+        }).catch(() => {});
+
+        migrated += 1;
+      }
+    }
+
+    return json({ ok: true, migrated });
+  } catch (error) {
+    console.error('[backfill] failed:', error);
+    return json({ ok: false, error: error.message }, 500);
+  }
 }
 
 async function handleClientSave(request, env) {
@@ -2276,8 +2327,9 @@ export default {
 	      if (request.method === 'POST' && url.pathname === '/api/db-password') return await handleDbPasswordChange(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-delete') return await handleDbDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-clear-logs') return await handleDbClearLogs(request, env);
+	      if (request.method === 'POST' && url.pathname === '/api/db-backfill') return await handleDbBackfill(request, env);
 
-      const shortAliasMatch = url.pathname.match(/^\/([a-z0-9]{7}|[a-z0-9]{12})\/?$/i);
+      const shortAliasMatch = url.pathname.match(/^\/([A-Za-z0-9]{12})\/?$/);
       if (request.method === 'GET' && shortAliasMatch) {
         const limited = enforceRateLimit(request, 'short-alias', { limit: 40, windowMs: 60 * 1000, blockMs: 10 * 60 * 1000 }, false);
         if (limited) return limited;
@@ -2295,32 +2347,6 @@ export default {
         // walking the short-code space hit both this 404 and the
         // 40/min rate limit we already consumed above.
         return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-      }
-
-      const galleryMatch = url.pathname.match(/^\/g\/([^/]+)\/?$/i);
-      if (request.method === 'GET' && galleryMatch) {
-        const limited = enforceRateLimit(request, 'gallery-slug', { limit: 60, windowMs: 60 * 1000, blockMs: 10 * 60 * 1000 }, false);
-        if (limited) return limited;
-        const slug = normalizeGalleryCode(decodeURIComponent(galleryMatch[1])) || cleanSlug(galleryMatch[1]);
-        if (slug && cleanSlug(galleryMatch[1]) !== slug) return Response.redirect(`${url.origin}/g/${slug}`, 302);
-        const delivery = await getLatestDeliveryBySlug(env, slug);
-        if (shouldBlockFolderSlug(delivery)) {
-          // Blocked-folder slugs (folders the admin marked
-          // not-public) get a generic 404. Indistinguishable from a
-          // slug that simply does not exist — an attacker can't tell
-          // "blocked" from "never existed".
-          return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-        }
-        if (delivery) await insertLog(env, request, delivery.id, 'page_view');
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/g/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
-      }
-
-      const oldDeliveryMatch = url.pathname.match(/^\/l\/([^/]+)\/?$/i);
-      if (request.method === 'GET' && oldDeliveryMatch) {
-        const slug = normalizeGalleryCode(decodeURIComponent(oldDeliveryMatch[1])) || cleanSlug(oldDeliveryMatch[1]);
-        return Response.redirect(`${url.origin}/g/${slug}`, 302);
       }
     } catch (error) {
       if (url.pathname.startsWith('/api/')) {

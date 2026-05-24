@@ -20,6 +20,55 @@ function dateLabel(value) {
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Whether a string is a contact value worth showing under a client
+// row. Used by /db's left list to scrub raw timestamps (e.g.
+// "2026-05-17T13:08:21.123Z") and other non-contact metadata that
+// previously leaked into the visible meta line. Accepts only the
+// three shapes the design calls out: phone, Instagram handle/URL,
+// or email. Anything else (ISO dates, normalized slugs, empty
+// strings) is rejected and the meta line is hidden.
+function isHumanReadableContact(value) {
+  const v = String(value || '').trim();
+  if (!v) return false;
+  // Discard timestamp-shaped strings outright. Both the full ISO
+  // form and bare YYYY-MM-DD count — the dashboard never wants
+  // these on a client card.
+  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) return false;
+  // Email — at least one '@' separating two non-empty halves.
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return true;
+  // Instagram — handle (@name) or full instagram.com URL.
+  if (/^@[a-zA-Z0-9._]+$/.test(v)) return true;
+  if (/instagram\.com\//i.test(v)) return true;
+  // Phone — digits with optional +, spaces, dashes, parens. At
+  // least 6 digits in total so 4-digit years can't masquerade.
+  const digits = v.replace(/[^\d]/g, '');
+  if (digits.length >= 6 && /^\+?[\d\s\-().]+$/.test(v)) return true;
+  return false;
+}
+
+// Inline X glyph used by every list/row delete control on /db.
+// Stroke-only path so the icon picks up `currentColor`, which lets
+// CSS swap idle/hover palettes without touching the SVG markup.
+function DeleteIcon() {
+  return (
+    <svg
+      className="row-delete-icon"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M4 4 L12 12 M12 4 L4 12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -287,45 +336,37 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
   );
 }
 
-// One event row inside the client detail. Owns its own armed state
-// so first-tap-reveals on touch devices doesn't propagate to the
-// inner anchors (which still navigate to /inv or /l in a new tab).
-// On desktop, CSS `:hover` reveals the delete button regardless of
-// the armed flag, so an intentional hover-then-click never costs an
-// extra tap.
+// One event row inside the client detail. The delete control is a
+// permanent X glyph at the far right of the row — no hover/tap-to-
+// reveal flow. The row's grid lays out date / name / View Links /
+// View Invoice / X in that order; the X column is a fixed width so
+// the inner action anchors shift left and never overlap the X. The
+// row itself stays a plain shell (no click handler) so taps inside
+// it never accidentally arm a delete; only the explicit X press
+// triggers onDelete.
 function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHref, onDelete }) {
-  const [armed, setArmed] = useState(false);
-  const handleArm = (event) => {
-    // Don't arm when the user is interacting with an inner action
-    // (anchor or the delete button itself); those handle their own
-    // events. The row is only the bare shell.
-    if (event.target.closest('a') || event.target.closest('button')) return;
-    setArmed((value) => !value);
-  };
+  const linkLabel = row.delivery?.id ? 'View Links' : 'Create Links';
+  const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
   return (
-    <article
-      className={`record-row${armed ? ' armed' : ''}`}
-      onClick={handleArm}
-      data-key={recordKey}
-    >
+    <article className="record-row" data-key={recordKey}>
       <span>{dateLabel(row.date)}</span>
       <strong>{row.name || fallbackName}</strong>
       <a href={eventLinkHref} target="_blank" rel="noopener noreferrer">
-        {row.delivery?.id ? 'View Links' : 'Create Links'}
+        {linkLabel}
       </a>
       <a href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
-        {row.invoice?.id ? 'View Invoice' : 'Create Invoice'}
+        {invoiceLabel}
       </a>
       <button
         type="button"
-        className="db-delete-button record-row-delete"
+        className="row-delete-x"
         onClick={(event) => {
           event.stopPropagation();
           onDelete?.();
         }}
         aria-label="Delete event"
       >
-        Delete
+        <DeleteIcon />
       </button>
     </article>
   );
@@ -338,9 +379,6 @@ export function DatabasePage() {
   const [draft, setDraft] = useState({ title: 'Ms.', name: '', contact: '' });
   const [saveStatus, setSaveStatus] = useState('');
   const [mobileView, setMobileView] = useState('left');
-  // armedRowId: which list-row currently has its delete button revealed
-  // on touch devices. Desktop uses :hover and ignores this entirely.
-  const [armedRowId, setArmedRowId] = useState(null);
   const endpoint = `/api/db${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
   const { data, status, refetch } = useRemoteList(endpoint);
   const rawClients = data?.clients || [];
@@ -395,12 +433,6 @@ export function DatabasePage() {
   useEffect(() => {
     if (selected) setMobileView('right');
   }, [selected]);
-
-  // Reset arming whenever the user changes tabs or search terms so a
-  // stale row id from a previous list cannot trigger a delete.
-  useEffect(() => {
-    setArmedRowId(null);
-  }, [tab, query]);
 
   async function saveClient(event) {
     event.preventDefault();
@@ -464,7 +496,6 @@ export function DatabasePage() {
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || 'Delete failed.');
       setSelected(null);
-      setArmedRowId(null);
       setMobileView('left');
       refetch();
     } catch (error) {
@@ -475,9 +506,8 @@ export function DatabasePage() {
 
   // Delete a single subscription / invoice / delivery row. Used by
   // the Subs and Invoices list and by record rows inside the client
-  // detail. After a successful delete we drop the armed flag and
-  // clear the selection if it pointed at the deleted row, then
-  // refetch.
+  // detail. After a successful delete we clear the selection if it
+  // pointed at the deleted row, then refetch.
   async function deleteRecord({ kind, id, deliveryId, invoiceId }) {
     let endpointPath = '';
     let body = null;
@@ -510,7 +540,6 @@ export function DatabasePage() {
           body: JSON.stringify({ id: invoiceId }),
         }).catch((error) => console.warn('[db] event invoice delete failed:', error));
       }
-      setArmedRowId(null);
       refetch();
       return;
     } else {
@@ -527,7 +556,6 @@ export function DatabasePage() {
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || 'Delete failed.');
       if (selected?.id === id) setSelected(null);
-      setArmedRowId(null);
       refetch();
     } catch (error) {
       console.warn('[db] record delete failed:', error);
@@ -550,9 +578,34 @@ export function DatabasePage() {
         placeholder="Search"
       />
       {tab === 'clients' ? (
-        <button className="add-client-button" type="button" onClick={openNewClient}>
-          Create Client
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="add-client-button" type="button" onClick={openNewClient} style={{ flex: 1 }}>
+            Create Client
+          </button>
+          <button
+            className="ghost-button compact"
+            type="button"
+            onClick={async () => {
+              if (confirm('Are you sure you want to backfill and migrate all shortcodes to 12-character safe alphabets?')) {
+                try {
+                  const res = await fetch('/api/db-backfill', { method: 'POST', credentials: 'same-origin' });
+                  const json = await res.json().catch(() => ({}));
+                  if (res.ok && json.ok) {
+                    alert(`Successfully migrated ${json.migrated || 0} records!`);
+                    refetch();
+                  } else {
+                    alert(`Migration failed: ${json.error || 'Unknown error'}`);
+                  }
+                } catch (e) {
+                  alert(`Migration error: ${e.message}`);
+                }
+              }
+            }}
+            style={{ width: 'auto', margin: 0, minHeight: '44px', borderRadius: '999px', fontSize: '11px', fontWeight: 800, padding: '0 14px' }}
+          >
+            Migrate Codes
+          </button>
+        </div>
       ) : null}
       {status ? <EmptyState>{status}</EmptyState> : null}
       <div className="db-list">
@@ -562,9 +615,13 @@ export function DatabasePage() {
           const title = row.client_name || row.name || row.title || row.slug;
           const clientSub = isSub ? getClientSubscription(row) : null;
           const subTone = clientSub ? subscriptionTone(clientSub) : '';
-          const meta = isSub && clientSub
-            ? `${clientSub.service || 'Subscription'} - ${clientSub.status || 'Active'}`
-            : (row.contact || row.client_contact || row.updated_at);
+          let meta = '';
+          if (isClient) {
+            const contact = row.contact || row.client_contact || '';
+            meta = isHumanReadableContact(contact) ? contact : '';
+          } else if (isSub && clientSub) {
+            meta = `${clientSub.service || 'Subscription'} - ${clientSub.status || 'Active'}`;
+          }
           const rowId = row.id || `row-${index}`;
           const isArmed = armedRowId === rowId;
           const className = [
@@ -609,15 +666,17 @@ export function DatabasePage() {
                 }
               }}
             >
-              <strong>{title || 'Untitled'}</strong>
-              {meta ? <span>{meta}</span> : null}
+              <div className="db-list-row-text">
+                <strong>{title || 'Untitled'}</strong>
+                {meta ? <span>{meta}</span> : null}
+              </div>
               <button
                 type="button"
-                className="db-delete-button db-row-delete"
+                className="row-delete-x"
                 onClick={handleDelete}
                 aria-label={`Delete ${title || 'record'}`}
               >
-                Delete
+                <DeleteIcon />
               </button>
             </div>
           );
@@ -724,92 +783,615 @@ export function DatabasePage() {
   );
 }
 
+// /l — Link Generator.
+//
+// Recreates the legacy /l workflow on top of the current React
+// shell. The folder-name conventions, slug + display-password
+// derivation, URL normalisation, gallery-code prettifier, message
+// template, and invoice handoff (URL params + localStorage) all
+// match the legacy behaviour 1:1 so saved deliveries look the
+// same in the database.
+//
+// Server contract:
+//   POST /api/save with the legacy payload shape. The current
+//   worker authoritatively generates `password` and `shortCode`
+//   server-side and ignores any matching fields in the body, so
+//   we send the body for shape compatibility but always display
+//   `data.password`, `data.shortLink`, and `data.generatedText`
+//   from the response. The folder-date password is shown only as
+//   a pre-save preview hint and is replaced once the worker
+//   responds.
+//
+// Auth: PasswordGate has already established the shared admin
+// session cookie before this page renders, so /api/save runs with
+// `credentials: 'same-origin'` and no body password.
+
+const LINK_INVOICE_HANDOFF_KEY = 'starshots_invoice_client_handoff_v1';
+const LINK_HANDOFF_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+const LINK_SERVICES = [
+  { key: 'gd', label: 'Google Drive', placeholder: 'https://drive.google.com/...' },
+  { key: 'db', label: 'Dropbox', placeholder: 'https://dropbox.com/...' },
+  { key: 'wt', label: 'WeTransfer', placeholder: 'https://we.tl/...' },
+  { key: 'tn', label: 'TransferNow', placeholder: 'https://transfernow.net/...' },
+];
+
+// Small string helpers — direct ports of the legacy helpers used
+// by the static /l page so the slug + password the worker stores
+// match what the client previewed.
+function cleanLinkText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function sanitizeSlugSegment(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/["'\u2019`]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeFolderName(value) {
+  return cleanLinkText(String(value || '').replace(/\s*\(/g, ' ( ').replace(/\s*\)/g, ' ) '));
+}
+
+function stripBracketed(value) {
+  return value.replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, ' ');
+}
+
+function extractFolderParts(folder) {
+  const normalized = normalizeFolderName(folder);
+  const close = normalized.lastIndexOf(')');
+  const head = close >= 0 ? normalized.slice(0, close + 1) : normalized;
+  const suffix = close >= 0 ? normalized.slice(close + 1).trim() : '';
+  const parts = stripBracketed(head).split(/\s+/).map(sanitizeSlugSegment).filter(Boolean);
+  let date = '';
+  let cursor = 0;
+  if (/^\d{6}$/.test(parts[0] || '')) {
+    date = parts[0];
+    cursor = 1;
+  } else if (/^\d{8}$/.test(parts[0] || '')) {
+    date = parts[0].slice(2);
+    cursor = 1;
+  } else {
+    const now = new Date();
+    date =
+      String(now.getFullYear()).slice(-2) +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0');
+  }
+  const name = parts[cursor] || '';
+  return { date, name, suffix: sanitizeSlugSegment(suffix), normalized };
+}
+
+function buildBaseSlug(folder) {
+  const parts = extractFolderParts(folder);
+  if (!parts.name) return '';
+  const arr = [parts.date, parts.name];
+  if (parts.suffix && parts.suffix !== parts.name) arr.push(parts.suffix);
+  return arr.join('-').slice(0, 64).replace(/-+$/, '');
+}
+
+function buildFolderPassword(folder) {
+  const parts = extractFolderParts(folder);
+  const date = parts.date;
+  // Display password = DDMMYY derived from the folder's YYMMDD prefix.
+  return /^\d{6}$/.test(date) ? date.slice(4, 6) + date.slice(2, 4) + date.slice(0, 2) : '';
+}
+
+function normalizeLinkUrl(value) {
+  let v = String(value || '').trim();
+  if (!v) return '';
+  if (!/^https?:\/\//i.test(v) && /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/:?#].*)?$/i.test(v)) {
+    v = `https://${v}`;
+  }
+  try {
+    const url = new URL(v);
+    if (!/^https?:$/i.test(url.protocol) || !url.hostname.includes('.')) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function prettyGalleryCode(slug) {
+  const parts = String(slug || '').split('-').filter(Boolean);
+  if (!parts.length) return '';
+  return [parts[0], ...parts.slice(1).map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word))].join(' ');
+}
+
+function normalizeInvoiceTitleValue(value) {
+  return /^mr\.?$/i.test(cleanLinkText(value)) ? 'Mr.' : 'Ms.';
+}
+
+function folderCodeFromEventDate(value) {
+  const raw = String(value || '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return iso[1].slice(2) + iso[2] + iso[3];
+  const slash = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) return slash[3].slice(2) + slash[2].padStart(2, '0') + slash[1].padStart(2, '0');
+  return '';
+}
+
+// Read invoice handoff in the same priority the legacy /l used:
+// URL params first (so /db's "Create Links" button always wins),
+// otherwise a localStorage entry written by /inv that's still
+// inside the 7-day window.
+function readInvoiceHandoff() {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = {
+    title: params.get('title') || '',
+    name: params.get('name') || '',
+    eventDate: params.get('eventDate') || '',
+    invoiceId: params.get('invoiceId') || '',
+  };
+  if (cleanLinkText(fromUrl.name)) return fromUrl;
+  try {
+    const raw = window.localStorage.getItem(LINK_INVOICE_HANDOFF_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (
+      saved &&
+      cleanLinkText(saved.name) &&
+      Date.now() - Number(saved.savedAt || 0) < LINK_HANDOFF_TTL_MS
+    ) {
+      return saved;
+    }
+  } catch {
+    /* ignore parse / storage errors */
+  }
+  return null;
+}
+
+function buildPreviewMessage(title, clientName, info) {
+  const link = info.shortLink || info.directUrl;
+  return `Dear ${cleanLinkText(title)} ${cleanLinkText(clientName)},
+
+With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
+
+You may access them through the details below:
+
+\u2022 Link: ${link}
+\u2022 Password: ${info.pass}
+
+Kindly download the files within the stated availability period.
+
+It has been our pleasure to serve you, and we look forward to welcoming you again.
+
+Warm regards,
+StarShots`;
+}
+
+async function copyToClipboard(text) {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(String(text));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ServiceField({ chip, label, value, placeholder, onChange }) {
+  return (
+    <label className="lg-service">
+      <span className="lg-service-head">
+        <span className="lg-service-chip">{chip}</span>
+        <span className="lg-service-name">{label}</span>
+      </span>
+      <input
+        type="url"
+        inputMode="url"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        spellCheck="false"
+        autoCapitalize="off"
+        autoComplete="off"
+      />
+    </label>
+  );
+}
+
 export function LinkGeneratorPage() {
-  const [client, setClient] = useState('');
-  const [slug, setSlug] = useState('');
-  const [service, setService] = useState('Google Drive');
-  const [status, setStatus] = useState('');
+  const [title, setTitle] = useState('Ms.');
+  const [clientName, setClientName] = useState('');
+  const [folderName, setFolderName] = useState('');
+  // Service URLs are kept as a single object so markDirty / clear
+  // flows touch one piece of state instead of four.
+  const [serviceUrls, setServiceUrls] = useState({ gd: '', db: '', wt: '', tn: '' });
+  // saved is the snapshot returned by the most recent successful
+  // /api/save call. Once any input changes (via markDirty) the
+  // snapshot clears so the displayed link/password/message can
+  // never disagree with the displayed inputs.
+  const [saved, setSaved] = useState(null);
+  const [status, setStatus] = useState({ text: '', tone: '' });
+  const [busy, setBusy] = useState(false);
+  const [linkedInvoiceId, setLinkedInvoiceId] = useState('');
   const [mobileView, setMobileView] = useState('left');
-  // Snapshot of the link/message produced by the most recent
-  // Generate Link click. The preview only renders these — the live
-  // hash from useMemo below is used as the *candidate* slug while
-  // the user is typing, but never displayed until they click
-  // Generate so the workflow has a clear before/after.
-  const [generated, setGenerated] = useState(false);
-  const [generatedSlug, setGeneratedSlug] = useState('');
-  const [generatedMessage, setGeneratedMessage] = useState('');
-  // Candidate short-code derived from the inputs. Hash logic
-  // unchanged — same FNV-style mix used previously, just gated
-  // behind the `generated` flag for display.
-  const candidateSlug = useMemo(() => {
-    const base = `${client}-${slug}-${service}`.toLowerCase().replace(/[^a-z0-9]+/g, '');
-    let hash = 2166136261;
-    for (let index = 0; index < base.length; index += 1) hash = Math.imul(hash ^ base.charCodeAt(index), 16777619);
-    return Math.abs(hash).toString(36).padStart(7, '0').slice(0, 12);
-  }, [client, slug, service]);
+  // Visual flash on the clickable preview cards / textarea so
+  // operators get tactile feedback after a copy or open action.
+  const [copyFlash, setCopyFlash] = useState('');
+  const clientInputRef = useRef(null);
 
-  // Editing any input after generation invalidates the preview so
-  // the displayed link always matches the displayed inputs.
+  // One-shot invoice handoff. Only fills empty fields so that a
+  // mid-edit reload from /inv → /l never clobbers manual changes.
   useEffect(() => {
-    if (generated) {
-      setGenerated(false);
-      setStatus('');
-    }
-    // We intentionally do NOT depend on `generated` itself — that
-    // would cause an immediate re-toggle on the next render.
+    const handoff = readInvoiceHandoff();
+    if (!handoff) return;
+    const handoffName = cleanLinkText(handoff.name);
+    if (!handoffName) return;
+    const handoffTitle = normalizeInvoiceTitleValue(handoff.title);
+    setTitle(handoffTitle);
+    setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
+    setClientName((current) => (current.trim() ? current : handoffName));
+    setFolderName((current) => {
+      if (current.trim()) return current;
+      const code = folderCodeFromEventDate(handoff.eventDate);
+      return code ? normalizeFolderName(`${code} ${handoffName}`) : current;
+    });
+    setStatus({
+      text: `Loaded ${handoffTitle} ${handoffName} from invoice.`,
+      tone: 'success',
+    });
+    // Mount-only: legacy /l reads handoff exactly once on page open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, slug, service]);
+  }, []);
 
-  async function generate(event) {
-    event.preventDefault();
-    if (!client.trim() || !slug.trim()) {
-      setStatus('Fill in client and slug first.');
-      return;
-    }
-    setGeneratedSlug(candidateSlug);
-    setGeneratedMessage(
-      `Hi ${client.trim()}, your delivery is ready: https://sshots.pages.dev/${candidateSlug}`,
-    );
-    setGenerated(true);
-    setStatus('Link ready. Production save uses the existing worker API.');
-    setMobileView('right');
+  // Derived view-model for the preview pane. `displayPass`,
+  // `shortLink`, and `generatedText` all prefer the saved snapshot
+  // when its slug+pass+name still match the live inputs; otherwise
+  // they fall back to the folder-derived preview values (with
+  // empty strings for the post-save-only fields).
+  const info = useMemo(() => {
+    const folder = normalizeFolderName(folderName);
+    const slug = buildBaseSlug(folder);
+    const pass = buildFolderPassword(folder);
+    const galleryCode = prettyGalleryCode(slug);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const directUrl = slug ? `${origin}/g/${slug}` : origin;
+    const cleanName = cleanLinkText(clientName);
+    const matchesSaved =
+      saved && saved.slug === slug && saved.pass === pass && saved.name === cleanName && saved.shortLink;
+    return {
+      folder,
+      slug,
+      pass,
+      galleryCode,
+      directUrl,
+      shortLink: matchesSaved ? saved.shortLink : '',
+      displayPass: matchesSaved ? saved.password : pass,
+      generatedText: matchesSaved ? saved.generatedText : '',
+    };
+  }, [folderName, clientName, saved]);
+
+  // Any input change clears the saved snapshot and any leftover
+  // status banner so editing-after-generate never shows a stale
+  // link or "Saved" message tied to the previous inputs.
+  function markDirty() {
+    setSaved((current) => (current ? null : current));
+    setStatus({ text: '', tone: '' });
   }
 
+  function flash(target) {
+    setCopyFlash(target);
+    setTimeout(() => setCopyFlash((current) => (current === target ? '' : current)), 850);
+  }
+
+  function handleClientNameChange(event) {
+    setClientName(event.target.value);
+    markDirty();
+  }
+
+  function handleClientNameBlur(event) {
+    const raw = event.target.value;
+    const trimmed = raw.trim();
+    const next = toTitleCase(trimmed);
+    if (next !== raw) {
+      setClientName(next);
+      markDirty();
+    }
+  }
+
+  function handleFolderNameChange(event) {
+    setFolderName(event.target.value);
+    markDirty();
+  }
+
+  function handleFolderNameBlur(event) {
+    const next = normalizeFolderName(event.target.value);
+    if (next !== event.target.value) setFolderName(next);
+    markDirty();
+  }
+
+  function handleServiceChange(key) {
+    return (event) => {
+      const value = event.target.value;
+      setServiceUrls((current) => ({ ...current, [key]: value }));
+      markDirty();
+    };
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    const name = cleanLinkText(clientName);
+    if (!name) {
+      setStatus({ text: 'Please fill client name.', tone: 'error' });
+      clientInputRef.current?.focus();
+      return;
+    }
+    if (!info.folder || !info.slug || !info.pass) {
+      setStatus({ text: 'Please use folder name starting with YYMMDD + name.', tone: 'error' });
+      return;
+    }
+
+    const links = LINK_SERVICES
+      .map((service) => ({
+        service: service.key,
+        originalUrl: normalizeLinkUrl(serviceUrls[service.key]),
+      }))
+      .filter((link) => link.originalUrl);
+    if (!links.length) {
+      setStatus({ text: 'Please fill at least one delivery link.', tone: 'error' });
+      return;
+    }
+
+    setBusy(true);
+    setStatus({ text: 'Saving delivery...', tone: '' });
+    try {
+      const response = await fetch('/api/save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // Legacy payload shape preserved for compatibility. The
+          // current worker authoritatively regenerates `password`
+          // and `shortCode` server-side and ignores ours; we still
+          // include them so older worker versions keep working.
+          title,
+          clientName: name,
+          folderName: info.folder,
+          baseSlug: info.slug,
+          password: info.pass,
+          shortCode: '',
+          deliveryYear: 2000 + Number(info.slug.slice(0, 2)),
+          deliveryMonth: Number(info.slug.slice(2, 4)),
+          generatedTextWhatsapp: '',
+          generatedTextInstagram: '',
+          invoiceId: linkedInvoiceId,
+          links,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || `Save failed (${response.status}).`);
+      }
+
+      const finalShortLink =
+        data.shortLink ||
+        (data.shortUrl ? `${window.location.origin}${data.shortUrl}` : info.directUrl);
+      const finalPassword = String(data.password || '').trim() || info.pass;
+      const finalMessage =
+        data.generatedText ||
+        buildPreviewMessage(title, name, {
+          ...info,
+          shortLink: finalShortLink,
+          pass: finalPassword,
+        });
+
+      setSaved({
+        slug: info.slug,
+        pass: info.pass,
+        password: finalPassword,
+        name,
+        shortCode: data.shortCode || '',
+        shortLink: finalShortLink,
+        generatedText: finalMessage,
+      });
+
+      const copied = await copyToClipboard(finalMessage);
+      setStatus({
+        text: copied ? 'Saved and copied.' : 'Saved. Please copy manually.',
+        tone: 'success',
+      });
+      setMobileView('right');
+    } catch (error) {
+      setStatus({ text: error.message || 'Save failed.', tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function clearAll() {
+    setTitle('Ms.');
+    setClientName('');
+    setFolderName('');
+    setServiceUrls({ gd: '', db: '', wt: '', tn: '' });
+    setLinkedInvoiceId('');
+    setSaved(null);
+    setStatus({ text: '', tone: '' });
+    setMobileView('left');
+    setTimeout(() => clientInputRef.current?.focus(), 0);
+  }
+
+  async function copyMessage() {
+    const text = info.generatedText;
+    if (!text) {
+      setStatus({ text: 'Generate first.', tone: 'error' });
+      return;
+    }
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      flash('msg');
+      setStatus({ text: 'Copied.', tone: 'success' });
+    } else {
+      setStatus({ text: 'Please copy manually.', tone: 'error' });
+    }
+  }
+
+  async function copyPassword() {
+    const value = info.displayPass;
+    if (!value) {
+      setStatus({ text: 'Fill folder name first.', tone: 'error' });
+      return;
+    }
+    const ok = await copyToClipboard(value);
+    if (ok) {
+      flash('pass');
+      setStatus({ text: 'Copied.', tone: 'success' });
+    } else {
+      setStatus({ text: 'Please copy manually.', tone: 'error' });
+    }
+  }
+
+  function openShortLink() {
+    const url = info.shortLink;
+    if (!url) {
+      setStatus({ text: 'Generate first to open the short link.', tone: 'error' });
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    flash('short');
+    setStatus({ text: 'Opened short link.', tone: 'success' });
+  }
+
+  // What the delivery card displays. Mirrors the legacy logic:
+  // saved → strip protocol; valid candidate slug+pass → "Save first";
+  // otherwise → site host as a placeholder hint.
+  const fallbackHost = typeof window !== 'undefined' ? window.location.host : 'starshots.pages.dev';
+  const deliveryDisplay = info.shortLink
+    ? info.shortLink.replace(/^https?:\/\//, '')
+    : info.slug && info.pass
+      ? 'Save first'
+      : fallbackHost;
+
   const left = (
-    <form className="form-stack" onSubmit={generate}>
-      {/* Client is the only human-text field on /l — title-case it
-          on blur so "jess" becomes "Jess". The slug field is a raw
-          gallery/folder URL and the service is a select, so neither
-          gets normalised: per the /l brief we MUST NOT touch URLs,
-          slugs, IDs, or hashes. */}
-      <label>Client<input value={client} onChange={(event) => setClient(event.target.value)} onBlur={onBlurTitleCase(setClient)} placeholder="Client name" /></label>
-      <label>Gallery or folder slug<input value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="Google Drive / Dropbox link" /></label>
-      <label>Service
-        <select value={service} onChange={(event) => setService(event.target.value)}>
-          <option>Google Drive</option>
-          <option>Dropbox</option>
-          <option>iCloud</option>
-          <option>USB</option>
-        </select>
+    <form className="form-stack lg-form" onSubmit={submit} noValidate>
+      <div className="two-col">
+        <label>
+          Title
+          <select
+            value={title}
+            onChange={(event) => {
+              setTitle(event.target.value);
+              markDirty();
+            }}
+          >
+            <option>Ms.</option>
+            <option>Mr.</option>
+          </select>
+        </label>
+        <label>
+          Name
+          <input
+            ref={clientInputRef}
+            value={clientName}
+            onChange={handleClientNameChange}
+            onBlur={handleClientNameBlur}
+            placeholder="Client name"
+            autoComplete="name"
+          />
+        </label>
+      </div>
+      <label>
+        Folder Name
+        <input
+          value={folderName}
+          onChange={handleFolderNameChange}
+          onBlur={handleFolderNameBlur}
+          placeholder="260427 Anson M Luis ( 6th Birthday )"
+          autoComplete="off"
+        />
       </label>
-      <button className="primary-button" type="submit">Generate Link</button>
-      <p className="download-status">{status}</p>
+      <div className="two-col">
+        <label>
+          Gallery Code
+          <input
+            className="lg-readonly"
+            value={info.slug}
+            readOnly
+            tabIndex={-1}
+            placeholder="260427-anson"
+          />
+        </label>
+        <label>
+          Password
+          <input
+            className="lg-readonly"
+            value={info.pass}
+            readOnly
+            tabIndex={-1}
+            placeholder="270426"
+          />
+        </label>
+      </div>
+      <p className="eyebrow lg-services-heading">Delivery Links</p>
+      <div className="lg-services">
+        {LINK_SERVICES.map((service) => (
+          <ServiceField
+            key={service.key}
+            chip={service.key.toUpperCase()}
+            label={service.label}
+            value={serviceUrls[service.key]}
+            placeholder={service.placeholder}
+            onChange={handleServiceChange(service.key)}
+          />
+        ))}
+      </div>
+      <div className="lg-actions">
+        <button type="button" className="ghost-button compact" onClick={clearAll}>
+          Clear
+        </button>
+        <button type="submit" className="primary-button" disabled={busy}>
+          {busy ? 'Saving\u2026' : 'Generate'}
+        </button>
+      </div>
+      <p className={`download-status${status.tone ? ` lg-status-${status.tone}` : ''}`}>
+        {status.text}
+      </p>
     </form>
   );
 
-  const right = generated ? (
-    <div className="preview-note-card">
-      <p className="eyebrow">Generated Link</p>
-      <h2>{client} Delivery</h2>
-      <p>Share this link with the client:</p>
-      <strong>sshots.pages.dev/{generatedSlug}</strong>
-      <p style={{ marginTop: 12 }}>{generatedMessage}</p>
-    </div>
-  ) : (
-    <div className="preview-note-card">
-      <p className="eyebrow">Preview</p>
-      <h2>Ready to generate</h2>
-      <p>Fill the form on the left, then tap Generate Link to produce the short URL and the share message.</p>
+  const right = (
+    <div className="lg-preview">
+      <header className="preview-toolbar lg-preview-toolbar">
+        <div>
+          <p className="eyebrow">Generated Text</p>
+          <h2>Short link + password</h2>
+        </div>
+        <button type="button" className="ghost-button compact" onClick={copyMessage}>
+          Copy
+        </button>
+      </header>
+      <div className="lg-stats">
+        <button
+          type="button"
+          className={`lg-stat-card${copyFlash === 'short' ? ' is-flash' : ''}`}
+          onClick={openShortLink}
+          aria-label="Open short link in new tab"
+        >
+          <span>Short Link</span>
+          <strong>{deliveryDisplay}</strong>
+        </button>
+        <button
+          type="button"
+          className={`lg-stat-card${copyFlash === 'pass' ? ' is-flash' : ''}`}
+          onClick={copyPassword}
+          aria-label="Copy password"
+        >
+          <span>Password</span>
+          <strong>{info.displayPass || '\u2014'}</strong>
+        </button>
+      </div>
+      <textarea
+        className={`lg-output${copyFlash === 'msg' ? ' is-flash' : ''}`}
+        value={info.generatedText}
+        readOnly
+        placeholder="Generated delivery message will appear here..."
+      />
     </div>
   );
 
@@ -823,7 +1405,7 @@ export function LinkGeneratorPage() {
       right={right}
       mobileView={mobileView}
       onMobileViewChange={setMobileView}
-      mobileTabs={{ left: 'Form', right: 'Link' }}
+      mobileTabs={{ left: 'Form', right: 'Output' }}
     />
   );
 }
