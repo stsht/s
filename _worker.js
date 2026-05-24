@@ -11,7 +11,7 @@ const SERVICES = [
   { key: 'tn', label: 'TransferNow' }
 ];
 
-const SHORT_ALPHABET = '1236789abcdefghijklmnopqrstuvwxyz';
+const SHORT_ALPHABET = '1236789abcdefghijkmnopqrstuvwxyz';
 const SHORT_CODE_LENGTH = 12;
 const LEGACY_SHORT_CODE_LENGTH = 7;
 const GALLERY_PASSWORD_LENGTH = 6;
@@ -354,6 +354,8 @@ function seededShortCodeFrom(seed, baseSlug, password = '', clientName = '', del
   return code;
 }
 
+
+
 function randomShortCode(length = SHORT_CODE_LENGTH) {
   let code = '';
   const bytes = new Uint8Array(length);
@@ -366,7 +368,7 @@ function cleanShortCode(value) {
   const code = String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   if (code.length === LEGACY_SHORT_CODE_LENGTH) return /^[a-z0-9]{7}$/.test(code) ? code : '';
   if (code.length !== SHORT_CODE_LENGTH) return '';
-  return new RegExp(`^[${SHORT_ALPHABET}]+$`).test(code) ? code : '';
+  return /^[1236789abcdefghijklmnopqrstuvwxyz]+$/.test(code) ? code : '';
 }
 
 function shortCodeFromText(value = '') {
@@ -384,22 +386,13 @@ function deliveryPasswordForDisplay(delivery = {}) {
 }
 
 function deliveryShortCode(delivery = {}) {
-  const stored = cleanShortCode(delivery.short_code);
-  if (stored) return stored;
-  const fromText = shortCodeFromText(delivery.generated_text_whatsapp) || shortCodeFromText(delivery.generated_text_instagram);
-  if (fromText) return fromText;
-  const displayPassword = deliveryPasswordForDisplay(delivery);
-  return legacyShortCodeFrom(delivery.base_slug, displayPassword, delivery.client_name);
+  return cleanShortCode(delivery.short_code);
 }
 
 function deliveryMatchesShortCode(delivery, target, env) {
   const code = cleanShortCode(target);
   if (!code) return false;
-  if (deliveryShortCode(delivery) === code) return true;
-  const plainPassword = deliveryPasswordForDisplay(delivery);
-  if (plainPassword && legacyShortCodeFrom(delivery.base_slug, plainPassword, delivery.client_name) === code) return true;
-  const legacySeed = String(env.LEGACY_SHORT_SEED || '').trim();
-  return !!legacySeed && seededShortCodeFrom(legacySeed, delivery.base_slug, plainPassword, delivery.client_name, delivery.id) === code;
+  return deliveryShortCode(delivery) === code;
 }
 
 async function uniqueShortCode(env, context = {}) {
@@ -765,6 +758,7 @@ async function insertLog(env, request, deliveryId, eventType, service = null) {
   }).catch(() => {});
 }
 
+
 async function getLatestDeliveryBySlug(env, slug) {
   const clean = cleanSlug(slug);
   if (!clean) return null;
@@ -819,8 +813,10 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     updated_at: seed.updated_at || seed.created_at || '',
     invoice_count: 0,
     delivery_count: 0,
+    subscription_count: 0,
     invoice_ids: [],
-    delivery_ids: []
+    delivery_ids: [],
+    subscription_ids: []
   });
 
   (Array.isArray(clientRows) ? clientRows : []).forEach((client) => {
@@ -860,12 +856,24 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     summary.delivery_ids.push(String(delivery.id));
   });
 
+  (Array.isArray(subscriptions) ? subscriptions : []).forEach((sub) => {
+    const summary = bucketFor(sub, 'subscription');
+    if (!summary) return;
+    summary.subscription_count += 1;
+    summary.subscription_ids.push(String(sub.id));
+    if (!summary.contact && sub.client_contact) summary.contact = cleanText(sub.client_contact, 240);
+    if (!summary.updated_at || new Date(sub.updated_at || sub.created_at || 0) > new Date(summary.updated_at || 0)) {
+      summary.updated_at = sub.updated_at || sub.created_at || summary.updated_at;
+    }
+  });
+
   const query = String(q || '').toLowerCase();
   return [...byId.values(), ...legacy.values()]
     .filter((client) => (
       client.source === 'client'
       || Number(client.invoice_count || 0) > 0
       || Number(client.delivery_count || 0) > 0
+      || Number(client.subscription_count || 0) > 0
     ))
     .filter((client) => !query || [
       client.title,
@@ -1356,11 +1364,6 @@ async function handleDbSearch(request, env) {
   // Parallelize the four independent top-level reads. Each call hits
   // a different Supabase table and none depend on each other, so the
   // total wall time drops from sum-of-latencies to max-of-latencies.
-  // Schema-cache / missing-table errors on the optional tables
-  // (invoices, subscriptions) are swallowed and surface as empty
-  // arrays — same tolerance pattern the previous serial version had,
-  // just expressed inline so a single failure cannot reject the
-  // whole Promise.all batch.
   const tolerantSupabase = async (path) => {
     try {
       const rows = await supabaseFetch(env, path);
@@ -1395,21 +1398,10 @@ async function handleDbSearch(request, env) {
     ]);
   }
 
-  // External IP/ISP enrichment used to fan out up to 40 calls to
-  // ipwho.is on every dashboard load. That added ~1-3s of network
-  // latency to the first paint and wasn't visible anywhere on the
-  // initial /db render anyway — the ISP value only shows up inside
-  // a delivery's expanded log details. Drop it from the dashboard
-  // payload entirely; logs still carry ip_address / country / city
-  // verbatim, and a future per-delivery endpoint can re-introduce
-  // ISP enrichment lazily if needed.
+  // External IP/ISP enrichment dropped from the dashboard load payload entirely;
+  // logs still carry ip_address / country / city verbatim.
 
-  // Group links and logs by delivery_id once so the items.map below
-  // is O(N + M + K) instead of O(N * (M + K)). The previous code
-  // ran links.filter(...) and logs.filter(...) inside the map, so
-  // every delivery rescanned the entire links + logs arrays. With
-  // 200 deliveries × up to 1,000 logs that was 200,000 comparisons
-  // per request; the Map lookup is one read.
+  // Group links and logs by delivery_id once so the items.map below is O(N)
   const linksByDelivery = new Map();
   for (const link of links) {
     const id = String(link?.delivery_id || '');
@@ -1448,7 +1440,6 @@ async function handleDbSearch(request, env) {
     const shortCode = deliveryShortCode(d);
     const displayPassword = deliveryPasswordForDisplay(d);
     const generatedText = d.generated_text_whatsapp || (displayPassword ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
-    const folderSlugBlocked = shouldBlockFolderSlug(d);
     return {
       id: d.id,
       title: d.title,
@@ -1462,7 +1453,7 @@ async function handleDbSearch(request, env) {
       generated_text_whatsapp: generatedText,
       generated_text_instagram: d.generated_text_instagram || generatedText,
       created_at: d.created_at,
-      delivery_url: folderSlugBlocked ? `/${shortCode}` : `/g/${d.base_slug}`,
+      delivery_url: shouldBlockFolderSlug(d) ? `/${shortCode}` : `/g/${d.base_slug}`,
       short_code: shortCode,
       short_url: `/${shortCode}`,
       gallery_code: galleryCodeFromSlug(d.base_slug),
@@ -1497,6 +1488,7 @@ async function handleDbSearch(request, env) {
 
   return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionRows, clients });
 }
+
 
 async function handleClientSave(request, env) {
   const body = await request.json().catch(() => ({}));

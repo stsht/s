@@ -306,3 +306,35 @@
     color: #fff;
   }
 }
+
+/* Centered single-panel styling */
+@media (min-width: 1024px) {
+  .pf-page[data-single-panel='true'] .pf-shell {
+    grid-template-columns: minmax(320px, 640px);
+    justify-content: center;
+  }
+}
+
+/* Close button style for database detail view */
+.db-close-button {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.db-close-button:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+.db-close-button svg {
+  display: block;
+}

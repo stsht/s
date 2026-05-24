@@ -64,9 +64,14 @@ export function PrivateWorkspaceFrame({
   const showDetail = mobileView === 'right' && right !== null;
   const navList = Array.isArray(navItems) ? navItems : [];
   const renderNav = showNav && navList.length > 0;
+  const isSinglePanel = right === null;
 
   return (
-    <main className="pf-page" data-show-detail={showDetail ? 'true' : undefined}>
+    <main
+      className="pf-page"
+      data-show-detail={showDetail ? 'true' : undefined}
+      data-single-panel={isSinglePanel ? 'true' : undefined}
+    >
       <GlobalBackground />
       <section className="pf-shell">
         <aside className="pf-panel pf-panel--left">

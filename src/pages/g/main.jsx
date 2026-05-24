@@ -32,7 +32,8 @@ function GalleryLinks({ payload }) {
   }
 
   const heading = delivery.clientName ? `Hello, ${delivery.clientName}` : 'Private Delivery';
-  const subtitle = delivery.title || delivery.folderName || 'Your delivery links are ready.';
+  const hasValidTitle = delivery.title && !['Ms.', 'Mr.', 'Mrs.', 'Family', 'Ms', 'Mr'].includes(delivery.title);
+  const subtitle = (hasValidTitle ? delivery.title : '') || delivery.folderName || 'Your delivery links are ready.';
 
   const left = (
     <>
