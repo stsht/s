@@ -778,17 +778,20 @@ export function LinkGeneratorPage() {
   );
 }
 
-// /subs — paid-subscription confirmation card with a Generate JPG flow.
+// /subs — subscription tooling with a Generate JPG flow.
 //
-// Left panel: form inputs (title, client, service, payment date+time,
-// access period preset, start access date+time). Right panel: a live
-// preview of the receipt card and a Generate JPG button. The card is
-// pure Plus Jakarta Sans (no serif, no Playfair) and is rasterised by
-// html2canvas exactly the way /inv exports its invoice sheet.
+// Two modes, switched by the contextual pills next to the logo
+// (Segmented component → matches the /inv .mode-switch sizing/style):
 //
-// Expiry is computed strictly as start_date + N days where N is one
-// of 7/15/30 — never month-end math, so May with a 30-day period
-// stays at 30 days, not 31.
+//   invoice  Subscription bill: client/service/storage/duration/price
+//            with a payment QR block. Used to ask the client to pay.
+//   paid     Confirmation receipt: payment date/time, paid amount,
+//            access period, start access, computed expiry.
+//
+// One Generate JPG button rasterises whichever card is active. The
+// receipt's expiry is strictly start_date + N days (7/15/30) using
+// UTC arithmetic, so a 30-day period in May expires on day 30, not
+// 31, regardless of the local timezone.
 
 const SUBS_PERIOD_OPTIONS = [
   { value: 7, label: '7 Days' },
@@ -799,6 +802,11 @@ const SUBS_PERIOD_OPTIONS = [
 const SUBS_SERVICE_OPTIONS = ['iCloud', 'Google Drive', 'Dropbox', 'ChatGPT'];
 
 const SUBS_TITLE_OPTIONS = ['Mr.', 'Ms.', 'Mrs.', 'Family'];
+
+const SUBS_MODE_OPTIONS = [
+  { value: 'invoice', label: 'Invoice' },
+  { value: 'paid', label: 'Paid' },
+];
 
 function fmtSubsDate(value) {
   if (!value) return '-';
@@ -833,10 +841,32 @@ function nowSubsTime() {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+// addDays(date, n) — UTC-safe day arithmetic shared by invoice (due
+// date) and paid (expiry) calculations. Returns "" when the input
+// can't be parsed so the caller can fall back to "-" in the UI.
+function addDays(value, days) {
+  if (!value) return '';
+  const [y, m, d] = String(value).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + (Number(days) || 0));
+  return dt.toISOString().slice(0, 10);
+}
+
 export function SubscriptionsPage() {
+  const [mode, setMode] = useState('invoice');
   const [titlePrefix, setTitlePrefix] = useState('Mr.');
   const [client, setClient] = useState('');
   const [service, setService] = useState('iCloud');
+  // Shared price input. Used as Total in invoice mode and as Paid
+  // Amount in paid mode — same number, different role per mode.
+  const [price, setPrice] = useState(100000);
+  // Invoice-only fields.
+  const [storage, setStorage] = useState(200);
+  const [duration, setDuration] = useState(30);
+  const [issuedDate, setIssuedDate] = useState(todaySubs);
+  const [dueDate, setDueDate] = useState(() => addDays(todaySubs(), 7));
+  // Paid-only fields.
   const [paymentDate, setPaymentDate] = useState(todaySubs);
   const [paymentTime, setPaymentTime] = useState(nowSubsTime);
   const [accessPeriod, setAccessPeriod] = useState(30);
@@ -846,17 +876,22 @@ export function SubscriptionsPage() {
   const [status, setStatus] = useState('');
   const cardRef = useRef(null);
 
-  // expiry = startDate + accessPeriod days. UTC arithmetic keeps the
-  // calculation timezone-agnostic: e.g. 2026-05-21 + 7 days is always
-  // 2026-05-28, never 2026-05-27 or 2026-05-29 on DST boundaries.
-  const expiryDate = useMemo(() => {
-    if (!startDate) return '';
-    const [y, m, d] = startDate.split('-').map(Number);
-    if (!y || !m || !d) return '';
-    const dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() + (Number(accessPeriod) || 0));
-    return dt.toISOString().slice(0, 10);
-  }, [startDate, accessPeriod]);
+  // expiry = startDate + accessPeriod days (paid mode only).
+  const expiryDate = useMemo(
+    () => addDays(startDate, accessPeriod),
+    [startDate, accessPeriod],
+  );
+
+  // Deterministic invoice number from the inputs that identify the
+  // bill (client + service + issued date). Stable across re-renders
+  // for the same triple, regenerates only when those change.
+  const invoiceNumber = useMemo(() => {
+    const datePart = String(issuedDate || '').replace(/-/g, '');
+    const seed = `${client}-${service}-${issuedDate}`.toLowerCase();
+    let hash = 5381;
+    for (let i = 0; i < seed.length; i += 1) hash = (hash * 33 + seed.charCodeAt(i)) >>> 0;
+    return `INV-${datePart || '000000'}-${hash.toString(36).slice(0, 4).toUpperCase()}`;
+  }, [client, service, issuedDate]);
 
   async function downloadJpg() {
     if (!cardRef.current) return;
@@ -864,10 +899,10 @@ export function SubscriptionsPage() {
     if (document.fonts?.ready) {
       try { await document.fonts.ready; } catch {}
     }
-    // Clone the card into an off-screen export host so the rasterised
-    // output is independent of the live preview viewport (which can be
-    // narrower than the card on mobile). The host pins the card at a
-    // stable 720px width regardless of the surrounding layout.
+    // Clone the active card into an off-screen export host so the
+    // rasterised output is independent of the live preview viewport
+    // (which can be narrower than the card on mobile). The host pins
+    // the card at a stable 720px width via .subs-export-host > *.
     const exportHost = document.createElement('div');
     exportHost.className = 'subs-export-host';
     const cloned = cardRef.current.cloneNode(true);
@@ -884,8 +919,9 @@ export function SubscriptionsPage() {
         windowWidth: 800,
         windowHeight: 1200,
       });
+      const filePrefix = mode === 'paid' ? 'subscription-paid' : 'subscription-invoice';
       const link = document.createElement('a');
-      link.download = `subscription-paid-${safeSubsToken(service) || 'service'}-${safeSubsToken(client) || 'client'}.jpg`;
+      link.download = `${filePrefix}-${safeSubsToken(service) || 'service'}-${safeSubsToken(client) || 'client'}.jpg`;
       link.href = canvas.toDataURL('image/jpeg', 1.0);
       link.click();
       setStatus('JPG ready.');
@@ -896,6 +932,10 @@ export function SubscriptionsPage() {
     }
   }
 
+  // Shared inputs render first; the mode-specific block below swaps
+  // between invoice fields (storage/duration/issued/due) and paid
+  // fields (payment date+time, access period, start access). The
+  // Price input is shared so switching modes preserves the amount.
   const left = (
     <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
       <div className="two-col">
@@ -913,91 +953,175 @@ export function SubscriptionsPage() {
           {SUBS_SERVICE_OPTIONS.map((option) => <option key={option}>{option}</option>)}
         </select>
       </label>
-      <div className="two-col">
-        <label>Date of Payment
-          <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
-        </label>
-        <label>Time of Payment
-          <input type="time" value={paymentTime} onChange={(event) => setPaymentTime(event.target.value)} />
-        </label>
-      </div>
-      <label>Access Period
-        <select value={accessPeriod} onChange={(event) => setAccessPeriod(Number(event.target.value))}>
-          {SUBS_PERIOD_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+      <label>{mode === 'paid' ? 'Paid Amount (IDR)' : 'Price (IDR)'}
+        <input type="number" min="0" value={price} onChange={(event) => setPrice(event.target.value)} />
       </label>
-      <div className="two-col">
-        <label>Start Access
-          <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-        </label>
-        <label>Start Time
-          <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
-        </label>
-      </div>
+      {mode === 'invoice' ? (
+        <>
+          <div className="two-col">
+            <label>Storage (GB)
+              <input type="number" min="0" value={storage} onChange={(event) => setStorage(event.target.value)} />
+            </label>
+            <label>Duration (days)
+              <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} />
+            </label>
+          </div>
+          <div className="two-col">
+            <label>Date Issued
+              <input type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} />
+            </label>
+            <label>Due Date
+              <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+            </label>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="two-col">
+            <label>Date of Payment
+              <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
+            </label>
+            <label>Time of Payment
+              <input type="time" value={paymentTime} onChange={(event) => setPaymentTime(event.target.value)} />
+            </label>
+          </div>
+          <label>Access Period
+            <select value={accessPeriod} onChange={(event) => setAccessPeriod(Number(event.target.value))}>
+              {SUBS_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <div className="two-col">
+            <label>Start Access
+              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+            </label>
+            <label>Start Time
+              <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
+            </label>
+          </div>
+        </>
+      )}
     </form>
   );
 
   const periodLabel = SUBS_PERIOD_OPTIONS.find((option) => option.value === Number(accessPeriod))?.label
     || `${accessPeriod} Days`;
 
+  // Paid receipt card. The 2x2 meta grid intentionally drops the
+  // redundant "Service" tile (already shown in the eyebrow tag at
+  // the top of the card) and replaces it with the Paid Amount, so
+  // every cell carries unique receipt information.
+  const paidCard = (
+    <article className="subs-card" ref={cardRef}>
+      <header className="subs-card-head">
+        <p className="subs-greeting">Hello, {titlePrefix} {client || 'Client'}!</p>
+        <p className="subs-service-tag">{service}</p>
+        <h1 className="subs-title">Subscription Confirmed</h1>
+        <p className="subs-eyebrow">Payment Received</p>
+      </header>
+      <section className="subs-grid">
+        <div className="subs-tile">
+          <span className="subs-tile-label">Date of Payment</span>
+          <strong>{fmtSubsDate(paymentDate)}</strong>
+        </div>
+        <div className="subs-tile">
+          <span className="subs-tile-label">Time of Payment</span>
+          <strong>{fmtSubsTime(paymentTime)}</strong>
+        </div>
+        <div className="subs-tile">
+          <span className="subs-tile-label">Paid Amount</span>
+          <strong>{rupiah(price)}</strong>
+        </div>
+        <div className="subs-tile">
+          <span className="subs-tile-label">Access Period</span>
+          <strong>{periodLabel}</strong>
+        </div>
+      </section>
+      <section className="subs-period">
+        <div className="subs-period-card">
+          <span className="subs-tile-label">Start Access</span>
+          <strong className="subs-period-date">{fmtSubsDate(startDate)}</strong>
+          <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
+        </div>
+        <div className="subs-period-card">
+          <span className="subs-tile-label">Expiry</span>
+          <strong className="subs-period-date">{fmtSubsDate(expiryDate)}</strong>
+          <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
+        </div>
+      </section>
+      <footer className="subs-card-foot">
+        <p className="subs-foot-title">This card serves as your confirmed subscription receipt</p>
+        <p className="subs-foot-sub">Please keep this JPG for your subscription history and future reference.</p>
+        <div className="subs-foot-meta">
+          <span>This confirmation is automatically generated and valid without signature.</span>
+          <strong>@starshots.id</strong>
+        </div>
+      </footer>
+    </article>
+  );
+
+  // Invoice card. Compact subscription bill: header with logo + INV-#,
+  // bill-to / service-details tiles, line-item row, payment block with
+  // QR + totals (Total / Issued / Due), and a shared footer.
+  const invoiceCard = (
+    <article className="subs-invoice-card" ref={cardRef}>
+      <header className="subs-invoice-head">
+        <img src="/logo-hero.png" alt="StarShots" className="subs-invoice-logo" />
+        <div className="subs-invoice-meta">
+          <p className="subs-eyebrow">Subscription Invoice</p>
+          <strong>{invoiceNumber}</strong>
+        </div>
+      </header>
+      <section className="subs-invoice-grid">
+        <div className="subs-tile subs-tile--list">
+          <span className="subs-tile-label">Bill To</span>
+          <strong>{titlePrefix} {client || 'Client'}</strong>
+        </div>
+        <div className="subs-tile subs-tile--list">
+          <span className="subs-tile-label">Service Details</span>
+          <p>{service}</p>
+          <p>Storage: {storage || 0} GB</p>
+          <p>Duration: {duration || 0} Days</p>
+        </div>
+      </section>
+      <section className="subs-invoice-line">
+        <div>
+          <strong>{service} subscription</strong>
+          <small>{storage || 0} GB · {duration || 0} Days</small>
+        </div>
+        <span>{rupiah(price)}</span>
+      </section>
+      <section className="subs-invoice-pay">
+        <img src="/payment-qr.png" alt="Payment QR" className="subs-invoice-qr" />
+        <div className="subs-invoice-totals">
+          <p><span>Total</span><strong>{rupiah(price)}</strong></p>
+          <p><span>Issued</span><strong>{fmtSubsDate(issuedDate)}</strong></p>
+          <p><span>Due</span><strong>{fmtSubsDate(dueDate)}</strong></p>
+        </div>
+      </section>
+      <footer className="subs-card-foot">
+        <p className="subs-foot-title">Thanks for trusting StarShots</p>
+        <p className="subs-foot-sub">Please complete payment by the due date to keep your subscription active.</p>
+        <div className="subs-foot-meta">
+          <span>This invoice is automatically generated and valid without signature.</span>
+          <strong>@starshots.id</strong>
+        </div>
+      </footer>
+    </article>
+  );
+
   const right = (
     <>
       <header className="subs-toolbar">
         <div>
           <p className="eyebrow">Live Preview</p>
-          <h2>Subscription Receipt</h2>
+          <h2>{mode === 'paid' ? 'Subscription Receipt' : 'Subscription Invoice'}</h2>
         </div>
         <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
       </header>
       <div className="subs-canvas">
-        <article className="subs-card" ref={cardRef}>
-          <header className="subs-card-head">
-            <p className="subs-greeting">Hello, {titlePrefix} {client || 'Client'}!</p>
-            <p className="subs-service-tag">{service}</p>
-            <h1 className="subs-title">Subscription Confirmed</h1>
-            <p className="subs-eyebrow">Payment Received</p>
-          </header>
-          <section className="subs-grid">
-            <div className="subs-tile">
-              <span className="subs-tile-label">Date of Payment</span>
-              <strong>{fmtSubsDate(paymentDate)}</strong>
-            </div>
-            <div className="subs-tile">
-              <span className="subs-tile-label">Time of Payment</span>
-              <strong>{fmtSubsTime(paymentTime)}</strong>
-            </div>
-            <div className="subs-tile">
-              <span className="subs-tile-label">Service</span>
-              <strong>{service}</strong>
-            </div>
-            <div className="subs-tile">
-              <span className="subs-tile-label">Access Period</span>
-              <strong>{periodLabel}</strong>
-            </div>
-          </section>
-          <section className="subs-period">
-            <div className="subs-period-card">
-              <span className="subs-tile-label">Start Access</span>
-              <strong className="subs-period-date">{fmtSubsDate(startDate)}</strong>
-              <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
-            </div>
-            <div className="subs-period-card">
-              <span className="subs-tile-label">Expiry</span>
-              <strong className="subs-period-date">{fmtSubsDate(expiryDate)}</strong>
-              <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
-            </div>
-          </section>
-          <footer className="subs-card-foot">
-            <p className="subs-foot-title">This card serves as your confirmed subscription receipt</p>
-            <p className="subs-foot-sub">Please keep this JPG for your subscription history and future reference.</p>
-            <div className="subs-foot-meta">
-              <span>This confirmation is automatically generated and valid without signature.</span>
-              <strong>@starshots.id</strong>
-            </div>
-          </footer>
-        </article>
+        {mode === 'paid' ? paidCard : invoiceCard}
       </div>
       <p className="download-status">{status}</p>
     </>
@@ -1006,6 +1130,18 @@ export function SubscriptionsPage() {
   return (
     <PrivateWorkspaceFrame
       active="/subs/"
+      // Contextual pills sit right of the logo in the left-panel
+      // header (pf-pills slot). Segmented uses .pf-pillset which
+      // mirrors the /inv .mode-switch sizing/style 1:1, so the look
+      // matches without introducing a new pill style.
+      pills={
+        <Segmented
+          value={mode}
+          onChange={setMode}
+          options={SUBS_MODE_OPTIONS}
+          ariaLabel="Subscription mode"
+        />
+      }
       // /subs is a leaf page; the nav row would just point back at
       // itself or repeat /db. Hide it entirely for a cleaner header.
       showNav={false}
