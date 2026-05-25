@@ -1980,6 +1980,257 @@ async function handleSubscriptionDelete(request, env) {
   return json({ ok: true });
 }
 
+// ── Subscription receipt import (vision-backed) ────────────────────
+// Reads a StarShots subscription receipt JPG and extracts structured
+// fields the /db Subs editor can preview before saving. The image
+// itself is never persisted: we consume the request body once,
+// hand it to a vision model, and drop the bytes when the response
+// returns.
+//
+// Provider priority:
+//   1. Cloudflare Workers AI binding (env.AI) — primary, free on Pages
+//      when the binding is added to wrangler.toml. Used with the
+//      llama-3.2 vision model.
+//   2. OpenAI Vision via env.OPENAI_API_KEY — fallback when CF AI is
+//      not bound. Uses the gpt-4o-mini multimodal endpoint.
+//   3. Otherwise → 503 with the friendly message the spec requires
+//      so the UI can prompt the operator to enter fields manually.
+//
+// The model is asked to return a single JSON object matching the
+// subscriptions schema. We also run a duplicate lookup keyed on
+// client_name + service + payment_date + start_date so the UI can
+// upsert by passing the matched id back to /api/subscriptions-save.
+
+const SUBSCRIPTION_IMPORT_PROMPT = `You are reading a StarShots subscription receipt image. Extract these fields and return ONLY a single JSON object — no prose, no code fences.
+
+{
+  "client_title": "Mr. | Ms. | Mrs. | Family",
+  "client_name": "<name from greeting>",
+  "service": "<service name, e.g. ChatGPT, iCloud, Google Drive, Dropbox, Copilot>",
+  "status": "paid | invoice | empty",
+  "payment_date": "YYYY-MM-DD or null",
+  "payment_time": "HH:MM:SS or null",
+  "access_period": "<integer days, e.g. 30, or null>",
+  "start_date": "YYYY-MM-DD or null",
+  "start_time": "HH:MM:SS or null",
+  "expiry_date": "YYYY-MM-DD or null",
+  "expiry_time": "HH:MM:SS or null"
+}
+
+Hints:
+- Greeting "Hello, Mr. medacandra!" → client_title="Mr.", client_name="Medacandra"
+- Headline "Subscription Confirmed" or eyebrow "Payment Received" → status="paid"
+- "30 Days" → access_period=30
+- Times printed in HH.MM form (e.g. 18.41) → convert to HH:MM:SS (18:41:00)
+- Dates printed as "May 13, 2026" → convert to ISO 2026-05-13
+- Title-case the client name (e.g. "medacandra" → "Medacandra")
+- Set a field to null if you cannot read it confidently. Do not guess.`;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+function base64ToBytes(b64 = '') {
+  const stripped = String(b64).replace(/^data:[^,]+,/, '');
+  const binary = atob(stripped);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+async function callVisionExtractor(env, imageBase64, mime) {
+  // Prefer Cloudflare Workers AI when the binding is present.
+  if (env && env.AI && typeof env.AI.run === 'function') {
+    try {
+      const bytes = base64ToBytes(imageBase64);
+      const result = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+        prompt: SUBSCRIPTION_IMPORT_PROMPT,
+        image: Array.from(bytes),
+        max_tokens: 700
+      });
+      const text = String(result?.response || '').trim();
+      if (text) return text;
+    } catch (err) {
+      console.warn('[subs-import] CF AI vision error:', err?.message || err);
+    }
+  }
+
+  // Fallback: OpenAI vision via API key secret.
+  const openaiKey = String(env?.OPENAI_API_KEY || '').trim();
+  if (openaiKey) {
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: env?.OPENAI_VISION_MODEL || 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: SUBSCRIPTION_IMPORT_PROMPT },
+                { type: 'image_url', image_url: { url: `data:${mime || 'image/jpeg'};base64,${imageBase64}` } }
+              ]
+            }
+          ],
+          max_tokens: 700,
+          temperature: 0
+        })
+      });
+      const data = await resp.json().catch(() => ({}));
+      const text = String(data?.choices?.[0]?.message?.content || '').trim();
+      if (text) return text;
+    } catch (err) {
+      console.warn('[subs-import] OpenAI vision error:', err?.message || err);
+    }
+  }
+
+  return null;
+}
+
+function parseExtractorJson(raw) {
+  if (!raw) return null;
+  let text = String(raw).trim();
+  // Strip code fences from the model's output if present.
+  text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+  // Locate the first { ... } block; some models prefix with prose
+  // even when asked not to.
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try { return JSON.parse(match[0]); } catch { return null; }
+}
+
+function normalizeImportedSubscription(extracted = {}) {
+  // Title may arrive as raw "Mr." / "mr" / "MR." / "family". Normalise
+  // to the canonical four values the rest of the app uses.
+  const titleRaw = String(extracted.client_title || '').trim();
+  let titleClean = '';
+  if (/^mrs\.?$/i.test(titleRaw)) titleClean = 'Mrs.';
+  else if (/^mr\.?$/i.test(titleRaw)) titleClean = 'Mr.';
+  else if (/^ms\.?$/i.test(titleRaw)) titleClean = 'Ms.';
+  else if (/^family$/i.test(titleRaw)) titleClean = 'Family';
+  else titleClean = titleRaw || 'Mr.';
+
+  // Time fields might come in HH.MM (the receipt format) instead of
+  // HH:MM:SS. Replace dots with colons and pad seconds.
+  const normalizeTime = (raw) => {
+    if (!raw) return null;
+    const text = String(raw).replace(/\./g, ':');
+    const m = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return null;
+    return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}`;
+  };
+
+  // Period might be "30 Days" — extract the integer.
+  const periodRaw = extracted.access_period;
+  let accessPeriod = null;
+  if (typeof periodRaw === 'number' && Number.isFinite(periodRaw)) {
+    accessPeriod = Math.round(periodRaw);
+  } else if (typeof periodRaw === 'string') {
+    const m = periodRaw.match(/\d+/);
+    if (m) accessPeriod = parseInt(m[0], 10);
+  }
+
+  // Title-case the client name so "medacandra" → "Medacandra"
+  // matches what the rest of the dashboard expects.
+  const nameRaw = String(extracted.client_name || '').trim();
+  const clientName = nameRaw
+    ? nameRaw.replace(/\b[a-z]/g, (c) => c.toUpperCase())
+    : '';
+
+  return {
+    client_title: titleClean,
+    client_name: clientName,
+    service: String(extracted.service || '').trim(),
+    status: /paid|confirmed|received/i.test(String(extracted.status || '')) ? 'paid' : '',
+    payment_date: cleanIsoDate(extracted.payment_date),
+    payment_time: normalizeTime(extracted.payment_time),
+    access_period: accessPeriod,
+    start_date: cleanIsoDate(extracted.start_date),
+    start_time: normalizeTime(extracted.start_time),
+    expiry_date: cleanIsoDate(extracted.expiry_date),
+    expiry_time: normalizeTime(extracted.expiry_time)
+  };
+}
+
+async function findExistingSubscription(env, parsed) {
+  const name = String(parsed?.client_name || '').trim();
+  const service = String(parsed?.service || '').trim();
+  if (!name || !service) return null;
+  // PostgREST `ilike` filters give us case-insensitive matching for
+  // both client_name and service, which lines up with how the rest
+  // of the dashboard groups rows. payment_date and start_date are
+  // exact matches when present so we don't false-merge across
+  // monthly renewals.
+  const filters = [
+    `client_name=ilike.${encodeURIComponent(name)}`,
+    `service=ilike.${encodeURIComponent(service)}`
+  ];
+  if (parsed.payment_date) filters.push(`payment_date=eq.${encodeURIComponent(parsed.payment_date)}`);
+  if (parsed.start_date) filters.push(`start_date=eq.${encodeURIComponent(parsed.start_date)}`);
+  const path = `/rest/v1/subscriptions?select=id,client_name,service,payment_date,start_date,status&${filters.join('&')}&limit=1`;
+  try {
+    const rows = await supabaseFetch(env, path);
+    return Array.isArray(rows) && rows.length ? rows[0] : null;
+  } catch (err) {
+    console.warn('[subs-import] dup lookup failed:', err?.message || err);
+    return null;
+  }
+}
+
+async function handleSubscriptionImport(request, env) {
+  if (!(await verifyAdminRequest(request, env))) return json({ error: 'Unauthorized.' }, 401);
+
+  // Accept either multipart/form-data with a `file` field or a JSON
+  // body { image: "base64", mime: "image/jpeg" }. The multipart
+  // path is what the /db Subs editor sends; the JSON path is
+  // retained for direct API consumers.
+  let imageBase64 = '';
+  let mime = 'image/jpeg';
+  const contentType = String(request.headers.get('content-type') || '').toLowerCase();
+  try {
+    if (contentType.startsWith('multipart/form-data')) {
+      const form = await request.formData();
+      const file = form.get('file');
+      if (!file || typeof file.arrayBuffer !== 'function') {
+        return json({ error: 'No image file uploaded.' }, 400);
+      }
+      mime = String(file.type || mime);
+      const buf = new Uint8Array(await file.arrayBuffer());
+      imageBase64 = bytesToBase64(buf);
+    } else {
+      const body = await request.json().catch(() => ({}));
+      imageBase64 = String(body.image || '').replace(/^data:[^,]+,/, '');
+      mime = String(body.mime || mime);
+    }
+  } catch (err) {
+    return json({ error: 'Could not read uploaded image.' }, 400);
+  }
+  if (!imageBase64) return json({ error: 'Missing image data.' }, 400);
+
+  const responseText = await callVisionExtractor(env, imageBase64, mime);
+  if (!responseText) {
+    return json({ ok: false, error: 'Could not read image, please enter manually.' }, 503);
+  }
+  const extracted = parseExtractorJson(responseText);
+  if (!extracted) {
+    return json({ ok: false, error: 'Could not read image, please enter manually.' }, 503);
+  }
+
+  const parsed = normalizeImportedSubscription(extracted);
+  const existing = await findExistingSubscription(env, parsed);
+  return json({
+    ok: true,
+    parsed,
+    existing: existing ? { id: String(existing.id), status: existing.status || '' } : null
+  });
+}
+
 // ── Invoice packages (item catalogue) ──────────────────────────────
 // Powers the /inv autocomplete: 5 hardcoded defaults plus any custom
 // packages saved from the invoice generator. Schema lives in
@@ -2298,6 +2549,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-save') return await handleSubscriptionSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/subscriptions-get') return await handleSubscriptionGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-delete') return await handleSubscriptionDelete(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/subscriptions-import') return await handleSubscriptionImport(request, env);
       if (request.method === 'GET' && url.pathname === '/api/packages') return await handlePackagesGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-save') return await handlePackageSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-delete') return await handlePackageDelete(request, env);
