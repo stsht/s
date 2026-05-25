@@ -79,16 +79,22 @@ function createRecordUrl(path, params) {
 
 // Map a subscription row to one of three visual states.
 //
-// active  - default, white/normal text.
-// expired - expiry_date has already passed; greyer/dimmer.
+// active  - currently in good standing — green.
+// expired - expiry_date has already passed — red.
 // warning - expiry_date within the next 3 days AND the row hasn't been
-//           settled (status is anything other than paid/solved/closed).
-//           Rendered red so renewal stays visible.
+//           settled (status is anything other than paid/solved/closed
+//           or one of the "recurring" status hints) — orange so
+//           renewal stays visible.
+//
+// Recurring/renew/active/paid statuses always read as green when the
+// subscription is not yet expired, even inside the 3-day warning
+// window — the operator has already confirmed the row is being
+// kept alive.
 //
 // The rule intentionally checks `expiry_date` only — `start_date`
 // without an expiry is treated as still active. Returning a stable
 // className lets the styling live in CSS.
-const SUBS_SETTLED_STATUSES = new Set(['paid', 'solved', 'closed']);
+const SUBS_SETTLED_STATUS_PATTERN = /recurring|renew|active|paid|solved|closed/;
 
 function subscriptionTone(sub = {}) {
   const expiryRaw = sub.expiry_date || '';
@@ -99,8 +105,22 @@ function subscriptionTone(sub = {}) {
   const diffDays = (expiry.getTime() - now) / 86400000;
   if (diffDays < 0) return 'expired';
   const status = String(sub.status || '').toLowerCase();
-  if (diffDays <= 3 && !SUBS_SETTLED_STATUSES.has(status)) return 'warning';
+  const isSettled = SUBS_SETTLED_STATUS_PATTERN.test(status);
+  if (diffDays <= 3 && !isSettled) return 'warning';
   return 'active';
+}
+
+// Format the Subs-tab list meta from a subscription row. Produces
+// e.g. "ChatGPT Paid" / "Google Drive Active" / "Dropbox Expired" —
+// the service name passed through verbatim, status capitalised and
+// joined with a single space (no hyphen). Falls back to "Active"
+// when the row has no status, mirroring the empty-state used by
+// the rest of the dashboard.
+function formatSubscriptionMeta(sub = {}) {
+  const service = String(sub.service || 'Subscription').trim();
+  const statusRaw = String(sub.status || '').trim();
+  const status = statusRaw ? toTitleCase(statusRaw) : 'Active';
+  return `${service} ${status}`.trim();
 }
 
 function PageChrome() {
@@ -388,9 +408,17 @@ function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClos
   const tone = subscription ? subscriptionTone(subscription) : '';
 
   const statusRaw = String(subscription?.status || '').trim();
-  const statusLabel = statusRaw
-    ? statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1)
-    : '';
+  const statusLabel = statusRaw ? toTitleCase(statusRaw) : '';
+  // Friendly tone label for the status badge — "Active" / "Expiring
+  // Soon" / "Expired". Falls back to the raw status if no expiry-
+  // derived tone applies.
+  const toneLabel = tone === 'expired'
+    ? 'Expired'
+    : tone === 'warning'
+      ? 'Expiring Soon'
+      : tone === 'active'
+        ? (statusLabel || 'Active')
+        : '';
   const period = Number(subscription?.access_period);
   const periodLabel = Number.isFinite(period) && period > 0 ? `${period} Days` : '';
   const priceLabel = Number.isFinite(Number(subscription?.price))
@@ -422,7 +450,12 @@ function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClos
       <div className="detail-heading">
         <div>
           <p className="eyebrow">Subscription</p>
-          <h2>{name}</h2>
+          <h2>
+            {name}
+            {tone && toneLabel ? (
+              <span className={`sub-badge sub-badge-${tone}`}>{toneLabel}</span>
+            ) : null}
+          </h2>
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
@@ -496,18 +529,43 @@ export function DatabasePage() {
   }, [clients]);
 
   // CRM Clients tab: real client rows + any client with invoice/delivery
-  // history. Subscription-only legacy summaries (source==='legacy' with
-  // no invoices and no deliveries) are intentionally excluded so the
-  // Clients tab stays a CRM view, not a subscription roster. Those
-  // entries still appear in the Subs tab via subClients.
+  // history. Subscription-only summaries (no invoice/delivery rows but
+  // a non-zero subscription count, or rows sourced from the legacy /
+  // subscriptions buckets) are intentionally excluded so the Clients
+  // tab stays a CRM view, not a subscription roster. Those entries
+  // still appear in the Subs tab via subClients.
   const crmClients = useMemo(() => {
     return clients.filter((c) => {
-      if (c?.source === 'client') return true;
-      if (Number(c?.invoice_count || 0) > 0) return true;
-      if (Number(c?.delivery_count || 0) > 0) return true;
-      if (Array.isArray(c?.invoice_ids) && c.invoice_ids.length > 0) return true;
-      if (Array.isArray(c?.delivery_ids) && c.delivery_ids.length > 0) return true;
-      return false;
+      const invoiceCount = Number(c?.invoice_count || 0);
+      const deliveryCount = Number(c?.delivery_count || 0);
+      const subscriptionCount = Number(c?.subscription_count || 0);
+      const source = String(c?.source || '').toLowerCase();
+      const hasInvoiceHistory =
+        invoiceCount > 0 ||
+        (Array.isArray(c?.invoice_ids) && c.invoice_ids.length > 0);
+      const hasDeliveryHistory =
+        deliveryCount > 0 ||
+        (Array.isArray(c?.delivery_ids) && c.delivery_ids.length > 0);
+
+      // Real history wins regardless of source/subscription state.
+      if (hasInvoiceHistory || hasDeliveryHistory) return true;
+
+      // Drop legacy / subscription-derived summaries that have no
+      // invoice or delivery history. These are subscription-only
+      // entries (e.g. Keysyanaf, Kornelius) that previously leaked
+      // into the Clients list.
+      const isLegacyOrSubscriptionSource =
+        source === 'legacy' ||
+        source === 'subscription' ||
+        source === 'subscriptions';
+      if (isLegacyOrSubscriptionSource) return false;
+
+      // Even when source === 'client', a row with only subscription
+      // history is still a subscription-only summary for CRM purposes.
+      if (subscriptionCount > 0) return false;
+
+      // Otherwise include real client rows.
+      return source === 'client';
     });
   }, [clients]);
 
@@ -711,7 +769,7 @@ export function DatabasePage() {
             const contact = row.contact || row.client_contact || '';
             meta = isHumanReadableContact(contact) ? contact : '';
           } else if (isSub && clientSub) {
-            meta = `${clientSub.service || 'Subscription'} - ${clientSub.status || 'Active'}`;
+            meta = formatSubscriptionMeta(clientSub);
           }
           const rowId = row.id || `row-${index}`;
           const className = [
