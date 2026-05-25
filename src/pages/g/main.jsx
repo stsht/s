@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
-import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import '../invcs/invcs.css';
 
 /**
@@ -21,6 +20,13 @@ function deliverySlug() {
 function GalleryLinks({ payload }) {
   const delivery = payload?.delivery || {};
   const links = (payload?.links || []).filter((item) => item?.url);
+  const linkMap = new Map(links.map((link) => [String(link.service || '').toLowerCase(), link]));
+  const services = [
+    { key: 'gd', aliases: ['gd', 'drive', 'google drive'], fallback: 'Google Drive', icon: 'GD' },
+    { key: 'db', aliases: ['db', 'dropbox'], fallback: 'Dropbox', icon: 'DB' },
+    { key: 'wt', aliases: ['wt', 'wetransfer', 'we transfer'], fallback: 'WeTransfer', icon: 'WT' },
+    { key: 'tn', aliases: ['tn', 'transfernow', 'transfer now'], fallback: 'TransferNow', icon: 'TN' },
+  ];
 
   async function track(service) {
     if (!delivery.id || !service) return;
@@ -31,39 +37,53 @@ function GalleryLinks({ payload }) {
     }).catch(() => {});
   }
 
-  const heading = delivery.clientName ? `Hello, ${delivery.clientName}` : 'Private Delivery';
+  const heading = delivery.clientName ? `Hello, ${delivery.clientName}` : 'Your files are ready';
   const hasValidTitle = delivery.title && !['Ms.', 'Mr.', 'Mrs.', 'Family', 'Ms', 'Mr'].includes(delivery.title);
-  const subtitle = (hasValidTitle ? delivery.title : '') || delivery.folderName || 'Your delivery links are ready.';
-
-  const left = (
-    <>
-      <p className="eyebrow">{subtitle}</p>
-      <h2>{heading}</h2>
-      <div className="gallery-link-grid">
-        {links.length ? links.map((link) => (
-          <a
-            className="gallery-link-card"
-            href={link.url}
-            key={link.service}
-            onClick={() => track(link.service)}
-            rel="noopener"
-            target="_blank"
-          >
-            <span>{link.label || link.service}</span>
-            <b>Open</b>
-          </a>
-        )) : <p className="empty-state">No links available yet.</p>}
-      </div>
-    </>
-  );
+  const subtitle = (hasValidTitle ? delivery.title : '') || delivery.folderName || '';
 
   return (
-    <PrivateWorkspaceFrame
-      active=""
-      showNav={false}
-      logoHref="/"
-      left={left}
-    />
+    <main className="public-delivery-page">
+      <GlobalBackground />
+      <section className="public-delivery-card" aria-label="Private delivery links">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="public-delivery-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
+        {subtitle ? <p className="public-delivery-kicker">{subtitle}</p> : null}
+        <h1>{heading}</h1>
+        <p className="public-delivery-subcopy">Choose your preferred delivery option below.</p>
+        <div className="public-delivery-list">
+          {services.map(({ key, aliases, fallback, icon }) => {
+            const link = aliases.map((alias) => linkMap.get(alias)).find(Boolean);
+            const available = !!link?.url;
+            const content = (
+              <>
+                <span className="public-delivery-icon">{icon}</span>
+                <span className="public-delivery-name">{link?.label || fallback}</span>
+                <span className="public-delivery-state">{available ? 'Open' : 'Unavailable'}</span>
+              </>
+            );
+            return available ? (
+              <a
+                key={fallback}
+                className="public-delivery-row is-active"
+                href={link.url}
+                onClick={() => track(link.service || key)}
+                rel="noopener"
+                target="_blank"
+              >
+                {content}
+              </a>
+            ) : (
+              <div key={fallback} className="public-delivery-row is-muted">
+                {content}
+              </div>
+            );
+          })}
+        </div>
+        <p className="public-delivery-signoff">With love, StarShots</p>
+      </section>
+    </main>
   );
 }
 
