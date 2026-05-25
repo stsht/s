@@ -372,6 +372,101 @@ function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHr
   );
 }
 
+// Right-panel detail view for the Subs tab. Mirrors ClientDetail's
+// chrome (heading + delete + close X) but the body is a flat tile
+// stack of subscription fields. Reusing ClientDetail here would have
+// shown "No events yet" because subscription-only clients have no
+// invoice/delivery rows — that mismatch was the bug this view fixes.
+//
+// Create Invoice / Create Links are intentionally omitted: a
+// subscription is a recurring service, not a one-off event, so
+// those CTAs don't apply. The Subs page (/subs) is the canonical
+// entry for editing/regenerating a subscription bill or receipt.
+function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClose }) {
+  const name = client?.name || client?.client_name || subscription?.client_name || 'Client';
+  const contact = client?.contact || client?.client_contact || subscription?.client_contact || '';
+  const tone = subscription ? subscriptionTone(subscription) : '';
+
+  const statusRaw = String(subscription?.status || '').trim();
+  const statusLabel = statusRaw
+    ? statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1)
+    : '';
+  const period = Number(subscription?.access_period);
+  const periodLabel = Number.isFinite(period) && period > 0 ? `${period} Days` : '';
+  const priceLabel = Number.isFinite(Number(subscription?.price))
+    ? rupiah(subscription.price)
+    : '';
+  const priceField = String(subscription?.status || '').toLowerCase() === 'paid'
+    ? 'Paid Amount'
+    : 'Price';
+
+  // Build the field list. Empty fields are dropped so the panel
+  // never shows a wall of "—" placeholders for a thin record.
+  const fields = [
+    { label: 'Service', value: subscription?.service || '' },
+    { label: 'Status', value: statusLabel },
+    { label: 'Storage', value: subscription?.storage_slot || subscription?.storage || '' },
+    { label: 'Period', value: periodLabel },
+    { label: priceField, value: priceLabel },
+    { label: 'Invoice Date', value: subscription?.invoice_date ? dateLabel(subscription.invoice_date) : '' },
+    { label: 'Payment Date', value: subscription?.payment_date ? dateLabel(subscription.payment_date) : '' },
+    { label: 'Payment Time', value: subscription?.payment_time || '' },
+    { label: 'Start Date', value: subscription?.start_date ? dateLabel(subscription.start_date) : '' },
+    { label: 'Start Time', value: subscription?.start_time || '' },
+    { label: 'Expiry Date', value: subscription?.expiry_date ? dateLabel(subscription.expiry_date) : '' },
+    { label: 'Contact', value: contact },
+  ].filter((f) => String(f.value || '').trim());
+
+  return (
+    <>
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Subscription</p>
+          <h2>{name}</h2>
+          {contact ? <span>{contact}</span> : null}
+        </div>
+        <div className="detail-actions">
+          {subscription?.id ? (
+            <button
+              type="button"
+              className="ghost-button compact db-delete-button"
+              onClick={() => onDeleteSubscription?.(subscription)}
+            >
+              Delete Subscription
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="db-close-button"
+            onClick={onClose}
+            aria-label="Close detail view"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      {!subscription ? (
+        <p className="empty-state">No subscription details available.</p>
+      ) : (
+        <div className={`list-stack${tone ? ` sub-${tone}` : ''}`}>
+          {fields.map((field) => (
+            <article className="list-row" key={field.label}>
+              <div>
+                <strong>{field.label}</strong>
+                <span>{field.value}</span>
+              </div>
+            </article>
+          ))}
+          {!fields.length ? <p className="empty-state">No subscription details available.</p> : null}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function DatabasePage() {
   const [tab, setTab] = useState('clients');
   const [query, setQuery] = useState('');
@@ -400,6 +495,22 @@ export function DatabasePage() {
     return clients.filter(c => (c.subscription_count || 0) > 0 || (c.subscription_ids && c.subscription_ids.length > 0));
   }, [clients]);
 
+  // CRM Clients tab: real client rows + any client with invoice/delivery
+  // history. Subscription-only legacy summaries (source==='legacy' with
+  // no invoices and no deliveries) are intentionally excluded so the
+  // Clients tab stays a CRM view, not a subscription roster. Those
+  // entries still appear in the Subs tab via subClients.
+  const crmClients = useMemo(() => {
+    return clients.filter((c) => {
+      if (c?.source === 'client') return true;
+      if (Number(c?.invoice_count || 0) > 0) return true;
+      if (Number(c?.delivery_count || 0) > 0) return true;
+      if (Array.isArray(c?.invoice_ids) && c.invoice_ids.length > 0) return true;
+      if (Array.isArray(c?.delivery_ids) && c.delivery_ids.length > 0) return true;
+      return false;
+    });
+  }, [clients]);
+
   const getClientSubscription = useCallback((client) => {
     const clientId = String(client?.id || '').trim();
     const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
@@ -411,8 +522,14 @@ export function DatabasePage() {
     });
   }, [subscriptions]);
 
-  const activeRows = tab === 'subs' ? subClients : clients;
+  const activeRows = tab === 'subs' ? subClients : crmClients;
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
+  // For Subs tab selections, resolve the actual subscription row so the
+  // detail panel renders subscription fields instead of reusing the
+  // CRM event flow (which produced a misleading "No events yet").
+  const selectedSubscription = selected?.type === 'subscription'
+    ? getClientSubscription(selected.data || {})
+    : null;
 
   // Escape key listener to clear selection
   useEffect(() => {
@@ -608,7 +725,14 @@ export function DatabasePage() {
             // Delete X is now a permanent control on every row, so
             // taps just select. The previous arm/disarm dance was
             // removed along with armedRowId state in PR #56.
-            if (isClient || isSub) {
+            if (isSub) {
+              // Subs tab → subscription detail (resolved via
+              // getClientSubscription on render). Keeps the row's
+              // client summary in selected.data so heading/contact
+              // stay available when the subscription record is
+              // missing fields.
+              setSelected({ type: 'subscription', id: row.id, data: row });
+            } else if (isClient) {
               setSelected({ type: 'client', id: row.id, data: row });
             } else {
               setSelected({ type: tab, id: row.id, data: row });
@@ -616,7 +740,19 @@ export function DatabasePage() {
           };
           const handleDelete = (event) => {
             event.stopPropagation();
-            if (isClient || isSub) {
+            if (isSub) {
+              // Deleting from the Subs list removes the subscription
+              // record itself, not the underlying client. The client
+              // can still own invoices/deliveries that should survive.
+              const sub = getClientSubscription(row);
+              if (sub?.id) {
+                deleteRecord({ kind: 'subscription', id: sub.id });
+                if (selected?.type === 'subscription' && selected.id === row.id) {
+                  setSelected(null);
+                  setMobileView('left');
+                }
+              }
+            } else if (isClient) {
               deleteClient(row);
             }
           };
@@ -693,7 +829,23 @@ export function DatabasePage() {
           }}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' ? (
+      {selected?.type === 'subscription' ? (
+        <SubscriptionDetail
+          client={selected.data || {}}
+          subscription={selectedSubscription}
+          onDeleteSubscription={(sub) => {
+            if (!sub?.id) return;
+            deleteRecord({ kind: 'subscription', id: sub.id });
+            setSelected(null);
+            setMobileView('left');
+          }}
+          onClose={() => {
+            setSelected(null);
+            setMobileView('left');
+          }}
+        />
+      ) : null}
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' ? (
         <>
           <div className="list-stack">
             <ListRow
