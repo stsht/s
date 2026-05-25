@@ -492,51 +492,136 @@ function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHr
   );
 }
 
+// Robust short-code resolver. Old delivery rows shipped with a
+// variety of field names depending on which version of /l saved
+// them: short_code/shortCode, short_url/shortUrl, short_link/
+// shortLink, delivery_url, and per-link short_path on
+// links[]/delivery_links[]. Worker /api/db now normalises most of
+// these to short_code + short_url, but it still emits short_url
+// "/" for legacy rows that have no short_code at all — that's the
+// "https://sshots.pages.dev/" bug we fix here. Returns a 7- or
+// 12-char lowercase code, or '' when none could be recovered.
+function resolveDeliveryShortCode(delivery) {
+  const direct = (val) => {
+    const c = String(val || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (c.length === 12 || c.length === 7) return c;
+    return '';
+  };
+  const codeFromUrlString = (val) => {
+    if (typeof val !== 'string') return '';
+    const m = val.match(/(?:^|\/)([a-z0-9]{12}|[a-z0-9]{7})(?:[/?#]|$)/i);
+    return m ? m[1].toLowerCase() : '';
+  };
+
+  // 1) Direct 12/7-char code fields the worker or composer might emit.
+  for (const v of [delivery?.short_code, delivery?.shortCode]) {
+    const c = direct(v);
+    if (c) return c;
+  }
+  // 2) Full URL or path-shaped fields.
+  for (const v of [
+    delivery?.short_url,
+    delivery?.shortUrl,
+    delivery?.short_link,
+    delivery?.shortLink,
+    delivery?.delivery_url,
+  ]) {
+    const c = codeFromUrlString(v);
+    if (c) return c;
+  }
+  // 3) Per-link short_path entries on links[] / delivery_links[].
+  const arrays = [delivery?.links, delivery?.delivery_links].filter(Array.isArray);
+  for (const arr of arrays) {
+    for (const link of arr) {
+      const c =
+        direct(link?.short_code) ||
+        codeFromUrlString(link?.short_path) ||
+        codeFromUrlString(link?.shortPath) ||
+        codeFromUrlString(link?.short_url);
+      if (c) return c;
+    }
+  }
+  return '';
+}
+
+// Build the canonical short URL the operator can paste/share.
+// Returns '' if the row has no usable short_code (caller renders
+// "Legacy link unavailable"). Origin defaults to the current page
+// so the dashboard always copies a link on the same domain it was
+// opened on.
+function buildShortUrl(code) {
+  if (!code) return '';
+  if (typeof window === 'undefined') return `/${code}`;
+  try {
+    return new URL(`/${code}`, window.location.origin).toString();
+  } catch {
+    return `/${code}`;
+  }
+}
+
+// Synthesise a delivery message when the worker payload doesn't
+// carry a stored generated_text_whatsapp / generated_text_instagram
+// (e.g. older rows that pre-date the message-template change). Mirrors
+// buildDeliveryMessage() in _worker.js so the operator-facing text is
+// identical regardless of which path produced it. WA and IG share the
+// same body — the public template doesn't differ between channels.
+function synthesizeDeliveryMessage(title, clientName, shortUrl, password, folder) {
+  const t = String(title || 'Ms.').trim() || 'Ms.';
+  const n = String(clientName || '').trim();
+  const link = shortUrl || '(link unavailable)';
+  const pass = String(password || '').trim() || '(no password)';
+  const folderLine = folder ? `\n• Folder: ${folder}` : '';
+  return `Dear ${t} ${n},
+
+With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
+
+You may access them through the details below:
+
+• Link: ${link}
+• Password: ${pass}${folderLine}
+
+Kindly download the files within the stated availability period.
+
+It has been our pleasure to serve you, and we look forward to welcoming you again.
+
+Warm regards,
+StarShots`;
+}
+
 // Admin-only delivery detail rendered in /db's right panel after
 // clicking "View Links" on a saved client event. Shows the
 // operator everything needed to re-share a delivery without
 // hopping to the public /{shortcode} page or digging through the
 // database: client greeting, folder/gallery name, plain password,
-// the full short link, and any original Google Drive / Dropbox /
+// the full short link, any original Google Drive / Dropbox /
 // WeTransfer / TransferNow URLs that were stored when the
-// delivery was composed. Public clients never see this surface;
-// the public delivery (short-link) page rendering is unchanged.
+// delivery was composed, plus tap-to-copy/share controls and the
+// stored WhatsApp/Instagram message templates.
 //
-// Source-of-truth fields come straight from /api/db's `items[]`
-// payload (see handleDbSearch in _worker.js): title, client_name,
-// folder_name, base_slug, gallery_code, password, short_code,
-// short_url, links[]. Each link row in `links` carries
-// { service: 'gd'|'db'|'wt'|'tn', original_url, ... }; we filter
-// in display order so a partial delivery (e.g. only GD) shows
-// only the URLs that were saved.
+// Tap behaviour:
+//   • Short Link card  → copies URL AND opens in a new tab.
+//   • Password card    → copies password to clipboard.
+//   • Service cards    → opens the original GD/DB/WT/TN link.
+//   • Copy WA / Copy IG → copies the displayed message variant.
+//
+// Source-of-truth fields come from /api/db's `items[]` payload
+// (handleDbSearch in _worker.js). When the row is too old to
+// carry a 12-char short_code we fall through to "Legacy link
+// unavailable" rather than emitting a broken root URL.
 function DeliveryDetail({ delivery, onClose }) {
   const title = String(delivery?.title || 'Ms.').trim() || 'Ms.';
   const clientName = String(delivery?.client_name || 'Client').trim() || 'Client';
-  // Folder identity: folder_name is the human-entered folder from
-  // the /l composer; gallery_code is the prettified slug derived
-  // from base_slug ("240517 Jane Doe"); base_slug is the URL-safe
-  // form. We surface whichever is most readable, in that order,
-  // and drop the row entirely when none exist.
   const folder =
     String(delivery?.folder_name || '').trim() ||
     String(delivery?.gallery_code || '').trim() ||
     String(delivery?.base_slug || '').trim();
   const password = String(delivery?.password || '').trim();
-  const shortCode = String(delivery?.short_code || '').trim();
-  // Build the user-facing short URL from the page origin so the
-  // operator copies a link that matches whatever domain the admin
-  // is on (production starshots.pages.dev, custom domain, or local
-  // preview). Fall back to the raw path returned by the API if
-  // window.location.origin is unavailable.
-  const shortPath = String(delivery?.short_url || (shortCode ? `/${shortCode}` : '')).trim();
-  let shortUrl = '';
-  if (shortPath) {
-    try {
-      shortUrl = new URL(shortPath, window.location.origin).toString();
-    } catch {
-      shortUrl = shortPath;
-    }
-  }
+
+  const shortCode = resolveDeliveryShortCode(delivery);
+  const shortUrl = buildShortUrl(shortCode);
+  // Display-only label for the short link card. Strip the protocol
+  // so a 12-char URL fits on one line at smaller widths.
+  const shortDisplay = shortUrl.replace(/^https?:\/\//, '');
 
   const linkRows = Array.isArray(delivery?.links) ? delivery.links : [];
   const byService = new Map();
@@ -552,9 +637,48 @@ function DeliveryDetail({ delivery, onClose }) {
     { key: 'wt', label: 'WeTransfer' },
     { key: 'tn', label: 'TransferNow' },
   ];
-  const services = SERVICE_LABELS.filter(({ key }) => byService.has(key));
+  const services = SERVICE_LABELS
+    .filter(({ key }) => byService.has(key))
+    .map((s) => ({ ...s, url: byService.get(s.key) }));
 
+  // Prefer the worker's stored WA/IG templates when present so the
+  // operator copies the exact text saved with the delivery. Fall
+  // back to a synthesized message that mirrors buildDeliveryMessage()
+  // in _worker.js. When shortUrl is empty the synth still produces
+  // readable text with a "(link unavailable)" placeholder.
+  const storedWa = String(delivery?.generated_text_whatsapp || '').trim();
+  const storedIg = String(delivery?.generated_text_instagram || '').trim();
+  const synth = synthesizeDeliveryMessage(title, clientName, shortUrl, password, folder);
+  const messageWa = storedWa || synth;
+  const messageIg = storedIg || storedWa || synth;
+
+  const [variant, setVariant] = useState('whatsapp');
+  const [flash, setFlash] = useState('');
+  const flashTarget = (target) => {
+    setFlash(target);
+    setTimeout(() => setFlash((cur) => (cur === target ? '' : cur)), 700);
+  };
+
+  const messageText = variant === 'instagram' ? messageIg : messageWa;
   const hasAnyDetail = !!password || !!shortUrl || services.length > 0;
+
+  async function handleShortLinkClick() {
+    if (!shortUrl) return;
+    await copyToClipboard(shortUrl);
+    flashTarget('short');
+    window.open(shortUrl, '_blank', 'noopener,noreferrer');
+  }
+  async function handlePasswordClick() {
+    if (!password) return;
+    await copyToClipboard(password);
+    flashTarget('pass');
+  }
+  async function handleCopyMessage(which) {
+    const text = which === 'instagram' ? messageIg : messageWa;
+    if (!text) return;
+    await copyToClipboard(text);
+    flashTarget(`msg-${which}`);
+  }
 
   return (
     <>
@@ -578,39 +702,118 @@ function DeliveryDetail({ delivery, onClose }) {
           </button>
         </div>
       </div>
-      <div className="list-stack">
-        {password ? (
-          <article className="list-row">
-            <div>
-              <strong>Password</strong>
-              <span>{password}</span>
-            </div>
-          </article>
-        ) : null}
-        {shortUrl ? (
-          <article className="list-row">
-            <div>
-              <strong>Short link</strong>
-              <span>
-                <a href={shortUrl} target="_blank" rel="noopener noreferrer">{shortUrl}</a>
-              </span>
-            </div>
-          </article>
-        ) : null}
-        {services.map(({ key, label }) => (
-          <article className="list-row" key={key}>
-            <div>
-              <strong>{label}</strong>
-              <span>
-                <a href={byService.get(key)} target="_blank" rel="noopener noreferrer">
-                  {byService.get(key)}
+      {!hasAnyDetail ? (
+        <p className="empty-state">No delivery details available.</p>
+      ) : (
+        <div className="dd-stack">
+          <div className="dd-grid-2">
+            {shortUrl ? (
+              <button
+                type="button"
+                className={`dd-card dd-card--action${flash === 'short' ? ' is-flash' : ''}`}
+                onClick={handleShortLinkClick}
+                aria-label="Copy short link and open in new tab"
+              >
+                <span className="dd-eyebrow">Short Link</span>
+                <strong className="dd-card-strong">{shortDisplay}</strong>
+                <span className="dd-card-hint">Tap to copy &amp; open</span>
+              </button>
+            ) : (
+              <div className="dd-card dd-card--muted" aria-label="Legacy short link unavailable">
+                <span className="dd-eyebrow">Short Link</span>
+                <strong className="dd-card-strong dd-card-strong--muted">Legacy link unavailable</strong>
+                <span className="dd-card-hint">No 12-char short code on this row.</span>
+              </div>
+            )}
+            {password ? (
+              <button
+                type="button"
+                className={`dd-card dd-card--action${flash === 'pass' ? ' is-flash' : ''}`}
+                onClick={handlePasswordClick}
+                aria-label="Copy password"
+              >
+                <span className="dd-eyebrow">Password</span>
+                <strong className="dd-card-strong">{password}</strong>
+                <span className="dd-card-hint">Tap to copy</span>
+              </button>
+            ) : (
+              <div className="dd-card dd-card--muted" aria-label="No password">
+                <span className="dd-eyebrow">Password</span>
+                <strong className="dd-card-strong dd-card-strong--muted">&mdash;</strong>
+                <span className="dd-card-hint">No password on this row.</span>
+              </div>
+            )}
+          </div>
+
+          {services.length ? (
+            <div className="dd-services">
+              {services.map(({ key, label, url }) => (
+                <a
+                  key={key}
+                  className="dd-card dd-card--action dd-service-card"
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="dd-service-head">
+                    <span className="dd-chip">{key.toUpperCase()}</span>
+                    <span className="dd-service-label">{label}</span>
+                  </span>
+                  <span className="dd-service-url">{url}</span>
                 </a>
-              </span>
+              ))}
             </div>
-          </article>
-        ))}
-        {!hasAnyDetail ? <p className="empty-state">No delivery details available.</p> : null}
-      </div>
+          ) : null}
+
+          <div className={`dd-message${(flash === 'msg-whatsapp' || flash === 'msg-instagram') ? ' is-flash' : ''}`}>
+            <div className="dd-message-head">
+              <p className="eyebrow">Message</p>
+              <div className="dd-segmented" role="tablist" aria-label="Message variant">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={variant === 'whatsapp'}
+                  className={variant === 'whatsapp' ? 'active' : ''}
+                  onClick={() => setVariant('whatsapp')}
+                >
+                  WhatsApp
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={variant === 'instagram'}
+                  className={variant === 'instagram' ? 'active' : ''}
+                  onClick={() => setVariant('instagram')}
+                >
+                  Instagram
+                </button>
+              </div>
+            </div>
+            <textarea
+              className="dd-message-output"
+              value={messageText}
+              readOnly
+              spellCheck="false"
+            />
+            <div className="dd-message-actions">
+              <button
+                type="button"
+                className={`ghost-button compact${flash === 'msg-whatsapp' ? ' is-flash' : ''}`}
+                onClick={() => handleCopyMessage('whatsapp')}
+              >
+                Copy WA
+              </button>
+              <button
+                type="button"
+                className={`ghost-button compact${flash === 'msg-instagram' ? ' is-flash' : ''}`}
+                onClick={() => handleCopyMessage('instagram')}
+              >
+                Copy IG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -2051,21 +2254,26 @@ export function DatabasePage() {
 
   const left = (
     <>
-      <input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search"
-      />
-      {tab === 'clients' ? (
-        <button className="add-client-button" type="button" onClick={openNewClient}>
-          Create Client
-        </button>
-      ) : null}
-      {tab === 'subs' ? (
-        <button className="add-client-button" type="button" onClick={openImportSubscription}>
-          Import JPG
-        </button>
-      ) : null}
+      <div className="pf-list-tools">
+        <input
+          className="pf-search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search"
+          type="search"
+          aria-label="Search database"
+        />
+        {tab === 'clients' ? (
+          <button className="add-client-button" type="button" onClick={openNewClient}>
+            Create Client
+          </button>
+        ) : null}
+        {tab === 'subs' ? (
+          <button className="add-client-button" type="button" onClick={openImportSubscription}>
+            Import JPG
+          </button>
+        ) : null}
+      </div>
       {status ? <EmptyState>{status}</EmptyState> : null}
       <div className="db-list">
         {activeRows.slice(0, 80).map((row, index) => {
