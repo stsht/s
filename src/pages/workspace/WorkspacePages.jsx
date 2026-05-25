@@ -788,6 +788,29 @@ async function extractSubscriptionReceiptInBrowser(file, setStatus) {
 // fields so the operator can type the receipt manually. The
 // uploaded image is never stored — the request body is consumed
 // once and dropped on the server.
+// Initial draft for the JPG importer. Defined at module scope so
+// the post-save reset path can reuse the exact same shape that
+// useState() seeds on mount — keeps "ready for next receipt" and
+// "first open" visually identical.
+const INITIAL_SUBS_IMPORT_DRAFT = {
+  client_title: 'Mr.',
+  client_name: '',
+  client_contact: '',
+  service: '',
+  storage_slot: '',
+  rate_mode: 'normal',
+  price: 0,
+  status: 'paid',
+  invoice_date: '',
+  payment_date: '',
+  payment_time: '',
+  access_period: 30,
+  start_date: '',
+  start_time: '',
+  expiry_date: '',
+  expiry_time: '',
+};
+
 function SubscriptionImport({ onSaved, onCancel }) {
   const [stage, setStage] = useState('upload'); // 'upload' | 'edit'
   const [busy, setBusy] = useState(false);
@@ -799,24 +822,7 @@ function SubscriptionImport({ onSaved, onCancel }) {
   // default to today when extraction fails — leave them empty so the
   // operator visibly sees what wasn't read instead of silently
   // saving "today" for a receipt the OCR never matched.
-  const [draft, setDraft] = useState({
-    client_title: 'Mr.',
-    client_name: '',
-    client_contact: '',
-    service: '',
-    storage_slot: '',
-    rate_mode: 'normal',
-    price: 0,
-    status: 'paid',
-    invoice_date: '',
-    payment_date: '',
-    payment_time: '',
-    access_period: 30,
-    start_date: '',
-    start_time: '',
-    expiry_date: '',
-    expiry_time: '',
-  });
+  const [draft, setDraft] = useState(INITIAL_SUBS_IMPORT_DRAFT);
 
   function setField(key, value) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -949,6 +955,19 @@ function SubscriptionImport({ onSaved, onCancel }) {
       if (!response.ok || !json.ok) {
         throw new Error(json.error || `Save failed (${response.status}).`);
       }
+      // Save succeeded — return the panel to the upload step so the
+      // operator can drop the next receipt without re-navigating.
+      // We reset every piece of importer state (stage, fileName,
+      // status, existingId, draft) so the next render is visually
+      // indistinguishable from a fresh open. The parent only needs
+      // to refresh its Subs list; it must NOT clear `selected` or
+      // we'd unmount this component and leave a blank panel.
+      setStage('upload');
+      setFileName('');
+      setExistingId('');
+      setStatus('');
+      setStatusTone('');
+      setDraft(INITIAL_SUBS_IMPORT_DRAFT);
       onSaved?.();
     } catch (error) {
       setStatus(error?.message || 'Save failed.');
@@ -1628,8 +1647,10 @@ export function DatabasePage() {
       {selected?.type === 'subs-import' ? (
         <SubscriptionImport
           onSaved={() => {
-            setSelected(null);
-            setMobileView('left');
+            // Stay on /db Subs with the importer mounted — the
+            // component itself resets back to its upload step so
+            // the operator can drop the next receipt immediately.
+            // We only refresh the list so the saved row appears.
             refetch();
           }}
           onCancel={() => {
