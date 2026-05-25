@@ -1888,3 +1888,91 @@ dd{margin:0;text-align:right;font-weight:800}
   .lg-stats{grid-template-columns:1fr 1fr}
   .lg-output{min-height:220px}
 }
+
+
+/* Subs JPG import — drag-and-drop upload zone. Mirrors the
+ * .qr-upload pill aesthetic (dashed border, soft field bg) but
+ * scales up to a multi-line drop target with an icon, headline,
+ * and filename hint. The visually-hidden native <input type="file">
+ * keeps keyboard focus working; pointer events fall through to the
+ * outer wrapper because the input is sized 1x1 and offset off-screen.
+ *
+ *  • idle             → dashed line + muted copy
+ *  • hover/focus      → accent border, ink-coloured copy
+ *  • drag-active      → solid accent border + soft tint to confirm
+ *                       the drop target is live
+ *  • busy (uploading) → reduced opacity, pointer disabled, no hover
+ */
+.subs-drop-wrap{display:grid;gap:8px}
+.subs-drop{
+  position:relative;
+  display:grid;
+  justify-items:center;
+  align-content:center;
+  gap:8px;
+  padding:28px 20px;
+  min-height:168px;
+  border:1.5px dashed var(--line-strong);
+  border-radius:22px;
+  background:var(--field);
+  color:var(--muted);
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .14s ease, background .14s ease, color .14s ease, transform .08s ease;
+  outline:none;
+}
+.subs-drop input[type="file"]{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+  white-space:nowrap;
+  border:0;
+}
+.subs-drop-icon{
+  width:34px;
+  height:34px;
+  color:var(--accent);
+  opacity:.85;
+}
+.subs-drop-title{
+  color:var(--ink);
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+.subs-drop-hint{
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+  letter-spacing:.02em;
+  max-width:32ch;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.subs-drop:hover{
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--field) 80%, var(--accent) 8%);
+  color:var(--ink);
+}
+.subs-drop:focus-visible{
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(95,149,245,.18);
+}
+.subs-drop:active{transform:scale(.995)}
+.subs-drop--active{
+  border-style:solid;
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--field) 70%, var(--accent) 14%);
+  color:var(--ink);
+}
+.subs-drop--active .subs-drop-icon{opacity:1}
+.subs-drop--busy{
+  cursor:progress;
+  opacity:.7;
+  pointer-events:none;
+}
