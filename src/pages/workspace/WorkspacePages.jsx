@@ -500,6 +500,366 @@ function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClos
   );
 }
 
+// Right-panel "Import JPG" flow for /db Subs. Step 1 is a file
+// picker; step 2 is the editable preview that shows extracted
+// fields and lets the operator correct anything before Save.
+//
+// On Save we POST to /api/subscriptions-save with the matched
+// existing-subscription id (when present) so the row is updated
+// rather than duplicated for the same client+service+payment+start.
+//
+// Failure is graceful: if the server returns ok:false (or the
+// vision provider is unavailable), the form opens with empty
+// fields so the operator can type the receipt manually. The
+// uploaded image is never stored — the request body is consumed
+// once and dropped on the server.
+function SubscriptionImport({ onSaved, onCancel }) {
+  const [stage, setStage] = useState('upload'); // 'upload' | 'edit'
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [statusTone, setStatusTone] = useState('');
+  const [existingId, setExistingId] = useState('');
+  const [draft, setDraft] = useState({
+    client_title: 'Mr.',
+    client_name: '',
+    client_contact: '',
+    service: '',
+    storage_slot: '',
+    rate_mode: 'normal',
+    price: 0,
+    status: 'paid',
+    invoice_date: today(),
+    payment_date: '',
+    payment_time: '',
+    access_period: 30,
+    start_date: '',
+    start_time: '',
+    expiry_date: '',
+    expiry_time: '',
+  });
+
+  function setField(key, value) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  // Merge server-parsed fields into the draft. Empty/null values
+  // fall back to the current draft so a partial extraction still
+  // leaves any defaults the operator already saw.
+  function applyParsed(parsed = {}) {
+    setDraft((current) => ({
+      ...current,
+      client_title: parsed.client_title || current.client_title,
+      client_name: parsed.client_name || current.client_name,
+      service: parsed.service || current.service,
+      status: parsed.status || current.status,
+      payment_date: parsed.payment_date || current.payment_date,
+      payment_time: parsed.payment_time || current.payment_time,
+      access_period: Number.isFinite(Number(parsed.access_period)) && Number(parsed.access_period) > 0
+        ? Number(parsed.access_period)
+        : current.access_period,
+      start_date: parsed.start_date || current.start_date,
+      start_time: parsed.start_time || current.start_time,
+      expiry_date: parsed.expiry_date || current.expiry_date,
+      expiry_time: parsed.expiry_time || current.expiry_time,
+    }));
+  }
+
+  async function handleFile(event) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setStatus('Reading image\u2026');
+    setStatusTone('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch('/api/subscriptions-import', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: form,
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        // Spec requires the friendly message — fall through to the
+        // edit stage so the operator can still type the fields.
+        setStatus(json.error || 'Could not read image, please enter manually.');
+        setStatusTone('error');
+        setStage('edit');
+        setExistingId('');
+        return;
+      }
+      applyParsed(json.parsed || {});
+      setExistingId(String(json.existing?.id || ''));
+      setStatus(json.existing?.id
+        ? 'Read OK. Existing subscription found \u2014 Save will update it.'
+        : 'Read OK. Review and Save to create the row.');
+      setStatusTone('success');
+      setStage('edit');
+    } catch (error) {
+      setStatus(error?.message || 'Could not read image, please enter manually.');
+      setStatusTone('error');
+      setStage('edit');
+      setExistingId('');
+    } finally {
+      setBusy(false);
+      // Reset the file input so re-uploading the same file works.
+      if (event.target) event.target.value = '';
+    }
+  }
+
+  async function handleSave(event) {
+    event.preventDefault();
+    if (!String(draft.client_name || '').trim()) {
+      setStatus('Client name is required.');
+      setStatusTone('error');
+      return;
+    }
+    if (!String(draft.service || '').trim()) {
+      setStatus('Service is required.');
+      setStatusTone('error');
+      return;
+    }
+    setBusy(true);
+    setStatus('Saving\u2026');
+    setStatusTone('');
+    try {
+      const payload = { ...draft };
+      // Pass id through when we matched an existing row so
+      // /api/subscriptions-save runs as an update rather than an
+      // insert — this is the duplicate-suppression contract.
+      if (existingId) payload.id = existingId;
+      const response = await fetch('/api/subscriptions-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: payload, id: existingId || undefined }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      onSaved?.();
+    } catch (error) {
+      setStatus(error?.message || 'Save failed.');
+      setStatusTone('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Step 1 — pick a file. The operator can also click "Enter
+  // manually" to skip the upload entirely (for cases where the
+  // vision provider is offline and they already know the values).
+  if (stage === 'upload') {
+    return (
+      <>
+        <div className="detail-heading">
+          <div>
+            <p className="eyebrow">Subscription</p>
+            <h2>Import JPG</h2>
+            <span>Upload a StarShots receipt to auto-fill the subscription fields.</span>
+          </div>
+          <div className="detail-actions">
+            <button
+              type="button"
+              className="db-close-button"
+              onClick={onCancel}
+              aria-label="Close importer"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <form className="form-stack">
+          <label>Receipt JPG
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleFile}
+              disabled={busy}
+            />
+          </label>
+          {status ? (
+            <p className={`download-status${statusTone ? ` lg-status-${statusTone}` : ''}`}>{status}</p>
+          ) : null}
+          <div className="client-actions">
+            <button
+              type="button"
+              className="ghost-button compact"
+              onClick={() => {
+                setStage('edit');
+                setStatus('Enter the subscription fields manually.');
+                setStatusTone('');
+              }}
+            >
+              Enter manually
+            </button>
+            <button type="button" className="ghost-button compact" onClick={onCancel}>Cancel</button>
+          </div>
+        </form>
+      </>
+    );
+  }
+
+  // Step 2 — editable preview. Uses the same field grid the rest
+  // of the dashboard uses; the operator can edit anything before
+  // Save. "Re-upload" sends them back to step 1 to try a different
+  // image without losing the open editor.
+  return (
+    <>
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Subscription</p>
+          <h2>
+            Import JPG
+            {existingId ? <span className="sub-badge sub-badge-active">Update</span> : null}
+          </h2>
+          <span>Review the extracted fields and Save.</span>
+        </div>
+        <div className="detail-actions">
+          <button
+            type="button"
+            className="ghost-button compact"
+            onClick={() => {
+              setStage('upload');
+              setStatus('');
+              setStatusTone('');
+              setExistingId('');
+            }}
+          >
+            Re-upload
+          </button>
+          <button
+            type="button"
+            className="db-close-button"
+            onClick={onCancel}
+            aria-label="Close importer"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <form className="form-stack" onSubmit={handleSave}>
+        <div className="two-col">
+          <label>Title
+            <select value={draft.client_title} onChange={(e) => setField('client_title', e.target.value)}>
+              <option>Mr.</option>
+              <option>Ms.</option>
+              <option>Mrs.</option>
+              <option>Family</option>
+            </select>
+          </label>
+          <label>Client Name
+            <input
+              value={draft.client_name}
+              onChange={(e) => setField('client_name', e.target.value)}
+              onBlur={onBlurTitleCase((v) => setField('client_name', v))}
+              placeholder="Client name"
+            />
+          </label>
+        </div>
+        <label>Service
+          <input
+            value={draft.service}
+            onChange={(e) => setField('service', e.target.value)}
+            placeholder="ChatGPT, iCloud, Google Drive\u2026"
+          />
+        </label>
+        <div className="two-col">
+          <label>Status
+            <select value={draft.status} onChange={(e) => setField('status', e.target.value)}>
+              <option value="paid">Paid</option>
+              <option value="invoice">Invoice</option>
+            </select>
+          </label>
+          <label>Access Period (Days)
+            <input
+              type="number"
+              min="0"
+              value={draft.access_period}
+              onChange={(e) => setField('access_period', Number(e.target.value) || 0)}
+            />
+          </label>
+        </div>
+        <div className="two-col">
+          <label>Payment Date
+            <input
+              type="date"
+              value={draft.payment_date}
+              onChange={(e) => setField('payment_date', e.target.value)}
+            />
+          </label>
+          <label>Payment Time
+            <input
+              type="time"
+              step="1"
+              value={draft.payment_time}
+              onChange={(e) => setField('payment_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="two-col">
+          <label>Start Date
+            <input
+              type="date"
+              value={draft.start_date}
+              onChange={(e) => setField('start_date', e.target.value)}
+            />
+          </label>
+          <label>Start Time
+            <input
+              type="time"
+              step="1"
+              value={draft.start_time}
+              onChange={(e) => setField('start_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="two-col">
+          <label>Expiry Date
+            <input
+              type="date"
+              value={draft.expiry_date}
+              onChange={(e) => setField('expiry_date', e.target.value)}
+            />
+          </label>
+          <label>Expiry Time
+            <input
+              type="time"
+              step="1"
+              value={draft.expiry_time}
+              onChange={(e) => setField('expiry_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <label>Price (IDR)
+          <input
+            type="number"
+            min="0"
+            value={draft.price}
+            onChange={(e) => setField('price', Number(e.target.value) || 0)}
+          />
+        </label>
+        {status ? (
+          <p className={`download-status${statusTone ? ` lg-status-${statusTone}` : ''}`}>{status}</p>
+        ) : null}
+        <div className="client-actions">
+          <button className="primary-button" type="submit" disabled={busy}>
+            {busy ? 'Saving\u2026' : (existingId ? 'Save (Update Existing)' : 'Save Subscription')}
+          </button>
+          <button className="ghost-button compact" type="button" onClick={onCancel}>Cancel</button>
+        </div>
+      </form>
+    </>
+  );
+}
+
 export function DatabasePage() {
   const [tab, setTab] = useState('clients');
   const [query, setQuery] = useState('');
@@ -638,6 +998,15 @@ export function DatabasePage() {
     setSelected({ type: 'new' });
   }
 
+  // /db Subs → "Import JPG". Opens the right-panel importer (file
+  // upload + editable preview + Save) without picking a row from
+  // the list. The actual extraction is fired when the operator
+  // chooses a file inside SubscriptionImport.
+  function openImportSubscription() {
+    setTab('subs');
+    setSelected({ type: 'subs-import' });
+  }
+
   function createEventForClient() {
     const client = selectedClient;
     const href = createRecordUrl('/inv/', {
@@ -754,6 +1123,11 @@ export function DatabasePage() {
       {tab === 'clients' ? (
         <button className="add-client-button" type="button" onClick={openNewClient}>
           Create Client
+        </button>
+      ) : null}
+      {tab === 'subs' ? (
+        <button className="add-client-button" type="button" onClick={openImportSubscription}>
+          Import JPG
         </button>
       ) : null}
       {status ? <EmptyState>{status}</EmptyState> : null}
@@ -903,7 +1277,20 @@ export function DatabasePage() {
           }}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' ? (
+      {selected?.type === 'subs-import' ? (
+        <SubscriptionImport
+          onSaved={() => {
+            setSelected(null);
+            setMobileView('left');
+            refetch();
+          }}
+          onCancel={() => {
+            setSelected(null);
+            setMobileView('left');
+          }}
+        />
+      ) : null}
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' ? (
         <>
           <div className="list-stack">
             <ListRow

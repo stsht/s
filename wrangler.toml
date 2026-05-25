@@ -1,3 +1,18 @@
 name = "sshots"
 compatibility_date = "2026-05-22"
 pages_build_output_dir = "dist"
+
+# Cloudflare Workers AI binding for /api/subscriptions-import.
+#
+# Powers the vision-based receipt parser used by /db Subs → Import
+# JPG. The worker first tries this binding; if it isn't present or
+# the model errors out, it falls back to OpenAI (env.OPENAI_API_KEY
+# secret) and finally returns the friendly "Could not read image,
+# please enter manually." error so the UI can prompt manual entry.
+#
+# Safe to leave commented out on environments that don't have
+# Workers AI enabled — the importer still works once the operator
+# provides an OPENAI_API_KEY via `wrangler pages secret put` or
+# falls back to the manual editor.
+[ai]
+binding = "AI"
