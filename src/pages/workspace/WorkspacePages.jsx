@@ -2135,7 +2135,7 @@ const SUBS_PERIOD_OPTIONS = [
 
 const SUBS_SERVICE_OPTIONS = ['iCloud', 'Google Drive', 'Dropbox', 'ChatGPT', 'Copilot'];
 
-const SUBS_TITLE_OPTIONS = ['Mr.', 'Ms.', 'Mrs.', 'Family'];
+const SUBS_TITLE_OPTIONS = ['', 'Mr.', 'Ms.', 'Mrs.', 'Family'];
 
 const SUBS_MODE_OPTIONS = [
   { value: 'invoice', label: 'Invoice' },
@@ -2216,6 +2216,83 @@ function addDays(value, days) {
   return dt.toISOString().slice(0, 10);
 }
 
+function loadTesseract() {
+  return new Promise((resolve, reject) => {
+    if (window.Tesseract) {
+      resolve(window.Tesseract);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.onload = () => {
+      if (window.Tesseract) {
+        resolve(window.Tesseract);
+      } else {
+        reject(new Error('Tesseract global object not found.'));
+      }
+    };
+    script.onerror = () => {
+      reject(new Error('Failed to load Tesseract.js from CDN.'));
+    };
+    document.head.appendChild(script);
+  });
+}
+
+function parseOcrText(text) {
+  const result = {
+    paymentDate: '',
+    paymentTime: '',
+    startDate: '',
+    startTime: '',
+    expiryDate: '',
+    hasMr: false
+  };
+
+  if (!text) return result;
+
+  // Check if text suggests "Mr."
+  if (/\bMr\.?\b/i.test(text)) {
+    result.hasMr = true;
+  }
+
+  // Helper to normalize month names
+  const months = {
+    jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+    jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12',
+    january: '01', february: '02', march: '03', april: '04', june: '06',
+    july: '07', august: '08', september: '09', october: '10', november: '11', december: '12'
+  };
+
+  // Find all dates in format "Month DD, YYYY" or "DD Month YYYY"
+  const dateRegex = /\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4})\b/ig;
+  const datesFound = [];
+  let match;
+  while ((match = dateRegex.exec(text)) !== null) {
+    const monthName = match[1].toLowerCase();
+    const month = months[monthName] || '01';
+    const day = match[2].padStart(2, '0');
+    const year = match[3];
+    datesFound.push(`${year}-${month}-${day}`);
+  }
+
+  // Find all times in format "HH.MM" or "HH:MM"
+  const timeRegex = /\b(\d{2})[.:](\d{2})\b/g;
+  const timesFound = [];
+  while ((match = timeRegex.exec(text)) !== null) {
+    timesFound.push(`${match[1]}:${match[2]}`);
+  }
+
+  if (datesFound.length >= 1) result.paymentDate = datesFound[0];
+  if (datesFound.length >= 2) result.startDate = datesFound[1];
+  else if (datesFound.length === 1) result.startDate = datesFound[0]; // fallback
+  
+  if (timesFound.length >= 1) result.paymentTime = timesFound[0];
+  if (timesFound.length >= 2) result.startTime = timesFound[1];
+  else if (timesFound.length === 1) result.startTime = timesFound[0]; // fallback
+
+  return result;
+}
+
 export function SubscriptionsPage() {
   const [mode, setMode] = useState('invoice');
   const [titlePrefix, setTitlePrefix] = useState('Mr.');
@@ -2237,7 +2314,6 @@ export function SubscriptionsPage() {
   // startTime initialise to "now" on mount and re-snap to "now"
   // every time the user switches into Paid mode (see effect below)
   // so the receipt always carries the real-world payment moment
-  // without manual edits.
   const [paymentDate, setPaymentDate] = useState(todaySubs);
   const [paymentTime, setPaymentTime] = useState(nowSubsTime);
   const [accessPeriod, setAccessPeriod] = useState(30);
@@ -2250,6 +2326,7 @@ export function SubscriptionsPage() {
   // fires on actual transitions into 'paid', not on the very first
   // render or on unrelated re-renders.
   const previousModeRef = useRef(mode);
+  const skipAutoSnapRef = useRef(false);
 
   // Refresh paid-mode date/time fields each time the user switches
   // into Paid. Workflow: build invoice → wait for client to pay →
@@ -2258,12 +2335,16 @@ export function SubscriptionsPage() {
   // re-snap on the transition itself).
   useEffect(() => {
     if (previousModeRef.current !== 'paid' && mode === 'paid') {
-      const dateNow = todaySubs();
-      const timeNow = nowSubsTime();
-      setPaymentDate(dateNow);
-      setPaymentTime(timeNow);
-      setStartDate(dateNow);
-      setStartTime(timeNow);
+      if (skipAutoSnapRef.current) {
+        skipAutoSnapRef.current = false;
+      } else {
+        const dateNow = todaySubs();
+        const timeNow = nowSubsTime();
+        setPaymentDate(dateNow);
+        setPaymentTime(timeNow);
+        setStartDate(dateNow);
+        setStartTime(timeNow);
+      }
     }
     previousModeRef.current = mode;
   }, [mode]);
@@ -2284,6 +2365,93 @@ export function SubscriptionsPage() {
     for (let i = 0; i < seed.length; i += 1) hash = (hash * 33 + seed.charCodeAt(i)) >>> 0;
     return `INV-${datePart || '000000'}-${hash.toString(36).slice(0, 4).toUpperCase()}`;
   }, [client, service, issuedDate]);
+
+  async function handleJpgImport(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const filename = file.name;
+    const filenameMatch = filename.match(/^subscription-paid-([a-z0-9-]+)-([a-z0-9-]+)\.jpe?g$/i);
+    if (!filenameMatch) {
+      setStatus('Invalid filename pattern. Must be subscription-paid-<service>-<client>.jpg');
+      return;
+    }
+
+    setStatus('Reading JPG...');
+
+    const rawService = filenameMatch[1];
+    const rawClient = filenameMatch[2];
+
+    let parsedService = 'ChatGPT';
+    if (/chatgpt/i.test(rawService)) parsedService = 'ChatGPT';
+    else if (/icloud/i.test(rawService)) parsedService = 'iCloud';
+    else if (/google/i.test(rawService)) parsedService = 'Google Drive';
+    else if (/dropbox/i.test(rawService)) parsedService = 'Dropbox';
+    else if (/copilot/i.test(rawService)) parsedService = 'Copilot';
+
+    const parsedClient = toTitleCase(rawClient.replace(/[-_]+/g, ' '));
+
+    try {
+      setStatus('Loading OCR engine...');
+      const Tesseract = await loadTesseract();
+      setStatus('Analyzing image text...');
+      const worker = await Tesseract.createWorker();
+      const { data } = await worker.recognize(file);
+      const text = data.text;
+      const confidence = data.confidence;
+      await worker.terminate();
+
+      const extracted = parseOcrText(text);
+
+      skipAutoSnapRef.current = true;
+      setMode('paid');
+      setClient(parsedClient);
+      setService(parsedService);
+
+      const suggestsMr = /mr/i.test(rawClient) || /mr/i.test(rawService) || extracted.hasMr;
+      setTitlePrefix(suggestsMr ? 'Mr.' : '');
+
+      setPaymentDate(extracted.paymentDate || '');
+      setPaymentTime(extracted.paymentTime || '');
+      setStartDate(extracted.startDate || '');
+      setStartTime(extracted.startTime || '');
+
+      const accessMatch = text.match(/Access\s+Period\s*[:\-\s]*\s*(\d+)/i);
+      if (accessMatch) {
+        setAccessPeriod(Number(accessMatch[1]));
+      }
+
+      const amountMatch = text.match(/Paid\s+Amount\s*[:\-\s]*\s*Rp\s*([\d.,]+)/i) || text.match(/Total\s*[:\-\s]*\s*Rp\s*([\d.,]+)/i);
+      if (amountMatch) {
+        const cleanedAmount = amountMatch[1].replace(/[.,]/g, '');
+        setPrice(Number(cleanedAmount));
+      }
+
+      const hasLowConfidence = confidence < 60;
+      const hasMissingDates = !extracted.paymentDate || !extracted.startDate;
+      if (hasLowConfidence || hasMissingDates) {
+        setStatus('Needs review');
+      } else {
+        setStatus('✓ Fields restored from JPG');
+      }
+    } catch (error) {
+      console.error('[subs] import error:', error);
+      skipAutoSnapRef.current = true;
+      setMode('paid');
+      setClient(parsedClient);
+      setService(parsedService);
+      
+      const suggestsMr = /mr/i.test(rawClient) || /mr/i.test(rawService);
+      setTitlePrefix(suggestsMr ? 'Mr.' : '');
+
+      setPaymentDate('');
+      setPaymentTime('');
+      setStartDate('');
+      setStartTime('');
+
+      setStatus('Needs review');
+    }
+  }
 
   async function downloadJpg() {
     if (!cardRef.current) return;
@@ -2330,10 +2498,28 @@ export function SubscriptionsPage() {
   // Price input is shared so switching modes preserves the amount.
   const left = (
     <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
+      <div className="qr-upload" style={{ marginBottom: '18px' }}>
+        <span className="qr-upload-label">Import JPG Receipt</span>
+        <label className="qr-upload-control">
+          <input type="file" accept="image/*" onChange={handleJpgImport} />
+          <span className="qr-upload-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: '18px', height: '18px', display: 'block' }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span className="qr-upload-text">Click to upload receipt JPG</span>
+          </span>
+        </label>
+      </div>
       <div className="two-col">
         <label>Title
           <select value={titlePrefix} onChange={(event) => setTitlePrefix(event.target.value)}>
-            {SUBS_TITLE_OPTIONS.map((option) => <option key={option}>{option}</option>)}
+            {SUBS_TITLE_OPTIONS.map((option) => (
+              <option key={option || 'blank'} value={option}>
+                {option || '—'}
+              </option>
+            ))}
           </select>
         </label>
         <label>Client name
@@ -2438,7 +2624,7 @@ export function SubscriptionsPage() {
   const paidCard = (
     <article className="subs-card" ref={cardRef}>
       <header className="subs-card-head">
-        <p className="subs-greeting">Hello, {titlePrefix} {displayClient}!</p>
+        <p className="subs-greeting">Hello, {titlePrefix ? titlePrefix + ' ' : ''}{displayClient}!</p>
         <p className="subs-service-tag">{service}</p>
         <h1 className="subs-title">Subscription Confirmed</h1>
         <p className="subs-eyebrow">Payment Received</p>
@@ -2500,7 +2686,7 @@ export function SubscriptionsPage() {
       <section className="subs-invoice-grid">
         <div className="subs-tile subs-tile--list">
           <span className="subs-tile-label">Bill To</span>
-          <strong>{titlePrefix} {displayClient}</strong>
+          <strong>{titlePrefix ? titlePrefix + ' ' : ''}{displayClient}</strong>
         </div>
         <div className="subs-tile subs-tile--list">
           <span className="subs-tile-label">Service Details</span>
