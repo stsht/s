@@ -2158,6 +2158,70 @@ function normalizeImportedSubscription(extracted = {}) {
   };
 }
 
+const SUBSCRIPTION_IMPORT_SERVICE_ALIASES = [
+  { aliases: ['google-drive', 'googledrive', 'gdrive', 'drive'], label: 'Google Drive', pattern: /google\s*drive|gdrive/i },
+  { aliases: ['chatgpt', 'gpt'], label: 'ChatGPT', pattern: /chat\s*gpt|chatgpt/i },
+  { aliases: ['icloud', 'i-cloud'], label: 'iCloud', pattern: /icloud|i\s*cloud/i },
+  { aliases: ['dropbox'], label: 'Dropbox', pattern: /dropbox/i },
+  { aliases: ['copilot'], label: 'Copilot', pattern: /copilot/i }
+];
+
+function normalizeImportServiceName(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const normalized = raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const found = SUBSCRIPTION_IMPORT_SERVICE_ALIASES.find((item) => item.pattern.test(normalized));
+  return found ? found.label : titleCaseName(normalized);
+}
+
+function parseSubscriptionImportFilename(fileName = '') {
+  const base = String(fileName || '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const match = base.match(/^subscription-(paid|invoice|confirmed)-(.+)$/i);
+  if (!match) return {};
+  const status = match[1] === 'invoice' ? 'invoice' : 'paid';
+  const tail = match[2];
+  const aliases = SUBSCRIPTION_IMPORT_SERVICE_ALIASES.flatMap((item) => item.aliases.map((alias) => ({ alias, label: item.label })));
+  const found = aliases
+    .sort((a, b) => b.alias.length - a.alias.length)
+    .find(({ alias }) => tail === alias || tail.startsWith(`${alias}-`));
+  let serviceRaw = '';
+  let clientRaw = '';
+  if (found) {
+    serviceRaw = found.label;
+    clientRaw = tail.slice(found.alias.length).replace(/^-+/, '');
+  } else {
+    const pieces = tail.split('-').filter(Boolean);
+    serviceRaw = pieces.shift() || '';
+    clientRaw = pieces.join(' ');
+  }
+  const titleMatch = clientRaw.match(/^(mr|ms|mrs|family)-(.+)$/i);
+  const titleToken = titleMatch ? titleMatch[1].toLowerCase() : '';
+  return {
+    client_title: titleToken === 'mrs' ? 'Mrs.' : titleToken === 'ms' ? 'Ms.' : titleToken === 'family' ? 'Family' : titleToken ? 'Mr.' : '',
+    client_name: titleCaseName((titleMatch ? titleMatch[2] : clientRaw).replace(/[-_]+/g, ' ')),
+    service: normalizeImportServiceName(serviceRaw),
+    status
+  };
+}
+
+function mergeImportedSubscription(...sources) {
+  return sources.reduce((merged, source) => {
+    Object.entries(source || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') merged[key] = value;
+    });
+    return merged;
+  }, {});
+}
+
+function hasUsefulImportedSubscription(parsed = {}) {
+  return !!(parsed.client_name || parsed.service || parsed.payment_date || parsed.start_date || parsed.expiry_date);
+}
+
 async function findExistingSubscription(env, parsed) {
   const name = String(parsed?.client_name || '').trim();
   const service = String(parsed?.service || '').trim();
@@ -2192,6 +2256,7 @@ async function handleSubscriptionImport(request, env) {
   // retained for direct API consumers.
   let imageBase64 = '';
   let mime = 'image/jpeg';
+  let fileName = '';
   const contentType = String(request.headers.get('content-type') || '').toLowerCase();
   try {
     if (contentType.startsWith('multipart/form-data')) {
@@ -2201,28 +2266,49 @@ async function handleSubscriptionImport(request, env) {
         return json({ error: 'No image file uploaded.' }, 400);
       }
       mime = String(file.type || mime);
+      fileName = String(file.name || '');
       const buf = new Uint8Array(await file.arrayBuffer());
       imageBase64 = bytesToBase64(buf);
     } else {
       const body = await request.json().catch(() => ({}));
       imageBase64 = String(body.image || '').replace(/^data:[^,]+,/, '');
       mime = String(body.mime || mime);
+      fileName = String(body.fileName || body.filename || '');
     }
   } catch (err) {
     return json({ error: 'Could not read uploaded image.' }, 400);
   }
   if (!imageBase64) return json({ error: 'Missing image data.' }, 400);
 
+  const filenameFallback = parseSubscriptionImportFilename(fileName);
   const responseText = await callVisionExtractor(env, imageBase64, mime);
   if (!responseText) {
+    if (hasUsefulImportedSubscription(filenameFallback)) {
+      return json({
+        ok: true,
+        parsed: filenameFallback,
+        existing: null,
+        needs_review: true,
+        message: 'Server OCR unavailable. Filename fields restored; review the remaining fields.'
+      });
+    }
     return json({ ok: false, error: 'Could not read image, please enter manually.' }, 503);
   }
   const extracted = parseExtractorJson(responseText);
   if (!extracted) {
+    if (hasUsefulImportedSubscription(filenameFallback)) {
+      return json({
+        ok: true,
+        parsed: filenameFallback,
+        existing: null,
+        needs_review: true,
+        message: 'Server OCR returned unreadable text. Filename fields restored; review the remaining fields.'
+      });
+    }
     return json({ ok: false, error: 'Could not read image, please enter manually.' }, 503);
   }
 
-  const parsed = normalizeImportedSubscription(extracted);
+  const parsed = mergeImportedSubscription(filenameFallback, normalizeImportedSubscription(extracted));
   const existing = await findExistingSubscription(env, parsed);
   return json({
     ok: true,

@@ -628,6 +628,153 @@ function SubsImportDropZone({ busy, fileName, onFile }) {
   );
 }
 
+const SUBS_IMPORT_SERVICE_ALIASES = [
+  { aliases: ['google-drive', 'googledrive', 'gdrive', 'drive'], label: 'Google Drive', pattern: /google\s*drive|gdrive/i },
+  { aliases: ['chatgpt', 'gpt'], label: 'ChatGPT', pattern: /chat\s*gpt|chatgpt/i },
+  { aliases: ['icloud', 'i-cloud'], label: 'iCloud', pattern: /icloud|i\s*cloud/i },
+  { aliases: ['dropbox'], label: 'Dropbox', pattern: /dropbox/i },
+  { aliases: ['copilot'], label: 'Copilot', pattern: /copilot/i },
+];
+
+function completeImportTime(value) {
+  const match = String(value || '').trim().replace(/\./g, ':').match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return '';
+  return `${match[1].padStart(2, '0')}:${match[2]}:${match[3] || '00'}`;
+}
+
+function normalizeImportService(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const normalized = raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const found = SUBS_IMPORT_SERVICE_ALIASES.find((item) => item.pattern.test(normalized));
+  return found ? found.label : toTitleCase(normalized);
+}
+
+function parseImportFilename(fileName = '') {
+  const base = String(fileName || '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const match = base.match(/^subscription-(paid|invoice|confirmed)-(.+)$/i);
+  if (!match) return {};
+  const status = match[1] === 'invoice' ? 'invoice' : 'paid';
+  const tail = match[2];
+  let serviceRaw = '';
+  let clientRaw = '';
+  const aliases = SUBS_IMPORT_SERVICE_ALIASES.flatMap((item) => item.aliases.map((alias) => ({ alias, label: item.label })));
+  const found = aliases
+    .sort((a, b) => b.alias.length - a.alias.length)
+    .find(({ alias }) => tail === alias || tail.startsWith(`${alias}-`));
+  if (found) {
+    serviceRaw = found.label;
+    clientRaw = tail.slice(found.alias.length).replace(/^-+/, '');
+  } else {
+    const pieces = tail.split('-').filter(Boolean);
+    serviceRaw = pieces.shift() || '';
+    clientRaw = pieces.join(' ');
+  }
+  const titleMatch = clientRaw.match(/^(mr|ms|mrs|family)-(.+)$/i);
+  return {
+    client_title: titleMatch
+      ? (titleMatch[1].toLowerCase() === 'mrs' ? 'Mrs.' : titleMatch[1].toLowerCase() === 'ms' ? 'Ms.' : titleMatch[1].toLowerCase() === 'family' ? 'Family' : 'Mr.')
+      : '',
+    client_name: toTitleCase((titleMatch ? titleMatch[2] : clientRaw).replace(/[-_]+/g, ' ')),
+    service: normalizeImportService(serviceRaw),
+    status,
+  };
+}
+
+function parseReceiptGreeting(text = '') {
+  const match = String(text || '').match(/Hello,\s*(?:(Mr\.?|Ms\.?|Mrs\.?|Family)\s+)?([A-Za-z][A-Za-z0-9 .'-]{1,80})!?/i);
+  if (!match) return {};
+  const rawTitle = String(match[1] || '').trim();
+  const clientTitle = /^mrs\.?$/i.test(rawTitle)
+    ? 'Mrs.'
+    : /^ms\.?$/i.test(rawTitle)
+      ? 'Ms.'
+      : /^family$/i.test(rawTitle)
+        ? 'Family'
+        : rawTitle
+          ? 'Mr.'
+          : '';
+  return {
+    client_title: clientTitle,
+    client_name: toTitleCase(String(match[2] || '').trim()),
+  };
+}
+
+function mergeImportParsed(...sources) {
+  return sources.reduce((merged, source) => {
+    Object.entries(source || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).trim() !== '') merged[key] = value;
+    });
+    return merged;
+  }, {});
+}
+
+function hasUsefulImport(parsed = {}) {
+  return !!(
+    parsed.client_name ||
+    parsed.service ||
+    parsed.payment_date ||
+    parsed.start_date ||
+    parsed.expiry_date
+  );
+}
+
+function missingCoreImportFields(parsed = {}) {
+  return !parsed.client_name || !parsed.service || !parsed.payment_date || !parsed.start_date || !parsed.expiry_date;
+}
+
+async function extractSubscriptionReceiptInBrowser(file, setStatus) {
+  const filenameParsed = parseImportFilename(file?.name || '');
+  try {
+    setStatus?.('Server could not read it. Trying browser OCR...');
+    const Tesseract = await loadTesseract();
+    setStatus?.('Reading receipt text...');
+    let data;
+    if (typeof Tesseract.recognize === 'function') {
+      const result = await Tesseract.recognize(file, 'eng');
+      data = result?.data || {};
+    } else {
+      const worker = await Tesseract.createWorker();
+      const result = await worker.recognize(file);
+      data = result?.data || {};
+      await worker.terminate();
+    }
+    const text = String(data?.text || '');
+    const extracted = parseOcrText(text);
+    const parsed = mergeImportParsed(filenameParsed, {
+      ...parseReceiptGreeting(text),
+      service: normalizeImportService(extracted.service || filenameParsed.service),
+      status: extracted.status || filenameParsed.status,
+      payment_date: extracted.paymentDate,
+      payment_time: completeImportTime(extracted.paymentTime),
+      access_period: extracted.accessPeriod,
+      start_date: extracted.startDate,
+      start_time: completeImportTime(extracted.startTime),
+      expiry_date: extracted.expiryDate,
+      expiry_time: completeImportTime(extracted.expiryTime),
+      price: extracted.paidAmount,
+    });
+    return {
+      parsed,
+      confidence: Number(data?.confidence || 0),
+      usedBrowserOcr: true,
+    };
+  } catch (error) {
+    console.warn('[subs-import] browser OCR failed:', error);
+    return {
+      parsed: filenameParsed,
+      confidence: 0,
+      usedBrowserOcr: false,
+      error,
+    };
+  }
+}
+
 // Right-panel "Import JPG" flow for /db Subs. Step 1 is a file
 // picker; step 2 is the editable preview that shows extracted
 // fields and lets the operator correct anything before Save.
@@ -683,8 +830,15 @@ function SubscriptionImport({ onSaved, onCancel }) {
       ...current,
       client_title: parsed.client_title || current.client_title,
       client_name: parsed.client_name || current.client_name,
+      client_contact: parsed.client_contact || current.client_contact,
       service: parsed.service || current.service,
+      storage_slot: parsed.storage_slot || current.storage_slot,
+      rate_mode: parsed.rate_mode || current.rate_mode,
+      price: Number.isFinite(Number(parsed.price)) && Number(parsed.price) > 0
+        ? Number(parsed.price)
+        : current.price,
       status: parsed.status || current.status,
+      invoice_date: parsed.invoice_date || current.invoice_date,
       payment_date: parsed.payment_date || current.payment_date,
       payment_time: parsed.payment_time || current.payment_time,
       access_period: Number.isFinite(Number(parsed.access_period)) && Number(parsed.access_period) > 0
@@ -721,22 +875,38 @@ function SubscriptionImport({ onSaved, onCancel }) {
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) {
-        // Spec requires the friendly message — fall through to the
-        // edit stage so the operator can still type the fields. We
-        // intentionally do NOT pre-fill any date/time field with
-        // today(); the empty state itself signals "not extracted".
-        setStatus(json.error || 'Could not read image, please enter manually.');
-        setStatusTone('error');
+        const local = await extractSubscriptionReceiptInBrowser(file, setStatus);
+        if (hasUsefulImport(local.parsed)) {
+          applyParsed(local.parsed);
+          setStatus(missingCoreImportFields(local.parsed)
+            ? 'Needs review. Some fields were restored from filename/OCR, but blanks remain.'
+            : 'Fields restored in-browser. Review and Save to create the row.');
+          setStatusTone(missingCoreImportFields(local.parsed) ? '' : 'success');
+        } else {
+          // Spec requires the friendly message — fall through to the
+          // edit stage so the operator can still type the fields. We
+          // intentionally do NOT pre-fill any date/time field with
+          // today(); the empty state itself signals "not extracted".
+          setStatus(json.error || 'Could not read image, please enter manually.');
+          setStatusTone('error');
+        }
         setStage('edit');
         setExistingId('');
         return;
       }
-      applyParsed(json.parsed || {});
+      let parsed = json.parsed || {};
+      if (json.needs_review || missingCoreImportFields(parsed)) {
+        const local = await extractSubscriptionReceiptInBrowser(file, setStatus);
+        parsed = mergeImportParsed(parsed, local.parsed);
+      }
+      applyParsed(parsed);
       setExistingId(String(json.existing?.id || ''));
-      setStatus(json.existing?.id
-        ? 'Read OK. Existing subscription found \u2014 Save will update it.'
-        : 'Read OK. Review and Save to create the row.');
-      setStatusTone('success');
+      setStatus(missingCoreImportFields(parsed)
+        ? (json.message || 'Needs review. Some fields could not be read.')
+        : json.existing?.id
+          ? 'Read OK. Existing subscription found \u2014 Save will update it.'
+          : 'Read OK. Review and Save to create the row.');
+      setStatusTone(missingCoreImportFields(parsed) ? '' : 'success');
       setStage('edit');
     } catch (error) {
       setStatus(error?.message || 'Could not read image, please enter manually.');
@@ -2245,6 +2415,11 @@ function parseOcrText(text) {
     startDate: '',
     startTime: '',
     expiryDate: '',
+    expiryTime: '',
+    accessPeriod: 0,
+    paidAmount: 0,
+    service: '',
+    status: '',
     hasMr: false
   };
 
@@ -2285,10 +2460,26 @@ function parseOcrText(text) {
   if (datesFound.length >= 1) result.paymentDate = datesFound[0];
   if (datesFound.length >= 2) result.startDate = datesFound[1];
   else if (datesFound.length === 1) result.startDate = datesFound[0]; // fallback
+  if (datesFound.length >= 3) result.expiryDate = datesFound[2];
   
   if (timesFound.length >= 1) result.paymentTime = timesFound[0];
   if (timesFound.length >= 2) result.startTime = timesFound[1];
   else if (timesFound.length === 1) result.startTime = timesFound[0]; // fallback
+  if (timesFound.length >= 3) result.expiryTime = timesFound[2];
+  else if (result.startTime) result.expiryTime = result.startTime;
+
+  const accessMatch = text.match(/Access\s+Period[\s\S]{0,50}?(\d{1,3})\s*Days?/i)
+    || text.match(/\b(\d{1,3})\s*Days?\b/i);
+  if (accessMatch) result.accessPeriod = Number(accessMatch[1]) || 0;
+
+  const amountMatch = text.match(/Paid\s+Amount\s*[:\-\s]*\s*Rp\s*([\d.,]+)/i)
+    || text.match(/Total\s*[:\-\s]*\s*Rp\s*([\d.,]+)/i);
+  if (amountMatch) result.paidAmount = Number(String(amountMatch[1]).replace(/[.,]/g, '')) || 0;
+
+  const serviceAlias = SUBS_IMPORT_SERVICE_ALIASES.find((item) => item.pattern.test(text));
+  if (serviceAlias) result.service = serviceAlias.label;
+
+  if (/Payment\s+Received|Subscription\s+Confirmed|\bPaid\b/i.test(text)) result.status = 'paid';
 
   return result;
 }
