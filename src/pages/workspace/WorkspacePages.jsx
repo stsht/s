@@ -984,7 +984,7 @@ function SubscriptionImport({ onSaved, onCancel }) {
             </button>
           </div>
         </div>
-        <form className="form-stack" onSubmit={(e) => e.preventDefault()}>
+        <form className="form-stack subs-import-upload" onSubmit={(e) => e.preventDefault()}>
           <SubsImportDropZone
             busy={busy}
             fileName={fileName}
@@ -998,9 +998,10 @@ function SubscriptionImport({ onSaved, onCancel }) {
               type="button"
               className="ghost-button compact"
               onClick={() => {
-                setStage('edit');
-                setStatus('Enter the subscription fields manually.');
-                setStatusTone('');
+                // Manual subscription entry lives on /subs (the
+                // dedicated invoice / receipt composer). The /db
+                // Subs panel only handles JPG import + listing.
+                window.location.assign('/subs/');
               }}
             >
               Enter manually
@@ -1248,7 +1249,46 @@ export function DatabasePage() {
     });
   }, [subscriptions]);
 
-  const activeRows = tab === 'subs' ? subClients : crmClients;
+  // Subs-tab list ordering. Two-bucket sort:
+  //   • bucket A — active + warning rows: newest first by
+  //                expiry_date (primary), then payment_date,
+  //                then start_date, then created_at.
+  //   • bucket B — expired rows: pinned to the bottom regardless
+  //                of how recently they expired. Within the
+  //                expired bucket we still keep newest-first so
+  //                the most recently lapsed reads first.
+  // The recency key is an ISO/YYYY-MM-DD string, so a plain
+  // reverse localeCompare is sufficient — no Date parsing needed.
+  // Subscription lookup is cached once per row to avoid an O(n²)
+  // walk inside the comparator.
+  const sortedSubClients = useMemo(() => {
+    function recencyKey(sub) {
+      return String(
+        sub?.expiry_date
+        || sub?.payment_date
+        || sub?.start_date
+        || sub?.created_at
+        || ''
+      );
+    }
+    const annotated = subClients.map((row) => {
+      const sub = getClientSubscription(row) || null;
+      const tone = sub ? subscriptionTone(sub) : 'active';
+      return {
+        row,
+        bucket: tone === 'expired' ? 1 : 0,
+        key: recencyKey(sub),
+      };
+    });
+    annotated.sort((a, b) => {
+      if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+      // Newer first within the same bucket.
+      return b.key.localeCompare(a.key);
+    });
+    return annotated.map((entry) => entry.row);
+  }, [subClients, getClientSubscription]);
+
+  const activeRows = tab === 'subs' ? sortedSubClients : crmClients;
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
   // For Subs tab selections, resolve the actual subscription row so the
   // detail panel renders subscription fields instead of reusing the
@@ -2512,6 +2552,16 @@ export function SubscriptionsPage() {
   const [startTime, setStartTime] = useState(nowSubsTime);
   const [mobileView, setMobileView] = useState('left');
   const [status, setStatus] = useState('');
+  // Persisted-row id for the in-progress draft. Set after the
+  // first successful save so subsequent Save clicks PATCH the
+  // same row instead of inserting a duplicate (the worker
+  // handleSubscriptionSave reads body.id / body.subscription.id
+  // for the upsert decision). Cleared automatically when the
+  // operator changes inputs that would identify a different
+  // subscription (client/service) — we keep the policy simple
+  // and let the worker's duplicate-suppression handle the rest.
+  const [savedId, setSavedId] = useState('');
+  const [saving, setSaving] = useState(false);
   const cardRef = useRef(null);
   // Track the previous mode so the refresh-on-switch effect only
   // fires on actual transitions into 'paid', not on the very first
@@ -2545,17 +2595,6 @@ export function SubscriptionsPage() {
     () => addDays(startDate, accessPeriod),
     [startDate, accessPeriod],
   );
-
-  // Deterministic invoice number from the inputs that identify the
-  // bill (client + service + issued date). Stable across re-renders
-  // for the same triple, regenerates only when those change.
-  const invoiceNumber = useMemo(() => {
-    const datePart = String(issuedDate || '').replace(/-/g, '');
-    const seed = `${client}-${service}-${issuedDate}`.toLowerCase();
-    let hash = 5381;
-    for (let i = 0; i < seed.length; i += 1) hash = (hash * 33 + seed.charCodeAt(i)) >>> 0;
-    return `INV-${datePart || '000000'}-${hash.toString(36).slice(0, 4).toUpperCase()}`;
-  }, [client, service, issuedDate]);
 
   async function handleJpgImport(event) {
     const file = event.target.files?.[0];
@@ -2641,6 +2680,80 @@ export function SubscriptionsPage() {
       setStartTime('');
 
       setStatus('Needs review');
+    }
+  }
+
+  // Persist the current /subs draft through the same endpoint the
+  // /db Subs importer uses, so a subscription created from /subs
+  // immediately surfaces in /db Subs without a second hop. The
+  // payload mirrors what SubscriptionImport sends — same field
+  // names the worker normalises in normalizeSubscriptionPayload.
+  //
+  // After the first successful save we capture the row id into
+  // savedId so further Save clicks PATCH that row instead of
+  // inserting duplicates. The worker also runs its own duplicate
+  // lookup (client + service + payment_date + start_date) so even
+  // an explicit re-create would map back to the same record, but
+  // routing the id explicitly is cheaper and avoids that probe.
+  async function saveSubscription() {
+    const trimmedClient = String(client || '').trim();
+    const trimmedService = String(service || '').trim();
+    if (!trimmedClient) {
+      setStatus('Client name is required to Save.');
+      return;
+    }
+    if (!trimmedService) {
+      setStatus('Service is required to Save.');
+      return;
+    }
+    setSaving(true);
+    setStatus('Saving subscription\u2026');
+    try {
+      const isPaid = mode === 'paid';
+      const subscription = {
+        client_title: titlePrefix || '',
+        client_name: trimmedClient,
+        // /subs intentionally doesn't collect a contact field —
+        // the worker tolerates an empty string and reuses any
+        // existing client record's contact when matching by name.
+        client_contact: '',
+        service: trimmedService,
+        status: isPaid ? 'paid' : 'invoice',
+        price: Math.max(0, Math.round(Number(price) || 0)),
+        storage_slot: !SUBS_NON_STORAGE_SERVICES.has(service) && storage ? String(storage) : '',
+        access_period: isPaid
+          ? Math.max(0, Math.round(Number(accessPeriod) || 0))
+          : Math.max(0, Math.round(Number(duration) || 30)) || 30,
+        invoice_date: !isPaid ? (issuedDate || '') : '',
+        payment_date: isPaid ? (paymentDate || '') : '',
+        payment_time: isPaid ? (paymentTime || '') : '',
+        start_date: isPaid ? (startDate || '') : '',
+        start_time: isPaid ? (startTime || '') : '',
+        // Worker normalises expiry from start + access_period when
+        // status === 'paid', but we send the computed value so the
+        // /db list reflects it on the next load even if the worker
+        // ever loses that derivation.
+        expiry_date: isPaid ? (expiryDate || '') : '',
+        expiry_time: isPaid ? (startTime || '') : '',
+      };
+      if (savedId) subscription.id = savedId;
+      const response = await fetch('/api/subscriptions-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription, id: savedId || undefined }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      const newId = String(json.subscription?.id || savedId || '');
+      if (newId) setSavedId(newId);
+      setStatus(savedId ? 'Subscription updated.' : 'Subscription saved.');
+    } catch (error) {
+      setStatus(error?.message || 'Save failed.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -2861,17 +2974,18 @@ export function SubscriptionsPage() {
     </article>
   );
 
-  // Invoice card. Compact subscription bill: header with logo + INV-#,
-  // bill-to / service-details tiles, line-item row, payment block with
-  // QR + totals (Total / Issued — no Due row, single date convention),
-  // and a shared footer.
+  // Invoice card. Compact subscription bill: header with logo +
+  // "Subscription Invoice" eyebrow (no random INV-# anymore — the
+  // operator owns canonical record ids in /db, this card is the
+  // sendable artifact), bill-to / service-details tiles, line-item
+  // row, payment block with QR + totals (Total / Issued — no Due
+  // row, single date convention), and a shared footer.
   const invoiceCard = (
     <article className="subs-invoice-card" ref={cardRef}>
       <header className="subs-invoice-head">
         <img src="/logo-hero.png" alt="StarShots" className="subs-invoice-logo" />
         <div className="subs-invoice-meta">
           <p className="subs-eyebrow">Subscription Invoice</p>
-          <strong>{invoiceNumber}</strong>
         </div>
       </header>
       <section className="subs-invoice-grid">
@@ -2918,7 +3032,17 @@ export function SubscriptionsPage() {
           <p className="eyebrow">Live Preview</p>
           <h2>{mode === 'paid' ? 'Subscription Receipt' : 'Subscription Invoice'}</h2>
         </div>
-        <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+        <div className="subs-toolbar-actions">
+          <button
+            className="ghost-button compact"
+            type="button"
+            onClick={saveSubscription}
+            disabled={saving}
+          >
+            {saving ? 'Saving\u2026' : (savedId ? 'Update' : 'Save')}
+          </button>
+          <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+        </div>
       </header>
       <div className="subs-canvas">
         {mode === 'paid' ? paidCard : invoiceCard}
