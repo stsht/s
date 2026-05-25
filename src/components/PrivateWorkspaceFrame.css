@@ -63,13 +63,32 @@
   display: none;
 }
 
-/* Header — matches /inv .panel-header. */
+/* Header — matches /inv .panel-header.
+ *
+ * Sticky on the left panel so logo + contextual pills/segmented
+ * controls stay locked at the top while the rest of the panel
+ * scrolls. The bottom border acts as the divider/separator line —
+ * the visual boundary between the sticky region and the scrolling
+ * content (cross-tool .pf-nav row + page body) directly below it.
+ *
+ * Negative top/horizontal margin pulls the header into the panel's
+ * 18px padding edges so the sticky background spans the full panel
+ * width (border-edge to border-edge) and cleanly covers content
+ * scrolling underneath. The header re-claims the lost padding via
+ * its own 18px insets, so children (logo, pills) sit at the same
+ * pixel position as before — no visual shift. The `top: 0` pin is
+ * relative to the .pf-panel--left scroll viewport. */
 .pf-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: grid;
   grid-template-columns: minmax(112px, 132px) minmax(0, 1fr);
   align-items: center;
   gap: 10px;
-  padding-bottom: 16px;
+  margin: -18px -18px 0;
+  padding: 18px 18px 16px;
+  background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
 
