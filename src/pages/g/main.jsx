@@ -37,21 +37,35 @@ function GalleryLinks({ payload }) {
     }).catch(() => {});
   }
 
-  const heading = delivery.clientName ? `Hello, ${delivery.clientName}` : 'Your files are ready';
-  const hasValidTitle = delivery.title && !['Ms.', 'Mr.', 'Mrs.', 'Family', 'Ms', 'Mr'].includes(delivery.title);
-  const subtitle = (hasValidTitle ? delivery.title : '') || delivery.folderName || '';
+  const honorific = String(delivery.title || '').trim();
+  // Greeting always includes the honorific when present so the
+  // public copy reads as "Hello, Ms. Amanda" / "Hello, Mr. Billy
+  // Regal". Older rows that were saved without a title fall back
+  // to the bare client name; rows with no name at all keep the
+  // generic placeholder.
+  const heading = delivery.clientName
+    ? `Hello, ${honorific ? `${honorific} ` : ''}${delivery.clientName}`
+    : 'Your files are ready';
+  const folderLabel = String(delivery.folderName || '').trim();
 
   return (
     <main className="public-delivery-page">
       <GlobalBackground />
       <section className="public-delivery-card" aria-label="Private delivery links">
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-          <img className="public-delivery-logo" src="/logo-hero.png" alt="StarShots" />
-        </picture>
-        {subtitle ? <p className="public-delivery-kicker">{subtitle}</p> : null}
-        <h1>{heading}</h1>
-        <p className="public-delivery-subcopy">Choose your preferred delivery option below.</p>
+        {/* Brand header: logo + folder name share a centered column
+            above the divider line. The divider replaces the older
+            kicker's border-top so the visual hierarchy reads as
+            (logo → folder → line → greeting → CTA copy → links). */}
+        <header className="public-delivery-header">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+            <img className="public-delivery-logo" src="/logo-hero.png" alt="StarShots" />
+          </picture>
+          {folderLabel ? <p className="public-delivery-folder">{folderLabel}</p> : null}
+        </header>
+        <div className="public-delivery-divider" role="presentation" />
+        <h1 className="public-delivery-greeting">{heading}</h1>
+        <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
         <div className="public-delivery-list">
           {services.map(({ key, aliases, fallback, icon }) => {
             const link = aliases.map((alias) => linkMap.get(alias)).find(Boolean);
@@ -60,7 +74,7 @@ function GalleryLinks({ payload }) {
               <>
                 <span className="public-delivery-icon">{icon}</span>
                 <span className="public-delivery-name">{link?.label || fallback}</span>
-                <span className="public-delivery-state">{available ? 'Open' : 'Unavailable'}</span>
+                <span className="public-delivery-state">{available ? 'Click' : 'Unavailable'}</span>
               </>
             );
             return available ? (

@@ -50,17 +50,21 @@
   flex-direction: column;
 }
 
-/* Hide scrollbars to match /inv. */
-.pf-panel--left,
-.pf-panel--right {
+/* Hide the left-panel scrollbar only. The right panel keeps its
+ * native scrollbar so the operator has a visible affordance for
+ * the long detail surface (delivery detail, subscription detail,
+ * invoice preview, ...). Cross-browser: scrollbar-width:none for
+ * Firefox/standards, ::-webkit-scrollbar zero-size+display:none
+ * for Chromium/Safari. -ms-overflow-style:none keeps legacy Edge
+ * consistent. */
+.pf-panel--left {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-.pf-panel--left::-webkit-scrollbar,
-.pf-panel--right::-webkit-scrollbar {
+.pf-panel--left::-webkit-scrollbar {
+  display: none;
   width: 0;
   height: 0;
-  display: none;
 }
 
 /* Header — matches /inv .panel-header.

@@ -38,15 +38,17 @@
 
 *{box-sizing:border-box}
 html,body,#root{min-height:100%;margin:0}
-html,body,.editor-panel,.preview-panel,.preview-canvas{
+/* Hide the left-side scrollbar only. The right preview keeps its
+ * native scrollbar so the operator can see scroll affordance. The
+ * page-level (html/body) bars also stay hidden — the in-panel
+ * scrollers are the canonical scroll surface. */
+html,body,.editor-panel{
   scrollbar-width:none;
   -ms-overflow-style:none;
 }
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
-.editor-panel::-webkit-scrollbar,
-.preview-panel::-webkit-scrollbar,
-.preview-canvas::-webkit-scrollbar{
+.editor-panel::-webkit-scrollbar{
   width:0;
   height:0;
   display:none;
@@ -205,8 +207,37 @@ button{cursor:pointer}
   width:min(224px,62vw);
   height:auto;
   align-self:center;
-  margin-bottom:34px;
+  margin-bottom:0;
 }
+/* Brand header column: logo on top, folder name centered just
+ * below it. Both stack horizontally centered above the divider
+ * line. The folder name uses uppercase tracking so it reads as a
+ * label, not a title. */
+.public-delivery-header{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:14px;
+  margin-bottom:18px;
+}
+.public-delivery-folder{
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  text-align:center;
+}
+.public-delivery-divider{
+  height:1px;
+  margin:0 0 22px;
+  background:var(--line);
+  border:0;
+}
+/* Legacy kicker — retained for backwards compatibility with any
+ * still-rendered subtitle, but the new layout drives the brand
+ * label through .public-delivery-folder above the divider. */
 .public-delivery-kicker{
   margin:0 0 12px;
   padding-top:12px;
@@ -217,20 +248,23 @@ button{cursor:pointer}
   letter-spacing:.16em;
   text-transform:uppercase;
 }
+.public-delivery-greeting,
 .public-delivery-card h1{
   margin:0;
   color:var(--ink);
   font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;
-  font-size:clamp(36px,6vw,54px);
+  font-size:clamp(26px,4.4vw,38px);
   font-weight:500;
-  line-height:1.04;
+  line-height:1.12;
+  letter-spacing:-0.005em;
   text-align:center;
 }
 .public-delivery-subcopy{
-  margin:28px 0 22px;
+  margin:14px 0 22px;
   color:var(--muted);
-  font-size:15px;
-  font-weight:700;
+  font-size:13px;
+  font-weight:500;
+  letter-spacing:.01em;
   text-align:center;
 }
 .public-delivery-list{
@@ -2121,11 +2155,18 @@ dd{margin:0;text-align:right;font-weight:800}
     min-height:calc(100svh - 28px);
     border-radius:24px;
   }
+  .public-delivery-greeting,
   .public-delivery-card h1{
-    text-align:left;
+    /* Keep the greeting centered on mobile too so it stays visually
+     * aligned with the centered logo + folder label above the divider.
+     * Drop the size a notch so a long "Hello, Mr. Billy Regal" still
+     * fits one line on narrow phones. */
+    text-align:center;
+    font-size:clamp(22px,7vw,30px);
   }
   .public-delivery-subcopy{
-    text-align:left;
+    text-align:center;
+    margin:12px 0 20px;
   }
   .public-delivery-row{
     grid-template-columns:40px minmax(0,1fr);
@@ -2235,6 +2276,69 @@ dd{margin:0;text-align:right;font-weight:800}
   min-height:34px;
   margin-top:4px;
   padding:0 14px;
+}
+/* Password card layout: the entire tile is a tap-to-copy button
+ * (rendered as .dd-card-tap inside the wrapper) with a dedicated
+ * icon-only refresh control absolutely positioned on the right
+ * edge. Padding-right reserves room for the refresh button so the
+ * password text never sits underneath it. */
+.dd-card--password{
+  position:relative;
+  padding:0;
+  cursor:default;
+  background:var(--field);
+}
+.dd-card-tap{
+  appearance:none;
+  border:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  text-align:left;
+  cursor:pointer;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:6px;
+  width:100%;
+  padding:14px 60px 14px 16px;
+  border-radius:18px;
+  transition:transform .15s ease;
+}
+.dd-card-tap:hover{
+  transform:translateY(-1px);
+}
+.dd-card-tap:active{
+  transform:scale(.99);
+}
+.dd-refresh-button{
+  position:absolute;
+  top:50%;
+  right:10px;
+  transform:translateY(-50%);
+  display:inline-grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--panel);
+  color:var(--muted);
+  cursor:pointer;
+  transition:border-color .15s ease,color .15s ease,transform .15s ease,background .15s ease;
+}
+.dd-refresh-button:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:var(--field);
+}
+.dd-refresh-button:active{
+  transform:translateY(-50%) scale(.96);
+}
+.dd-refresh-button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
 }
 .dd-inline-actions{
   display:flex;

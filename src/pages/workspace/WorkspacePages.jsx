@@ -154,6 +154,22 @@ function createRecordUrl(path, params) {
   return `${url.pathname}${url.search}`;
 }
 
+// Accept only bare YYYY-MM-DD date strings as a real event date.
+// Timestamp-shaped values (e.g. created_at/updated_at "2026-05-17
+// T13:08:21.123Z") are rejected so they don't leak into the
+// /inv?eventDate= handoff URL where the type=date input would
+// silently render blank. Returns the YYYY-MM-DD on hit, '' on miss.
+function plainEventDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  // Already in YYYY-MM-DD form — pass through unchanged.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // Anything with a 'T' time component (ISO timestamp) is a
+  // created_at/updated_at-style metadata field, not an event date.
+  if (/T\d/.test(raw)) return '';
+  return '';
+}
+
 // Map a subscription row to one of three visual states.
 //
 // active  - currently in good standing — green.
@@ -313,24 +329,35 @@ function buildClientRecords(client, invoices, deliveries) {
 
   deliveries.filter(matches).forEach((delivery) => {
     const date = delivery.event_date || delivery.created_at || '';
+    const eventDate = plainEventDate(delivery.event_date);
     const key = date || `delivery:${delivery.id}`;
-    ensure(key, {
+    const seed = ensure(key, {
       date,
+      eventDate,
       name: delivery.client_name || client.name,
       title: delivery.title || client.title,
       contact: client.contact || '',
-    }).delivery = delivery;
+    });
+    // If a later record carries a real event_date and this row's
+    // grouping key didn't, upgrade the row in place so the Create
+    // Invoice handoff prefills the date.
+    if (eventDate && !seed.eventDate) seed.eventDate = eventDate;
+    seed.delivery = delivery;
   });
 
   invoices.filter(matches).forEach((invoice) => {
     const date = invoice.event_date || invoice.invoice_date || invoice.created_at || '';
+    const eventDate = plainEventDate(invoice.event_date);
     const key = date || `invoice:${invoice.id}`;
-    ensure(key, {
+    const seed = ensure(key, {
       date,
+      eventDate,
       name: invoice.client_name || client.name,
       title: invoice.client_title || client.title,
       contact: invoice.client_contact || client.contact || '',
-    }).invoice = invoice;
+    });
+    if (eventDate && !seed.eventDate) seed.eventDate = eventDate;
+    seed.invoice = invoice;
   });
 
   return [...rows.values()].sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0));
@@ -405,10 +432,10 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
         {records.map((row, index) => {
           const eventLinkHref = row.delivery?.id
             ? row.delivery.short_url || row.delivery.delivery_url || linkHref
-            : createRecordUrl('/l/', { title: row.title || title, name: row.name || name, contact, eventDate: row.date });
+            : createRecordUrl('/l/', { title: row.title || title, name: row.name || name, contact, eventDate: row.eventDate });
           const eventInvoiceHref = row.invoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.invoice.id })
-            : createRecordUrl('/inv/', { title: row.title || title, name: row.name || name, contact, eventDate: row.date });
+            : createRecordUrl('/inv/', { title: row.title || title, name: row.name || name, contact, eventDate: row.eventDate });
           // A row's stable identity is delivery.id ?? invoice.id ?? date —
           // we use it to drive both the React key and the mobile "armed"
           // state (parent owns the armed-id so only one row at a time
@@ -562,10 +589,14 @@ function buildShortUrl(code) {
 // Synthesise a delivery message when the worker payload doesn't
 // carry a stored generated_text_whatsapp / generated_text_instagram
 // (e.g. older rows that pre-date the message-template change). Mirrors
-// buildDeliveryMessage() in _worker.js so the operator-facing text is
-// identical regardless of which path produced it. WA and IG share the
-// same body — the public template doesn't differ between channels.
-function synthesizeDeliveryMessage(title, clientName, shortUrl, password, folder) {
+// buildDeliveryMessage() / buildDeliveryMessageIg() in _worker.js so
+// the operator-facing text is identical regardless of which path
+// produced it. The two variants intentionally diverge: WhatsApp
+// keeps the formatted multi-line body with bullet glyphs (renders
+// well in chat panes); Instagram collapses to a single short
+// paragraph with no bullets so the DM reads naturally without the
+// "•" characters appearing as plain text.
+function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, folder) {
   const t = String(title || 'Ms.').trim() || 'Ms.';
   const n = String(clientName || '').trim();
   const link = shortUrl || '(link unavailable)';
@@ -586,6 +617,38 @@ It has been our pleasure to serve you, and we look forward to welcoming you agai
 
 Warm regards,
 StarShots`;
+}
+
+function synthesizeDeliveryMessageIg(title, clientName, shortUrl, password) {
+  const t = String(title || 'Ms.').trim() || 'Ms.';
+  const n = String(clientName || '').trim();
+  const link = shortUrl || '(link unavailable)';
+  const pass = String(password || '').trim() || '(no password)';
+  return `Hi ${t} ${n}! Your StarShots delivery files are ready — access them at ${link} using password ${pass}. Please download within the stated availability period. With love, StarShots.`;
+}
+
+// Inline circular refresh icon for the password regeneration
+// button. Stroke-only path so the icon picks up `currentColor`,
+// keeping the idle/hover/disabled palettes in CSS.
+function RefreshIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
 }
 
 // Admin-only delivery detail rendered in /db's right panel after
@@ -664,14 +727,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
 
   // Prefer the worker's stored WA/IG templates when present so the
   // operator copies the exact text saved with the delivery. Fall
-  // back to a synthesized message that mirrors buildDeliveryMessage()
-  // in _worker.js. When shortUrl is empty the synth still produces
-  // readable text with a "(link unavailable)" placeholder.
+  // back to channel-specific synthesised messages — WA keeps the
+  // bulleted multi-line body, IG ships a single-paragraph DM-
+  // friendly variant. We intentionally do NOT cross-fall (e.g. WA
+  // text into an empty IG slot) because that would re-introduce
+  // bullet glyphs into the IG copy which is the bug the channel
+  // split fixes.
   const storedWa = String(currentDelivery?.generated_text_whatsapp || '').trim();
   const storedIg = String(currentDelivery?.generated_text_instagram || '').trim();
-  const synth = synthesizeDeliveryMessage(title, clientName, shortUrl, password, folder);
-  const messageWa = storedWa || synth;
-  const messageIg = storedIg || storedWa || synth;
+  const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, folder);
+  const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password);
+  const messageWa = storedWa || synthWa;
+  const messageIg = storedIg || synthIg;
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -783,7 +850,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
         </div>
         <div className="detail-actions">
           <button type="button" className="ghost-button compact" onClick={() => setEditingLinks((value) => !value)}>
-            {editingLinks ? 'Close edit' : 'Edit links'}
+            {editingLinks ? 'Close Edit' : 'Edit Links'}
           </button>
           <button
             type="button"
@@ -812,12 +879,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
               >
                 <span className="dd-eyebrow">Short Link</span>
                 <strong className="dd-card-strong">{shortDisplay}</strong>
-                <span className="dd-card-hint">Tap to copy &amp; open</span>
+                <span className="dd-card-hint">Tap To Copy &amp; Open</span>
               </button>
             ) : (
               <div className="dd-card dd-card--muted" aria-label="Legacy short link unavailable">
                 <span className="dd-eyebrow">Short Link</span>
-                <strong className="dd-card-strong dd-card-strong--muted">Legacy link unavailable</strong>
+                <strong className="dd-card-strong dd-card-strong--muted">Legacy Link Unavailable</strong>
                 <span className="dd-card-hint">No 12-char short code on this row.</span>
                 {currentDelivery?.id ? (
                   <button
@@ -826,29 +893,45 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                     onClick={() => handleRepairDelivery()}
                     disabled={repairing}
                   >
-                    {repairing ? 'Repairing...' : 'Repair secure link'}
+                    {repairing ? 'Repairing...' : 'Repair Secure Link'}
                   </button>
                 ) : null}
                 {repairStatus ? <span className="dd-card-hint">{repairStatus}</span> : null}
               </div>
             )}
             {password ? (
-              <div className={`dd-card${flash === 'pass' ? ' is-flash' : ''}`} aria-label="Password actions">
-                <span className="dd-eyebrow">Password</span>
-                <strong className="dd-card-strong">{password}</strong>
-                <div className="dd-inline-actions">
-                  <button type="button" className="dd-text-button" onClick={handlePasswordClick}>
-                    Tap to copy
-                  </button>
-                  <button
-                    type="button"
-                    className="dd-text-button"
-                    onClick={() => handleRepairDelivery({ rotatePassword: true })}
-                    disabled={rotatingPassword}
-                  >
-                    {rotatingPassword ? 'Regenerating...' : 'Regenerate password'}
-                  </button>
-                </div>
+              /* Password card: the whole tile is a tap-to-copy
+                 button. The regenerate action is a separate icon-
+                 only refresh control absolutely positioned on the
+                 right edge of the tile so an accidental tap on the
+                 card body never rotates the password. The wrapper
+                 div is non-interactive (the inner button owns the
+                 tap target) which lets the refresh button live as
+                 a sibling without nesting buttons. */
+              <div
+                className={`dd-card dd-card--password${flash === 'pass' ? ' is-flash' : ''}`}
+                aria-label="Password actions"
+              >
+                <button
+                  type="button"
+                  className="dd-card-tap"
+                  onClick={handlePasswordClick}
+                  aria-label="Copy password to clipboard"
+                >
+                  <span className="dd-eyebrow">Password</span>
+                  <strong className="dd-card-strong">{password}</strong>
+                  <span className="dd-card-hint">Tap To Copy</span>
+                </button>
+                <button
+                  type="button"
+                  className="dd-refresh-button"
+                  onClick={() => handleRepairDelivery({ rotatePassword: true })}
+                  disabled={rotatingPassword}
+                  aria-label={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
+                  title={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
+                >
+                  <RefreshIcon />
+                </button>
               </div>
             ) : (
               <div className="dd-card dd-card--muted" aria-label="No password">
@@ -862,7 +945,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                     onClick={() => handleRepairDelivery({ rotatePassword: true })}
                     disabled={rotatingPassword}
                   >
-                    {rotatingPassword ? 'Regenerating...' : 'Generate secure password'}
+                    {rotatingPassword ? 'Regenerating...' : 'Generate Secure Password'}
                   </button>
                 ) : null}
               </div>
@@ -887,7 +970,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
               </div>
               <div className="dd-message-actions">
                 <button type="submit" className="ghost-button compact" disabled={savingLinks}>
-                  {savingLinks ? 'Saving...' : 'Save links'}
+                  {savingLinks ? 'Saving...' : 'Save Links'}
                 </button>
                 <button type="button" className="ghost-button compact" onClick={() => setEditingLinks(false)}>
                   Cancel

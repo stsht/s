@@ -209,16 +209,25 @@ async function cropQrImage(file) {
 //      deposit/QR) from the row + invoice_data blob.
 //   2. title/name/contact/eventDate (no invoiceId) -> just pre-fill
 //      Bill-To / Details for a fresh invoice draft created from /db.
+//
+// `eventDate` is sanitised to a bare YYYY-MM-DD; older /db builds
+// occasionally passed a created_at/updated_at timestamp here, which
+// the <input type="date"> binding silently rejects (rendering the
+// field blank instead of the typed date). Anything that isn't a
+// pure YYYY-MM-DD string is dropped so the form falls back to the
+// empty default the operator can edit.
 function readInitialQuery() {
   if (typeof window === 'undefined') return {};
   try {
     const params = new URLSearchParams(window.location.search);
+    const rawEventDate = (params.get('eventDate') || '').trim();
+    const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(rawEventDate) ? rawEventDate : '';
     return {
       invoiceId: (params.get('invoiceId') || '').trim(),
       title: (params.get('title') || '').trim(),
       name: (params.get('name') || '').trim(),
       contact: (params.get('contact') || '').trim(),
-      eventDate: (params.get('eventDate') || '').trim(),
+      eventDate,
     };
   } catch {
     return {};
