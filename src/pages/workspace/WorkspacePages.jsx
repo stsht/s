@@ -110,6 +110,47 @@ function subscriptionTone(sub = {}) {
   return 'active';
 }
 
+// Sort key for the /db Subs list. We want "newest at top, oldest at
+// bottom" but with expired rows pinned to the bottom regardless of
+// recency. The key is the most recent meaningful timestamp on the
+// subscription, falling back through expiry → payment → start →
+// created_at. Returns 0 if nothing parseable is on the row, which
+// safely sinks to the bottom of its tier.
+function subscriptionSortTimestamp(sub = {}) {
+  const candidates = [
+    sub.expiry_date,
+    sub.payment_date,
+    sub.start_date,
+    sub.created_at,
+    sub.updated_at,
+  ];
+  for (const value of candidates) {
+    const t = Date.parse(String(value || ''));
+    if (!Number.isNaN(t)) return t;
+  }
+  return 0;
+}
+
+// Sort /db Subs rows: active/warning first, then expired — within
+// each tier ordered by subscriptionSortTimestamp() descending so
+// the newest row (by expiry / payment / start / created_at) sits
+// at the top. `getSub(row)` returns the subscription record we use
+// for tone + timestamp; rows without a resolved subscription are
+// treated as 'active' with timestamp 0 so they don't sink past
+// real expired rows but also don't lead the list.
+function sortSubsRows(rows, getSub) {
+  return [...rows].sort((a, b) => {
+    const subA = getSub(a);
+    const subB = getSub(b);
+    const toneA = subA ? subscriptionTone(subA) : 'active';
+    const toneB = subB ? subscriptionTone(subB) : 'active';
+    const expiredA = toneA === 'expired' ? 1 : 0;
+    const expiredB = toneB === 'expired' ? 1 : 0;
+    if (expiredA !== expiredB) return expiredA - expiredB;
+    return subscriptionSortTimestamp(subB) - subscriptionSortTimestamp(subA);
+  });
+}
+
 // Format the Subs-tab list meta from a subscription row. Produces
 // e.g. "ChatGPT Paid" / "Google Drive Active" / "Dropbox Expired" —
 // the service name passed through verbatim, status capitalised and
@@ -984,7 +1025,7 @@ function SubscriptionImport({ onSaved, onCancel }) {
             </button>
           </div>
         </div>
-        <form className="form-stack" onSubmit={(e) => e.preventDefault()}>
+        <form className="form-stack subs-import-form" onSubmit={(e) => e.preventDefault()}>
           <SubsImportDropZone
             busy={busy}
             fileName={fileName}
@@ -994,17 +1035,14 @@ function SubscriptionImport({ onSaved, onCancel }) {
             <p className={`download-status${statusTone ? ` lg-status-${statusTone}` : ''}`}>{status}</p>
           ) : null}
           <div className="client-actions">
-            <button
-              type="button"
+            <a
               className="ghost-button compact"
-              onClick={() => {
-                setStage('edit');
-                setStatus('Enter the subscription fields manually.');
-                setStatusTone('');
-              }}
+              href="/subs/"
+              target="_blank"
+              rel="noopener noreferrer"
             >
               Enter manually
-            </button>
+            </a>
             <button type="button" className="ghost-button compact" onClick={onCancel}>Cancel</button>
           </div>
         </form>
@@ -1248,7 +1286,9 @@ export function DatabasePage() {
     });
   }, [subscriptions]);
 
-  const activeRows = tab === 'subs' ? subClients : crmClients;
+  const activeRows = tab === 'subs'
+    ? sortSubsRows(subClients, getClientSubscription)
+    : crmClients;
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
   // For Subs tab selections, resolve the actual subscription row so the
   // detail panel renders subscription fields instead of reusing the
@@ -2512,6 +2552,11 @@ export function SubscriptionsPage() {
   const [startTime, setStartTime] = useState(nowSubsTime);
   const [mobileView, setMobileView] = useState('left');
   const [status, setStatus] = useState('');
+  // Tracks whether a /api/subscriptions-save request is in flight
+  // so the Save button can disable itself and show "Saving…". The
+  // primary status banner doubles as the success/failure surface
+  // so we don't add a second message slot.
+  const [saving, setSaving] = useState(false);
   const cardRef = useRef(null);
   // Track the previous mode so the refresh-on-switch effect only
   // fires on actual transitions into 'paid', not on the very first
@@ -2545,17 +2590,6 @@ export function SubscriptionsPage() {
     () => addDays(startDate, accessPeriod),
     [startDate, accessPeriod],
   );
-
-  // Deterministic invoice number from the inputs that identify the
-  // bill (client + service + issued date). Stable across re-renders
-  // for the same triple, regenerates only when those change.
-  const invoiceNumber = useMemo(() => {
-    const datePart = String(issuedDate || '').replace(/-/g, '');
-    const seed = `${client}-${service}-${issuedDate}`.toLowerCase();
-    let hash = 5381;
-    for (let i = 0; i < seed.length; i += 1) hash = (hash * 33 + seed.charCodeAt(i)) >>> 0;
-    return `INV-${datePart || '000000'}-${hash.toString(36).slice(0, 4).toUpperCase()}`;
-  }, [client, service, issuedDate]);
 
   async function handleJpgImport(event) {
     const file = event.target.files?.[0];
@@ -2680,6 +2714,75 @@ export function SubscriptionsPage() {
       setStatus(error.message || 'Failed to render JPG.');
     } finally {
       exportHost.remove();
+    }
+  }
+
+  // Save the current /subs draft as a subscription row using the
+  // same /api/subscriptions-save endpoint that /db Subs uses (both
+  // for manual creation and JPG-import flows). Mode-specific field
+  // mapping keeps invoice and paid drafts distinguishable on the
+  // server side:
+  //   • invoice mode → status='invoice', invoice_date=issuedDate,
+  //                    access_period derived from the duration
+  //                    dropdown (blank duration → 0 days), payment/
+  //                    start/expiry left blank.
+  //   • paid mode    → status='paid', payment & start fields
+  //                    populated from the editor, expiry computed
+  //                    via addDays(startDate, accessPeriod).
+  // Empty client name or service short-circuits before the request
+  // — the dashboard's row would otherwise be unidentifiable.
+  async function saveSubscription() {
+    if (saving) return;
+    if (!String(client || '').trim()) {
+      setStatus('Client name required to save.');
+      return;
+    }
+    if (!String(service || '').trim()) {
+      setStatus('Service required to save.');
+      return;
+    }
+    const isPaid = mode === 'paid';
+    const numericPrice = Math.max(0, Math.round(Number(price) || 0));
+    const durationDays = isPaid
+      ? (Number(accessPeriod) || 0)
+      : (Number(duration) || 0);
+    const subscription = {
+      client_title: titlePrefix || '',
+      client_name: client.trim(),
+      client_contact: '',
+      service: service || '',
+      storage_slot: !SUBS_NON_STORAGE_SERVICES.has(service) ? (storage || '') : '',
+      rate_mode: 'normal',
+      price: numericPrice,
+      status: isPaid ? 'paid' : 'invoice',
+      invoice_date: !isPaid ? (issuedDate || '') : '',
+      payment_date: isPaid ? (paymentDate || '') : '',
+      payment_time: isPaid ? (paymentTime || '') : '',
+      access_period: durationDays,
+      start_date: isPaid ? (startDate || '') : '',
+      start_time: isPaid ? (startTime || '') : '',
+      expiry_date: isPaid ? (expiryDate || '') : '',
+      expiry_time: '',
+    };
+
+    setSaving(true);
+    setStatus('Saving subscription\u2026');
+    try {
+      const response = await fetch('/api/subscriptions-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      setStatus('Saved. Now visible in /db Subs.');
+    } catch (error) {
+      setStatus(error?.message || 'Save failed.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -2861,17 +2964,17 @@ export function SubscriptionsPage() {
     </article>
   );
 
-  // Invoice card. Compact subscription bill: header with logo + INV-#,
-  // bill-to / service-details tiles, line-item row, payment block with
-  // QR + totals (Total / Issued — no Due row, single date convention),
-  // and a shared footer.
+  // Invoice card. Compact subscription bill: header with logo and
+  // an eyebrow tag (no INV-# — invoice numbers were dropped per
+  // 2026-05 polish), bill-to / service-details tiles, line-item
+  // row, payment block with QR + totals (Total / Issued — no Due
+  // row, single date convention), and a shared footer.
   const invoiceCard = (
     <article className="subs-invoice-card" ref={cardRef}>
       <header className="subs-invoice-head">
         <img src="/logo-hero.png" alt="StarShots" className="subs-invoice-logo" />
         <div className="subs-invoice-meta">
           <p className="subs-eyebrow">Subscription Invoice</p>
-          <strong>{invoiceNumber}</strong>
         </div>
       </header>
       <section className="subs-invoice-grid">
@@ -2918,7 +3021,17 @@ export function SubscriptionsPage() {
           <p className="eyebrow">Live Preview</p>
           <h2>{mode === 'paid' ? 'Subscription Receipt' : 'Subscription Invoice'}</h2>
         </div>
-        <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+        <div className="subs-toolbar-actions">
+          <button
+            className="ghost-button compact"
+            type="button"
+            onClick={saveSubscription}
+            disabled={saving}
+          >
+            {saving ? 'Saving\u2026' : 'Save'}
+          </button>
+          <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+        </div>
       </header>
       <div className="subs-canvas">
         {mode === 'paid' ? paidCard : invoiceCard}
