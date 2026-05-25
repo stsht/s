@@ -1283,7 +1283,9 @@ dd{margin:0;text-align:right;font-weight:800}
  *
  * Layout mirrors the legacy reference (header / 2x2 meta tiles /
  * two large period blocks / footer) but each surface is rebuilt
- * with our current radius, beige tile fill, and weight scale.
+ * with our current radius, soft pastel-blue tile fill, and weight
+ * scale so the receipt reads as a clean StarShots artifact rather
+ * than the previous brown/beige treatment.
  */
 .subs-toolbar{
   display:flex;
@@ -1298,6 +1300,27 @@ dd{margin:0;text-align:right;font-weight:800}
   line-height:1.1;
   font-weight:900;
   letter-spacing:0;
+}
+/* Action cluster on the right side of the /subs preview toolbar.
+ * Hosts the Save (ghost) + Generate JPG (primary) buttons. The
+ * gap is tighter than .preview-toolbar's default since both pills
+ * already carry their own padding; flex-wrap lets the row drop the
+ * Save pill onto a second line on very narrow viewports without
+ * the buttons overlapping the title. */
+.subs-toolbar-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.subs-toolbar-actions .ghost-button{
+  width:auto;
+  margin:0;
+  white-space:nowrap;
+}
+.subs-toolbar-actions .primary-button{
+  white-space:nowrap;
 }
 .subs-canvas{
   flex:1;
@@ -1340,7 +1363,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-service-tag{
   margin:0;
-  color:#a08a73;
+  color:#6b86a8;
   font-size:11px;
   font-weight:700;
   letter-spacing:.2em;
@@ -1359,7 +1382,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-eyebrow{
   margin:6px 0 0;
-  color:#a08a73;
+  color:#6b86a8;
   font-size:11px;
   font-weight:800;
   letter-spacing:.22em;
@@ -1376,14 +1399,14 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:8px;
   padding:18px 20px;
   border-radius:20px;
-  background:#f4f1ec;
+  background:#eef4fb;
   text-align:center;
   align-items:center;
   justify-content:center;
   min-height:96px;
 }
 .subs-tile-label{
-  color:#a08a73;
+  color:#6b86a8;
   font-size:11px;
   font-weight:700;
   letter-spacing:.16em;
@@ -1409,7 +1432,7 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:14px;
   padding:36px 24px;
   border-radius:24px;
-  background:#f4f1ec;
+  background:#eef4fb;
   text-align:center;
   min-height:200px;
 }
@@ -1434,7 +1457,7 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:6px;
   text-align:center;
   padding-top:18px;
-  border-top:1px solid #efeae1;
+  border-top:1px solid #dde7f3;
   margin-top:6px;
 }
 .subs-foot-title{
@@ -1447,7 +1470,7 @@ dd{margin:0;text-align:right;font-weight:800}
   margin:0;
   font-size:12px;
   font-weight:600;
-  color:#a08a73;
+  color:#6b86a8;
 }
 .subs-foot-meta{
   margin-top:14px;
@@ -1457,7 +1480,7 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:12px;
   font-size:11px;
-  color:#a08a73;
+  color:#6b86a8;
   font-weight:600;
 }
 .subs-foot-meta strong{
@@ -1509,8 +1532,8 @@ dd{margin:0;text-align:right;font-weight:800}
 /* /subs invoice card.
  *
  * Sibling of .subs-card (paid receipt) — same 720px white sheet,
- * same beige tile fill, same Plus Jakarta Sans family — but laid
- * out as a subscription bill: header with logo + INV-#, bill-to /
+ * same soft pastel-blue tile fill, same Plus Jakarta Sans family —
+ * but laid out as a subscription bill: header with logo, bill-to /
  * service-details split, single line item, payment block with QR
  * and totals, shared footer.
  */
@@ -1533,7 +1556,7 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:16px;
   padding-bottom:18px;
-  border-bottom:1px solid #efeae1;
+  border-bottom:1px solid #dde7f3;
 }
 .subs-invoice-logo{
   width:160px;
@@ -1590,7 +1613,7 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:16px;
   padding:18px 22px;
-  border:1px solid #efeae1;
+  border:1px solid #dde7f3;
   border-radius:18px;
   background:#fff;
 }
@@ -1604,7 +1627,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-invoice-line small{
   display:block;
   margin-top:4px;
-  color:#a08a73;
+  color:#6b86a8;
   font-size:12px;
   font-weight:600;
   letter-spacing:.02em;
@@ -1622,7 +1645,7 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:center;
   padding:22px;
   border-radius:24px;
-  background:#f4f1ec;
+  background:#eef4fb;
 }
 .subs-invoice-qr{
   width:100%;
@@ -1630,7 +1653,7 @@ dd{margin:0;text-align:right;font-weight:800}
   height:auto;
   display:block;
   margin:0 auto;
-  border:1px solid #efeae1;
+  border:1px solid #dde7f3;
   border-radius:16px;
   background:#fff;
   padding:12px;
@@ -1647,14 +1670,14 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:12px;
   margin:0;
   padding-bottom:8px;
-  border-bottom:1px dashed #e2dccf;
+  border-bottom:1px dashed #d6e2f0;
 }
 .subs-invoice-totals p:last-child{
   border-bottom:0;
   padding-bottom:0;
 }
 .subs-invoice-totals span{
-  color:#a08a73;
+  color:#6b86a8;
   font-size:11px;
   font-weight:800;
   letter-spacing:.14em;
@@ -1892,10 +1915,17 @@ dd{margin:0;text-align:right;font-weight:800}
 
 /* Subs JPG import — drag-and-drop upload zone. Mirrors the
  * .qr-upload pill aesthetic (dashed border, soft field bg) but
- * scales up to a multi-line drop target with an icon, headline,
+ * scales up to a full-bleed drop target with an icon, headline,
  * and filename hint. The visually-hidden native <input type="file">
  * keeps keyboard focus working; pointer events fall through to the
  * outer wrapper because the input is sized 1x1 and offset off-screen.
+ *
+ * Sizing is adaptive to the right panel: the importer's outer form
+ * (.subs-import-form) is a vertical flex column that lets the drop
+ * zone grow to fill any vertical space the panel gives it. The
+ * min-height clamp on .subs-drop guarantees a comfortable target
+ * even when the panel is short, and the upper bound keeps the zone
+ * from looking absurdly tall on ultra-wide displays.
  *
  *  • idle             → dashed line + muted copy
  *  • hover/focus      → accent border, ink-coloured copy
@@ -1903,17 +1933,33 @@ dd{margin:0;text-align:right;font-weight:800}
  *                       the drop target is live
  *  • busy (uploading) → reduced opacity, pointer disabled, no hover
  */
-.subs-drop-wrap{display:grid;gap:8px}
+.subs-import-form{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  flex:1 1 auto;
+  min-height:0;
+}
+.subs-drop-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  flex:1 1 auto;
+  min-height:0;
+}
 .subs-drop{
   position:relative;
-  display:grid;
-  justify-items:center;
-  align-content:center;
-  gap:8px;
-  padding:28px 20px;
-  min-height:168px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  padding:36px 24px;
+  flex:1 1 auto;
+  width:100%;
+  min-height:clamp(280px, 52vh, 560px);
   border:1.5px dashed var(--line-strong);
-  border-radius:22px;
+  border-radius:24px;
   background:var(--field);
   color:var(--muted);
   text-align:center;
@@ -1933,14 +1979,14 @@ dd{margin:0;text-align:right;font-weight:800}
   border:0;
 }
 .subs-drop-icon{
-  width:34px;
-  height:34px;
+  width:44px;
+  height:44px;
   color:var(--accent);
   opacity:.85;
 }
 .subs-drop-title{
   color:var(--ink);
-  font-size:15px;
+  font-size:17px;
   font-weight:800;
   letter-spacing:.01em;
 }
@@ -1949,7 +1995,7 @@ dd{margin:0;text-align:right;font-weight:800}
   font-weight:700;
   color:var(--muted);
   letter-spacing:.02em;
-  max-width:32ch;
+  max-width:42ch;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
@@ -1975,4 +2021,23 @@ dd{margin:0;text-align:right;font-weight:800}
   cursor:progress;
   opacity:.7;
   pointer-events:none;
+}
+
+/* On mobile / right-panel-only mode, the importer collapses to a
+ * single visible panel — make the drop zone feel like a dedicated
+ * full-page upload surface by stretching it to most of the viewport
+ * height. The clamp lower bound stays generous so even a short
+ * landscape phone keeps a clearly-tappable target. */
+@media (max-width:1023px){
+  .subs-drop{
+    min-height:clamp(320px, 64vh, 72vh);
+    padding:32px 22px;
+  }
+  .subs-drop-icon{
+    width:48px;
+    height:48px;
+  }
+  .subs-drop-title{
+    font-size:18px;
+  }
 }
