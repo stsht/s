@@ -799,21 +799,73 @@ dd{margin:0;text-align:right;font-weight:800}
   font-weight:650;
 }
 
-/* Subscription status tones (Subs tab). Active rows render in the
- * default text colour; expired rows dim to muted; rows expiring
- * within 3 days that haven't been settled (paid/solved/closed) read
- * as red so renewals stay visible. Driven by subscriptionTone() in
- * WorkspacePages.jsx. */
-.db-list-row.sub-expired strong,
-.db-list-row.sub-expired span{
-  color:var(--muted);
-  opacity:.7;
+/* Subscription status tones (Subs tab + detail). Driven by
+ * subscriptionTone() in WorkspacePages.jsx — applies to both the
+ * left-list rows and the right-panel detail field stack via the
+ * `sub-${tone}` className wrapper.
+ *
+ *   active  → green (current / recurring / paid / renewed)
+ *   warning → orange (≤ 3 days from expiry, not yet settled)
+ *   expired → red (expiry_date already passed)
+ *
+ * The CSS variables are defined here so light and dark modes pick
+ * the right palette automatically. Tones colour the row title
+ * (`strong`) primarily and dim the meta line (`span`) to match. */
+:root{
+  --sub-active:#1f8a4c;
+  --sub-warning:#d97706;
+  --sub-expired:#bc3b42;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --sub-active:#3ec27a;
+    --sub-warning:#f5a14a;
+    --sub-expired:#e57078;
+  }
+}
+.db-list-row.sub-active strong{
+  color:var(--sub-active);
 }
 .db-list-row.sub-warning strong{
-  color:var(--danger);
+  color:var(--sub-warning);
 }
 .db-list-row.sub-warning span{
-  color:color-mix(in srgb,var(--danger) 70%,var(--muted) 30%);
+  color:color-mix(in srgb,var(--sub-warning) 70%,var(--muted) 30%);
+}
+.db-list-row.sub-expired strong{
+  color:var(--sub-expired);
+}
+.db-list-row.sub-expired span{
+  color:color-mix(in srgb,var(--sub-expired) 70%,var(--muted) 30%);
+}
+
+/* Status badge that sits next to the client name on the
+ * subscription detail page. Compact pill, picks up the same tone
+ * colour family used by the list rows so the two views read as
+ * one. */
+.sub-badge{
+  display:inline-block;
+  margin-left:10px;
+  padding:3px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  vertical-align:middle;
+  line-height:1.4;
+}
+.sub-badge-active{
+  background:color-mix(in srgb,var(--sub-active) 14%,transparent);
+  color:var(--sub-active);
+}
+.sub-badge-warning{
+  background:color-mix(in srgb,var(--sub-warning) 16%,transparent);
+  color:var(--sub-warning);
+}
+.sub-badge-expired{
+  background:color-mix(in srgb,var(--sub-expired) 14%,transparent);
+  color:var(--sub-expired);
 }
 
 /* Permanent X delete control. Same shape and palette across every
