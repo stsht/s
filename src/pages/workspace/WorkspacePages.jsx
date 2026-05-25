@@ -15,8 +15,14 @@ function today() {
 
 function dateLabel(value) {
   if (!value) return 'No date';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const raw = String(value);
+  // Anchor bare YYYY-MM-DD strings at noon UTC so the en-GB "DD MMM
+  // YYYY" rendering doesn't drift one day in negative timezones.
+  // Values that already carry a time component (ISO timestamps from
+  // created_at, etc.) flow through new Date() unchanged.
+  const isoDate = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  const date = isoDate ? new Date(`${raw}T12:00:00Z`) : new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -402,7 +408,7 @@ function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHr
 // subscription is a recurring service, not a one-off event, so
 // those CTAs don't apply. The Subs page (/subs) is the canonical
 // entry for editing/regenerating a subscription bill or receipt.
-function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClose }) {
+function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription, onClose }) {
   const name = client?.name || client?.client_name || subscription?.client_name || 'Client';
   const contact = client?.contact || client?.client_contact || subscription?.client_contact || '';
   const tone = subscription ? subscriptionTone(subscription) : '';
@@ -424,24 +430,78 @@ function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClos
   const priceLabel = Number.isFinite(Number(subscription?.price))
     ? rupiah(subscription.price)
     : '';
-  const priceField = String(subscription?.status || '').toLowerCase() === 'paid'
-    ? 'Paid Amount'
-    : 'Price';
+  const isPaid = String(subscription?.status || '').toLowerCase() === 'paid';
+  const priceField = isPaid ? 'Paid Amount' : 'Price';
+
+  // Off-screen export card. We always render the appropriate card
+  // for the saved subscription inside a .subs-export-host wrapper
+  // (position:fixed at left:-10000px, width:720px) so html2canvas
+  // can rasterise a stable layout on Print without the operator
+  // ever seeing the card on screen. cardProps mirrors what the
+  // /subs live preview computes from local state, so the same JPG
+  // comes out for both creation and re-print.
+  const cardRef = useRef(null);
+  const cardProps = useMemo(
+    () => subscriptionToCardProps(subscription || {}),
+    [subscription],
+  );
+  const [printStatus, setPrintStatus] = useState('');
+
+  async function handlePrint() {
+    if (!cardRef.current) return;
+    setPrintStatus('Rendering JPG\u2026');
+    if (document.fonts?.ready) {
+      try { await document.fonts.ready; } catch {}
+    }
+    try {
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: '#ffffff',
+        scale: Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 2)),
+        useCORS: true,
+        allowTaint: true,
+        imageTimeout: 0,
+        logging: false,
+        windowWidth: 800,
+        windowHeight: 1200,
+      });
+      const filePrefix = isPaid ? 'subscription-paid' : 'subscription-invoice';
+      const link = document.createElement('a');
+      link.download = `${filePrefix}-${safeSubsToken(subscription?.service) || 'service'}-${safeSubsToken(subscription?.client_name) || 'client'}.jpg`;
+      link.href = canvas.toDataURL('image/jpeg', 1.0);
+      link.click();
+      setPrintStatus('JPG ready.');
+    } catch (error) {
+      console.warn('[db/subs] print failed:', error);
+      setPrintStatus(error?.message || 'Failed to render JPG.');
+    }
+  }
+
+  // Display-time format helpers. Detail rows use the en-GB short
+  // date (now TZ-safe via dateLabel) and the receipt's HH.MM time
+  // form so a single saved value reads the same in the detail
+  // panel and on the printed card.
+  const fmtTime = (v) => (v ? fmtSubsTime(v) : '');
+  const fmtDate = (v) => (v ? dateLabel(v) : '');
 
   // Build the field list. Empty fields are dropped so the panel
-  // never shows a wall of "—" placeholders for a thin record.
+  // never shows a wall of "—" placeholders for a thin record. Title
+  // and Expiry Time were previously hidden — both are surfaced now
+  // so the read-only detail matches what's saved (and what the
+  // print card renders).
   const fields = [
+    { label: 'Title', value: subscription?.client_title || '' },
     { label: 'Service', value: subscription?.service || '' },
     { label: 'Status', value: statusLabel },
     { label: 'Storage', value: subscription?.storage_slot || subscription?.storage || '' },
     { label: 'Period', value: periodLabel },
     { label: priceField, value: priceLabel },
-    { label: 'Invoice Date', value: subscription?.invoice_date ? dateLabel(subscription.invoice_date) : '' },
-    { label: 'Payment Date', value: subscription?.payment_date ? dateLabel(subscription.payment_date) : '' },
-    { label: 'Payment Time', value: subscription?.payment_time || '' },
-    { label: 'Start Date', value: subscription?.start_date ? dateLabel(subscription.start_date) : '' },
-    { label: 'Start Time', value: subscription?.start_time || '' },
-    { label: 'Expiry Date', value: subscription?.expiry_date ? dateLabel(subscription.expiry_date) : '' },
+    { label: 'Invoice Date', value: fmtDate(subscription?.invoice_date) },
+    { label: 'Payment Date', value: fmtDate(subscription?.payment_date) },
+    { label: 'Payment Time', value: fmtTime(subscription?.payment_time) },
+    { label: 'Start Date', value: fmtDate(subscription?.start_date) },
+    { label: 'Start Time', value: fmtTime(subscription?.start_time) },
+    { label: 'Expiry Date', value: fmtDate(subscription?.expiry_date) },
+    { label: 'Expiry Time', value: fmtTime(subscription?.expiry_time) },
     { label: 'Contact', value: contact },
   ].filter((f) => String(f.value || '').trim());
 
@@ -459,6 +519,24 @@ function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClos
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
+          {subscription?.id ? (
+            <button
+              type="button"
+              className="ghost-button compact"
+              onClick={() => onEdit?.(subscription)}
+            >
+              Edit Subscription
+            </button>
+          ) : null}
+          {subscription?.id ? (
+            <button
+              type="button"
+              className="ghost-button compact"
+              onClick={handlePrint}
+            >
+              Print / Generate JPG
+            </button>
+          ) : null}
           {subscription?.id ? (
             <button
               type="button"
@@ -496,6 +574,20 @@ function SubscriptionDetail({ client, subscription, onDeleteSubscription, onClos
           {!fields.length ? <p className="empty-state">No subscription details available.</p> : null}
         </div>
       )}
+      {printStatus ? <p className="download-status">{printStatus}</p> : null}
+      {/* Off-screen export host. The card is always rendered (just
+          hidden via the .subs-export-host wrapper styling) so Print
+          can rasterise a fully laid-out 720px article without an
+          extra mount step. */}
+      {subscription ? (
+        <div className="subs-export-host" aria-hidden="true">
+          {isPaid ? (
+            <SubsPaidCard cardRef={cardRef} {...cardProps} />
+          ) : (
+            <SubsInvoiceCard cardRef={cardRef} {...cardProps} />
+          )}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -1188,6 +1280,210 @@ function SubscriptionImport({ onSaved, onCancel }) {
   );
 }
 
+// Right-panel "Edit Subscription" flow for /db Subs. Shares the same
+// editable form shape as SubscriptionImport's preview step, but
+// prefilled from a saved subscription row and wired straight to
+// /api/subscriptions-save with the row's id so saving updates the
+// existing row instead of inserting. On success the parent swaps
+// the right panel back to the read-only detail view.
+function SubscriptionEdit({ subscription, onSaved, onCancel }) {
+  const id = String(subscription?.id || '');
+  const [draft, setDraft] = useState(() => subscriptionToDraft(subscription || {}));
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
+  const [statusTone, setStatusTone] = useState('');
+
+  // If the parent re-selects a different subscription while this
+  // form is still mounted (rare, but possible after a refetch where
+  // the same client now points at a different subscription row),
+  // re-seed the draft so the inputs reflect the new row.
+  useEffect(() => {
+    setDraft(subscriptionToDraft(subscription || {}));
+    setStatus('');
+    setStatusTone('');
+  }, [subscription?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function setField(key, value) {
+    setDraft((current) => ({ ...current, [key]: value }));
+  }
+
+  async function handleSave(event) {
+    event.preventDefault();
+    if (!String(draft.client_name || '').trim()) {
+      setStatus('Client name is required.');
+      setStatusTone('error');
+      return;
+    }
+    if (!String(draft.service || '').trim()) {
+      setStatus('Service is required.');
+      setStatusTone('error');
+      return;
+    }
+    setBusy(true);
+    setStatus('Saving\u2026');
+    setStatusTone('');
+    try {
+      const payload = { ...draft };
+      if (id) payload.id = id;
+      const response = await fetch('/api/subscriptions-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: payload, id: id || undefined }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      // Hand the freshly-saved row back to the parent so it can
+      // refetch the list and route the right panel back to the
+      // (now updated) detail view in one transition.
+      onSaved?.(json.subscription || null);
+    } catch (error) {
+      setStatus(error?.message || 'Save failed.');
+      setStatusTone('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Subscription</p>
+          <h2>Edit Subscription</h2>
+          <span>Update the saved fields and Save to apply changes.</span>
+        </div>
+        <div className="detail-actions">
+          <button
+            type="button"
+            className="db-close-button"
+            onClick={onCancel}
+            aria-label="Cancel edit"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <form className="form-stack" onSubmit={handleSave}>
+        <div className="two-col">
+          <label>Title
+            <select value={draft.client_title} onChange={(e) => setField('client_title', e.target.value)}>
+              <option>Mr.</option>
+              <option>Ms.</option>
+              <option>Mrs.</option>
+              <option>Family</option>
+            </select>
+          </label>
+          <label>Client Name
+            <input
+              value={draft.client_name}
+              onChange={(e) => setField('client_name', e.target.value)}
+              onBlur={onBlurTitleCase((v) => setField('client_name', v))}
+              placeholder="Client name"
+            />
+          </label>
+        </div>
+        <label>Service
+          <input
+            value={draft.service}
+            onChange={(e) => setField('service', e.target.value)}
+            placeholder="ChatGPT, iCloud, Google Drive\u2026"
+          />
+        </label>
+        <div className="two-col">
+          <label>Status
+            <select value={draft.status} onChange={(e) => setField('status', e.target.value)}>
+              <option value="paid">Paid</option>
+              <option value="invoice">Invoice</option>
+            </select>
+          </label>
+          <label>Access Period (Days)
+            <input
+              type="number"
+              min="0"
+              value={draft.access_period}
+              onChange={(e) => setField('access_period', Number(e.target.value) || 0)}
+            />
+          </label>
+        </div>
+        <div className="two-col">
+          <label>Payment Date
+            <input
+              type="date"
+              value={draft.payment_date}
+              onChange={(e) => setField('payment_date', e.target.value)}
+            />
+          </label>
+          <label>Payment Time
+            <input
+              type="time"
+              step="1"
+              value={draft.payment_time}
+              onChange={(e) => setField('payment_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="two-col">
+          <label>Start Date
+            <input
+              type="date"
+              value={draft.start_date}
+              onChange={(e) => setField('start_date', e.target.value)}
+            />
+          </label>
+          <label>Start Time
+            <input
+              type="time"
+              step="1"
+              value={draft.start_time}
+              onChange={(e) => setField('start_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="two-col">
+          <label>Expiry Date
+            <input
+              type="date"
+              value={draft.expiry_date}
+              onChange={(e) => setField('expiry_date', e.target.value)}
+            />
+          </label>
+          <label>Expiry Time
+            <input
+              type="time"
+              step="1"
+              value={draft.expiry_time}
+              onChange={(e) => setField('expiry_time', e.target.value)}
+            />
+          </label>
+        </div>
+        <label>Price (IDR)
+          <input
+            type="number"
+            min="0"
+            value={draft.price}
+            onChange={(e) => setField('price', Number(e.target.value) || 0)}
+          />
+        </label>
+        {status ? (
+          <p className={`download-status${statusTone ? ` lg-status-${statusTone}` : ''}`}>{status}</p>
+        ) : null}
+        <div className="client-actions">
+          <button className="primary-button" type="submit" disabled={busy}>
+            {busy ? 'Saving\u2026' : 'Save Subscription'}
+          </button>
+          <button className="ghost-button compact" type="button" onClick={onCancel}>Cancel</button>
+        </div>
+      </form>
+    </>
+  );
+}
+
 export function DatabasePage() {
   const [tab, setTab] = useState('clients');
   const [query, setQuery] = useState('');
@@ -1311,8 +1607,10 @@ export function DatabasePage() {
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
   // For Subs tab selections, resolve the actual subscription row so the
   // detail panel renders subscription fields instead of reusing the
-  // CRM event flow (which produced a misleading "No events yet").
-  const selectedSubscription = selected?.type === 'subscription'
+  // CRM event flow (which produced a misleading "No events yet"). The
+  // 'subs-edit' branch reuses the same client row in selected.data,
+  // so we resolve the subscription for both types.
+  const selectedSubscription = (selected?.type === 'subscription' || selected?.type === 'subs-edit')
     ? getClientSubscription(selected.data || {})
     : null;
 
@@ -1632,6 +1930,13 @@ export function DatabasePage() {
         <SubscriptionDetail
           client={selected.data || {}}
           subscription={selectedSubscription}
+          onEdit={(sub) => {
+            // Swap the right panel to the editable form, keeping
+            // the same client row in selected.data so detail can
+            // be restored after Save without a fresh selection.
+            if (!sub?.id) return;
+            setSelected({ type: 'subs-edit', id: selected.id, data: selected.data });
+          }}
           onDeleteSubscription={(sub) => {
             if (!sub?.id) return;
             deleteRecord({ kind: 'subscription', id: sub.id });
@@ -1641,6 +1946,24 @@ export function DatabasePage() {
           onClose={() => {
             setSelected(null);
             setMobileView('left');
+          }}
+        />
+      ) : null}
+      {selected?.type === 'subs-edit' ? (
+        <SubscriptionEdit
+          subscription={selectedSubscription}
+          onSaved={() => {
+            // Refresh the list so any changed fields (status, dates,
+            // service, etc.) reflect in both the row label and the
+            // tone class, then return to the read-only detail view
+            // for the same client row.
+            refetch();
+            setSelected({ type: 'subscription', id: selected.id, data: selected.data });
+          }}
+          onCancel={() => {
+            // Cancel returns to the detail view without touching
+            // the list — the saved row is unchanged.
+            setSelected({ type: 'subscription', id: selected.id, data: selected.data });
           }}
         />
       ) : null}
@@ -1659,7 +1982,7 @@ export function DatabasePage() {
           }}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' ? (
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' ? (
         <>
           <div className="list-stack">
             <ListRow
@@ -2545,6 +2868,230 @@ function parseOcrText(text) {
   return result;
 }
 
+// Map a saved subscription row (worker-normalised field names) to the
+// draft shape used by the editable form. Tolerates legacy/null values
+// so the form's date/time inputs see "" instead of `null`. Used both
+// when prefilling SubscriptionEdit on /db Subs and when /db Subs
+// detail needs to render the print card from saved values.
+function subscriptionToDraft(sub = {}) {
+  const num = (v, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+  // Saved times come back as HH:MM:SS. <input type="time" step="1">
+  // also accepts HH:MM:SS, but normalise so a stray "20:21" still
+  // round-trips as "20:21:00".
+  const padTime = (v) => {
+    if (!v) return '';
+    const m = String(v).match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return '';
+    return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}`;
+  };
+  const status = String(sub.status || 'paid').toLowerCase();
+  return {
+    client_title: String(sub.client_title || 'Mr.'),
+    client_name: String(sub.client_name || ''),
+    client_contact: String(sub.client_contact || ''),
+    service: String(sub.service || ''),
+    storage_slot: String(sub.storage_slot || ''),
+    rate_mode: String(sub.rate_mode || 'normal'),
+    price: num(sub.price, 0),
+    status: status === 'paid' ? 'paid' : 'invoice',
+    invoice_date: String(sub.invoice_date || ''),
+    payment_date: String(sub.payment_date || ''),
+    payment_time: padTime(sub.payment_time),
+    access_period: Number.isFinite(Number(sub.access_period)) && Number(sub.access_period) > 0
+      ? Number(sub.access_period)
+      : 30,
+    start_date: String(sub.start_date || ''),
+    start_time: padTime(sub.start_time),
+    expiry_date: String(sub.expiry_date || ''),
+    expiry_time: padTime(sub.expiry_time),
+  };
+}
+
+// Map a saved subscription row to the props the print cards expect.
+// Mirrors the derived view-model SubscriptionsPage builds from local
+// state so the same JPG comes out whether you print from /subs (live
+// preview) or from /db Subs detail (saved row).
+function subscriptionToCardProps(sub = {}) {
+  const period = Number(sub?.access_period);
+  const periodLabel = Number.isFinite(period) && period > 0 ? `${period} Days` : '';
+  const service = String(sub?.service || 'Subscription');
+  const storageRaw = String(sub?.storage_slot || '');
+  // Storage is dropped for non-storage products (ChatGPT/Copilot) the
+  // same way SubscriptionsPage drops it, so the invoice card stays
+  // visually identical between live preview and re-print.
+  const showStorage = !SUBS_NON_STORAGE_SERVICES.has(service) && Boolean(storageRaw);
+  const showDuration = Number.isFinite(period) && period > 0;
+  const durationLabel = showDuration ? `${period} Days` : '';
+  const lineSubtitle = [showStorage ? storageRaw : '', durationLabel]
+    .filter(Boolean)
+    .join(' \u00b7 ');
+  return {
+    titlePrefix: String(sub?.client_title || ''),
+    displayClient: toTitleCase(sub?.client_name || '') || 'Client',
+    service,
+    price: Number.isFinite(Number(sub?.price)) ? Number(sub.price) : 0,
+    paymentDate: sub?.payment_date || '',
+    paymentTime: sub?.payment_time || '',
+    startDate: sub?.start_date || '',
+    startTime: sub?.start_time || '',
+    // Saved expiry_time may equal start_time (worker's default
+    // fallback when the receipt didn't carry a distinct expiry
+    // time), but pass the saved value through so a row with a
+    // distinct expiry time prints what was actually stored. The
+    // start_time fallback is kept for legacy rows missing the
+    // expiry_time column entirely.
+    expiryDate: sub?.expiry_date || '',
+    expiryTime: sub?.expiry_time || sub?.start_time || '',
+    issuedDate: sub?.invoice_date || '',
+    periodLabel,
+    storage: storageRaw,
+    showStorage,
+    showDuration,
+    durationLabel,
+    lineSubtitle,
+  };
+}
+
+// Paid subscription receipt card. Presentational — same DOM tree
+// /subs has always emitted, just driven by props instead of local
+// state so /db Subs detail can re-render the receipt for an existing
+// row without retyping. The cardRef prop is attached to the outer
+// <article> so the caller can rasterise the laid-out element with
+// html2canvas.
+function SubsPaidCard({
+  cardRef,
+  titlePrefix,
+  displayClient,
+  service,
+  paymentDate,
+  paymentTime,
+  price,
+  periodLabel,
+  startDate,
+  startTime,
+  expiryDate,
+  expiryTime,
+}) {
+  return (
+    <article className="subs-card" ref={cardRef}>
+      <header className="subs-card-head">
+        <p className="subs-greeting">Hello, {titlePrefix ? titlePrefix + ' ' : ''}{displayClient}!</p>
+        <p className="subs-service-tag">{service}</p>
+        <h1 className="subs-title">Subscription Confirmed</h1>
+        <p className="subs-eyebrow">Payment Received</p>
+      </header>
+      <section className="subs-grid">
+        <div className="subs-tile">
+          <span className="subs-tile-label">Date of Payment</span>
+          <strong>{fmtSubsDate(paymentDate)}</strong>
+        </div>
+        <div className="subs-tile">
+          <span className="subs-tile-label">Time of Payment</span>
+          <strong>{fmtSubsTime(paymentTime)}</strong>
+        </div>
+        <div className="subs-tile">
+          <span className="subs-tile-label">Paid Amount</span>
+          <strong>{rupiah(price)}</strong>
+        </div>
+        <div className="subs-tile">
+          <span className="subs-tile-label">Access Period</span>
+          <strong>{periodLabel || '-'}</strong>
+        </div>
+      </section>
+      <section className="subs-period">
+        <div className="subs-period-card">
+          <span className="subs-tile-label">Start Access</span>
+          <strong className="subs-period-date">{fmtSubsDate(startDate)}</strong>
+          <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
+        </div>
+        <div className="subs-period-card">
+          <span className="subs-tile-label">Expiry</span>
+          <strong className="subs-period-date">{fmtSubsDate(expiryDate)}</strong>
+          {/* Was: fmtSubsTime(startTime). Now uses the actual saved
+              expiry time when present, falling back to startTime so
+              live previews on /subs (which don't track a separate
+              expiry time) keep their previous look. */}
+          <strong className="subs-period-time">{fmtSubsTime(expiryTime || startTime)}</strong>
+        </div>
+      </section>
+      <footer className="subs-card-foot">
+        <p className="subs-foot-title">This card serves as your confirmed subscription receipt</p>
+        <p className="subs-foot-sub">Please keep this JPG for your subscription history and future reference.</p>
+        <div className="subs-foot-meta">
+          <span>This confirmation is automatically generated and valid without signature.</span>
+          <strong>@starshots.id</strong>
+        </div>
+      </footer>
+    </article>
+  );
+}
+
+// Subscription invoice card. Sibling of SubsPaidCard with the same
+// 720px white-sheet design and shared footer. Driven by the same
+// props derivation so /db Subs detail can re-render an invoice
+// without retyping.
+function SubsInvoiceCard({
+  cardRef,
+  titlePrefix,
+  displayClient,
+  service,
+  showStorage,
+  storage,
+  showDuration,
+  durationLabel,
+  lineSubtitle,
+  price,
+  issuedDate,
+}) {
+  return (
+    <article className="subs-invoice-card" ref={cardRef}>
+      <header className="subs-invoice-head">
+        <img src="/logo-hero.png" alt="StarShots" className="subs-invoice-logo" />
+        <div className="subs-invoice-meta">
+          <p className="subs-eyebrow">Subscription Invoice</p>
+        </div>
+      </header>
+      <section className="subs-invoice-grid">
+        <div className="subs-tile subs-tile--list">
+          <span className="subs-tile-label">Bill To</span>
+          <strong>{titlePrefix ? titlePrefix + ' ' : ''}{displayClient}</strong>
+        </div>
+        <div className="subs-tile subs-tile--list">
+          <span className="subs-tile-label">Service Details</span>
+          <p>{service}</p>
+          {showStorage ? <p>Storage: {storage}</p> : null}
+          {showDuration ? <p>Duration: {durationLabel}</p> : null}
+        </div>
+      </section>
+      <section className="subs-invoice-line">
+        <div>
+          <strong>{service} Subscription</strong>
+          {lineSubtitle ? <small>{lineSubtitle}</small> : null}
+        </div>
+        <span>{rupiah(price)}</span>
+      </section>
+      <section className="subs-invoice-pay">
+        <img src="/payment-qr.png" alt="Payment QR" className="subs-invoice-qr" />
+        <div className="subs-invoice-totals">
+          <p><span>Total</span><strong>{rupiah(price)}</strong></p>
+          <p><span>Issued</span><strong>{fmtSubsDate(issuedDate)}</strong></p>
+        </div>
+      </section>
+      <footer className="subs-card-foot">
+        <p className="subs-foot-title">Thanks for Trusting StarShots</p>
+        <p className="subs-foot-sub">Please complete payment to keep your subscription active.</p>
+        <div className="subs-foot-meta">
+          <span>This invoice is automatically generated and valid without signature.</span>
+          <strong>@starshots.id</strong>
+        </div>
+      </footer>
+    </article>
+  );
+}
+
 export function SubscriptionsPage() {
   const [mode, setMode] = useState('invoice');
   const [titlePrefix, setTitlePrefix] = useState('Mr.');
@@ -2942,108 +3489,44 @@ export function SubscriptionsPage() {
     .filter(Boolean)
     .join(' \u00b7 ');
 
-  // Paid receipt card. The 2x2 meta grid intentionally drops the
-  // redundant "Service" tile (already shown in the eyebrow tag at
-  // the top of the card) and replaces it with the Paid Amount, so
-  // every cell carries unique receipt information.
+  // Paid receipt card. Driven entirely by SubsPaidCard so /db Subs
+  // detail can re-render the same artifact from a saved row.
   const paidCard = (
-    <article className="subs-card" ref={cardRef}>
-      <header className="subs-card-head">
-        <p className="subs-greeting">Hello, {titlePrefix ? titlePrefix + ' ' : ''}{displayClient}!</p>
-        <p className="subs-service-tag">{service}</p>
-        <h1 className="subs-title">Subscription Confirmed</h1>
-        <p className="subs-eyebrow">Payment Received</p>
-      </header>
-      <section className="subs-grid">
-        <div className="subs-tile">
-          <span className="subs-tile-label">Date of Payment</span>
-          <strong>{fmtSubsDate(paymentDate)}</strong>
-        </div>
-        <div className="subs-tile">
-          <span className="subs-tile-label">Time of Payment</span>
-          <strong>{fmtSubsTime(paymentTime)}</strong>
-        </div>
-        <div className="subs-tile">
-          <span className="subs-tile-label">Paid Amount</span>
-          <strong>{rupiah(price)}</strong>
-        </div>
-        <div className="subs-tile">
-          <span className="subs-tile-label">Access Period</span>
-          <strong>{periodLabel}</strong>
-        </div>
-      </section>
-      <section className="subs-period">
-        <div className="subs-period-card">
-          <span className="subs-tile-label">Start Access</span>
-          <strong className="subs-period-date">{fmtSubsDate(startDate)}</strong>
-          <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
-        </div>
-        <div className="subs-period-card">
-          <span className="subs-tile-label">Expiry</span>
-          <strong className="subs-period-date">{fmtSubsDate(expiryDate)}</strong>
-          <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
-        </div>
-      </section>
-      <footer className="subs-card-foot">
-        <p className="subs-foot-title">This card serves as your confirmed subscription receipt</p>
-        <p className="subs-foot-sub">Please keep this JPG for your subscription history and future reference.</p>
-        <div className="subs-foot-meta">
-          <span>This confirmation is automatically generated and valid without signature.</span>
-          <strong>@starshots.id</strong>
-        </div>
-      </footer>
-    </article>
+    <SubsPaidCard
+      cardRef={cardRef}
+      titlePrefix={titlePrefix}
+      displayClient={displayClient}
+      service={service}
+      paymentDate={paymentDate}
+      paymentTime={paymentTime}
+      price={price}
+      periodLabel={periodLabel}
+      startDate={startDate}
+      startTime={startTime}
+      expiryDate={expiryDate}
+      // /subs UI doesn't carry a separate expiry-time input, so the
+      // live preview keeps its previous behaviour of showing the
+      // start time on the Expiry tile. Re-prints from /db pass the
+      // saved expiry_time through subscriptionToCardProps.
+      expiryTime={startTime}
+    />
   );
 
-  // Invoice card. Compact subscription bill: header with logo +
-  // "Subscription Invoice" eyebrow (no random INV-# anymore — the
-  // operator owns canonical record ids in /db, this card is the
-  // sendable artifact), bill-to / service-details tiles, line-item
-  // row, payment block with QR + totals (Total / Issued — no Due
-  // row, single date convention), and a shared footer.
+  // Invoice card. Same prop-driven contract as SubsPaidCard above.
   const invoiceCard = (
-    <article className="subs-invoice-card" ref={cardRef}>
-      <header className="subs-invoice-head">
-        <img src="/logo-hero.png" alt="StarShots" className="subs-invoice-logo" />
-        <div className="subs-invoice-meta">
-          <p className="subs-eyebrow">Subscription Invoice</p>
-        </div>
-      </header>
-      <section className="subs-invoice-grid">
-        <div className="subs-tile subs-tile--list">
-          <span className="subs-tile-label">Bill To</span>
-          <strong>{titlePrefix ? titlePrefix + ' ' : ''}{displayClient}</strong>
-        </div>
-        <div className="subs-tile subs-tile--list">
-          <span className="subs-tile-label">Service Details</span>
-          <p>{service}</p>
-          {showStorage ? <p>Storage: {storage}</p> : null}
-          {showDuration ? <p>Duration: {durationLabel}</p> : null}
-        </div>
-      </section>
-      <section className="subs-invoice-line">
-        <div>
-          <strong>{service} Subscription</strong>
-          {lineSubtitle ? <small>{lineSubtitle}</small> : null}
-        </div>
-        <span>{rupiah(price)}</span>
-      </section>
-      <section className="subs-invoice-pay">
-        <img src="/payment-qr.png" alt="Payment QR" className="subs-invoice-qr" />
-        <div className="subs-invoice-totals">
-          <p><span>Total</span><strong>{rupiah(price)}</strong></p>
-          <p><span>Issued</span><strong>{fmtSubsDate(issuedDate)}</strong></p>
-        </div>
-      </section>
-      <footer className="subs-card-foot">
-        <p className="subs-foot-title">Thanks for Trusting StarShots</p>
-        <p className="subs-foot-sub">Please complete payment to keep your subscription active.</p>
-        <div className="subs-foot-meta">
-          <span>This invoice is automatically generated and valid without signature.</span>
-          <strong>@starshots.id</strong>
-        </div>
-      </footer>
-    </article>
+    <SubsInvoiceCard
+      cardRef={cardRef}
+      titlePrefix={titlePrefix}
+      displayClient={displayClient}
+      service={service}
+      showStorage={showStorage}
+      storage={storage}
+      showDuration={showDuration}
+      durationLabel={durationLabel}
+      lineSubtitle={lineSubtitle}
+      price={price}
+      issuedDate={issuedDate}
+    />
   );
 
   const right = (
