@@ -362,7 +362,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteClient, onDeleteRecord, onClose }) {
+function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteClient, onDeleteRecord, onViewLinks, onClose }) {
   const records = buildClientRecords(client, invoices, deliveries);
   const title = client?.title || 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
@@ -423,6 +423,7 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
               eventLinkHref={eventLinkHref}
               eventInvoiceHref={eventInvoiceHref}
               onDelete={() => onDeleteRecord?.(row)}
+              onViewLinks={onViewLinks}
             />
           );
         })}
@@ -441,16 +442,38 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
 // row itself stays a plain shell (no click handler) so taps inside
 // it never accidentally arm a delete; only the explicit X press
 // triggers onDelete.
-function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHref, onDelete }) {
-  const linkLabel = row.delivery?.id ? 'View Links' : 'Create Links';
+//
+// View Links: when the row already has a saved delivery, the action
+// is a button that swaps the right panel to the admin DeliveryDetail
+// view (greeting + folder + password + short link + original GD/DB/
+// WT/TN URLs). When there is no delivery yet, the action stays an
+// anchor that opens /l/ to compose one. Styling for both shapes
+// lives under .record-row a, .record-row button.record-row-link in
+// invcs.css so they read as a single pill family.
+function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHref, onDelete, onViewLinks }) {
+  const hasDelivery = !!row.delivery?.id;
+  const linkLabel = hasDelivery ? 'View Links' : 'Create Links';
   const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
   return (
     <article className="record-row" data-key={recordKey}>
       <span>{dateLabel(row.date)}</span>
       <strong>{row.name || fallbackName}</strong>
-      <a href={eventLinkHref} target="_blank" rel="noopener noreferrer">
-        {linkLabel}
-      </a>
+      {hasDelivery ? (
+        <button
+          type="button"
+          className="record-row-link"
+          onClick={(event) => {
+            event.stopPropagation();
+            onViewLinks?.(row.delivery);
+          }}
+        >
+          {linkLabel}
+        </button>
+      ) : (
+        <a href={eventLinkHref} target="_blank" rel="noopener noreferrer">
+          {linkLabel}
+        </a>
+      )}
       <a href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
         {invoiceLabel}
       </a>
@@ -466,6 +489,129 @@ function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHr
         <DeleteIcon />
       </button>
     </article>
+  );
+}
+
+// Admin-only delivery detail rendered in /db's right panel after
+// clicking "View Links" on a saved client event. Shows the
+// operator everything needed to re-share a delivery without
+// hopping to the public /{shortcode} page or digging through the
+// database: client greeting, folder/gallery name, plain password,
+// the full short link, and any original Google Drive / Dropbox /
+// WeTransfer / TransferNow URLs that were stored when the
+// delivery was composed. Public clients never see this surface;
+// the public delivery (short-link) page rendering is unchanged.
+//
+// Source-of-truth fields come straight from /api/db's `items[]`
+// payload (see handleDbSearch in _worker.js): title, client_name,
+// folder_name, base_slug, gallery_code, password, short_code,
+// short_url, links[]. Each link row in `links` carries
+// { service: 'gd'|'db'|'wt'|'tn', original_url, ... }; we filter
+// in display order so a partial delivery (e.g. only GD) shows
+// only the URLs that were saved.
+function DeliveryDetail({ delivery, onClose }) {
+  const title = String(delivery?.title || 'Ms.').trim() || 'Ms.';
+  const clientName = String(delivery?.client_name || 'Client').trim() || 'Client';
+  // Folder identity: folder_name is the human-entered folder from
+  // the /l composer; gallery_code is the prettified slug derived
+  // from base_slug ("240517 Jane Doe"); base_slug is the URL-safe
+  // form. We surface whichever is most readable, in that order,
+  // and drop the row entirely when none exist.
+  const folder =
+    String(delivery?.folder_name || '').trim() ||
+    String(delivery?.gallery_code || '').trim() ||
+    String(delivery?.base_slug || '').trim();
+  const password = String(delivery?.password || '').trim();
+  const shortCode = String(delivery?.short_code || '').trim();
+  // Build the user-facing short URL from the page origin so the
+  // operator copies a link that matches whatever domain the admin
+  // is on (production starshots.pages.dev, custom domain, or local
+  // preview). Fall back to the raw path returned by the API if
+  // window.location.origin is unavailable.
+  const shortPath = String(delivery?.short_url || (shortCode ? `/${shortCode}` : '')).trim();
+  let shortUrl = '';
+  if (shortPath) {
+    try {
+      shortUrl = new URL(shortPath, window.location.origin).toString();
+    } catch {
+      shortUrl = shortPath;
+    }
+  }
+
+  const linkRows = Array.isArray(delivery?.links) ? delivery.links : [];
+  const byService = new Map();
+  for (const link of linkRows) {
+    const service = String(link?.service || '').toLowerCase();
+    const url = String(link?.original_url || '').trim();
+    if (service && url && !byService.has(service)) byService.set(service, url);
+  }
+  // Display order matches the public delivery page service grid.
+  const SERVICE_LABELS = [
+    { key: 'gd', label: 'Google Drive' },
+    { key: 'db', label: 'Dropbox' },
+    { key: 'wt', label: 'WeTransfer' },
+    { key: 'tn', label: 'TransferNow' },
+  ];
+  const services = SERVICE_LABELS.filter(({ key }) => byService.has(key));
+
+  const hasAnyDetail = !!password || !!shortUrl || services.length > 0;
+
+  return (
+    <>
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Delivery</p>
+          <h2>Hello, {title} {clientName}</h2>
+          {folder ? <span>{folder}</span> : null}
+        </div>
+        <div className="detail-actions">
+          <button
+            type="button"
+            className="db-close-button"
+            onClick={onClose}
+            aria-label="Close detail view"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="list-stack">
+        {password ? (
+          <article className="list-row">
+            <div>
+              <strong>Password</strong>
+              <span>{password}</span>
+            </div>
+          </article>
+        ) : null}
+        {shortUrl ? (
+          <article className="list-row">
+            <div>
+              <strong>Short link</strong>
+              <span>
+                <a href={shortUrl} target="_blank" rel="noopener noreferrer">{shortUrl}</a>
+              </span>
+            </div>
+          </article>
+        ) : null}
+        {services.map(({ key, label }) => (
+          <article className="list-row" key={key}>
+            <div>
+              <strong>{label}</strong>
+              <span>
+                <a href={byService.get(key)} target="_blank" rel="noopener noreferrer">
+                  {byService.get(key)}
+                </a>
+              </span>
+            </div>
+          </article>
+        ))}
+        {!hasAnyDetail ? <p className="empty-state">No delivery details available.</p> : null}
+      </div>
+    </>
   );
 }
 
@@ -2045,9 +2191,41 @@ export function DatabasePage() {
               invoiceId: row?.invoice?.id || '',
             })
           }
+          onViewLinks={(deliveryRow) => {
+            // Stash the originating client in selected.fromClient so
+            // closing DeliveryDetail can hop back to the same client
+            // detail view without a fresh search/click. The delivery
+            // row itself flows in via selected.data so the panel
+            // reads off the same /api/db payload that drove the
+            // record list — no extra fetch.
+            if (!deliveryRow?.id) return;
+            setSelected({
+              type: 'delivery',
+              id: deliveryRow.id,
+              data: deliveryRow,
+              fromClient: selectedClient,
+            });
+          }}
           onClose={() => {
             setSelected(null);
             setMobileView('left');
+          }}
+        />
+      ) : null}
+      {selected?.type === 'delivery' ? (
+        <DeliveryDetail
+          delivery={selected.data || {}}
+          onClose={() => {
+            // If we entered DeliveryDetail from a client row, hop
+            // back to that client's record list so the operator
+            // doesn't lose context. Otherwise clear selection.
+            const fromClient = selected.fromClient;
+            if (fromClient?.id) {
+              setSelected({ type: 'client', id: fromClient.id, data: fromClient });
+            } else {
+              setSelected(null);
+              setMobileView('left');
+            }
           }}
         />
       ) : null}
@@ -2107,7 +2285,7 @@ export function DatabasePage() {
           }}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' ? (
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'delivery' ? (
         <>
           <div className="list-stack">
             <ListRow

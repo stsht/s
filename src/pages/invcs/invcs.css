@@ -205,6 +205,18 @@ button{cursor:pointer}
 .editor-panel,.preview-panel{height:100%;overflow-x:hidden;overflow-y:auto}
 .editor-panel{padding:18px}
 .panel-header{display:grid;grid-template-columns:minmax(112px,132px) minmax(0,1fr);align-items:center;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+/* Editor-panel header sticks at the top of the left panel so the
+ * logo + mode-switch (Invoice / Deposit / Paid) stay locked while
+ * the form scrolls. The bottom border is the divider/separator
+ * line — the visual boundary between the sticky region and the
+ * scrolling content. Negative margin extends the header into the
+ * panel's 18px padding edges so the opaque background spans the
+ * full panel width and cleanly covers content scrolling under.
+ * Padding insets restore the original child positioning so the
+ * logo + mode-switch land at the same pixels as before. The
+ * preview-panel keeps its non-sticky header — only the editor
+ * (operator/data-entry) side benefits from a locked header. */
+.editor-panel .panel-header{position:sticky;top:0;z-index:2;background:var(--panel);margin:-18px -18px 0;padding:18px 18px 16px}
 .panel-header img{width:132px;max-width:100%;height:auto;display:block}
 .mode-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;min-width:0;width:100%;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--soft)}
 .mode-switch button{min-width:0;height:36px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:10px;font-weight:800;text-transform:capitalize;white-space:nowrap}
@@ -624,6 +636,17 @@ dd{margin:0;text-align:right;font-weight:800}
 .list-row strong{font-size:15px;color:var(--ink)}
 .list-row span{margin-top:3px;color:var(--muted);font-size:12px}
 .list-row b{color:var(--ink);white-space:nowrap}
+/* URL/anchor values inside list-row spans (e.g. /db DeliveryDetail's
+ * short link + original GD/DB/WT/TN URLs) read as clickable text
+ * rather than pills. word-break:break-all keeps long URLs inside
+ * the panel column so a 100+ char Google Drive link can't push the
+ * row past the panel edge. Scoped to .list-row span so anchors
+ * inside .record-row keep their pill treatment. */
+.list-row span a{
+  color:var(--ink);
+  text-decoration:underline;
+  word-break:break-all;
+}
 .empty-state{margin:0;color:var(--muted);font-weight:750}
 .form-stack{display:grid;gap:16px}
 .preview-note-card{display:grid;align-content:center;gap:12px}
@@ -1071,7 +1094,8 @@ dd{margin:0;text-align:right;font-weight:800}
   font-size:14px;
   font-weight:750;
 }
-.record-row a{
+.record-row a,
+.record-row button.record-row-link{
   min-height:34px;
   display:inline-flex;
   align-items:center;
@@ -1084,6 +1108,16 @@ dd{margin:0;text-align:right;font-weight:800}
   text-decoration:none;
   font-size:11px;
   font-weight:800;
+}
+.record-row button.record-row-link{
+  /* Reset native button defaults so the pill renders identically
+   * to its <a> sibling. The View Links button only differs in
+   * behaviour (opens DeliveryDetail in /db's right panel instead
+   * of navigating away); visually it's the same pill. */
+  cursor:pointer;
+  font-family:inherit;
+  letter-spacing:inherit;
+  white-space:nowrap;
 }
 .create-event-button{
   margin-top:14px;
