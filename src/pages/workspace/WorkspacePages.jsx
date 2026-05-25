@@ -613,6 +613,10 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
   const [variant, setVariant] = useState('whatsapp');
   const [flash, setFlash] = useState('');
   const [repairing, setRepairing] = useState(false);
+  const [rotatingPassword, setRotatingPassword] = useState(false);
+  const [editingLinks, setEditingLinks] = useState(false);
+  const [linkDraft, setLinkDraft] = useState({});
+  const [savingLinks, setSavingLinks] = useState(false);
   const [repairStatus, setRepairStatus] = useState('');
 
   useEffect(() => {
@@ -652,6 +656,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     .filter(({ key }) => byService.has(key))
     .map((s) => ({ ...s, url: byService.get(s.key) }));
 
+  useEffect(() => {
+    const next = {};
+    for (const { key } of SERVICE_LABELS) next[key] = byService.get(key) || '';
+    setLinkDraft(next);
+  }, [currentDelivery]);
+
   // Prefer the worker's stored WA/IG templates when present so the
   // operator copies the exact text saved with the delivery. Fall
   // back to a synthesized message that mirrors buildDeliveryMessage()
@@ -688,16 +698,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     await copyToClipboard(text);
     flashTarget(`msg-${which}`);
   }
-  async function handleRepairDelivery() {
+  async function handleRepairDelivery(options = {}) {
     if (!currentDelivery?.id) return;
-    setRepairing(true);
+    const rotatePassword = Boolean(options.rotatePassword);
+    if (rotatePassword) setRotatingPassword(true);
+    else setRepairing(true);
     setRepairStatus('');
     try {
       const response = await fetch('/api/db-repair-delivery', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id }),
+        body: JSON.stringify({ id: currentDelivery.id, rotatePassword }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) {
@@ -715,12 +727,49 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
         needs_secure_repair: false,
       };
       setCurrentDelivery(repaired);
-      setRepairStatus('Secure short link repaired.');
+      setRepairStatus(rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.');
       onRepaired?.(repaired);
     } catch (error) {
       setRepairStatus(error?.message || 'Repair failed.');
     } finally {
       setRepairing(false);
+      setRotatingPassword(false);
+    }
+  }
+
+  async function handleSaveLinks(event) {
+    event.preventDefault();
+    if (!currentDelivery?.id) return;
+    setSavingLinks(true);
+    setRepairStatus('');
+    try {
+      const response = await fetch('/api/db-update-delivery', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: currentDelivery.id,
+          links: SERVICE_LABELS.map(({ key }) => ({
+            service: key,
+            originalUrl: linkDraft[key] || '',
+          })),
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || `Save failed (${response.status}).`);
+      const updated = {
+        ...currentDelivery,
+        ...(json.delivery || {}),
+        links: Array.isArray(json.delivery?.links) ? json.delivery.links : currentDelivery.links,
+      };
+      setCurrentDelivery(updated);
+      setEditingLinks(false);
+      setRepairStatus('Delivery links updated.');
+      onRepaired?.(updated);
+    } catch (error) {
+      setRepairStatus(error?.message || 'Save failed.');
+    } finally {
+      setSavingLinks(false);
     }
   }
 
@@ -733,6 +782,9 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
           {folder ? <span>{folder}</span> : null}
         </div>
         <div className="detail-actions">
+          <button type="button" className="ghost-button compact" onClick={() => setEditingLinks((value) => !value)}>
+            {editingLinks ? 'Close edit' : 'Edit links'}
+          </button>
           <button
             type="button"
             className="db-close-button"
@@ -771,7 +823,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                   <button
                     type="button"
                     className="ghost-button compact dd-repair-button"
-                    onClick={handleRepairDelivery}
+                    onClick={() => handleRepairDelivery()}
                     disabled={repairing}
                   >
                     {repairing ? 'Repairing...' : 'Repair secure link'}
@@ -781,26 +833,69 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
               </div>
             )}
             {password ? (
-              <button
-                type="button"
-                className={`dd-card dd-card--action${flash === 'pass' ? ' is-flash' : ''}`}
-                onClick={handlePasswordClick}
-                aria-label="Copy password"
-              >
+              <div className={`dd-card${flash === 'pass' ? ' is-flash' : ''}`} aria-label="Password actions">
                 <span className="dd-eyebrow">Password</span>
                 <strong className="dd-card-strong">{password}</strong>
-                <span className="dd-card-hint">Tap to copy</span>
-              </button>
+                <div className="dd-inline-actions">
+                  <button type="button" className="dd-text-button" onClick={handlePasswordClick}>
+                    Tap to copy
+                  </button>
+                  <button
+                    type="button"
+                    className="dd-text-button"
+                    onClick={() => handleRepairDelivery({ rotatePassword: true })}
+                    disabled={rotatingPassword}
+                  >
+                    {rotatingPassword ? 'Regenerating...' : 'Regenerate password'}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="dd-card dd-card--muted" aria-label="No password">
                 <span className="dd-eyebrow">Password</span>
                 <strong className="dd-card-strong dd-card-strong--muted">&mdash;</strong>
                 <span className="dd-card-hint">No password on this row.</span>
+                {currentDelivery?.id ? (
+                  <button
+                    type="button"
+                    className="ghost-button compact dd-repair-button"
+                    onClick={() => handleRepairDelivery({ rotatePassword: true })}
+                    disabled={rotatingPassword}
+                  >
+                    {rotatingPassword ? 'Regenerating...' : 'Generate secure password'}
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
 
-          {services.length ? (
+          {editingLinks ? (
+            <form className="dd-link-editor" onSubmit={handleSaveLinks}>
+              <p className="eyebrow">Edit Links</p>
+              <div className="dd-link-fields">
+                {SERVICE_LABELS.map(({ key, label }) => (
+                  <label key={key}>
+                    <span>{label}</span>
+                    <input
+                      type="url"
+                      value={linkDraft[key] || ''}
+                      onChange={(event) => setLinkDraft((draft) => ({ ...draft, [key]: event.target.value }))}
+                      placeholder="https://..."
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="dd-message-actions">
+                <button type="submit" className="ghost-button compact" disabled={savingLinks}>
+                  {savingLinks ? 'Saving...' : 'Save links'}
+                </button>
+                <button type="button" className="ghost-button compact" onClick={() => setEditingLinks(false)}>
+                  Cancel
+                </button>
+              </div>
+              {repairStatus ? <span className="dd-card-hint">{repairStatus}</span> : null}
+            </form>
+          ) : services.length ? (
             <div className="dd-services">
               {services.map(({ key, label, url }) => (
                 <a

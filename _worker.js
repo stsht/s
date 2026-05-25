@@ -1607,6 +1607,7 @@ async function handleDbRepairDelivery(request, env) {
   const body = await request.json().catch(() => ({}));
   const password = String(body.password || '').trim();
   const id = String(body.id || body.deliveryId || '').trim();
+  const rotatePassword = Boolean(body.rotatePassword);
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing delivery id.' }, 400);
 
@@ -1628,9 +1629,9 @@ async function handleDbRepairDelivery(request, env) {
         title: delivery.title || ''
       });
 
-  let displayPassword = deliveryPasswordForDisplay(delivery);
+  let displayPassword = rotatePassword ? '' : deliveryPasswordForDisplay(delivery);
   const hasStoredHash = !!(String(delivery.password_hash || '').trim() && String(delivery.password_salt || '').trim());
-  if (!displayPassword && hasStoredHash) {
+  if (!displayPassword && hasStoredHash && !rotatePassword) {
     return json({
       error: 'This delivery already has a hashed password but no recoverable display password. Create a fresh delivery link instead.'
     }, 409);
@@ -1653,7 +1654,7 @@ async function handleDbRepairDelivery(request, env) {
     generated_text_instagram: generatedText
   };
 
-  if (!hasStoredHash) {
+  if (!hasStoredHash || rotatePassword) {
     Object.assign(patch, await hashGalleryPassword(displayPassword));
   }
 
@@ -1698,6 +1699,52 @@ async function handleDbRepairDelivery(request, env) {
       generated_text_instagram: generatedText,
       needs_secure_repair: false
     }
+  });
+}
+
+async function handleDbUpdateDelivery(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  const id = String(body.id || body.deliveryId || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!id) return json({ error: 'Missing delivery id.' }, 400);
+
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/deliveries?select=*&id=eq.${encodeURIComponent(id)}&limit=1`
+  );
+  const delivery = Array.isArray(rows) ? rows[0] : rows;
+  if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+  const links = Array.isArray(body.links) ? body.links : [];
+  const cleanLinks = links
+    .map((link) => ({ service: cleanService(link.service), originalUrl: normalizeUrl(link.originalUrl || link.original_url || link.url) }))
+    .filter((link) => link.service && link.originalUrl);
+
+  await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' }
+  }).catch(() => {});
+
+  const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
+  const insertedLinks = cleanLinks.length ? await supabaseFetch(env, '/rest/v1/delivery_links', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(cleanLinks.map((link) => ({
+      delivery_id: id,
+      service: link.service,
+      original_url: link.originalUrl,
+      slug: delivery.base_slug || '',
+      short_path: shortCode ? `/${shortCode}` : ''
+    })))
+  }) : [];
+
+  return json({
+    ok: true,
+    delivery: {
+      ...delivery,
+      links: Array.isArray(insertedLinks) ? insertedLinks : [],
+    },
   });
 }
 
@@ -2750,6 +2797,7 @@ export default {
 	      if (request.method === 'POST' && url.pathname === '/api/db-delete') return await handleDbDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-clear-logs') return await handleDbClearLogs(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-repair-delivery') return await handleDbRepairDelivery(request, env);
+	      if (request.method === 'POST' && url.pathname === '/api/db-update-delivery') return await handleDbUpdateDelivery(request, env);
 
       const shortAliasMatch = url.pathname.match(/^\/([a-z0-9]{7}|[a-z0-9]{12})\/?$/i);
       if (request.method === 'GET' && shortAliasMatch) {
