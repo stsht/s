@@ -868,6 +868,32 @@ dd{margin:0;text-align:right;font-weight:800}
   color:var(--sub-expired);
 }
 
+/* Compact pill row under the client name on /db Subs detail.
+ * Surfaces Service / Status / Period as low-emphasis chips so the
+ * read-only panel reads at a glance without a wall of label/value
+ * rows. The expired/active/expiring tone badge stays on the <h2>
+ * line — these neutral pills sit on the second line. */
+.sub-meta-pills{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:6px 0 4px;
+}
+.sub-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 10px;
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--ink);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+  line-height:1.4;
+  border:1px solid var(--line);
+}
+
 /* Permanent X delete control. Same shape and palette across every
  * /db row (list rows in Clients/Subs/Invoices and event rows
  * inside the client detail). It lives in its own grid column at
@@ -976,6 +1002,40 @@ dd{margin:0;text-align:right;font-weight:800}
   text-decoration:none;
   font-size:12px;
   font-weight:800;
+}
+
+/* Icon + label pairing used on /db Subs detail action row (Edit /
+ * Print / Delete). Stroke-only SVGs sit left of the label and pick
+ * up the button's currentColor so the existing ghost-button hover
+ * palette flows through unchanged. */
+.icon-button{
+  gap:6px;
+}
+.btn-icon{
+  display:block;
+  flex-shrink:0;
+}
+
+/* Safe spacing between the destructive Delete button and the
+ * Edit/Print pair so the operator can't accidentally tap Delete
+ * while reaching for Print on a small viewport. */
+.detail-actions .db-delete-button{
+  margin-left:8px;
+}
+
+/* Armed confirm state for the right-panel Delete pill. First click
+ * arms (red fill, white icon/label); a second click within 4s
+ * issues the actual delete via the parent. The base
+ * .db-delete-button keeps its red outline at rest so the armed
+ * fill is a clear escalation, not a colour swap out of nowhere. */
+.detail-actions .db-delete-button.armed{
+  background:var(--danger);
+  color:#fff;
+  border-color:var(--danger);
+}
+.detail-actions .db-delete-button.armed:hover{
+  background:var(--danger);
+  color:#fff;
 }
 .record-stack{
   display:grid;

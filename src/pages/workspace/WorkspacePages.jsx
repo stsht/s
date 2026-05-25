@@ -75,6 +75,77 @@ function DeleteIcon() {
   );
 }
 
+// 2D stroke-only icons for the Subs detail action row. Sized to
+// match the existing 14×14 close X so they read as a single icon
+// family. Each icon picks up `currentColor` so the parent button's
+// hover/armed palette flows through without per-icon overrides.
+function EditIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+    </svg>
+  );
+}
+
+function PrintIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  );
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -482,26 +553,69 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // panel and on the printed card.
   const fmtTime = (v) => (v ? fmtSubsTime(v) : '');
   const fmtDate = (v) => (v ? dateLabel(v) : '');
+  // Combined "date · time" formatter — produces "15 Apr 2026 · 19.09"
+  // when both halves exist, or whichever half exists alone, or "" if
+  // neither does. Returning an empty string lets the .filter() below
+  // drop the row entirely instead of showing a stub line.
+  const fmtDateTime = (date, time) => {
+    const d = fmtDate(date);
+    const t = fmtTime(time);
+    if (d && t) return `${d} \u00b7 ${t}`;
+    return d || t;
+  };
+
+  // Compact pills under the client name: Service · Status · Period.
+  // Only non-empty values render so a partial row doesn't show empty
+  // bubbles. The Expired/Active/Expiring Soon tone badge stays beside
+  // the <h2> name (rendered separately above).
+  const headingPills = [
+    subscription?.service ? String(subscription.service).trim() : '',
+    statusLabel,
+    periodLabel,
+  ].filter(Boolean);
+
+  // Delete confirmation lives inside the detail panel only — the
+  // left-panel row X stays a one-tap delete per spec. First click
+  // arms the button (label + tone change), a second click within
+  // ~4s issues the delete via the parent. Auto-disarms on timeout
+  // or close so an accidental press doesn't sit in a hot state.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  useEffect(() => {
+    if (!confirmDelete) return undefined;
+    const id = setTimeout(() => setConfirmDelete(false), 4000);
+    return () => clearTimeout(id);
+  }, [confirmDelete]);
+  // Reset the armed state if the parent swaps to a different
+  // subscription while this component stays mounted.
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [subscription?.id]);
+
+  function handleDeleteClick() {
+    if (!subscription?.id) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setConfirmDelete(false);
+    onDeleteSubscription?.(subscription);
+  }
 
   // Build the field list. Empty fields are dropped so the panel
-  // never shows a wall of "—" placeholders for a thin record. Title
-  // and Expiry Time were previously hidden — both are surfaced now
-  // so the read-only detail matches what's saved (and what the
-  // print card renders).
+  // never shows a wall of "—" placeholders for a thin record.
+  // Service / Status / Period now live in the heading pills above.
+  // Invoice Date was moved out of the detail surface (the saved
+  // invoice_date still feeds the printed invoice card's "Issued"
+  // line — only the dashboard read-out drops it). Date+time pairs
+  // collapse into a single readable row for Payment / Start /
+  // Expiry, in that order.
   const fields = [
     { label: 'Title', value: subscription?.client_title || '' },
-    { label: 'Service', value: subscription?.service || '' },
-    { label: 'Status', value: statusLabel },
     { label: 'Storage', value: subscription?.storage_slot || subscription?.storage || '' },
-    { label: 'Period', value: periodLabel },
     { label: priceField, value: priceLabel },
-    { label: 'Invoice Date', value: fmtDate(subscription?.invoice_date) },
-    { label: 'Payment Date', value: fmtDate(subscription?.payment_date) },
-    { label: 'Payment Time', value: fmtTime(subscription?.payment_time) },
-    { label: 'Start Date', value: fmtDate(subscription?.start_date) },
-    { label: 'Start Time', value: fmtTime(subscription?.start_time) },
-    { label: 'Expiry Date', value: fmtDate(subscription?.expiry_date) },
-    { label: 'Expiry Time', value: fmtTime(subscription?.expiry_time) },
+    { label: 'Payment', value: fmtDateTime(subscription?.payment_date, subscription?.payment_time) },
+    { label: 'Start', value: fmtDateTime(subscription?.start_date, subscription?.start_time) },
+    { label: 'Expiry', value: fmtDateTime(subscription?.expiry_date, subscription?.expiry_time) },
     { label: 'Contact', value: contact },
   ].filter((f) => String(f.value || '').trim());
 
@@ -516,34 +630,45 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               <span className={`sub-badge sub-badge-${tone}`}>{toneLabel}</span>
             ) : null}
           </h2>
+          {headingPills.length ? (
+            <div className="sub-meta-pills">
+              {headingPills.map((label) => (
+                <span className="sub-pill" key={label}>{label}</span>
+              ))}
+            </div>
+          ) : null}
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
           {subscription?.id ? (
             <button
               type="button"
-              className="ghost-button compact"
+              className="ghost-button compact icon-button"
               onClick={() => onEdit?.(subscription)}
             >
-              Edit Subscription
+              <EditIcon />
+              <span>Edit</span>
             </button>
           ) : null}
           {subscription?.id ? (
             <button
               type="button"
-              className="ghost-button compact"
+              className="ghost-button compact icon-button"
               onClick={handlePrint}
             >
-              Print / Generate JPG
+              <PrintIcon />
+              <span>Print</span>
             </button>
           ) : null}
           {subscription?.id ? (
             <button
               type="button"
-              className="ghost-button compact db-delete-button"
-              onClick={() => onDeleteSubscription?.(subscription)}
+              className={`ghost-button compact icon-button db-delete-button${confirmDelete ? ' armed' : ''}`}
+              onClick={handleDeleteClick}
+              aria-pressed={confirmDelete}
             >
-              Delete Subscription
+              <TrashIcon />
+              <span>{confirmDelete ? 'Confirm Delete' : 'Delete'}</span>
             </button>
           ) : null}
           <button
@@ -2015,6 +2140,7 @@ export function DatabasePage() {
   return (
     <PrivateWorkspaceFrame
       active="/db/"
+      showNav={false}
       pills={
         <Segmented
           value={tab}
