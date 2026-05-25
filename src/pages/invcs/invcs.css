@@ -1283,7 +1283,8 @@ dd{margin:0;text-align:right;font-weight:800}
  *
  * Layout mirrors the legacy reference (header / 2x2 meta tiles /
  * two large period blocks / footer) but each surface is rebuilt
- * with our current radius, beige tile fill, and weight scale.
+ * with our current radius, soft pastel-blue tile fill, and weight
+ * scale.
  */
 .subs-toolbar{
   display:flex;
@@ -1298,6 +1299,23 @@ dd{margin:0;text-align:right;font-weight:800}
   line-height:1.1;
   font-weight:900;
   letter-spacing:0;
+}
+/* Toolbar actions row (right side of the preview header) holds the
+ * Save button and the Generate JPG button side-by-side. The ghost
+ * Save button is sized down with .compact so the primary
+ * Generate JPG remains the visual anchor. */
+.subs-toolbar-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.subs-toolbar-actions .ghost-button.compact{
+  width:auto;
+  margin:0;
+  padding:0 16px;
+  min-height:38px;
 }
 .subs-canvas{
   flex:1;
@@ -1314,11 +1332,11 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-card{
   width:min(100%,720px);
   padding:48px 44px;
-  border:1px solid #e9edf5;
+  border:1px solid #dde7f3;
   border-radius:32px;
   background:#fff;
-  color:#1f1a17;
-  box-shadow:0 24px 64px rgba(15,23,42,.12);
+  color:#1f2a3f;
+  box-shadow:0 24px 64px rgba(31,55,99,.10);
   font-family:var(--font);
   display:flex;
   flex-direction:column;
@@ -1335,12 +1353,12 @@ dd{margin:0;text-align:right;font-weight:800}
   margin:0;
   font-size:18px;
   font-weight:600;
-  color:#1f1a17;
+  color:#1f2a3f;
   letter-spacing:0;
 }
 .subs-service-tag{
   margin:0;
-  color:#a08a73;
+  color:#7e94b3;
   font-size:11px;
   font-weight:700;
   letter-spacing:.2em;
@@ -1352,14 +1370,14 @@ dd{margin:0;text-align:right;font-weight:800}
   line-height:1.05;
   font-weight:800;
   letter-spacing:-.01em;
-  color:#1f1a17;
+  color:#1f2a3f;
   /* Explicitly Plus Jakarta Sans — never inherit a serif from any
    * generic h1 reset that may sneak in via a future global stylesheet. */
   font-family:var(--font);
 }
 .subs-eyebrow{
   margin:6px 0 0;
-  color:#a08a73;
+  color:#7e94b3;
   font-size:11px;
   font-weight:800;
   letter-spacing:.22em;
@@ -1376,14 +1394,14 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:8px;
   padding:18px 20px;
   border-radius:20px;
-  background:#f4f1ec;
+  background:#eaf1fa;
   text-align:center;
   align-items:center;
   justify-content:center;
   min-height:96px;
 }
 .subs-tile-label{
-  color:#a08a73;
+  color:#7e94b3;
   font-size:11px;
   font-weight:700;
   letter-spacing:.16em;
@@ -1392,7 +1410,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-tile strong{
   font-size:18px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   letter-spacing:0;
   font-family:var(--font);
 }
@@ -1409,21 +1427,21 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:14px;
   padding:36px 24px;
   border-radius:24px;
-  background:#f4f1ec;
+  background:#eaf1fa;
   text-align:center;
   min-height:200px;
 }
 .subs-period-date{
   font-size:clamp(22px,3vw,28px);
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   letter-spacing:0;
   font-family:var(--font);
 }
 .subs-period-time{
   font-size:24px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   letter-spacing:.02em;
   font-family:var(--font);
 }
@@ -1434,20 +1452,20 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:6px;
   text-align:center;
   padding-top:18px;
-  border-top:1px solid #efeae1;
+  border-top:1px solid #e3ebf5;
   margin-top:6px;
 }
 .subs-foot-title{
   margin:6px 0 0;
   font-size:14px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
 }
 .subs-foot-sub{
   margin:0;
   font-size:12px;
   font-weight:600;
-  color:#a08a73;
+  color:#7e94b3;
 }
 .subs-foot-meta{
   margin-top:14px;
@@ -1457,11 +1475,11 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:12px;
   font-size:11px;
-  color:#a08a73;
+  color:#7e94b3;
   font-weight:600;
 }
 .subs-foot-meta strong{
-  color:#1f1a17;
+  color:#1f2a3f;
   font-weight:800;
 }
 
@@ -1509,19 +1527,19 @@ dd{margin:0;text-align:right;font-weight:800}
 /* /subs invoice card.
  *
  * Sibling of .subs-card (paid receipt) — same 720px white sheet,
- * same beige tile fill, same Plus Jakarta Sans family — but laid
- * out as a subscription bill: header with logo + INV-#, bill-to /
- * service-details split, single line item, payment block with QR
- * and totals, shared footer.
+ * same soft pastel-blue tile fill, same Plus Jakarta Sans family —
+ * but laid out as a subscription bill: header with logo + eyebrow,
+ * bill-to / service-details split, single line item, payment block
+ * with QR and totals, shared footer.
  */
 .subs-invoice-card{
   width:min(100%,720px);
   padding:40px 44px;
-  border:1px solid #e9edf5;
+  border:1px solid #dde7f3;
   border-radius:32px;
   background:#fff;
-  color:#1f1a17;
-  box-shadow:0 24px 64px rgba(15,23,42,.12);
+  color:#1f2a3f;
+  box-shadow:0 24px 64px rgba(31,55,99,.10);
   font-family:var(--font);
   display:flex;
   flex-direction:column;
@@ -1533,7 +1551,7 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:16px;
   padding-bottom:18px;
-  border-bottom:1px solid #efeae1;
+  border-bottom:1px solid #e3ebf5;
 }
 .subs-invoice-logo{
   width:160px;
@@ -1552,7 +1570,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-invoice-meta strong{
   font-size:15px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   letter-spacing:.04em;
   font-family:var(--font);
 }
@@ -1562,9 +1580,9 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:14px;
 }
 /* Left-aligned variant of .subs-tile used by Bill To / Service
- * Details. Inherits the beige fill and label tone from .subs-tile;
- * overrides only alignment + minor type weights so the address-
- * style content reads naturally. */
+ * Details. Inherits the pastel-blue fill and label tone from
+ * .subs-tile; overrides only alignment + minor type weights so
+ * the address-style content reads naturally. */
 .subs-tile.subs-tile--list{
   align-items:flex-start;
   text-align:left;
@@ -1575,12 +1593,12 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-tile.subs-tile--list strong{
   font-size:17px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   font-family:var(--font);
 }
 .subs-tile.subs-tile--list p{
   margin:0;
-  color:#1f1a17;
+  color:#1f2a3f;
   font-size:13px;
   font-weight:600;
 }
@@ -1590,7 +1608,7 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:16px;
   padding:18px 22px;
-  border:1px solid #efeae1;
+  border:1px solid #e3ebf5;
   border-radius:18px;
   background:#fff;
 }
@@ -1598,13 +1616,13 @@ dd{margin:0;text-align:right;font-weight:800}
   display:block;
   font-size:15px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   font-family:var(--font);
 }
 .subs-invoice-line small{
   display:block;
   margin-top:4px;
-  color:#a08a73;
+  color:#7e94b3;
   font-size:12px;
   font-weight:600;
   letter-spacing:.02em;
@@ -1612,7 +1630,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-invoice-line span{
   font-size:18px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   white-space:nowrap;
 }
 .subs-invoice-pay{
@@ -1622,7 +1640,7 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:center;
   padding:22px;
   border-radius:24px;
-  background:#f4f1ec;
+  background:#eaf1fa;
 }
 .subs-invoice-qr{
   width:100%;
@@ -1630,7 +1648,7 @@ dd{margin:0;text-align:right;font-weight:800}
   height:auto;
   display:block;
   margin:0 auto;
-  border:1px solid #efeae1;
+  border:1px solid #e3ebf5;
   border-radius:16px;
   background:#fff;
   padding:12px;
@@ -1647,14 +1665,14 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:12px;
   margin:0;
   padding-bottom:8px;
-  border-bottom:1px dashed #e2dccf;
+  border-bottom:1px dashed #cfdcec;
 }
 .subs-invoice-totals p:last-child{
   border-bottom:0;
   padding-bottom:0;
 }
 .subs-invoice-totals span{
-  color:#a08a73;
+  color:#7e94b3;
   font-size:11px;
   font-weight:800;
   letter-spacing:.14em;
@@ -1663,7 +1681,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-invoice-totals strong{
   font-size:15px;
   font-weight:800;
-  color:#1f1a17;
+  color:#1f2a3f;
   font-family:var(--font);
   white-space:nowrap;
 }
@@ -1975,4 +1993,62 @@ dd{margin:0;text-align:right;font-weight:800}
   cursor:progress;
   opacity:.7;
   pointer-events:none;
+}
+
+/* Import-only adaptive layout. When SubsImportDropZone is rendered
+ * inside the /db Subs Import flow, the surrounding .form-stack is
+ * tagged with .subs-import-upload, which switches the form to a
+ * column flex and grows the drop zone to fill the available
+ * right-panel space. The detail header and action row keep their
+ * intrinsic height; only the drop zone expands.
+ *
+ * On mobile (right panel takes the full viewport) we push the
+ * minimum height higher so the drop target reads as a dedicated
+ * import surface rather than a small card. */
+.subs-import-upload{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  flex:1 1 auto;
+  min-height:0;
+}
+.subs-import-upload .subs-drop-wrap{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.subs-import-upload .subs-drop{
+  flex:1 1 auto;
+  width:100%;
+  /* clamp() so the zone grows with the panel but never shrinks
+   * below an obviously-tappable target nor balloons past the
+   * sheet's natural reading length. */
+  min-height:clamp(220px, 56vh, 560px);
+  padding:36px 28px;
+}
+.subs-import-upload .subs-drop-icon{
+  width:42px;
+  height:42px;
+}
+.subs-import-upload .subs-drop-title{
+  font-size:16px;
+}
+.subs-import-upload .subs-drop-hint{
+  max-width:42ch;
+}
+@media(max-width:1023px){
+  .subs-import-upload .subs-drop{
+    /* Right-panel mode = full-page-feel import surface. */
+    min-height:clamp(360px, 78vh, 720px);
+    padding:48px 24px;
+  }
+  .subs-import-upload .subs-drop-icon{
+    width:48px;
+    height:48px;
+  }
+  .subs-import-upload .subs-drop-title{
+    font-size:18px;
+  }
 }
