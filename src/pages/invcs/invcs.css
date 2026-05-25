@@ -216,7 +216,7 @@ button{cursor:pointer}
  * logo + mode-switch land at the same pixels as before. The
  * preview-panel keeps its non-sticky header — only the editor
  * (operator/data-entry) side benefits from a locked header. */
-.editor-panel .panel-header{position:sticky;top:0;z-index:2;background:var(--panel);margin:-18px -18px 0;padding:18px 18px 16px}
+.editor-panel .panel-header{position:sticky;top:-18px;z-index:2;background:var(--panel);margin:-18px -18px 0;padding:18px 18px 16px}
 .panel-header img{width:132px;max-width:100%;height:auto;display:block}
 .mode-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;min-width:0;width:100%;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--soft)}
 .mode-switch button{min-width:0;height:36px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:10px;font-weight:800;text-transform:capitalize;white-space:nowrap}
@@ -2090,6 +2090,12 @@ dd{margin:0;text-align:right;font-weight:800}
   color:var(--muted);
   font-size:11px;
   font-weight:700;
+}
+.dd-repair-button.ghost-button.compact{
+  width:auto;
+  min-height:34px;
+  margin-top:4px;
+  padding:0 14px;
 }
 
 /* Service link card — chip + label on the head row, full URL

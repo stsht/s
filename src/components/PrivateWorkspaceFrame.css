@@ -13,15 +13,6 @@
   position: relative;
   isolation: isolate;
   padding: 18px;
-  /* Approx height of the sticky .pf-header (logo + segmented row).
-   * Used by .pf-list-tools below to pin the search row directly
-   * under the header divider with no gap or overlap. The value is
-   * derived from the header's own padding/border math:
-   *   18px (top padding) + ~44px (segmented row) + 16px (bottom
-   *   padding) + 1px (divider border) ≈ 79px
-   * Kept as a CSS variable so the offset stays in lockstep with
-   * any future header-height tweak. */
-  --pf-header-h: 79px;
 }
 
 .pf-shell {
@@ -85,11 +76,12 @@
  * width (border-edge to border-edge) and cleanly covers content
  * scrolling underneath. The header re-claims the lost padding via
  * its own 18px insets, so children (logo, pills) sit at the same
- * pixel position as before — no visual shift. The `top: 0` pin is
- * relative to the .pf-panel--left scroll viewport. */
+ * pixel position as before — no visual shift. The sticky `top`
+ * matches the negative top margin, so the header does not jump
+ * down and cover the first scrolling row. */
 .pf-header {
   position: sticky;
-  top: 0;
+  top: -18px;
   z-index: 2;
   display: grid;
   grid-template-columns: minmax(112px, 132px) minmax(0, 1fr);
@@ -204,28 +196,11 @@
 }
 
 /* List tools — search input + primary action button (Create
- * Client / Import JPG on /db). Lives inside the .pf-panel--left
- * scroll viewport directly after the sticky header. Pinned right
- * under the divider with sticky positioning so the operator can
- * filter the list without scrolling back to the top.
- *
- * The sticky `top` matches the header height so the list-tools
- * block lands flush against the header divider with no gap and
- * no overlap. The block's own panel-coloured background covers
- * any list rows scrolling underneath, and a 1px hairline at the
- * bottom continues the divider treatment of the header above —
- * the search row visually feels like the second sticky stripe of
- * a single header zone, not a floating island.
- *
- * The negative horizontal margin extends the sticky background
- * to the panel's left/right border edges (matching .pf-header)
- * so the search input doesn't look like it's floating in a
- * smaller column than the header above it. The inner padding
- * restores the original 18px gutter for child positioning. */
+ * Client / Import JPG on /db). This intentionally scrolls with the
+ * list; only the logo + contextual pills above stay locked. */
 .pf-list-tools {
-  position: sticky;
-  top: var(--pf-header-h);
-  z-index: 1;
+  position: relative;
+  z-index: 0;
   margin: 0 -18px;
   padding: 12px 18px 12px;
   background: var(--panel);
@@ -234,10 +209,6 @@
   gap: 8px;
 }
 
-/* Counter the panel-level "* + *" margin so the list-tools sits
- * flush against the sticky header, not 12px below it (otherwise
- * scrolling reveals a 12px transparent strip between header and
- * search). */
 .pf-panel--left > .pf-list-tools {
   margin-top: 0;
 }

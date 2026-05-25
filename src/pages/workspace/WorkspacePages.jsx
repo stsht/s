@@ -606,24 +606,35 @@ StarShots`;
 //
 // Source-of-truth fields come from /api/db's `items[]` payload
 // (handleDbSearch in _worker.js). When the row is too old to
-// carry a 12-char short_code we fall through to "Legacy link
-// unavailable" rather than emitting a broken root URL.
-function DeliveryDetail({ delivery, onClose }) {
-  const title = String(delivery?.title || 'Ms.').trim() || 'Ms.';
-  const clientName = String(delivery?.client_name || 'Client').trim() || 'Client';
-  const folder =
-    String(delivery?.folder_name || '').trim() ||
-    String(delivery?.gallery_code || '').trim() ||
-    String(delivery?.base_slug || '').trim();
-  const password = String(delivery?.password || '').trim();
+// carry a 12-char short_code, the panel offers an admin repair
+// action instead of showing a broken root URL.
+function DeliveryDetail({ delivery, onClose, onRepaired }) {
+  const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
+  const [variant, setVariant] = useState('whatsapp');
+  const [flash, setFlash] = useState('');
+  const [repairing, setRepairing] = useState(false);
+  const [repairStatus, setRepairStatus] = useState('');
 
-  const shortCode = resolveDeliveryShortCode(delivery);
+  useEffect(() => {
+    setCurrentDelivery(delivery || {});
+    setRepairStatus('');
+  }, [delivery]);
+
+  const title = String(currentDelivery?.title || 'Ms.').trim() || 'Ms.';
+  const clientName = String(currentDelivery?.client_name || 'Client').trim() || 'Client';
+  const folder =
+    String(currentDelivery?.folder_name || '').trim() ||
+    String(currentDelivery?.gallery_code || '').trim() ||
+    String(currentDelivery?.base_slug || '').trim();
+  const password = String(currentDelivery?.password || '').trim();
+
+  const shortCode = resolveDeliveryShortCode(currentDelivery);
   const shortUrl = buildShortUrl(shortCode);
   // Display-only label for the short link card. Strip the protocol
   // so a 12-char URL fits on one line at smaller widths.
   const shortDisplay = shortUrl.replace(/^https?:\/\//, '');
 
-  const linkRows = Array.isArray(delivery?.links) ? delivery.links : [];
+  const linkRows = Array.isArray(currentDelivery?.links) ? currentDelivery.links : [];
   const byService = new Map();
   for (const link of linkRows) {
     const service = String(link?.service || '').toLowerCase();
@@ -646,14 +657,12 @@ function DeliveryDetail({ delivery, onClose }) {
   // back to a synthesized message that mirrors buildDeliveryMessage()
   // in _worker.js. When shortUrl is empty the synth still produces
   // readable text with a "(link unavailable)" placeholder.
-  const storedWa = String(delivery?.generated_text_whatsapp || '').trim();
-  const storedIg = String(delivery?.generated_text_instagram || '').trim();
+  const storedWa = String(currentDelivery?.generated_text_whatsapp || '').trim();
+  const storedIg = String(currentDelivery?.generated_text_instagram || '').trim();
   const synth = synthesizeDeliveryMessage(title, clientName, shortUrl, password, folder);
   const messageWa = storedWa || synth;
   const messageIg = storedIg || storedWa || synth;
 
-  const [variant, setVariant] = useState('whatsapp');
-  const [flash, setFlash] = useState('');
   const flashTarget = (target) => {
     setFlash(target);
     setTimeout(() => setFlash((cur) => (cur === target ? '' : cur)), 700);
@@ -678,6 +687,41 @@ function DeliveryDetail({ delivery, onClose }) {
     if (!text) return;
     await copyToClipboard(text);
     flashTarget(`msg-${which}`);
+  }
+  async function handleRepairDelivery() {
+    if (!currentDelivery?.id) return;
+    setRepairing(true);
+    setRepairStatus('');
+    try {
+      const response = await fetch('/api/db-repair-delivery', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentDelivery.id }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Repair failed (${response.status}).`);
+      }
+      const repaired = {
+        ...currentDelivery,
+        ...(json.delivery || {}),
+        password: json.password || json.delivery?.password || currentDelivery.password || '',
+        short_code: json.shortCode || json.delivery?.short_code || currentDelivery.short_code || '',
+        short_url: json.shortUrl || json.delivery?.short_url || '',
+        delivery_url: json.shortUrl || json.delivery?.delivery_url || '',
+        generated_text_whatsapp: json.generatedText || json.delivery?.generated_text_whatsapp || currentDelivery.generated_text_whatsapp || '',
+        generated_text_instagram: json.delivery?.generated_text_instagram || json.generatedText || currentDelivery.generated_text_instagram || '',
+        needs_secure_repair: false,
+      };
+      setCurrentDelivery(repaired);
+      setRepairStatus('Secure short link repaired.');
+      onRepaired?.(repaired);
+    } catch (error) {
+      setRepairStatus(error?.message || 'Repair failed.');
+    } finally {
+      setRepairing(false);
+    }
   }
 
   return (
@@ -723,6 +767,17 @@ function DeliveryDetail({ delivery, onClose }) {
                 <span className="dd-eyebrow">Short Link</span>
                 <strong className="dd-card-strong dd-card-strong--muted">Legacy link unavailable</strong>
                 <span className="dd-card-hint">No 12-char short code on this row.</span>
+                {currentDelivery?.id ? (
+                  <button
+                    type="button"
+                    className="ghost-button compact dd-repair-button"
+                    onClick={handleRepairDelivery}
+                    disabled={repairing}
+                  >
+                    {repairing ? 'Repairing...' : 'Repair secure link'}
+                  </button>
+                ) : null}
+                {repairStatus ? <span className="dd-card-hint">{repairStatus}</span> : null}
               </div>
             )}
             {password ? (
@@ -2423,6 +2478,12 @@ export function DatabasePage() {
       {selected?.type === 'delivery' ? (
         <DeliveryDetail
           delivery={selected.data || {}}
+          onRepaired={(repaired) => {
+            setSelected((cur) => cur?.type === 'delivery'
+              ? { ...cur, data: repaired }
+              : cur);
+            refetch();
+          }}
           onClose={() => {
             // If we entered DeliveryDetail from a client row, hop
             // back to that client's record list so the operator

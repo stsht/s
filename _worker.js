@@ -929,6 +929,7 @@ function invoiceSummary(invoice = null) {
 function deliverySummary(delivery = null) {
   if (!delivery?.id) return null;
   const shortCode = deliveryShortCode(delivery);
+  const shortPath = shortCode ? `/${shortCode}` : '';
   return {
     id: delivery.id,
     client_name: delivery.client_name || '',
@@ -937,8 +938,8 @@ function deliverySummary(delivery = null) {
     delivery_month: delivery.delivery_month || '',
     base_slug: delivery.base_slug || '',
     short_code: shortCode,
-    delivery_url: shouldBlockFolderSlug(delivery) ? `/${shortCode}` : `/g/${delivery.base_slug}`,
-    short_url: `/${shortCode}`
+    delivery_url: shortPath,
+    short_url: shortPath
   };
 }
 
@@ -1438,8 +1439,9 @@ async function handleDbSearch(request, env) {
       else if (type === 'page_view' || type === 'password_success') opens += 1;
     }
     const shortCode = deliveryShortCode(d);
+    const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
-    const generatedText = d.generated_text_whatsapp || (displayPassword ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
+    const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
     return {
       id: d.id,
       title: d.title,
@@ -1453,9 +1455,10 @@ async function handleDbSearch(request, env) {
       generated_text_whatsapp: generatedText,
       generated_text_instagram: d.generated_text_instagram || generatedText,
       created_at: d.created_at,
-      delivery_url: shouldBlockFolderSlug(d) ? `/${shortCode}` : `/g/${d.base_slug}`,
+      delivery_url: shortPath,
       short_code: shortCode,
-      short_url: `/${shortCode}`,
+      short_url: shortPath,
+      needs_secure_repair: !shortCode,
       gallery_code: galleryCodeFromSlug(d.base_slug),
       related_invoice: invoiceSummary(relatedByClientKey(d, latestInvoiceByClient)),
       links: dl,
@@ -1598,6 +1601,104 @@ async function handleDbClearLogs(request, env) {
   });
 
   return json({ ok: true });
+}
+
+async function handleDbRepairDelivery(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  const id = String(body.id || body.deliveryId || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!id) return json({ error: 'Missing delivery id.' }, 400);
+
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/deliveries?select=*&id=eq.${encodeURIComponent(id)}&limit=1`
+  );
+  const delivery = Array.isArray(rows) ? rows[0] : rows;
+  if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+  const existingCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
+  const shortCode = existingCode.length === SHORT_CODE_LENGTH
+    ? existingCode
+    : await uniqueShortCode(env, {
+        deliveryId: delivery.id,
+        baseSlug: delivery.base_slug || '',
+        folderName: delivery.folder_name || '',
+        clientName: delivery.client_name || '',
+        title: delivery.title || ''
+      });
+
+  let displayPassword = deliveryPasswordForDisplay(delivery);
+  const hasStoredHash = !!(String(delivery.password_hash || '').trim() && String(delivery.password_salt || '').trim());
+  if (!displayPassword && hasStoredHash) {
+    return json({
+      error: 'This delivery already has a hashed password but no recoverable display password. Create a fresh delivery link instead.'
+    }, 409);
+  }
+  if (!displayPassword) {
+    displayPassword = await generateGalleryPassword({
+      deliveryId: delivery.id,
+      baseSlug: delivery.base_slug || '',
+      folderName: delivery.folder_name || '',
+      clientName: delivery.client_name || '',
+      title: delivery.title || ''
+    }, shortCode);
+  }
+
+  const generatedText = buildDeliveryMessage(delivery.title || 'Ms.', delivery.client_name || '', shortCode, displayPassword);
+  const patch = {
+    short_code: shortCode,
+    password: '',
+    generated_text_whatsapp: generatedText,
+    generated_text_instagram: generatedText
+  };
+
+  if (!hasStoredHash) {
+    Object.assign(patch, await hashGalleryPassword(displayPassword));
+  }
+
+  const repairedRows = await supabaseFetch(
+    env,
+    `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(patch)
+    }
+  );
+  const repaired = Array.isArray(repairedRows) ? repairedRows[0] : repairedRows;
+
+  await supabaseFetch(
+    env,
+    `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ short_path: `/${shortCode}` })
+    }
+  ).catch((error) => {
+    if (!isSchemaError(error)) throw error;
+  });
+
+  return json({
+    ok: true,
+    shortCode,
+    shortUrl: `/${shortCode}`,
+    shortLink: `${PUBLIC_SITE}/${shortCode}`,
+    password: displayPassword,
+    generatedText,
+    delivery: {
+      ...delivery,
+      ...(repaired || {}),
+      password: displayPassword,
+      short_code: shortCode,
+      delivery_url: `/${shortCode}`,
+      short_url: `/${shortCode}`,
+      generated_text_whatsapp: generatedText,
+      generated_text_instagram: generatedText,
+      needs_secure_repair: false
+    }
+  });
 }
 
 async function handleDbPasswordChange(request, env) {
@@ -2648,6 +2749,7 @@ export default {
 	      if (request.method === 'POST' && url.pathname === '/api/db-password') return await handleDbPasswordChange(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-delete') return await handleDbDelete(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/db-clear-logs') return await handleDbClearLogs(request, env);
+	      if (request.method === 'POST' && url.pathname === '/api/db-repair-delivery') return await handleDbRepairDelivery(request, env);
 
       const shortAliasMatch = url.pathname.match(/^\/([a-z0-9]{7}|[a-z0-9]{12})\/?$/i);
       if (request.method === 'GET' && shortAliasMatch) {
