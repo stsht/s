@@ -417,8 +417,13 @@ function buildClientRecords(client, invoices, deliveries) {
   //      anchor: when the second tool was launched from a row that
   //      had no event_key yet, the new record carries the existing
   //      record's id as its event_key).
-  //   3. both records have a non-empty event_date and they match
-  //      (legacy fallback — the row pre-dates event_key).
+  //   3. both records have a non-empty event_date and they match —
+  //      AND neither side already has a (different) event_key.
+  //      event_key is authoritative: two records with conflicting
+  //      event_keys must never merge just because they share a
+  //      date, and conversely a TBA event (event_date='') stays in
+  //      its own group even if another event for the same client
+  //      happens to land on a real date.
   // No match -> a fresh group keyed by the record's own id.
   //
   // event_date and event_key are pulled per-record so a TBA event
@@ -444,10 +449,25 @@ function buildClientRecords(client, invoices, deliveries) {
 
   function findGroup({ eventKey, eventDate, recordId }) {
     return groups.find((g) => {
+      // 1. Direct event_key match — the strongest signal.
       if (eventKey && g.eventKeys.has(eventKey)) return true;
+      // 2. Cross-ref: this record's event_key points at the
+      //    sibling record's id (or vice versa). Used when one tool
+      //    was launched from a row that did not yet carry an
+      //    event_key, so the new save stamped the existing row's
+      //    id as its event_key.
       if (eventKey && g.recordIds.has(eventKey)) return true;
       if (recordId && g.eventKeys.has(recordId)) return true;
-      if (eventDate && g.eventDates.has(eventDate)) return true;
+      // 3. Date fallback — but only when event_key cannot
+      //    adjudicate. If both sides carry a (different) event_key
+      //    they are explicitly different events, and a coincidental
+      //    same-day match must not merge them. event_key wins over
+      //    date grouping, per the /db spec.
+      if (eventDate && g.eventDates.has(eventDate)) {
+        const recordHasKey = !!eventKey;
+        const groupHasKey = g.eventKeys.size > 0;
+        if (!recordHasKey || !groupHasKey) return true;
+      }
       return false;
     });
   }
@@ -483,7 +503,11 @@ function buildClientRecords(client, invoices, deliveries) {
 
     // Sort timestamp: prefer real event_date, then invoice_date,
     // then created_at. Take the latest seen so a delivery+invoice
-    // pair sorts on the most recent activity.
+    // pair sorts on the most recent activity. NOTE: this drives
+    // ROW ORDER only — `group.eventDate` (the displayed value) is
+    // populated separately above from real event_date columns
+    // alone, so created_at/updated_at never leak into the visible
+    // "TBA / DD MMM YYYY" label.
     const ts = record?.event_date || record?.invoice_date || record?.created_at || '';
     if (ts && (!group.date || (Date.parse(ts) || 0) > (Date.parse(group.date) || 0))) {
       group.date = ts;
@@ -496,8 +520,17 @@ function buildClientRecords(client, invoices, deliveries) {
     else group.invoice = record;
   }
 
-  deliveries.filter(matches).forEach((delivery) => attach(delivery, 'delivery'));
+  // Process invoices first. Invoices tend to be the side that
+  // carries an explicit event_key (operators set the event date in
+  // /inv before they ever press Create Links), so by attaching
+  // them first we seed each group with its event_key. A subsequent
+  // delivery whose own event_key column was stripped — e.g. on a
+  // pre-part-6 schema — can then still merge via the cross-ref
+  // axis (delivery.recordId === invoice.eventKey or invoice.event
+  // _data.delivery_id === delivery.id, both already surfaced as
+  // effectiveEventKey by the worker's handleDbSearch).
   invoices.filter(matches).forEach((invoice) => attach(invoice, 'invoice'));
+  deliveries.filter(matches).forEach((delivery) => attach(delivery, 'delivery'));
 
   return groups
     .map(({ eventKeys, eventDates, recordIds, ...rest }) => rest)
@@ -661,14 +694,13 @@ function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHr
   const hasDelivery = !!row.delivery?.id;
   const linkLabel = hasDelivery ? 'View Links' : 'Create Links';
   const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
-  // Display the real event date when known; "TBA" when the event
-  // is intentionally undated (e.g. operator launched /inv with no
-  // eventDate). Falls back to the row's bookkeeping timestamp
-  // (created_at) only when nothing else is available so a row
-  // never reads as a wholly anonymous entry.
-  const dateText = row.eventDate
-    ? dateLabel(row.eventDate)
-    : (row.date ? 'TBA' : 'TBA');
+  // Display the real event date when known; "TBA" otherwise.
+  // row.eventDate is populated by buildClientRecords from real
+  // event_date columns only (plainEventDate strips ISO timestamps),
+  // so a created_at / updated_at can never leak into this label —
+  // the fallback is always literal "TBA", never today's date or
+  // the row's bookkeeping timestamp.
+  const dateText = row.eventDate ? dateLabel(row.eventDate) : 'TBA';
   return (
     <article className="record-row" data-key={recordKey}>
       <span>{dateText}</span>
@@ -2703,11 +2735,17 @@ export function DatabasePage() {
 
   function createEventForClient() {
     const client = selectedClient;
+    // Top-level "Create Events" starts a fresh event for the
+    // selected client. We intentionally do NOT default eventDate to
+    // today() here — the spec is explicit that a missing event date
+    // should stay TBA, never silently become today. /inv hydrates
+    // its own state from the URL handoff; with eventDate omitted
+    // the composer's <input type="date"> renders empty and the
+    // operator types the real event date (or saves as TBA).
     const href = createRecordUrl('/inv/', {
       title: client?.title || 'Ms.',
       name: client?.name || '',
       contact: client?.contact || '',
-      eventDate: today(),
     });
     // Open the invoice composer in a new tab so /db keeps the
     // current selection — matches the cross-tool nav buttons.
