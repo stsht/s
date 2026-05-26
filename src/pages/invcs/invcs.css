@@ -531,6 +531,24 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
 .preview-panel{display:flex;flex-direction:column;padding:18px}
 .preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 2px 14px}
 .preview-toolbar h2{margin:2px 0 0;font-size:28px;line-height:1.1;font-weight:900;letter-spacing:0}
+/* Toolbar actions row (right side of the preview header) holds the
+ * Save Status button and the Generate JPG button side-by-side. The
+ * ghost Save Status button is sized down with .compact so the
+ * primary Generate JPG remains the visual anchor — same pattern
+ * as .subs-toolbar-actions. */
+.preview-toolbar-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.preview-toolbar-actions .ghost-button.compact{
+  width:auto;
+  margin:0;
+  padding:0 16px;
+  min-height:38px;
+}
 .eyebrow{margin:0;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .primary-button{background:#1f1a17;color:#fff;white-space:nowrap}
 .primary-button:hover{background:#302a25}

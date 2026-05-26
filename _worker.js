@@ -1741,6 +1741,35 @@ async function handleDbUpdateDelivery(request, env) {
   const delivery = Array.isArray(rows) ? rows[0] : rows;
   if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
 
+  // Optional folder_name PATCH. We only PATCH when the operator
+  // sent a non-empty trimmed value AND it actually differs from
+  // the current row, to avoid pointless writes. The PATCH does
+  // not regenerate base_slug, short_code, or password — those are
+  // owned by Repair Secure Link / Regenerate Password. If the
+  // column is missing on a legacy schema we swallow the error so
+  // the link rebuild still succeeds.
+  let updatedFolderName = String(delivery.folder_name || '');
+  const folderNameRaw = body.folderName ?? body.folder_name;
+  if (folderNameRaw !== undefined && folderNameRaw !== null) {
+    const trimmedFolder = String(folderNameRaw).trim();
+    if (trimmedFolder && trimmedFolder !== String(delivery.folder_name || '').trim()) {
+      try {
+        const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ folder_name: trimmedFolder })
+        });
+        const patchedRow = Array.isArray(patched) ? patched[0] : patched;
+        if (patchedRow?.folder_name) updatedFolderName = String(patchedRow.folder_name);
+        else updatedFolderName = trimmedFolder;
+      } catch (error) {
+        if (!isSchemaError(error)) throw error;
+        // Column missing on a legacy schema — drop the rename and
+        // continue with the link rebuild below.
+      }
+    }
+  }
+
   const links = Array.isArray(body.links) ? body.links : [];
   const cleanLinks = links
     .map((link) => ({ service: cleanService(link.service), originalUrl: normalizeUrl(link.originalUrl || link.original_url || link.url) }))
@@ -1768,6 +1797,7 @@ async function handleDbUpdateDelivery(request, env) {
     ok: true,
     delivery: {
       ...delivery,
+      folder_name: updatedFolderName,
       links: Array.isArray(insertedLinks) ? insertedLinks : [],
     },
   });
