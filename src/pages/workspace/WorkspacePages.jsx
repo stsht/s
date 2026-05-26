@@ -313,7 +313,23 @@ function ListRow({ title, meta, amount }) {
 }
 
 function buildClientRecords(client, invoices, deliveries) {
-  const rows = new Map();
+  // One real event = one row. Records are merged into a group when
+  // any of these axes match a sibling already in the group:
+  //   1. event_key matches event_key (preferred — the stable
+  //      grouping key written by /l and /inv when launched from
+  //      an existing /db row).
+  //   2. one record's event_key === another record's id (cross-ref
+  //      anchor: when the second tool was launched from a row that
+  //      had no event_key yet, the new record carries the existing
+  //      record's id as its event_key).
+  //   3. both records have a non-empty event_date and they match
+  //      (legacy fallback — the row pre-dates event_key).
+  // No match -> a fresh group keyed by the record's own id.
+  //
+  // event_date and event_key are pulled per-record so a TBA event
+  // (event_date='') can still group its delivery + invoice via
+  // event_key alone, without inventing a date for grouping.
+  const groups = [];
   const clientId = String(client?.client_id || client?.id || '').trim();
   const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
   const matches = (record) => {
@@ -322,45 +338,75 @@ function buildClientRecords(client, invoices, deliveries) {
     if (clientId && recordClientId && clientId === recordClientId) return true;
     return !!clientName && !!recordName && clientName === recordName;
   };
-  const ensure = (key, seed) => {
-    if (!rows.has(key)) rows.set(key, { ...seed, invoice: null, delivery: null });
-    return rows.get(key);
-  };
 
-  deliveries.filter(matches).forEach((delivery) => {
-    const date = delivery.event_date || delivery.created_at || '';
-    const eventDate = plainEventDate(delivery.event_date);
-    const key = date || `delivery:${delivery.id}`;
-    const seed = ensure(key, {
-      date,
-      eventDate,
-      name: delivery.client_name || client.name,
-      title: delivery.title || client.title,
-      contact: client.contact || '',
+  function recordIdentifiers(record) {
+    return {
+      eventKey: String(record?.event_key || '').trim(),
+      eventDate: plainEventDate(record?.event_date),
+      recordId: String(record?.id || '').trim(),
+    };
+  }
+
+  function findGroup({ eventKey, eventDate, recordId }) {
+    return groups.find((g) => {
+      if (eventKey && g.eventKeys.has(eventKey)) return true;
+      if (eventKey && g.recordIds.has(eventKey)) return true;
+      if (recordId && g.eventKeys.has(recordId)) return true;
+      if (eventDate && g.eventDates.has(eventDate)) return true;
+      return false;
     });
-    // If a later record carries a real event_date and this row's
-    // grouping key didn't, upgrade the row in place so the Create
-    // Invoice handoff prefills the date.
-    if (eventDate && !seed.eventDate) seed.eventDate = eventDate;
-    seed.delivery = delivery;
-  });
+  }
 
-  invoices.filter(matches).forEach((invoice) => {
-    const date = invoice.event_date || invoice.invoice_date || invoice.created_at || '';
-    const eventDate = plainEventDate(invoice.event_date);
-    const key = date || `invoice:${invoice.id}`;
-    const seed = ensure(key, {
-      date,
-      eventDate,
-      name: invoice.client_name || client.name,
-      title: invoice.client_title || client.title,
-      contact: invoice.client_contact || client.contact || '',
-    });
-    if (eventDate && !seed.eventDate) seed.eventDate = eventDate;
-    seed.invoice = invoice;
-  });
+  function attach(record, kind) {
+    const ids = recordIdentifiers(record);
+    let group = findGroup(ids);
+    if (!group) {
+      group = {
+        eventKey: '',
+        eventDate: '',
+        date: '',
+        name: '',
+        title: '',
+        contact: '',
+        delivery: null,
+        invoice: null,
+        eventKeys: new Set(),
+        eventDates: new Set(),
+        recordIds: new Set(),
+      };
+      groups.push(group);
+    }
+    if (ids.eventKey) {
+      group.eventKeys.add(ids.eventKey);
+      if (!group.eventKey) group.eventKey = ids.eventKey;
+    }
+    if (ids.eventDate) {
+      group.eventDates.add(ids.eventDate);
+      if (!group.eventDate) group.eventDate = ids.eventDate;
+    }
+    if (ids.recordId) group.recordIds.add(ids.recordId);
 
-  return [...rows.values()].sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0));
+    // Sort timestamp: prefer real event_date, then invoice_date,
+    // then created_at. Take the latest seen so a delivery+invoice
+    // pair sorts on the most recent activity.
+    const ts = record?.event_date || record?.invoice_date || record?.created_at || '';
+    if (ts && (!group.date || (Date.parse(ts) || 0) > (Date.parse(group.date) || 0))) {
+      group.date = ts;
+    }
+    if (!group.name) group.name = String(record?.client_name || record?.name || '').trim();
+    if (!group.title) group.title = String(record?.client_title || record?.title || '').trim();
+    if (!group.contact) group.contact = String(record?.client_contact || record?.contact || '').trim();
+
+    if (kind === 'delivery') group.delivery = record;
+    else group.invoice = record;
+  }
+
+  deliveries.filter(matches).forEach((delivery) => attach(delivery, 'delivery'));
+  invoices.filter(matches).forEach((invoice) => attach(invoice, 'invoice'));
+
+  return groups
+    .map(({ eventKeys, eventDates, recordIds, ...rest }) => rest)
+    .sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0));
 }
 
 function ClientForm({ draft, onChange, onCancel, onSave, status }) {
@@ -430,12 +476,35 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
       </div>
       <div className="record-stack">
         {records.map((row, index) => {
+          // Stable per-event grouping key. Priority:
+          //   1. row.eventKey (already populated by buildClientRecords
+          //      when any record on the row carried event_key).
+          //   2. delivery.id (the delivery acts as the cross-ref
+          //      anchor — when /inv saves it stores delivery.id as
+          //      its event_key, and on re-render they group).
+          //   3. invoice.id (same idea for invoice-anchored rows).
+          // Top-level "Create Links / Create Invoice" buttons higher
+          // up still pass no eventKey so they always start a fresh
+          // event, matching the spec.
+          const rowEventKey = row.eventKey || row.delivery?.id || row.invoice?.id || '';
           const eventLinkHref = row.delivery?.id
             ? row.delivery.short_url || row.delivery.delivery_url || linkHref
-            : createRecordUrl('/l/', { title: row.title || title, name: row.name || name, contact, eventDate: row.eventDate });
+            : createRecordUrl('/l/', {
+                title: row.title || title,
+                name: row.name || name,
+                contact,
+                eventDate: row.eventDate,
+                eventKey: rowEventKey,
+              });
           const eventInvoiceHref = row.invoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.invoice.id })
-            : createRecordUrl('/inv/', { title: row.title || title, name: row.name || name, contact, eventDate: row.eventDate });
+            : createRecordUrl('/inv/', {
+                title: row.title || title,
+                name: row.name || name,
+                contact,
+                eventDate: row.eventDate,
+                eventKey: rowEventKey,
+              });
           // A row's stable identity is delivery.id ?? invoice.id ?? date —
           // we use it to drive both the React key and the mobile "armed"
           // state (parent owns the armed-id so only one row at a time
@@ -481,9 +550,17 @@ function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHr
   const hasDelivery = !!row.delivery?.id;
   const linkLabel = hasDelivery ? 'View Links' : 'Create Links';
   const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
+  // Display the real event date when known; "TBA" when the event
+  // is intentionally undated (e.g. operator launched /inv with no
+  // eventDate). Falls back to the row's bookkeeping timestamp
+  // (created_at) only when nothing else is available so a row
+  // never reads as a wholly anonymous entry.
+  const dateText = row.eventDate
+    ? dateLabel(row.eventDate)
+    : (row.date ? 'TBA' : 'TBA');
   return (
     <article className="record-row" data-key={recordKey}>
-      <span>{dateLabel(row.date)}</span>
+      <span>{dateText}</span>
       <strong>{row.name || fallbackName}</strong>
       {hasDelivery ? (
         <button
@@ -2953,6 +3030,7 @@ function readInvoiceHandoff() {
     name: params.get('name') || '',
     eventDate: params.get('eventDate') || '',
     invoiceId: params.get('invoiceId') || '',
+    eventKey: params.get('eventKey') || '',
   };
   if (cleanLinkText(fromUrl.name)) return fromUrl;
   try {
@@ -3037,6 +3115,20 @@ export function LinkGeneratorPage() {
   const [status, setStatus] = useState({ text: '', tone: '' });
   const [busy, setBusy] = useState(false);
   const [linkedInvoiceId, setLinkedInvoiceId] = useState('');
+  // Stable per-event grouping key handed off from /db. When the
+  // user clicks "Create Links" on an existing event row this is the
+  // row's event_key (or the cross-ref anchor id when the row is
+  // legacy and never carried event_key). When /l is opened
+  // standalone (no /db handoff) it stays empty and the worker
+  // persists no event_key; the row therefore behaves as a brand-new
+  // event, matching the spec for top-level Create.
+  const [eventKey, setEventKey] = useState('');
+  // Event date forwarded from /db so that the saved delivery row
+  // carries the real event_date (or '' for TBA). The folder name
+  // already encodes the date for legacy folders, but storing the
+  // explicit event_date column lets /db group by date even when
+  // the folder name doesn't carry the YYMMDD prefix.
+  const [eventDateHandoff, setEventDateHandoff] = useState('');
   const [mobileView, setMobileView] = useState('left');
   // Visual flash on the clickable preview cards / textarea so
   // operators get tactile feedback after a copy or open action.
@@ -3053,6 +3145,15 @@ export function LinkGeneratorPage() {
     const handoffTitle = normalizeInvoiceTitleValue(handoff.title);
     setTitle(handoffTitle);
     setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
+    // Capture the per-event grouping anchors. eventKey is whatever
+    // /db handed us (an existing row's event_key, the row's id used
+    // as a cross-ref, or empty when the link page was opened
+    // standalone). eventDate is sanitised to YYYY-MM-DD; anything
+    // else stays empty so a TBA event survives the round-trip.
+    const handoffEventKey = String(handoff.eventKey || '').trim().slice(0, 80);
+    if (handoffEventKey) setEventKey(handoffEventKey);
+    const handoffEventDate = String(handoff.eventDate || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(handoffEventDate)) setEventDateHandoff(handoffEventDate);
     setClientName((current) => (current.trim() ? current : handoffName));
     setFolderName((current) => {
       if (current.trim()) return current;
@@ -3188,6 +3289,12 @@ export function LinkGeneratorPage() {
           generatedTextWhatsapp: '',
           generatedTextInstagram: '',
           invoiceId: linkedInvoiceId,
+          // Event grouping fields. Empty strings round-trip cleanly:
+          // the worker only writes the columns when they're non-
+          // empty and falls back to the legacy schema-tolerant
+          // insert when the columns don't exist yet.
+          eventKey,
+          eventDate: eventDateHandoff,
           links,
         }),
       });
@@ -3237,6 +3344,8 @@ export function LinkGeneratorPage() {
     setFolderName('');
     setServiceUrls({ gd: '', db: '', wt: '', tn: '' });
     setLinkedInvoiceId('');
+    setEventKey('');
+    setEventDateHandoff('');
     setSaved(null);
     setStatus({ text: '', tone: '' });
     setMobileView('left');

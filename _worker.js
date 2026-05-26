@@ -1244,14 +1244,40 @@ async function handleSave(request, env) {
     generated_text_whatsapp: generatedText,
     generated_text_instagram: generatedTextIg
   };
+  // Optional event grouping fields. event_date stays a bare
+  // YYYY-MM-DD (or empty for TBA); event_key is whatever the
+  // frontend handed us (an existing row's event_key, the
+  // anchor row's id used as a cross-ref, or a fresh UUID for
+  // brand-new top-level events). Both are dropped at the
+  // schema-fallback layer below if the columns don't exist on
+  // a legacy schema.
+  const eventDateRaw = String(body.eventDate || '').trim();
+  const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(eventDateRaw) ? eventDateRaw : '';
+  const eventKey = String(body.eventKey || '').trim().slice(0, 80);
+  const eventFields = {};
+  if (eventDate) eventFields.event_date = eventDate;
+  if (eventKey) eventFields.event_key = eventKey;
+  Object.assign(baseRecord, eventFields);
   const linkedRecord = clientId ? { ...baseRecord, client_id: clientId } : baseRecord;
+  const stripEvent = (record) => {
+    const next = { ...record };
+    delete next.event_date;
+    delete next.event_key;
+    return next;
+  };
   const recordVariants = [
     { ...linkedRecord, password: '', ...passwordSecurity, short_code: shortCode },
+    { ...stripEvent(linkedRecord), password: '', ...passwordSecurity, short_code: shortCode },
     { ...baseRecord, password: '', ...passwordSecurity, short_code: shortCode },
+    { ...stripEvent(baseRecord), password: '', ...passwordSecurity, short_code: shortCode },
     { ...linkedRecord, password: '', ...passwordSecurity },
+    { ...stripEvent(linkedRecord), password: '', ...passwordSecurity },
     { ...baseRecord, password: '', ...passwordSecurity },
+    { ...stripEvent(baseRecord), password: '', ...passwordSecurity },
     linkedRecord,
-    baseRecord
+    stripEvent(linkedRecord),
+    baseRecord,
+    stripEvent(baseRecord)
   ];
 
   let deliveryRows;
@@ -1479,6 +1505,8 @@ async function handleDbSearch(request, env) {
       generated_text_whatsapp: generatedText,
       generated_text_instagram: generatedTextIg,
       created_at: d.created_at,
+      event_date: d.event_date || '',
+      event_key: d.event_key || '',
       delivery_url: shortPath,
       short_code: shortCode,
       short_url: shortPath,
@@ -1910,7 +1938,8 @@ function normalizeInvoicePayload(raw = {}) {
   const data = raw.invoice_data && typeof raw.invoice_data === 'object' ? raw.invoice_data : {};
   const status = ['invoice', 'deposit', 'paid'].includes(String(raw.status || '').toLowerCase()) ? String(raw.status).toLowerCase() : 'invoice';
   const cleanMoney = (v) => Math.max(0, Math.round(Number(v) || 0));
-  return {
+  const eventKeyRaw = String(raw.event_key || raw.eventKey || '').trim().slice(0, 80);
+  const payload = {
     client_title: String(raw.client_title || 'Ms.').slice(0, 20),
     client_name: String(raw.client_name || '').trim().slice(0, 160),
     client_contact: String(raw.client_contact || '').trim().slice(0, 240),
@@ -1925,6 +1954,8 @@ function normalizeInvoicePayload(raw = {}) {
     balance_due: cleanMoney(raw.balance_due),
     invoice_data: data
   };
+  if (eventKeyRaw) payload.event_key = eventKeyRaw;
+  return payload;
 }
 
 async function handleInvoiceSave(request, env) {
@@ -1948,42 +1979,57 @@ async function handleInvoiceSave(request, env) {
   }, existingInvoice?.client_id || '');
   const linkedInvoice = client?.id ? { ...invoice, client_id: String(client.id) } : invoice;
   const invoiceWithoutClient = { ...invoice };
+  // Schema-tolerant retry layers: stripping event_key (missing on
+  // pre-part-6 schemas) and stripping client_id (missing on the
+  // earliest schemas). We try the richest payload first and fall
+  // back step by step on isSchemaError.
+  const stripEventKey = (record) => {
+    const next = { ...record };
+    delete next.event_key;
+    return next;
+  };
 
   if (id) {
+    const variants = [linkedInvoice, stripEventKey(linkedInvoice), invoiceWithoutClient, stripEventKey(invoiceWithoutClient)];
     let rows;
-    try {
-      rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(linkedInvoice)
-      });
-    } catch (error) {
-      if (!linkedInvoice.client_id || !isSchemaError(error)) throw error;
-      rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(invoiceWithoutClient)
-      });
+    let lastError = null;
+    for (const variant of variants) {
+      try {
+        rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(variant)
+        });
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (!isSchemaError(error)) throw error;
+      }
     }
+    if (lastError) throw lastError;
     const saved = Array.isArray(rows) ? rows[0] : rows;
     return json({ ok: true, invoice: saved });
   }
 
+  const variants = [linkedInvoice, stripEventKey(linkedInvoice), invoiceWithoutClient, stripEventKey(invoiceWithoutClient)];
   let rows;
-  try {
-    rows = await supabaseFetch(env, '/rest/v1/invoices', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(linkedInvoice)
-    });
-  } catch (error) {
-    if (!linkedInvoice.client_id || !isSchemaError(error)) throw error;
-    rows = await supabaseFetch(env, '/rest/v1/invoices', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(invoiceWithoutClient)
-    });
+  let lastError = null;
+  for (const variant of variants) {
+    try {
+      rows = await supabaseFetch(env, '/rest/v1/invoices', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(variant)
+      });
+      lastError = null;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (!isSchemaError(error)) throw error;
+    }
   }
+  if (lastError) throw lastError;
   const saved = Array.isArray(rows) ? rows[0] : rows;
   return json({ ok: true, invoice: saved });
 }
