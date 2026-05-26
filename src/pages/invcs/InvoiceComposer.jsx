@@ -560,17 +560,24 @@ export function InvoiceComposer() {
         savedEventKey: json.invoice?.event_key || '',
         migrationMissing: json.migrationMissing || null,
       });
-      // Surface a clear warning when the worker had to drop event_key
-      // due to a missing db-migration-part-6.sql migration. Without
-      // it /db cannot group this invoice with its sibling delivery
-      // via the typed column; the worker now mirrors the key into
-      // invoice_data as a fallback, but operators should still apply
-      // the migration so future rows persist event_key cleanly.
+      // The event_key column is now part of the applied schema
+      // (db-migration-part-6.sql). The worker still returns
+      // `migrationMissing` if it ever has to fall back to the
+      // schema-tolerant insert path, but we no longer surface that
+      // as a scary user-facing warning. Instead we log to the
+      // console and only embed it in the visible status when the
+      // operator has the debug flag on (?debug=1) — admin-only.
       if (json.migrationMissing) {
-        const baseMsg = savedId ? 'Invoice updated.' : 'Invoice saved.';
-        setStatus(`${baseMsg} DB migration part 6 missing — apply db-migration-part-6.sql to enable typed event grouping.`);
+        console.warn(
+          '[inv] schema fallback engaged on save — event_key dropped, mirrored into invoice_data jsonb. Apply db-migration-part-6.sql.',
+          json.migrationMissing,
+        );
+      }
+      const baseMsg = savedId ? 'Invoice updated.' : 'Invoice saved.';
+      if (json.migrationMissing && dbgEnabled()) {
+        setStatus(`${baseMsg} [admin] schema fallback: event_key dropped, jsonb cross-ref written.`);
       } else {
-        setStatus(savedId ? 'Invoice updated.' : 'Invoice saved.');
+        setStatus(baseMsg);
       }
     } catch (error) {
       setStatus(error?.message || 'Save failed.');

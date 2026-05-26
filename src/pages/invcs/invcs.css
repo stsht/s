@@ -354,8 +354,23 @@ button{cursor:pointer}
   box-shadow:var(--shadow);
   overflow:hidden;
 }
-.editor-panel,.preview-panel{height:100%;overflow-x:hidden;overflow-y:auto}
+.editor-panel,.preview-panel{height:100%;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .editor-panel{padding:18px}
+/* Hide the /inv preview-panel scrollbar too. The composer surface
+ * is long (invoice sheet + toolbar) and operators flick/scroll-
+ * wheel naturally — they don't need the OS chrome stacked next to
+ * the sticky panel-header. Mirrors the html/body/.editor-panel
+ * scrollbar-hiding rule above so the whole page reads as a single
+ * unified scroll surface. */
+.preview-panel{
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.preview-panel::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;
+}
 .panel-header{display:grid;grid-template-columns:minmax(112px,132px) minmax(0,1fr);align-items:center;gap:10px;padding-bottom:16px;border-bottom:1px solid var(--line)}
 /* Editor-panel header sticks at the top of the left panel so the
  * logo + mode-switch (Invoice / Deposit / Paid) stay locked while

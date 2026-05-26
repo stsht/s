@@ -198,6 +198,73 @@ function plainEventDate(value) {
   return '';
 }
 
+// Today's date in Asia/Jakarta (UTC+7) as a bare YYYY-MM-DD string.
+// /db Clients sorting and tone classify rows against the operator's
+// local-Indonesia date so an event "today" in Jakarta reads the
+// same regardless of which timezone the browser happens to be in.
+// We can't rely on toLocaleDateString('en-CA', { timeZone: ... })
+// in every target environment, so the calculation is done in plain
+// UTC arithmetic: shift `now` by the WIB offset, then slice the
+// ISO date portion. TBA / undated events never match this string,
+// so a missing event_date is treated as neutral (not "today").
+function jakartaTodayISO() {
+  const now = new Date();
+  const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return wib.toISOString().slice(0, 10);
+}
+
+// Whole-day delta between two YYYY-MM-DD strings (target - reference).
+// Returns 0 for the same day, positive when target is later, negative
+// when earlier. Used by the Clients tab to bucket event dates into
+// "today/+2 = green", ">2 = normal", and "all past = expired".
+function daysBetweenIso(referenceIso, targetIso) {
+  const ref = String(referenceIso || '');
+  const tgt = String(targetIso || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ref) || !/^\d{4}-\d{2}-\d{2}$/.test(tgt)) return NaN;
+  const [ay, am, ad] = ref.split('-').map(Number);
+  const [by, bm, bd] = tgt.split('-').map(Number);
+  const a = Date.UTC(ay, am - 1, ad);
+  const b = Date.UTC(by, bm - 1, bd);
+  return Math.round((b - a) / 86400000);
+}
+
+// Classify a client's event timeline into a list-row bucket + tone
+// for the Clients tab. Rules (Asia/Jakarta date semantics):
+//   - upcoming: at least one real event_date today or in the future.
+//       tone = 'green'  (sub-active class) if the nearest upcoming
+//                       event is within 0-2 days from today.
+//       tone = ''       otherwise (no special colour).
+//       sortKey         = nearest upcoming event_date (string).
+//   - neutral: no real event_date present at all (TBA / undated).
+//       tone = ''.
+//       sortKey         = '' (alpha order applied later).
+//   - expired: at least one event_date and ALL of them are in the past.
+//       tone = 'red'    (sub-expired class).
+//       sortKey         = most recent past event_date.
+// TBA / undated events are never coerced into "today" — they stay
+// neutral so a missing date doesn't accidentally turn green.
+function classifyClientEvents(eventDates, todayIso) {
+  const dates = Array.from(new Set((eventDates || [])
+    .map(plainEventDate)
+    .filter(Boolean)))
+    .sort();
+  if (dates.length === 0) {
+    return { bucket: 'neutral', tone: '', sortKey: '' };
+  }
+  const upcoming = dates.filter((d) => d >= todayIso);
+  if (upcoming.length === 0) {
+    return {
+      bucket: 'expired',
+      tone: 'red',
+      sortKey: dates[dates.length - 1],
+    };
+  }
+  const nearest = upcoming[0];
+  const diff = daysBetweenIso(todayIso, nearest);
+  const tone = Number.isFinite(diff) && diff >= 0 && diff <= 2 ? 'green' : '';
+  return { bucket: 'upcoming', tone, sortKey: nearest };
+}
+
 // Map a subscription row to one of three visual states.
 //
 // active  - currently in good standing — green.
@@ -2411,6 +2478,91 @@ export function DatabasePage() {
     });
   }, [subscriptions]);
 
+  // Resolve all real event_dates a CRM client owns by walking the
+  // /api/db payload (invoices + deliveries). Match on client_id
+  // first, fall back to a case-insensitive name match so rows that
+  // pre-date the typed client_id column still associate. Mirrors
+  // the matching used in buildClientRecords / getClientSubscription
+  // so the Clients tab tone, the right-panel records, and the Subs
+  // tab association all read off the same definition.
+  const deliveriesAll = data?.items || [];
+  const todayIso = useMemo(() => jakartaTodayISO(), []);
+  const eventDatesByClient = useCallback((client) => {
+    const cid = String(client?.id || '').trim();
+    const cname = String(client?.name || client?.client_name || '').trim().toLowerCase();
+    const matches = (rec) => {
+      const rid = String(rec?.client_id || '').trim();
+      const rname = String(rec?.client_name || rec?.name || '').trim().toLowerCase();
+      if (cid && rid && cid === rid) return true;
+      return !!cname && !!rname && cname === rname;
+    };
+    const dates = [];
+    for (const rec of invoices) {
+      if (!matches(rec)) continue;
+      const d = plainEventDate(rec?.event_date);
+      if (d) dates.push(d);
+    }
+    for (const rec of deliveriesAll) {
+      if (!matches(rec)) continue;
+      const d = plainEventDate(rec?.event_date);
+      if (d) dates.push(d);
+    }
+    return dates;
+  }, [invoices, deliveriesAll]);
+
+  // Clients-tab list ordering + tone. Three buckets, each annotated
+  // with a tone class that drives the row colour:
+  //   • upcoming — at least one event today or future.
+  //                Sorted by nearest upcoming event first. The row
+  //                turns GREEN (sub-active) when the nearest event
+  //                is within 0-2 days from today (Asia/Jakarta);
+  //                otherwise it stays neutral (no colour) but still
+  //                sorts above the other two buckets.
+  //   • neutral  — no real event_date at all (TBA / undated rows).
+  //                Sorted alphabetically. Sits below upcoming so
+  //                an undated client doesn't cut in front of a
+  //                concrete upcoming event.
+  //   • expired  — all event_dates are in the past. Pinned to the
+  //                bottom and turns RED (sub-expired). Sorted by
+  //                the most recent past event (newest-expired first
+  //                so a recently-finished gig is easy to find).
+  // TBA never becomes "today" — plainEventDate strips timestamps,
+  // and classifyClientEvents only treats real YYYY-MM-DD dates as
+  // upcoming.
+  const sortedCrmClients = useMemo(() => {
+    const bucketOrder = { upcoming: 0, neutral: 1, expired: 2 };
+    const annotated = crmClients.map((client) => {
+      const dates = eventDatesByClient(client);
+      const cls = classifyClientEvents(dates, todayIso);
+      const name = String(client?.name || client?.client_name || '').toLowerCase();
+      return { client, ...cls, name };
+    });
+    annotated.sort((a, b) => {
+      const ba = bucketOrder[a.bucket] ?? 9;
+      const bb = bucketOrder[b.bucket] ?? 9;
+      if (ba !== bb) return ba - bb;
+      if (a.bucket === 'upcoming') {
+        // Nearest upcoming event first.
+        return a.sortKey.localeCompare(b.sortKey);
+      }
+      if (a.bucket === 'expired') {
+        // Most recent past event first.
+        return b.sortKey.localeCompare(a.sortKey);
+      }
+      // Neutral: alphabetical.
+      return a.name.localeCompare(b.name);
+    });
+    return annotated;
+  }, [crmClients, eventDatesByClient, todayIso]);
+
+  const clientToneByRowId = useMemo(() => {
+    const map = new Map();
+    for (const entry of sortedCrmClients) {
+      map.set(entry.client?.id, entry.tone);
+    }
+    return map;
+  }, [sortedCrmClients]);
+
   // Subs-tab list ordering. Two-bucket sort:
   //   • bucket A — active + warning rows: newest first by
   //                expiry_date (primary), then payment_date,
@@ -2450,7 +2602,9 @@ export function DatabasePage() {
     return annotated.map((entry) => entry.row);
   }, [subClients, getClientSubscription]);
 
-  const activeRows = tab === 'subs' ? sortedSubClients : crmClients;
+  const activeRows = tab === 'subs'
+    ? sortedSubClients
+    : sortedCrmClients.map((entry) => entry.client);
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
   // For Subs tab selections, resolve the actual subscription row so the
   // detail panel renders subscription fields instead of reusing the
@@ -2461,19 +2615,47 @@ export function DatabasePage() {
     ? getClientSubscription(selected.data || {})
     : null;
 
-  // Escape key listener to clear selection
+  // Walk back one level through the selection's parent chain.
+  // Used by both the global Esc handler and every X / Cancel
+  // control inside the right-panel detail views so they all share
+  // a single "go back to where I came from" semantic:
+  //   - opened from a list row -> close = clear selection (list).
+  //   - opened from a parent detail view (e.g. View Links from
+  //     a client detail row, or Edit from a subscription detail)
+  //     -> close = restore the parent detail view, NOT the list.
+  // Mobile mirrors the same rule: pop to a parent keeps the right
+  // panel visible; pop to null falls back to the left list.
+  const back = useCallback(() => {
+    setSelected((cur) => {
+      if (!cur) {
+        setMobileView('left');
+        return null;
+      }
+      if (cur.parent) {
+        // Stay on the right panel — operator returns to a parent
+        // detail view, not the list.
+        return cur.parent;
+      }
+      setMobileView('left');
+      return null;
+    });
+  }, []);
+
+  // Escape walks back one level through the parent chain, mirroring
+  // the X buttons. The handler used to unconditionally nuke
+  // selection, which dropped operators back to "Choose A Client"
+  // even when they were two levels deep (e.g. Client -> View Links
+  // -> Esc would lose the client context). The parent chain on
+  // selected.parent now keeps the breadcrumb intact.
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setSelected(null);
-        setMobileView('left');
-      }
+      if (event.key === 'Escape') back();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [back]);
 
   // Auto-switch to the right panel on mobile when a row is selected.
   useEffect(() => {
@@ -2655,6 +2837,16 @@ export function DatabasePage() {
           const title = row.client_name || row.name || row.title || row.slug;
           const clientSub = isSub ? getClientSubscription(row) : null;
           const subTone = clientSub ? subscriptionTone(clientSub) : '';
+          // Clients tab tone is computed above in sortedCrmClients
+          // by walking the row's event_dates against today (WIB).
+          // 'green' -> sub-active (active/upcoming within 2 days),
+          // 'red'   -> sub-expired (all events past),
+          // ''      -> no tone class (normal/neutral row).
+          const clientToneRaw = isClient ? clientToneByRowId.get(row.id) || '' : '';
+          const clientToneClass =
+            clientToneRaw === 'green' ? 'sub-active'
+            : clientToneRaw === 'red' ? 'sub-expired'
+            : '';
           let meta = '';
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
@@ -2667,6 +2859,7 @@ export function DatabasePage() {
             'db-list-row',
             selected?.id === row.id ? 'active' : '',
             subTone ? `sub-${subTone}` : '',
+            clientToneClass,
           ]
             .filter(Boolean)
             .join(' ');
@@ -2749,10 +2942,7 @@ export function DatabasePage() {
           <ClientForm
             draft={draft}
             onChange={setDraft}
-            onCancel={() => {
-              setSelected(null);
-              setMobileView('left');
-            }}
+            onCancel={back}
             onSave={saveClient}
             status={saveStatus}
           />
@@ -2773,24 +2963,25 @@ export function DatabasePage() {
             })
           }
           onViewLinks={(deliveryRow) => {
-            // Stash the originating client in selected.fromClient so
-            // closing DeliveryDetail can hop back to the same client
-            // detail view without a fresh search/click. The delivery
-            // row itself flows in via selected.data so the panel
-            // reads off the same /api/db payload that drove the
-            // record list — no extra fetch.
+            // Push DeliveryDetail onto the parent chain so closing
+            // it (X or Esc) returns to the same client detail view
+            // — not back to the list. selected.parent stores the
+            // currently-rendered client selection so back() can
+            // restore it verbatim. The legacy `fromClient` field is
+            // kept for backwards compatibility with any branch that
+            // might still read it, but the parent chain is the
+            // authoritative source of truth.
             if (!deliveryRow?.id) return;
+            const parent = selected;
             setSelected({
               type: 'delivery',
               id: deliveryRow.id,
               data: deliveryRow,
               fromClient: selectedClient,
+              parent,
             });
           }}
-          onClose={() => {
-            setSelected(null);
-            setMobileView('left');
-          }}
+          onClose={back}
         />
       ) : null}
       {selected?.type === 'delivery' ? (
@@ -2802,18 +2993,7 @@ export function DatabasePage() {
               : cur);
             refetch();
           }}
-          onClose={() => {
-            // If we entered DeliveryDetail from a client row, hop
-            // back to that client's record list so the operator
-            // doesn't lose context. Otherwise clear selection.
-            const fromClient = selected.fromClient;
-            if (fromClient?.id) {
-              setSelected({ type: 'client', id: fromClient.id, data: fromClient });
-            } else {
-              setSelected(null);
-              setMobileView('left');
-            }
-          }}
+          onClose={back}
         />
       ) : null}
       {selected?.type === 'subscription' ? (
@@ -2821,11 +3001,18 @@ export function DatabasePage() {
           client={selected.data || {}}
           subscription={selectedSubscription}
           onEdit={(sub) => {
-            // Swap the right panel to the editable form, keeping
-            // the same client row in selected.data so detail can
-            // be restored after Save without a fresh selection.
+            // Push SubscriptionEdit onto the parent chain. Closing
+            // the editor (Cancel, Save, or Esc) walks back via
+            // back() to the subscription detail view that launched
+            // it — same pattern as View Links from ClientDetail.
             if (!sub?.id) return;
-            setSelected({ type: 'subs-edit', id: selected.id, data: selected.data });
+            const parent = selected;
+            setSelected({
+              type: 'subs-edit',
+              id: selected.id,
+              data: selected.data,
+              parent,
+            });
           }}
           onDeleteSubscription={(sub) => {
             if (!sub?.id) return;
@@ -2833,10 +3020,7 @@ export function DatabasePage() {
             setSelected(null);
             setMobileView('left');
           }}
-          onClose={() => {
-            setSelected(null);
-            setMobileView('left');
-          }}
+          onClose={back}
         />
       ) : null}
       {selected?.type === 'subs-edit' ? (
@@ -2845,16 +3029,13 @@ export function DatabasePage() {
           onSaved={() => {
             // Refresh the list so any changed fields (status, dates,
             // service, etc.) reflect in both the row label and the
-            // tone class, then return to the read-only detail view
-            // for the same client row.
+            // tone class, then walk back to the parent subscription
+            // detail. The parent chain guarantees we land on the
+            // same row the operator was editing.
             refetch();
-            setSelected({ type: 'subscription', id: selected.id, data: selected.data });
+            back();
           }}
-          onCancel={() => {
-            // Cancel returns to the detail view without touching
-            // the list — the saved row is unchanged.
-            setSelected({ type: 'subscription', id: selected.id, data: selected.data });
-          }}
+          onCancel={back}
         />
       ) : null}
       {selected?.type === 'subs-import' ? (
@@ -2866,10 +3047,7 @@ export function DatabasePage() {
             // We only refresh the list so the saved row appears.
             refetch();
           }}
-          onCancel={() => {
-            setSelected(null);
-            setMobileView('left');
-          }}
+          onCancel={back}
         />
       ) : null}
       {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'delivery' ? (
@@ -3382,14 +3560,21 @@ export function LinkGeneratorPage() {
 
       const copied = await copyToClipboard(finalMessage);
       const baseMsg = copied ? 'Saved and copied.' : 'Saved. Please copy manually.';
-      // Surface a clear warning when the worker had to drop
-      // event_key/event_date due to a missing db-migration-part-6.sql
-      // migration. The worker also stamps a cross-ref into the linked
-      // invoice's invoice_data jsonb so /db can still merge the two
-      // rows, but operators should apply the migration to enable the
-      // typed columns end-to-end.
-      const warningSuffix = data.migrationMissing
-        ? ' DB migration part 6 missing — apply db-migration-part-6.sql to enable typed event grouping.'
+      // The event_key/event_date columns are now part of the
+      // applied schema (db-migration-part-6.sql). The worker still
+      // returns `migrationMissing` if it ever has to fall back to
+      // the schema-tolerant insert path, but we no longer surface
+      // that as a scary user-facing warning. Instead we log to the
+      // console and only embed it in the visible status when the
+      // operator has the debug flag on (?debug=1) — admin-only.
+      if (data.migrationMissing) {
+        console.warn(
+          '[l] schema fallback engaged on save — event grouping fell back to invoice_data jsonb cross-ref. Apply db-migration-part-6.sql.',
+          data.migrationMissing,
+        );
+      }
+      const warningSuffix = data.migrationMissing && dbgEnabled()
+        ? ' [admin] schema fallback: event_key/event_date dropped, jsonb cross-ref written.'
         : '';
       setStatus({
         text: `${baseMsg}${warningSuffix}`,
