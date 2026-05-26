@@ -231,38 +231,94 @@ function daysBetweenIso(referenceIso, targetIso) {
 // Classify a client's event timeline into a list-row bucket + tone
 // for the Clients tab. Rules (Asia/Jakarta date semantics):
 //   - upcoming: at least one real event_date today or in the future.
-//       tone = 'green'  (sub-active class) if the nearest upcoming
-//                       event is within 0-2 days from today.
-//       tone = ''       otherwise (no special colour).
-//       sortKey         = nearest upcoming event_date (string).
-//   - neutral: no real event_date present at all (TBA / undated).
-//       tone = ''.
-//       sortKey         = '' (alpha order applied later).
-//   - expired: at least one event_date and ALL of them are in the past.
-//       tone = 'red'    (sub-expired class).
-//       sortKey         = most recent past event_date.
+//                  Sub-tones split the upcoming bucket so the row
+//                  can colour-code how soon it is:
+//                    'soon'   = nearest event today, +1, or +2 days
+//                               (muted blue — needs imminent action),
+//                    'future' = nearest event 3+ days out
+//                               (muted green — scheduled, on track).
+//                  sortKey   = nearest upcoming event_date (string).
+//   - tba:      no real event_date present at all (TBA / undated).
+//                  tone = 'tba'   (muted amber — needs scheduling).
+//                  sortKey       = '' (alpha order applied later).
+//   - past:     at least one event_date and ALL of them are past.
+//                  tone = 'past'  (muted red — work is over).
+//                  sortKey       = most recent past event_date.
+//
 // TBA / undated events are never coerced into "today" — they stay
-// neutral so a missing date doesn't accidentally turn green.
+// in the 'tba' bucket so a missing date doesn't accidentally turn
+// blue or green. The four tones map 1:1 onto the date pill colours
+// rendered next to the client name on the left list rows.
 function classifyClientEvents(eventDates, todayIso) {
   const dates = Array.from(new Set((eventDates || [])
     .map(plainEventDate)
     .filter(Boolean)))
     .sort();
   if (dates.length === 0) {
-    return { bucket: 'neutral', tone: '', sortKey: '' };
+    return { bucket: 'tba', tone: 'tba', sortKey: '', representativeDate: '' };
   }
   const upcoming = dates.filter((d) => d >= todayIso);
   if (upcoming.length === 0) {
-    return {
-      bucket: 'expired',
-      tone: 'red',
-      sortKey: dates[dates.length - 1],
-    };
+    const last = dates[dates.length - 1];
+    return { bucket: 'past', tone: 'past', sortKey: last, representativeDate: last };
   }
   const nearest = upcoming[0];
   const diff = daysBetweenIso(todayIso, nearest);
-  const tone = Number.isFinite(diff) && diff >= 0 && diff <= 2 ? 'green' : '';
-  return { bucket: 'upcoming', tone, sortKey: nearest };
+  const tone = Number.isFinite(diff) && diff >= 0 && diff <= 2 ? 'soon' : 'future';
+  return { bucket: 'upcoming', tone, sortKey: nearest, representativeDate: nearest };
+}
+
+// Tone class for a single event_date relative to today in WIB.
+// Mirrors the four tones produced by classifyClientEvents but for
+// per-row use on the event-row (RecordRow) surface inside the
+// client detail panel. Same palette, same semantics:
+//   - 'past'   already happened          (muted red)
+//   - 'tba'    no real date set          (muted amber)
+//   - 'soon'   today/+1/+2 days WIB      (muted blue)
+//   - 'future' more than 2 days out      (muted green)
+//
+// Accepts whatever shape the caller has (raw event_date column,
+// already-sanitised YYYY-MM-DD, or empty); plainEventDate scrubs
+// timestamp/garbage values to '' so they read as 'tba' instead of
+// silently appearing as the current day.
+function eventDateTone(eventDate, todayIso) {
+  const date = plainEventDate(eventDate);
+  if (!date) return 'tba';
+  const diff = daysBetweenIso(todayIso, date);
+  if (!Number.isFinite(diff)) return 'tba';
+  if (diff < 0) return 'past';
+  if (diff <= 2) return 'soon';
+  return 'future';
+}
+
+// Compact label for the date pill on /db client rows + event rows.
+// Examples: "1 Jun 2026", "29 May 2026", "TBA". Uses
+// day:'numeric' (no leading zero) so the single-digit days read
+// as "1 Jun" instead of "01 Jun" and the pill stays narrow.
+function compactEventDateLabel(eventDate) {
+  const date = plainEventDate(eventDate);
+  if (!date) return 'TBA';
+  const dt = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(dt.getTime())) return 'TBA';
+  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// Generate a fresh per-event grouping key. Used by the /db Create
+// Events sheet so the "Create Links" and "Create Invoice" choices
+// inside the same sheet land on the same /db row regardless of
+// which one the operator opens first. Falls back to a timestamp +
+// random suffix when crypto.randomUUID is unavailable (older
+// browsers); the worker only requires a stable string ≤ 80 chars,
+// not a real UUID.
+function generateEventKey() {
+  try {
+    const uuid = window.crypto?.randomUUID?.();
+    if (uuid) return String(uuid).slice(0, 80);
+  } catch {
+    /* fall through */
+  }
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `evt-${Date.now().toString(36)}-${rand}`.slice(0, 80);
 }
 
 // Map a subscription row to one of three visual states.
@@ -407,7 +463,7 @@ function ListRow({ title, meta, amount }) {
   );
 }
 
-function buildClientRecords(client, invoices, deliveries) {
+function buildClientRecords(client, invoices, deliveries, todayIso) {
   // One real event = one row. Records are merged into a group when
   // any of these axes match a sibling already in the group:
   //   1. event_key matches event_key (preferred — the stable
@@ -429,6 +485,15 @@ function buildClientRecords(client, invoices, deliveries) {
   // event_date and event_key are pulled per-record so a TBA event
   // (event_date='') can still group its delivery + invoice via
   // event_key alone, without inventing a date for grouping.
+  //
+  // The sort at the bottom is tone-aware (Asia/Jakarta date logic)
+  // so the rendered row order matches the /db Clients list:
+  //   1. upcoming events first, nearest event date ascending,
+  //   2. TBA events next (alphabetical-stable by group order),
+  //   3. past events last, most recent past first.
+  // This puts the operator's next gig at the top of the client
+  // detail panel and pushes already-finished events out of sight,
+  // matching the same Asia/Jakarta semantics used on the left list.
   const groups = [];
   const clientId = String(client?.client_id || client?.id || '').trim();
   const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
@@ -534,7 +599,36 @@ function buildClientRecords(client, invoices, deliveries) {
 
   return groups
     .map(({ eventKeys, eventDates, recordIds, ...rest }) => rest)
-    .sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0));
+    .sort((a, b) => {
+      // Tone-aware sort. Buckets:
+      //   0 = upcoming (today/future event_date) — nearest first.
+      //   1 = TBA (no real event_date at all) — preserve insertion
+      //       order so a freshly-created TBA event stays put.
+      //   2 = past (event_date already passed) — most recent past
+      //       first so a recently-finished gig is easy to find.
+      const today = todayIso || jakartaTodayISO();
+      const bucketOf = (record) => {
+        const d = plainEventDate(record.eventDate);
+        if (!d) return 1;
+        if (d >= today) return 0;
+        return 2;
+      };
+      const ba = bucketOf(a);
+      const bb = bucketOf(b);
+      if (ba !== bb) return ba - bb;
+      if (ba === 0) {
+        // Upcoming: nearest event_date first (ascending).
+        return String(a.eventDate || '').localeCompare(String(b.eventDate || ''));
+      }
+      if (ba === 2) {
+        // Past: most recent past first (descending).
+        return String(b.eventDate || '').localeCompare(String(a.eventDate || ''));
+      }
+      // TBA: fall back to the activity timestamp so the most
+      // recently touched TBA event sits on top, and keep the
+      // pre-existing newest-first order for stable presentation.
+      return (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0);
+    });
 }
 
 function ClientForm({ draft, onChange, onCancel, onSave, status }) {
@@ -563,13 +657,53 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteClient, onDeleteRecord, onViewLinks, onClose }) {
-  const records = buildClientRecords(client, invoices, deliveries);
+function ClientDetail({ client, invoices, deliveries, onDeleteClient, onDeleteRecord, onViewLinks, onClose }) {
+  const todayIso = useMemo(() => jakartaTodayISO(), []);
+  const records = buildClientRecords(client, invoices, deliveries, todayIso);
   const title = client?.title || 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
   const contact = client?.contact || client?.client_contact || '';
-  const linkHref = createRecordUrl('/l/', { title, name, contact });
-  const invoiceHref = createRecordUrl('/inv/', { title, name, contact });
+
+  // Create Events sheet. The big bottom "Create Events" pill from
+  // earlier revisions is gone; pressing the (now compact) Create
+  // Events trigger opens an inline sheet with two choices —
+  // "Create Links" and "Create Invoice" — that share a single
+  // freshly-generated event_key. Whichever side the operator
+  // saves first stamps that event_key on its row, and the other
+  // side groups onto the same /db row when it saves later.
+  // Closing the sheet (cancel, or after picking an option)
+  // discards the pending key so the next open starts a brand-new
+  // event with its own grouping anchor.
+  //
+  // Event date is intentionally NOT defaulted here. /inv falls
+  // through to an empty <input type="date"> when no eventDate
+  // param is sent, /l keeps eventDateHandoff='' until the operator
+  // types a folder, and the saved row carries event_date=''. Both
+  // surfaces then read as "TBA" until the operator updates the
+  // row. The spec is explicit that an unknown event date stays
+  // TBA and never silently becomes today.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pendingEventKey, setPendingEventKey] = useState('');
+  const openCreateSheet = () => {
+    setPendingEventKey(generateEventKey());
+    setCreateOpen(true);
+  };
+  const closeCreateSheet = () => {
+    setCreateOpen(false);
+    setPendingEventKey('');
+  };
+  const newEventLinkHref = createRecordUrl('/l/', {
+    title,
+    name,
+    contact,
+    eventKey: pendingEventKey,
+  });
+  const newEventInvoiceHref = createRecordUrl('/inv/', {
+    title,
+    name,
+    contact,
+    eventKey: pendingEventKey,
+  });
 
   return (
     <>
@@ -580,8 +714,6 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
-          <a className="ghost-button compact" href={linkHref} target="_blank" rel="noopener noreferrer">Create Links</a>
-          <a className="ghost-button compact" href={invoiceHref} target="_blank" rel="noopener noreferrer">Create Invoice</a>
           <button
             type="button"
             className="ghost-button compact db-delete-button"
@@ -611,12 +743,12 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
           //      anchor — when /inv saves it stores delivery.id as
           //      its event_key, and on re-render they group).
           //   3. invoice.id (same idea for invoice-anchored rows).
-          // Top-level "Create Links / Create Invoice" buttons higher
-          // up still pass no eventKey so they always start a fresh
-          // event, matching the spec.
+          // The Create Events sheet above always passes a fresh
+          // UUID so brand-new events never collide with these
+          // anchor IDs.
           const rowEventKey = row.eventKey || row.delivery?.id || row.invoice?.id || '';
           const eventLinkHref = row.delivery?.id
-            ? row.delivery.short_url || row.delivery.delivery_url || linkHref
+            ? row.delivery.short_url || row.delivery.delivery_url || newEventLinkHref
             : createRecordUrl('/l/', {
                 title: row.title || title,
                 name: row.name || name,
@@ -660,6 +792,7 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
               recordKey={recordKey}
               row={row}
               fallbackName={name}
+              tone={eventDateTone(row.eventDate, todayIso)}
               eventLinkHref={eventLinkHref}
               eventInvoiceHref={eventInvoiceHref}
               onDelete={() => onDeleteRecord?.(row)}
@@ -669,7 +802,46 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
         })}
         {!records.length ? <p className="empty-state">No events yet.</p> : null}
       </div>
-      <button className="create-event-button" type="button" onClick={onCreateEvent}>Create Events</button>
+      {createOpen ? (
+        <div className="create-event-sheet" role="group" aria-label="Create event">
+          <p className="create-event-eyebrow">New Event</p>
+          <div className="create-event-choices">
+            <a
+              className="ghost-button compact"
+              href={newEventLinkHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={closeCreateSheet}
+            >
+              Create Links
+            </a>
+            <a
+              className="ghost-button compact"
+              href={newEventInvoiceHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={closeCreateSheet}
+            >
+              Create Invoice
+            </a>
+          </div>
+          <button
+            type="button"
+            className="ghost-button compact create-event-cancel"
+            onClick={closeCreateSheet}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          className="ghost-button compact create-event-trigger"
+          type="button"
+          onClick={openCreateSheet}
+        >
+          Create Events
+        </button>
+      )}
     </>
   );
 }
@@ -690,20 +862,27 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
 // anchor that opens /l/ to compose one. Styling for both shapes
 // lives under .record-row a, .record-row button.record-row-link in
 // invcs.css so they read as a single pill family.
-function RecordRow({ recordKey, row, fallbackName, eventLinkHref, eventInvoiceHref, onDelete, onViewLinks }) {
+//
+// `tone` ('past' | 'tba' | 'soon' | 'future') is the Asia/Jakarta
+// status of the event_date. It drives the row's date pill colour
+// and a subtle accent on the row border so a row's status reads at
+// a glance. The tone palette mirrors the four tones used on the
+// /db Clients left list so both surfaces stay visually consistent.
+function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, onDelete, onViewLinks }) {
   const hasDelivery = !!row.delivery?.id;
   const linkLabel = hasDelivery ? 'View Links' : 'Create Links';
   const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
-  // Display the real event date when known; "TBA" otherwise.
-  // row.eventDate is populated by buildClientRecords from real
-  // event_date columns only (plainEventDate strips ISO timestamps),
-  // so a created_at / updated_at can never leak into this label —
-  // the fallback is always literal "TBA", never today's date or
-  // the row's bookkeeping timestamp.
-  const dateText = row.eventDate ? dateLabel(row.eventDate) : 'TBA';
+  // Compact date pill on the row. row.eventDate is populated by
+  // buildClientRecords from real event_date columns only
+  // (plainEventDate strips ISO timestamps), so a created_at /
+  // updated_at can never leak into this label — the fallback is
+  // always literal "TBA", never today's date or the row's
+  // bookkeeping timestamp.
+  const dateText = compactEventDateLabel(row.eventDate);
+  const toneClass = tone ? `event-tone-${tone}` : '';
   return (
-    <article className="record-row" data-key={recordKey}>
-      <span>{dateText}</span>
+    <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
+      <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
       <strong>{row.name || fallbackName}</strong>
       {hasDelivery ? (
         <button
@@ -1077,6 +1256,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
           <p className="eyebrow">Delivery</p>
           <h2>Hello, {title} {clientName}</h2>
           {folder ? <span>{folder}</span> : null}
+          <span
+            className={`event-date-pill event-tone-${eventDateTone(currentDelivery?.event_date, jakartaTodayISO())} delivery-event-date-pill`}
+            aria-label={`Event ${compactEventDateLabel(currentDelivery?.event_date)}`}
+          >
+            {compactEventDateLabel(currentDelivery?.event_date)}
+          </span>
         </div>
         <div className="detail-actions">
           <button type="button" className="ghost-button compact" onClick={() => setEditingLinks((value) => !value)}>
@@ -2543,26 +2728,31 @@ export function DatabasePage() {
   }, [invoices, deliveriesAll]);
 
   // Clients-tab list ordering + tone. Three buckets, each annotated
-  // with a tone class that drives the row colour:
-  //   • upcoming — at least one event today or future.
-  //                Sorted by nearest upcoming event first. The row
-  //                turns GREEN (sub-active) when the nearest event
-  //                is within 0-2 days from today (Asia/Jakarta);
-  //                otherwise it stays neutral (no colour) but still
-  //                sorts above the other two buckets.
-  //   • neutral  — no real event_date at all (TBA / undated rows).
-  //                Sorted alphabetically. Sits below upcoming so
-  //                an undated client doesn't cut in front of a
-  //                concrete upcoming event.
-  //   • expired  — all event_dates are in the past. Pinned to the
-  //                bottom and turns RED (sub-expired). Sorted by
-  //                the most recent past event (newest-expired first
-  //                so a recently-finished gig is easy to find).
+  // with a date-tone class that drives the row colour and the
+  // compact date pill rendered on the right side of the row. The
+  // tone palette is muted (not neon) and pulled from the shared
+  // --evt-* design tokens in invcs.css so light/dark themes pick
+  // the right shade automatically:
+  //   • upcoming — at least one event today or future. Sorted by
+  //                nearest upcoming event first.
+  //                tone='soon'   (muted blue)  when nearest is
+  //                              today / +1 / +2 days WIB.
+  //                tone='future' (muted green) when nearest is 3+
+  //                              days out.
+  //   • tba      — no real event_date at all. Pinned BELOW any
+  //                upcoming clients so a concrete event always
+  //                outranks an undated one. Sorted alphabetically.
+  //                tone='tba'    (muted amber).
+  //   • past     — all event_dates are in the past. Pinned to the
+  //                bottom and sorted by most recent past event
+  //                (newest-expired first so a recently-finished
+  //                gig is easy to find).
+  //                tone='past'   (muted red).
   // TBA never becomes "today" — plainEventDate strips timestamps,
   // and classifyClientEvents only treats real YYYY-MM-DD dates as
   // upcoming.
   const sortedCrmClients = useMemo(() => {
-    const bucketOrder = { upcoming: 0, neutral: 1, expired: 2 };
+    const bucketOrder = { upcoming: 0, tba: 1, past: 2 };
     const annotated = crmClients.map((client) => {
       const dates = eventDatesByClient(client);
       const cls = classifyClientEvents(dates, todayIso);
@@ -2577,11 +2767,11 @@ export function DatabasePage() {
         // Nearest upcoming event first.
         return a.sortKey.localeCompare(b.sortKey);
       }
-      if (a.bucket === 'expired') {
+      if (a.bucket === 'past') {
         // Most recent past event first.
         return b.sortKey.localeCompare(a.sortKey);
       }
-      // Neutral: alphabetical.
+      // TBA bucket: alphabetical.
       return a.name.localeCompare(b.name);
     });
     return annotated;
@@ -2590,7 +2780,10 @@ export function DatabasePage() {
   const clientToneByRowId = useMemo(() => {
     const map = new Map();
     for (const entry of sortedCrmClients) {
-      map.set(entry.client?.id, entry.tone);
+      map.set(entry.client?.id, {
+        tone: entry.tone,
+        representativeDate: entry.representativeDate,
+      });
     }
     return map;
   }, [sortedCrmClients]);
@@ -2733,24 +2926,13 @@ export function DatabasePage() {
     setSelected({ type: 'subs-import' });
   }
 
-  function createEventForClient() {
-    const client = selectedClient;
-    // Top-level "Create Events" starts a fresh event for the
-    // selected client. We intentionally do NOT default eventDate to
-    // today() here — the spec is explicit that a missing event date
-    // should stay TBA, never silently become today. /inv hydrates
-    // its own state from the URL handoff; with eventDate omitted
-    // the composer's <input type="date"> renders empty and the
-    // operator types the real event date (or saves as TBA).
-    const href = createRecordUrl('/inv/', {
-      title: client?.title || 'Ms.',
-      name: client?.name || '',
-      contact: client?.contact || '',
-    });
-    // Open the invoice composer in a new tab so /db keeps the
-    // current selection — matches the cross-tool nav buttons.
-    window.open(href, '_blank', 'noopener,noreferrer');
-  }
+  // The earlier top-level "Create Events" button on the client
+  // detail panel has been folded into an inline sheet inside
+  // ClientDetail (see the createOpen/pendingEventKey flow). The
+  // sheet's two choices share a single freshly-generated event_key
+  // so the resulting Links + Invoice rows merge into one /db row.
+  // This removes the previous helper that opened /inv/ directly
+  // with no shared event context.
 
   // Cascade-delete a client and every record bucketed under them.
   // The legacy:<normalized> id case has no real client row to drop
@@ -2877,14 +3059,13 @@ export function DatabasePage() {
           const subTone = clientSub ? subscriptionTone(clientSub) : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
-          // 'green' -> sub-active (active/upcoming within 2 days),
-          // 'red'   -> sub-expired (all events past),
-          // ''      -> no tone class (normal/neutral row).
-          const clientToneRaw = isClient ? clientToneByRowId.get(row.id) || '' : '';
-          const clientToneClass =
-            clientToneRaw === 'green' ? 'sub-active'
-            : clientToneRaw === 'red' ? 'sub-expired'
-            : '';
+          // The tone drives both the row text colour and the small
+          // date pill rendered on the right side of the row, with
+          // four states (soon/future/tba/past) mapped through CSS.
+          const clientToneInfo = isClient ? (clientToneByRowId.get(row.id) || null) : null;
+          const clientTone = clientToneInfo?.tone || '';
+          const clientToneClass = clientTone ? `event-tone-${clientTone}` : '';
+          const clientPillDate = clientToneInfo?.representativeDate || '';
           let meta = '';
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
@@ -2898,6 +3079,7 @@ export function DatabasePage() {
             selected?.id === row.id ? 'active' : '',
             subTone ? `sub-${subTone}` : '',
             clientToneClass,
+            isClient ? 'has-event-pill' : '',
           ]
             .filter(Boolean)
             .join(' ');
@@ -2954,6 +3136,14 @@ export function DatabasePage() {
                 <strong>{title || 'Untitled'}</strong>
                 {meta ? <span>{meta}</span> : null}
               </div>
+              {isClient ? (
+                <span
+                  className={`event-date-pill event-tone-${clientTone || 'tba'}`}
+                  aria-label={`Event ${compactEventDateLabel(clientPillDate)}`}
+                >
+                  {compactEventDateLabel(clientPillDate)}
+                </span>
+              ) : null}
               <button
                 type="button"
                 className="row-delete-x"
@@ -2991,7 +3181,6 @@ export function DatabasePage() {
           client={selectedClient}
           invoices={invoices}
           deliveries={data?.items || []}
-          onCreateEvent={createEventForClient}
           onDeleteClient={deleteClient}
           onDeleteRecord={(row) =>
             deleteRecord({
@@ -3729,6 +3918,24 @@ export function LinkGeneratorPage() {
           autoComplete="off"
         />
       </label>
+      <label>
+        Event Date
+        <input
+          type="date"
+          value={eventDateHandoff}
+          onChange={(event) => {
+            // Real event date the operator wants stamped on the
+            // saved /l row. Empty = TBA, which is the spec default
+            // when an event hasn't been scheduled yet. The /l save
+            // payload forwards this value verbatim to the worker;
+            // the worker writes it to deliveries.event_date when
+            // non-empty and skips the column when empty so the row
+            // remains TBA-grouped.
+            setEventDateHandoff(event.target.value);
+            markDirty();
+          }}
+        />
+      </label>
       <div className="two-col">
         <label>
           Gallery Code
@@ -3784,6 +3991,12 @@ export function LinkGeneratorPage() {
         <div>
           <p className="eyebrow">Generated Text</p>
           <h2>Short link + password</h2>
+          <span
+            className={`event-date-pill event-tone-${eventDateTone(eventDateHandoff, jakartaTodayISO())} lg-event-date-pill`}
+            aria-label={`Event ${compactEventDateLabel(eventDateHandoff)}`}
+          >
+            {compactEventDateLabel(eventDateHandoff)}
+          </span>
         </div>
         <button type="button" className="ghost-button compact" onClick={copyMessage}>
           Copy
