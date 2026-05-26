@@ -722,6 +722,10 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
   useEffect(() => {
     const next = {};
     for (const { key } of SERVICE_LABELS) next[key] = byService.get(key) || '';
+    // Folder Name shares the same draft so a single Save Links
+    // submission can ship both link rebuilds and a folder_name
+    // PATCH in one request.
+    next.folderName = String(currentDelivery?.folder_name || '').trim();
     setLinkDraft(next);
   }, [currentDelivery]);
 
@@ -810,12 +814,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     setSavingLinks(true);
     setRepairStatus('');
     try {
+      const trimmedFolder = String(linkDraft.folderName || '').trim();
       const response = await fetch('/api/db-update-delivery', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: currentDelivery.id,
+          // folderName is optional on the wire — when omitted the
+          // worker leaves deliveries.folder_name untouched. We send
+          // it whenever the operator left a non-empty value so a
+          // rename takes effect without requiring fresh data.
+          folderName: trimmedFolder,
           links: SERVICE_LABELS.map(({ key }) => ({
             service: key,
             originalUrl: linkDraft[key] || '',
@@ -956,6 +966,15 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
             <form className="dd-link-editor" onSubmit={handleSaveLinks}>
               <p className="eyebrow">Edit Links</p>
               <div className="dd-link-fields">
+                <label key="folderName">
+                  <span>Folder Name</span>
+                  <input
+                    type="text"
+                    value={linkDraft.folderName || ''}
+                    onChange={(event) => setLinkDraft((draft) => ({ ...draft, folderName: event.target.value }))}
+                    placeholder="e.g. 260524 Sahputra, Mr. ( Birthday )"
+                  />
+                </label>
                 {SERVICE_LABELS.map(({ key, label }) => (
                   <label key={key}>
                     <span>{label}</span>

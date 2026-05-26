@@ -261,6 +261,16 @@ export function InvoiceComposer() {
   const [qrFileName, setQrFileName] = useState('');
   const [status, setStatus] = useState('');
   const [hydrating, setHydrating] = useState(Boolean(initial.invoiceId));
+  // Save Status: when /inv is opened with ?invoiceId= we treat that
+  // row as already-persisted so the toolbar button reads "Update
+  // Status" and subsequent saves PATCH the same row instead of
+  // creating duplicates. New drafts opened from /db Create Invoice
+  // (with title/name/contact/eventDate handoff but no invoiceId)
+  // start with savedId='' and the button reads "Save Status";
+  // after the first successful save we capture json.invoice.id
+  // here so further presses become updates.
+  const [savedId, setSavedId] = useState(initial.invoiceId || '');
+  const [saving, setSaving] = useState(false);
   const documentRef = useRef(null);
 
   // Load the package catalogue from Supabase on mount. If the API
@@ -420,6 +430,78 @@ export function InvoiceComposer() {
     }
   }
 
+  async function saveInvoice() {
+    const trimmedName = String(clientName || '').trim();
+    if (!trimmedName) {
+      setStatus('Client name is required to Save.');
+      return;
+    }
+    setSaving(true);
+    setStatus('Saving invoice\u2026');
+    try {
+      const grandTotal = Math.max(0, Math.round(Number(totals.grandTotal) || 0));
+      const depositDue = Math.max(0, Math.round(Number(totals.depositDue) || 0));
+      const paidAmount = mode === 'paid'
+        ? grandTotal
+        : mode === 'deposit'
+          ? depositDue
+          : 0;
+      const balanceDue = Math.max(0, grandTotal - paidAmount);
+      // Mirror the /subs Save shape (see WorkspacePages.jsx
+      // saveSubscription) so the worker's handleInvoiceSave gets the
+      // typed columns it expects, plus the loose invoice_data blob
+      // that the hydrate effect at the top of this component reads
+      // back via /api/invoices-get.
+      const invoice = {
+        client_title: String(title || 'Ms.'),
+        client_name: trimmedName,
+        client_contact: String(contact || ''),
+        invoice_date: String(issuedDate || ''),
+        event_date: String(eventDate || ''),
+        event_time: '',
+        venue: String(venue || ''),
+        status: mode,
+        grand_total: grandTotal,
+        deposit_amount: depositDue,
+        paid_amount: paidAmount,
+        balance_due: balanceDue,
+        invoice_data: {
+          discount: Math.max(0, Math.round(Number(discount) || 0)),
+          items: items.map((item) => ({
+            id: String(item.id || ''),
+            name: String(item.name || ''),
+            note: String(item.note || ''),
+            qty: Number(item.qty) || 1,
+            price: Math.max(0, Math.round(Number(item.price) || 0)),
+          })),
+          depositMode: String(depositMode || ''),
+          depositCustomAmount: String(depositCustomAmount || ''),
+          venue: String(venue || ''),
+          qrSrc: String(qrSrc || ''),
+          qrFileName: String(qrFileName || ''),
+        },
+      };
+      if (savedId) invoice.id = savedId;
+      const response = await fetch('/api/invoices-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      const newId = String(json.invoice?.id || savedId || '');
+      if (newId) setSavedId(newId);
+      setStatus(savedId ? 'Invoice updated.' : 'Invoice saved.');
+    } catch (error) {
+      setStatus(error?.message || 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function downloadJpg() {
     if (!documentRef.current) return;
     setStatus('Rendering JPG...');
@@ -505,6 +587,10 @@ export function InvoiceComposer() {
           status={status}
           documentRef={documentRef}
           downloadJpg={downloadJpg}
+          saveInvoice={saveInvoice}
+          saving={saving}
+          savedId={savedId}
+          hydrating={hydrating}
         />
       </section>
       <nav className="mobile-tabs" aria-label="Invoice view">
@@ -656,7 +742,7 @@ function QrUploadField({ onChange, fileName }) {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, items, totals, qrSrc, status, documentRef, downloadJpg }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, items, totals, qrSrc, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   return (
     <section className="preview-panel panel">
       <header className="preview-toolbar">
@@ -664,7 +750,17 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           <p className="eyebrow">Live Preview</p>
           <h2>{mode === 'paid' ? 'Receipt' : mode === 'deposit' ? 'Deposit Invoice' : 'Draft Invoice'}</h2>
         </div>
-        <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+        <div className="preview-toolbar-actions">
+          <button
+            className="ghost-button compact"
+            type="button"
+            onClick={saveInvoice}
+            disabled={saving || hydrating}
+          >
+            {saving ? 'Saving\u2026' : (savedId ? 'Update Status' : 'Save Status')}
+          </button>
+          <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+        </div>
       </header>
       <div className="preview-canvas">
         <article className="invoice-sheet" ref={documentRef}>
