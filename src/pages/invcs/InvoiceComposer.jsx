@@ -228,6 +228,15 @@ function readInitialQuery() {
       name: (params.get('name') || '').trim(),
       contact: (params.get('contact') || '').trim(),
       eventDate,
+      // Stable per-event grouping key handed off from /db. Empty
+      // when /inv is opened standalone or via top-level "Create
+      // Invoice" with no event selected, in which case the saved
+      // invoice carries no event_key and behaves as a brand-new
+      // event. When non-empty it is the existing event row's
+      // event_key (or the cross-ref anchor id when the row has no
+      // event_key yet) and is persisted on save so /db's grouping
+      // pass merges this invoice with its sibling delivery.
+      eventKey: (params.get('eventKey') || '').trim().slice(0, 80),
     };
   } catch {
     return {};
@@ -244,6 +253,12 @@ export function InvoiceComposer() {
   const [contact, setContact] = useState(initial.contact || '');
   const [venue, setVenue] = useState('TBA');
   const [eventDate, setEventDate] = useState(initial.eventDate || '');
+  // Per-event grouping key. Sourced from the URL handoff or
+  // hydrated from the saved row (row.event_key) so that subsequent
+  // saves reuse it and /db's grouping pass merges this invoice
+  // with its sibling delivery. Empty for a standalone /inv session
+  // (top-level Create Invoice with no event context).
+  const [eventKey, setEventKey] = useState(initial.eventKey || '');
   const [issuedDate, setIssuedDate] = useState(today);
   // Discount defaults to 0 — never auto-prefill a value. If the
   // operator wants a discount they type it; loaded invoices restore
@@ -332,6 +347,12 @@ export function InvoiceComposer() {
         if (row.client_contact != null) setContact(String(row.client_contact || ''));
         if (data.venue != null || row.venue != null) setVenue(String(data.venue ?? row.venue ?? 'TBA'));
         if (row.event_date != null) setEventDate(String(row.event_date || ''));
+        // Adopt the row's event_key when the URL handoff didn't
+        // already supply one. This way reopening an existing
+        // invoice from /db keeps it grouped with its sibling
+        // delivery on subsequent saves, even after the URL no
+        // longer carries the eventKey query param.
+        if (row.event_key && !initial.eventKey) setEventKey(String(row.event_key));
         if (row.invoice_date) setIssuedDate(String(row.invoice_date));
         if (row.status === 'invoice' || row.status === 'deposit' || row.status === 'paid') setMode(row.status);
 
@@ -459,6 +480,7 @@ export function InvoiceComposer() {
         invoice_date: String(issuedDate || ''),
         event_date: String(eventDate || ''),
         event_time: '',
+        event_key: String(eventKey || ''),
         venue: String(venue || ''),
         status: mode,
         grand_total: grandTotal,

@@ -109,8 +109,12 @@ alter table public.deliveries add column if not exists delivery_year integer;
 alter table public.deliveries add column if not exists delivery_month integer;
 alter table public.deliveries add column if not exists generated_text_whatsapp text;
 alter table public.deliveries add column if not exists generated_text_instagram text;
+alter table public.deliveries add column if not exists event_date text;
+alter table public.deliveries add column if not exists event_key  text;
 alter table public.deliveries add column if not exists created_at timestamptz not null default now();
 alter table public.deliveries add column if not exists updated_at timestamptz not null default now();
+
+alter table public.invoices   add column if not exists event_key  text;
 
 alter table public.delivery_links add column if not exists delivery_id uuid;
 alter table public.delivery_links add column if not exists service text;
