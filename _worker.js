@@ -1266,29 +1266,37 @@ async function handleSave(request, env) {
     return next;
   };
   const recordVariants = [
-    { ...linkedRecord, password: '', ...passwordSecurity, short_code: shortCode },
-    { ...stripEvent(linkedRecord), password: '', ...passwordSecurity, short_code: shortCode },
-    { ...baseRecord, password: '', ...passwordSecurity, short_code: shortCode },
-    { ...stripEvent(baseRecord), password: '', ...passwordSecurity, short_code: shortCode },
-    { ...linkedRecord, password: '', ...passwordSecurity },
-    { ...stripEvent(linkedRecord), password: '', ...passwordSecurity },
-    { ...baseRecord, password: '', ...passwordSecurity },
-    { ...stripEvent(baseRecord), password: '', ...passwordSecurity },
-    linkedRecord,
-    stripEvent(linkedRecord),
-    baseRecord,
-    stripEvent(baseRecord)
+    { record: { ...linkedRecord, password: '', ...passwordSecurity, short_code: shortCode }, stripped: false },
+    { record: { ...stripEvent(linkedRecord), password: '', ...passwordSecurity, short_code: shortCode }, stripped: true },
+    { record: { ...baseRecord, password: '', ...passwordSecurity, short_code: shortCode }, stripped: false },
+    { record: { ...stripEvent(baseRecord), password: '', ...passwordSecurity, short_code: shortCode }, stripped: true },
+    { record: { ...linkedRecord, password: '', ...passwordSecurity }, stripped: false },
+    { record: { ...stripEvent(linkedRecord), password: '', ...passwordSecurity }, stripped: true },
+    { record: { ...baseRecord, password: '', ...passwordSecurity }, stripped: false },
+    { record: { ...stripEvent(baseRecord), password: '', ...passwordSecurity }, stripped: true },
+    { record: linkedRecord, stripped: false },
+    { record: stripEvent(linkedRecord), stripped: true },
+    { record: baseRecord, stripped: false },
+    { record: stripEvent(baseRecord), stripped: true }
   ];
+
+  // Track whether we had to drop event_date/event_key to land the
+  // delivery row. The frontend uses this to surface a clear
+  // "DB migration part 6 not applied" warning instead of silently
+  // saving a row that won't group on /db.
+  const requestedEventGrouping = !!(eventDate || eventKey);
+  let eventColumnsMissing = false;
 
   let deliveryRows;
   let lastDeliveryError = null;
-  for (const record of recordVariants) {
+  for (const variant of recordVariants) {
     try {
       deliveryRows = await supabaseFetch(env, '/rest/v1/deliveries', {
         method: 'POST',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(record)
+        body: JSON.stringify(variant.record)
       });
+      if (variant.stripped && requestedEventGrouping) eventColumnsMissing = true;
       break;
     } catch (error) {
       lastDeliveryError = error;
@@ -1314,7 +1322,52 @@ async function handleSave(request, env) {
     body: JSON.stringify(rows)
   });
 
-  return json({ ok: true, deliveryId: delivery.id, deliveryUrl, shortCode, shortUrl: `/${shortCode}`, shortLink: `${PUBLIC_SITE}/${shortCode}`, password, generatedText, savedLinks: rows.length });
+  // Cross-ref fallback: when there is a linked invoice, stamp its
+  // invoice_data jsonb blob with delivery_id + event_key so /db can
+  // recover the grouping even when the delivery row could not store
+  // the event_key column itself (e.g. pre-part-6 schema). This is a
+  // best-effort patch — failures here never block the save response.
+  if (linkedInvoice?.id) {
+    try {
+      const existingData = (linkedInvoice.invoice_data && typeof linkedInvoice.invoice_data === 'object') ? linkedInvoice.invoice_data : {};
+      const patchedData = { ...existingData };
+      let dirty = false;
+      if (!patchedData.delivery_id) {
+        patchedData.delivery_id = delivery.id;
+        dirty = true;
+      }
+      if (!patchedData.event_key && eventKey) {
+        patchedData.event_key = eventKey;
+        dirty = true;
+      }
+      if (dirty) {
+        await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(linkedInvoice.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ invoice_data: patchedData })
+        });
+      }
+    } catch (error) {
+      console.warn('[deliveries-save] cross-ref invoice_data patch failed:', error?.message || error);
+    }
+  }
+
+  if (eventColumnsMissing) {
+    console.warn('[deliveries-save] event_date/event_key columns missing — apply db-migration-part-6.sql');
+  }
+
+  return json({
+    ok: true,
+    deliveryId: delivery.id,
+    deliveryUrl,
+    shortCode,
+    shortUrl: `/${shortCode}`,
+    shortLink: `${PUBLIC_SITE}/${shortCode}`,
+    password,
+    generatedText,
+    savedLinks: rows.length,
+    ...(eventColumnsMissing ? { migrationMissing: 'deliveries.event_key' } : {})
+  });
 }
 
 async function handleUnlock(request, env) {
@@ -1492,6 +1545,24 @@ async function handleDbSearch(request, env) {
     // so the client side can synth its own copy.
     const generatedTextIg = d.generated_text_instagram
       || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
+    // Effective event grouping key.
+    //
+    // Preferred source is the typed column (deliveries.event_key,
+    // populated when db-migration-part-6.sql is applied). If the
+    // column is missing/empty we recover the link via the cross-ref
+    // we stamped into the linked invoice's invoice_data jsonb on
+    // save (handleSave below): any invoice whose invoice_data
+    // .delivery_id matches this delivery contributes its own id as
+    // the effective event_key, so /db's grouping pass on the client
+    // can still merge the invoice + delivery into a single row.
+    let effectiveEventKey = String(d.event_key || '').trim();
+    if (!effectiveEventKey) {
+      const xref = allInvoices.find((inv) => {
+        const data = (inv?.invoice_data && typeof inv.invoice_data === 'object') ? inv.invoice_data : {};
+        return String(data.delivery_id || '') === key;
+      });
+      if (xref?.id) effectiveEventKey = String(xref.id);
+    }
     return {
       id: d.id,
       title: d.title,
@@ -1506,7 +1577,7 @@ async function handleDbSearch(request, env) {
       generated_text_instagram: generatedTextIg,
       created_at: d.created_at,
       event_date: d.event_date || '',
-      event_key: d.event_key || '',
+      event_key: effectiveEventKey,
       delivery_url: shortPath,
       short_code: shortCode,
       short_url: shortPath,
@@ -1518,10 +1589,21 @@ async function handleDbSearch(request, env) {
     };
   });
 
-  const invoicesWithRelated = invoiceRows.map((inv) => ({
-    ...inv,
-    related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
-  }));
+  const invoicesWithRelated = invoiceRows.map((inv) => {
+    // Effective event grouping key for invoices. Same priority as
+    // deliveries above: the typed column wins, falling back to the
+    // jsonb mirror that normalizeInvoicePayload writes on every
+    // save. This keeps /db grouping correct even when the
+    // invoices.event_key column has been stripped at save time
+    // (pre-part-6 schemas).
+    const data = (inv?.invoice_data && typeof inv.invoice_data === 'object') ? inv.invoice_data : {};
+    const effectiveEventKey = String(inv.event_key || data.event_key || '').trim();
+    return {
+      ...inv,
+      event_key: effectiveEventKey,
+      related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
+    };
+  });
 
   const subscriptionRows = q
     ? allSubscriptions.filter((sub) => [
@@ -1935,10 +2017,18 @@ async function handleClientDelete(request, env) {
 
 
 function normalizeInvoicePayload(raw = {}) {
-  const data = raw.invoice_data && typeof raw.invoice_data === 'object' ? raw.invoice_data : {};
+  const data = raw.invoice_data && typeof raw.invoice_data === 'object' ? { ...raw.invoice_data } : {};
   const status = ['invoice', 'deposit', 'paid'].includes(String(raw.status || '').toLowerCase()) ? String(raw.status).toLowerCase() : 'invoice';
   const cleanMoney = (v) => Math.max(0, Math.round(Number(v) || 0));
   const eventKeyRaw = String(raw.event_key || raw.eventKey || '').trim().slice(0, 80);
+  // Belt-and-suspenders: also mirror the event grouping key into the
+  // invoice_data jsonb blob. The blob has always existed on the
+  // invoices table, so it survives a stripped event_key column on
+  // pre-part-6 schemas. handleDbSearch reads invoice_data.event_key
+  // as a fallback when the column is missing/null, keeping the /db
+  // grouping pass functional even when the migration hasn't been
+  // applied yet. We never overwrite a non-empty existing value.
+  if (eventKeyRaw && !data.event_key) data.event_key = eventKeyRaw;
   const payload = {
     client_title: String(raw.client_title || 'Ms.').slice(0, 20),
     client_name: String(raw.client_name || '').trim().slice(0, 160),
@@ -1983,14 +2073,34 @@ async function handleInvoiceSave(request, env) {
   // pre-part-6 schemas) and stripping client_id (missing on the
   // earliest schemas). We try the richest payload first and fall
   // back step by step on isSchemaError.
+  //
+  // The retained event_key still lives in invoice_data.event_key
+  // (set by normalizeInvoicePayload), so even when the column is
+  // stripped here the grouping key is preserved on disk and
+  // handleDbSearch can recover it for /db's merge pass.
   const stripEventKey = (record) => {
     const next = { ...record };
     delete next.event_key;
     return next;
   };
+  // Track whether the event_key column had to be dropped to land
+  // the row. The frontend uses this to surface a clear "DB
+  // migration part 6 not applied" warning instead of silently
+  // creating a row that won't group on /db.
+  const requestedEventKey = !!invoice.event_key;
+  let eventKeyColumnMissing = false;
+  // Tagged variants: each pair carries the payload + whether the
+  // event_key column was stripped from it. We test all column-
+  // present variants first so the column gets used whenever the
+  // schema supports it.
+  const variants = [
+    { record: linkedInvoice, stripped: false },
+    { record: stripEventKey(linkedInvoice), stripped: true },
+    { record: invoiceWithoutClient, stripped: false },
+    { record: stripEventKey(invoiceWithoutClient), stripped: true }
+  ];
 
   if (id) {
-    const variants = [linkedInvoice, stripEventKey(linkedInvoice), invoiceWithoutClient, stripEventKey(invoiceWithoutClient)];
     let rows;
     let lastError = null;
     for (const variant of variants) {
@@ -1998,8 +2108,9 @@ async function handleInvoiceSave(request, env) {
         rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { Prefer: 'return=representation' },
-          body: JSON.stringify(variant)
+          body: JSON.stringify(variant.record)
         });
+        if (variant.stripped && requestedEventKey) eventKeyColumnMissing = true;
         lastError = null;
         break;
       } catch (error) {
@@ -2009,10 +2120,12 @@ async function handleInvoiceSave(request, env) {
     }
     if (lastError) throw lastError;
     const saved = Array.isArray(rows) ? rows[0] : rows;
-    return json({ ok: true, invoice: saved });
+    if (eventKeyColumnMissing) {
+      console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
+    }
+    return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
   }
 
-  const variants = [linkedInvoice, stripEventKey(linkedInvoice), invoiceWithoutClient, stripEventKey(invoiceWithoutClient)];
   let rows;
   let lastError = null;
   for (const variant of variants) {
@@ -2020,8 +2133,9 @@ async function handleInvoiceSave(request, env) {
       rows = await supabaseFetch(env, '/rest/v1/invoices', {
         method: 'POST',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(variant)
+        body: JSON.stringify(variant.record)
       });
+      if (variant.stripped && requestedEventKey) eventKeyColumnMissing = true;
       lastError = null;
       break;
     } catch (error) {
@@ -2031,7 +2145,10 @@ async function handleInvoiceSave(request, env) {
   }
   if (lastError) throw lastError;
   const saved = Array.isArray(rows) ? rows[0] : rows;
-  return json({ ok: true, invoice: saved });
+  if (eventKeyColumnMissing) {
+    console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
+  }
+  return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
 }
 
 async function handleInvoiceGet(request, env) {

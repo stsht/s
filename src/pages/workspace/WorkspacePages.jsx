@@ -4,6 +4,34 @@ import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.js
 import { Segmented, EmptyState } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
+// Lightweight gated debug logger.
+//
+// Off by default in production. To enable: append ?debug=1 to any
+// /db, /l, or /inv URL — the flag is sticky for the tab via
+// sessionStorage so navigations between the three pages keep it
+// hot. Used to trace the event-grouping handoff (rowEventKey →
+// URL params → composer state → /api save body → /db row) when
+// "Create Invoice from existing Links event" still produces a
+// duplicate /db row. The function is a no-op when the flag is off
+// so the calls are safe to leave in production code paths.
+function dbgEnabled() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const url = new URLSearchParams(window.location.search);
+    if (url.get('debug') === '1') {
+      try { window.sessionStorage?.setItem('starshots_debug_grouping', '1'); } catch {}
+      return true;
+    }
+    return window.sessionStorage?.getItem('starshots_debug_grouping') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function dbg(...args) {
+  if (dbgEnabled()) console.log('[grouping]', ...args);
+}
+
 function rupiah(value) {
   const number = Number(value) || 0;
   return `Rp ${Math.round(number).toLocaleString('id-ID')}`;
@@ -495,6 +523,13 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
                 contact,
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
+                // Forward the row's existing invoice id (when this
+                // row is invoice-only). The /l worker reads it to
+                // (a) patch the linked invoice's client_id when
+                // missing, and (b) stamp invoice_data.delivery_id
+                // for /db's cross-ref recovery when the new
+                // delivery row's event_key column was stripped.
+                invoiceId: row.invoice?.id || '',
               });
           const eventInvoiceHref = row.invoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.invoice.id })
@@ -505,6 +540,15 @@ function ClientDetail({ client, invoices, deliveries, onCreateEvent, onDeleteCli
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
               });
+          dbg('ClientDetail row', {
+            recordKey: row.delivery?.id || row.invoice?.id || `${row.date}-${index}`,
+            rowEventKey,
+            rowEventDate: row.eventDate,
+            hasDelivery: !!row.delivery?.id,
+            hasInvoice: !!row.invoice?.id,
+            eventLinkHref,
+            eventInvoiceHref,
+          });
           // A row's stable identity is delivery.id ?? invoice.id ?? date —
           // we use it to drive both the React key and the mobile "armed"
           // state (parent owns the armed-id so only one row at a time
@@ -3139,6 +3183,7 @@ export function LinkGeneratorPage() {
   // mid-edit reload from /inv → /l never clobbers manual changes.
   useEffect(() => {
     const handoff = readInvoiceHandoff();
+    dbg('/l readInvoiceHandoff', handoff);
     if (!handoff) return;
     const handoffName = cleanLinkText(handoff.name);
     if (!handoffName) return;
@@ -3268,6 +3313,12 @@ export function LinkGeneratorPage() {
 
     setBusy(true);
     setStatus({ text: 'Saving delivery...', tone: '' });
+    dbg('/l submit', {
+      eventKey,
+      eventDateHandoff,
+      linkedInvoiceId,
+      folderName: info.folder,
+    });
     try {
       const response = await fetch('/api/save', {
         method: 'POST',
@@ -3302,6 +3353,10 @@ export function LinkGeneratorPage() {
       if (!response.ok || !data.ok) {
         throw new Error(data.error || `Save failed (${response.status}).`);
       }
+      dbg('/l save response', {
+        deliveryId: data.deliveryId,
+        migrationMissing: data.migrationMissing || null,
+      });
 
       const finalShortLink =
         data.shortLink ||
@@ -3326,8 +3381,18 @@ export function LinkGeneratorPage() {
       });
 
       const copied = await copyToClipboard(finalMessage);
+      const baseMsg = copied ? 'Saved and copied.' : 'Saved. Please copy manually.';
+      // Surface a clear warning when the worker had to drop
+      // event_key/event_date due to a missing db-migration-part-6.sql
+      // migration. The worker also stamps a cross-ref into the linked
+      // invoice's invoice_data jsonb so /db can still merge the two
+      // rows, but operators should apply the migration to enable the
+      // typed columns end-to-end.
+      const warningSuffix = data.migrationMissing
+        ? ' DB migration part 6 missing — apply db-migration-part-6.sql to enable typed event grouping.'
+        : '';
       setStatus({
-        text: copied ? 'Saved and copied.' : 'Saved. Please copy manually.',
+        text: `${baseMsg}${warningSuffix}`,
         tone: 'success',
       });
       setMobileView('right');

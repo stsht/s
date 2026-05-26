@@ -3,6 +3,30 @@ import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
+// Lightweight gated debug logger. Mirrors the helper in
+// WorkspacePages.jsx so /db, /l, and /inv share one ?debug=1 flag
+// (sticky for the tab via sessionStorage). Used to trace the
+// event-grouping handoff: rowEventKey → URL ?eventKey= → composer
+// state → /api/invoices-save body → /db row. No-op when the flag
+// is off so the calls are safe to leave in production code paths.
+function dbgEnabled() {
+  if (typeof window === 'undefined') return false;
+  try {
+    const url = new URLSearchParams(window.location.search);
+    if (url.get('debug') === '1') {
+      try { window.sessionStorage?.setItem('starshots_debug_grouping', '1'); } catch {}
+      return true;
+    }
+    return window.sessionStorage?.getItem('starshots_debug_grouping') === '1';
+  } catch {
+    return false;
+  }
+}
+
+function dbg(...args) {
+  if (dbgEnabled()) console.log('[grouping]', ...args);
+}
+
 // Hardcoded fallback catalogue. The catalogue is normally fetched
 // from the Supabase-backed /api/packages endpoint (see _worker.js
 // handlePackagesGet) and these values are kept as a safety net so
@@ -245,6 +269,15 @@ function readInitialQuery() {
 
 export function InvoiceComposer() {
   const initial = useMemo(() => readInitialQuery(), []);
+  // Mount-time visibility into the URL handoff so operators can
+  // confirm /db sent eventKey/eventDate when "Create Invoice" was
+  // pressed on an existing event row. Only emits when ?debug=1 is
+  // active (see dbg helper at top of file).
+  useEffect(() => {
+    dbg('/inv readInitialQuery', initial);
+    // Mount-only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [mobileView, setMobileView] = useState('edit');
   const [mode, setMode] = useState('invoice');
@@ -504,6 +537,12 @@ export function InvoiceComposer() {
         },
       };
       if (savedId) invoice.id = savedId;
+      dbg('/inv save body', {
+        eventKey: invoice.event_key,
+        eventDate: invoice.event_date,
+        invoiceId: invoice.id || '(new)',
+        clientName: invoice.client_name,
+      });
       const response = await fetch('/api/invoices-save', {
         method: 'POST',
         credentials: 'same-origin',
@@ -516,7 +555,23 @@ export function InvoiceComposer() {
       }
       const newId = String(json.invoice?.id || savedId || '');
       if (newId) setSavedId(newId);
-      setStatus(savedId ? 'Invoice updated.' : 'Invoice saved.');
+      dbg('/inv save response', {
+        invoiceId: newId,
+        savedEventKey: json.invoice?.event_key || '',
+        migrationMissing: json.migrationMissing || null,
+      });
+      // Surface a clear warning when the worker had to drop event_key
+      // due to a missing db-migration-part-6.sql migration. Without
+      // it /db cannot group this invoice with its sibling delivery
+      // via the typed column; the worker now mirrors the key into
+      // invoice_data as a fallback, but operators should still apply
+      // the migration so future rows persist event_key cleanly.
+      if (json.migrationMissing) {
+        const baseMsg = savedId ? 'Invoice updated.' : 'Invoice saved.';
+        setStatus(`${baseMsg} DB migration part 6 missing — apply db-migration-part-6.sql to enable typed event grouping.`);
+      } else {
+        setStatus(savedId ? 'Invoice updated.' : 'Invoice saved.');
+      }
     } catch (error) {
       setStatus(error?.message || 'Save failed.');
     } finally {
