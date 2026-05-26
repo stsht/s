@@ -469,6 +469,85 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   gap:7px;
 }
 
+/* Payment method picker (editor side). Sits inside the Payment
+ * fieldset between the deposit selector and the QR upload pill,
+ * mirroring the .deposit-presets pill shape so the controls read
+ * as a family. Two segments today — "QR" and "Bank Transfer" —
+ * but the markup is data-driven from PAYMENT_METHODS so adding a
+ * third option (e.g. "Wise") is a one-line code change. The
+ * preview/JPG renders exactly the chosen mode; this control only
+ * lives in the editor. */
+.payment-method-block{display:grid;gap:10px}
+.payment-method-label{color:var(--muted);font-size:12px;font-weight:800}
+.payment-method-switch{
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(0,1fr);
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+}
+.payment-method-switch button{
+  min-width:0;
+  height:36px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.payment-method-switch button.active{
+  background:#fff;
+  color:var(--ink);
+  box-shadow:var(--shadow-soft);
+}
+
+/* Editor-side summary of the bank transfer destination shown when
+ * "Bank Transfer" is the active payment method. Replaces the QR
+ * upload pill in the editor's Payment fieldset so the operator can
+ * verify which bank/account is being shipped to the client. The
+ * preview/JPG renders the same data through .bank-details inside
+ * the invoice sheet — this is purely an editor-side reflection. */
+.bank-details-summary{
+  display:grid;
+  gap:8px;
+}
+.bank-details-summary-list{
+  display:grid;
+  gap:6px;
+  margin:0;
+  padding:12px 14px;
+  border:1px dashed var(--line-strong);
+  border-radius:18px;
+  background:var(--field);
+}
+.bank-details-summary-list > div{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.bank-details-summary-list dt{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+.bank-details-summary-list dd{
+  margin:0;
+  color:var(--ink);
+  font-size:13px;
+  font-weight:900;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  word-break:break-all;
+}
+
 /* Vertical rhythm inside form sections. Each Fieldset wraps its
  * inputs in <div class="field-stack"> so siblings (Venue label,
  * the two-col event-date/issued row, etc.) keep the same gap as
@@ -580,7 +659,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   background:var(--soft);
 }
 .invoice-sheet{
-  width:min(100%,980px);
+  width:min(100%,1260px);
   min-height:1047px;
   padding:0;
   border:1px solid #e9edf5;
@@ -590,10 +669,10 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   box-shadow:0 24px 64px rgba(15,23,42,.12);
   overflow:hidden;
 }
-.sheet-top{min-height:126px;padding:30px 36px 20px;border-bottom:1px solid #edf0f5;display:flex;align-items:center}
-.sheet-top img{width:280px}
+.sheet-top{min-height:118px;padding:28px 36px 18px;border-bottom:1px solid #edf0f5;display:flex;align-items:center}
+.sheet-top img{width:228px}
 .sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:28px 36px 22px}
-.bottom-grid{display:grid;grid-template-columns:minmax(304px,.56fr) minmax(0,1.44fr);gap:18px;margin:24px 36px 0;padding-top:20px;border-top:1px dashed rgba(15,23,42,.12);align-items:stretch}
+.bottom-grid{display:grid;grid-template-columns:minmax(248px,.36fr) minmax(0,1.64fr);gap:18px;margin:24px 36px 0;padding-top:20px;border-top:1px dashed rgba(15,23,42,.12);align-items:stretch}
 .sheet-box{border:1px solid #edf0f5;border-radius:22px;padding:18px;background:#fff}
 .sheet-grid .sheet-box{min-height:142px}
 dl{display:grid;gap:10px;margin:14px 0 0}
@@ -624,21 +703,83 @@ dd{margin:0;text-align:right;font-weight:800}
 .summary-box p{display:flex;justify-content:space-between;margin:0 0 12px;color:#777}
 .summary-box p:last-child{margin-bottom:0}
 .summary-box .grand{padding-top:12px;border-top:1px dashed #dbe3ee;color:#1f1a17;font-size:18px}
-/* Payment box layout. The QR canvas + caption live in a single
- * column, centred. The image keeps a generous fixed footprint so
- * the QR remains large and scannable on the printed/JPG output —
- * earlier revisions wrapped the deposit caption in a bordered pill
+/* Payment box layout. The QR canvas (or Bank Transfer details
+ * block) + caption live in a single column, centred. The card is
+ * deliberately narrower and less padded than the Terms &
+ * Conditions card next to it — the bottom-grid columns above
+ * (~22% / ~78%) give the payment block a slim sidebar feel rather
+ * than a second body-of-text. The QR image is kept readable
+ * (180x180) but its container no longer dominates: outer .sheet-box
+ * padding is tightened, the QR mat-card is smaller, and the inner
+ * gap is reduced so the box height shrinks naturally to match T&C
+ * on a typical invoice. The deposit/payment caption underneath is
+ * plain centred text — no border, no underline, no decorative rule
+ * — across invoice / deposit / paid modes, so the entire payment
+ * column reads as: eyebrow / [QR or bank details] / caption.
+ *
+ * Earlier revisions wrapped the deposit caption in a bordered pill
  * (`.deposit-due { border: ... }`) whose intrinsic width grew with
  * the rupiah string, which made the panel look wider on a 7-figure
- * invoice than on a 5-figure one. The caption is now plain centred
- * text under the QR with no border or background, so the entire
- * payment column is a fixed visual rhythm: eyebrow / QR / caption
- * across invoice / deposit / paid modes. */
-.payment-box{display:grid;gap:14px;justify-items:center;text-align:center;padding:18px 18px 20px}
-.payment-box img{display:block;width:240px;height:240px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:22px;padding:14px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
+ * invoice than on a 5-figure one. That border is intentionally
+ * removed and stays removed. */
+.bottom-grid > .sheet-box.payment-box{padding:14px 14px 16px}
+.payment-box{display:grid;gap:10px;justify-items:center;text-align:center}
+.payment-box img{display:block;width:180px;height:180px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:10px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
+.payment-box .eyebrow{margin:0;padding:0;border:0;background:transparent}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
-.deposit-due strong{font-size:20px;font-weight:900;color:#1f1a17;line-height:1.2}
+.deposit-due strong{font-size:18px;font-weight:900;color:#1f1a17;line-height:1.2}
+/* Bank Transfer block — drop-in replacement for the QR image inside
+ * .payment-box when the operator picks "Bank Transfer". Width is
+ * 100% of the slim payment column so account numbers don't wrap;
+ * the inner card mirrors the QR mat-card's #fbfdff fill so both
+ * modes feel like the same surface. dt is muted, dd is the data
+ * point — tabular-nums keeps the account number monospaced enough
+ * to scan without dragging in a code font. */
+.bank-details{
+  width:100%;
+  display:grid;
+  gap:10px;
+  text-align:left;
+}
+.bank-details-intro{
+  margin:0;
+  color:#5c6f86;
+  font-size:11.5px;
+  font-weight:600;
+  line-height:1.55;
+}
+.bank-details-intro strong{font-weight:900;color:#1f1a17}
+.bank-details-list{
+  display:grid;
+  gap:6px;
+  margin:0;
+  padding:10px 12px;
+  border:1px solid #edf0f5;
+  border-radius:14px;
+  background:#fbfdff;
+}
+.bank-details-list > div{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.bank-details-list dt{
+  color:#777;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+.bank-details-list dd{
+  margin:0;
+  color:#1f1a17;
+  font-size:13px;
+  font-weight:900;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  word-break:break-all;
+}
 .terms-box{padding:22px 24px}
 .terms-box .eyebrow{font-size:14px;letter-spacing:.15em;color:#66778b}
 .terms-box p{margin:18px 0 0;color:#708096;line-height:1.78;font-size:13px}
@@ -1431,11 +1572,11 @@ dd{margin:0;text-align:right;font-weight:800}
   left:-10000px;
   top:0;
   z-index:-1;
-  width:980px;
+  width:1260px;
   background:#fff;
   pointer-events:none;
 }
-.invoice-export-host .invoice-sheet{width:980px;box-shadow:none}
+.invoice-export-host .invoice-sheet{width:1260px;box-shadow:none}
 
 @media(max-width:1023px){
   body{overflow:auto}
@@ -1556,7 +1697,7 @@ dd{margin:0;text-align:right;font-weight:800}
   .mode-switch{width:100%}
   .two-col,.three-col{grid-template-columns:1fr}
   .line-head,.line-row{grid-template-columns:minmax(0,1fr) 44px 104px}
-  .invoice-sheet{width:980px;min-height:1047px;transform:scale(.58);transform-origin:top left}
+  .invoice-sheet{width:1260px;min-height:1047px;transform:scale(.45);transform-origin:top left}
   .preview-canvas{place-items:start start;min-height:calc(100dvh - 230px)}
   .composer-shell.show-preview .preview-canvas{height:calc(100dvh - 230px)}
 }

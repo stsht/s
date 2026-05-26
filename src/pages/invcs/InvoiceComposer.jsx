@@ -41,6 +41,26 @@ const DEFAULT_PACKAGES = [
   { id: 'birthday-celebration', name: 'Birthday Celebration',    price: 1650000, note: 'up to 3.5 hours, suitable for Birthday Celebration', is_default: true },
 ];
 
+// Bank transfer destination shown when the operator picks
+// "Bank Transfer" instead of "QR" in the payment block. Centralised
+// here so a future switch (e.g. BCA -> Mandiri) is a single-line
+// change with no JSX/CSS edits. The intro sentence is templated so
+// the bank name flows naturally into the wording on the JPG.
+const BANK_DETAILS = {
+  bank: 'BCA',
+  accountName: 'BELLY',
+  accountNumber: '3491622006',
+};
+
+// Available payment methods rendered inside .payment-box. The
+// segmented control in the editor toggles between these; the
+// preview/JPG renders exactly one — never both — so the exported
+// invoice is always unambiguous about how the client should pay.
+const PAYMENT_METHODS = [
+  { value: 'qr',   label: 'QR' },
+  { value: 'bank', label: 'Bank Transfer' },
+];
+
 // Title-case rules (small-words set, preserve list, regex token
 // matcher) live in `src/utils/titleCase.js` so /subs and /inv share
 // the exact same display normalisation. The composer used to carry
@@ -96,6 +116,18 @@ function inferDepositMode(grandTotal, depositAmount) {
 function rupiah(value) {
   const number = Number(value) || 0;
   return `Rp ${Math.round(number).toLocaleString('id-ID')}`;
+}
+
+// Whether the deposit is effectively the full grand total. Drives
+// the "Deposit Due" vs "Payment Due" wording in both the editor's
+// Payment fieldset and the preview/JPG payment caption: a 100%
+// preset (or a custom amount that meets/exceeds the grand total)
+// shouldn't be called a deposit. Returns false when grandTotal is
+// zero so an empty draft never reads "Payment Due Rp 0".
+function isFullPayment(totals) {
+  const grand = Math.max(0, Math.round(Number(totals?.grandTotal) || 0));
+  const due = Math.max(0, Math.round(Number(totals?.depositDue) || 0));
+  return grand > 0 && due >= grand;
 }
 
 function prettyDate(value) {
@@ -394,6 +426,12 @@ export function InvoiceComposer() {
   const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
   const [qrFileName, setQrFileName] = useState('');
+  // Payment method shown inside the .payment-box. 'qr' renders the
+  // QR image (default, original behaviour); 'bank' replaces the QR
+  // with the BANK_DETAILS block above so the client can transfer
+  // directly to BCA. Persisted in invoice_data so reopening a saved
+  // invoice restores whatever the operator picked.
+  const [paymentMethod, setPaymentMethod] = useState('qr');
   const [status, setStatus] = useState('');
   const [hydrating, setHydrating] = useState(Boolean(initial.invoiceId));
   // Save Status: when /inv is opened with ?invoiceId= we treat that
@@ -519,6 +557,13 @@ export function InvoiceComposer() {
 
         if (typeof data.qrSrc === 'string' && data.qrSrc) setQrSrc(data.qrSrc);
         if (typeof data.qrFileName === 'string' && data.qrFileName) setQrFileName(data.qrFileName);
+        // Payment method: only adopt the saved value when it matches
+        // a known option, otherwise stay on the default 'qr'. Older
+        // rows pre-dating this field land here without a value and
+        // keep behaving exactly as before.
+        if (PAYMENT_METHODS.some((m) => m.value === data.paymentMethod)) {
+          setPaymentMethod(String(data.paymentMethod));
+        }
       } catch (error) {
         // Silently keep blank/defaults; the user can always re-fill.
         if (!cancelled) console.warn('[inv] hydrate failed:', error);
@@ -625,6 +670,7 @@ export function InvoiceComposer() {
           venue: String(venue || ''),
           qrSrc: String(qrSrc || ''),
           qrFileName: String(qrFileName || ''),
+          paymentMethod: String(paymentMethod || 'qr'),
         },
       };
       if (savedId) invoice.id = savedId;
@@ -696,8 +742,13 @@ export function InvoiceComposer() {
         allowTaint: true,
         imageTimeout: 0,
         logging: false,
-        windowWidth: 1280,
-        windowHeight: 1200,
+        // Sized for the widened invoice sheet (now 1260px wide,
+        // ~28% wider than the previous 980px). The simulated
+        // window has to be wide enough to host the sheet plus
+        // some breathing room so html2canvas doesn't introduce
+        // wrap/overflow artefacts on edge pixels.
+        windowWidth: 1600,
+        windowHeight: 1400,
       });
       const link = document.createElement('a');
       const safeClient = (clientName || 'Client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
@@ -746,6 +797,8 @@ export function InvoiceComposer() {
           totals={totals}
           uploadQr={uploadQr}
           qrFileName={qrFileName}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
           hydrating={hydrating}
         />
         <PreviewPanel
@@ -759,6 +812,7 @@ export function InvoiceComposer() {
           items={items}
           totals={totals}
           qrSrc={qrSrc}
+          paymentMethod={paymentMethod}
           status={status}
           documentRef={documentRef}
           downloadJpg={downloadJpg}
@@ -882,9 +936,40 @@ function EditorPanel(props) {
               </label>
             ) : null}
           </div>
-          <QrUploadField onChange={props.uploadQr} fileName={props.qrFileName} />
+          <div className="payment-method-block" role="radiogroup" aria-label="Payment method">
+            <span className="payment-method-label">Payment Method</span>
+            <div className="payment-method-switch">
+              {PAYMENT_METHODS.map((method) => {
+                const active = props.paymentMethod === method.value;
+                return (
+                  <button
+                    key={method.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    className={active ? 'active' : ''}
+                    onClick={() => props.setPaymentMethod(method.value)}
+                  >
+                    {method.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {props.paymentMethod === 'qr' ? (
+            <QrUploadField onChange={props.uploadQr} fileName={props.qrFileName} />
+          ) : (
+            <div className="bank-details-summary" aria-label="Bank transfer destination">
+              <span className="payment-method-label">Bank Transfer</span>
+              <dl className="bank-details-summary-list">
+                <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountName}</dd></div>
+                <div><dt>Account Number</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+              </dl>
+            </div>
+          )}
           <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
-          <div className="total-card"><span>Deposit Due</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
+          <div className="total-card"><span>{isFullPayment(props.totals) ? 'Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
       </Fieldset>
     </aside>
@@ -917,7 +1002,8 @@ function QrUploadField({ onChange, fileName }) {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, items, totals, qrSrc, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, items, totals, qrSrc, paymentMethod, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+  const dueLabel = isFullPayment(totals) ? 'Payment Due' : 'Deposit Due';
   return (
     <section className="preview-panel panel">
       <header className="preview-toolbar">
@@ -975,8 +1061,20 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           <section className="bottom-grid">
             <div className="sheet-box payment-box">
               <p className="eyebrow">Payment</p>
-              <img src={qrSrc} alt="Payment QR" />
-              <div className="deposit-due"><span>Deposit Due</span><strong>{rupiah(totals.depositDue)}</strong></div>
+              {paymentMethod === 'bank' ? (
+                <div className="bank-details">
+                  <p className="bank-details-intro">
+                    Please remit payment by bank transfer to the following <strong>{BANK_DETAILS.bank}</strong> account:
+                  </p>
+                  <dl className="bank-details-list">
+                    <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountName}</dd></div>
+                    <div><dt>Account Number</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                  </dl>
+                </div>
+              ) : (
+                <img src={qrSrc} alt="Payment QR" />
+              )}
+              <div className="deposit-due"><span>{dueLabel}</span><strong>{rupiah(totals.depositDue)}</strong></div>
             </div>
             <div className="sheet-box terms-box">
               <p className="eyebrow">Terms & Conditions</p>
