@@ -426,6 +426,20 @@ Warm regards,
 StarShots`;
 }
 
+// Instagram DM variant. Same information as the WhatsApp template
+// but reflowed into a single short paragraph: no bullet list, no
+// hard line breaks, friendly DM tone. WhatsApp is read in a chat
+// pane that wraps multi-line bodies cleanly; Instagram DM collapses
+// repeated newlines and looks broken with bullet glyphs, so the
+// IG variant ships as one continuous sentence chain instead.
+function buildDeliveryMessageIg(title, clientName, shortCode, password) {
+  const t = String(title || 'Ms.').trim() || 'Ms.';
+  const n = String(clientName || '').trim();
+  const link = `${PUBLIC_SITE}/${shortCode}`;
+  const p = String(password || '').trim();
+  return `Hi ${t} ${n}! Your StarShots delivery files are ready — access them at ${link} using password ${p}. Please download within the stated availability period. With love, StarShots.`;
+}
+
 async function getDeliveryByShortCode(env, code) {
   const target = cleanShortCode(code);
   if (!target) return null;
@@ -1200,6 +1214,7 @@ async function handleSave(request, env) {
   const password = await generateGalleryPassword(deliveryContext, shortCode);
   const deliveryUrl = `/${shortCode}`;
   const generatedText = buildDeliveryMessage(body.title || 'Ms.', body.clientName, shortCode, password);
+  const generatedTextIg = buildDeliveryMessageIg(body.title || 'Ms.', body.clientName, shortCode, password);
   const passwordSecurity = await hashGalleryPassword(password);
   const invoiceId = String(body.invoiceId || '').trim();
   let linkedInvoice = null;
@@ -1227,7 +1242,7 @@ async function handleSave(request, env) {
     delivery_year: deliveryYear,
     delivery_month: deliveryMonth,
     generated_text_whatsapp: generatedText,
-    generated_text_instagram: generatedText
+    generated_text_instagram: generatedTextIg
   };
   const linkedRecord = clientId ? { ...baseRecord, client_id: clientId } : baseRecord;
   const recordVariants = [
@@ -1442,6 +1457,15 @@ async function handleDbSearch(request, env) {
     const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
     const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
+    // IG fallback: prefer the stored IG text when present, otherwise
+    // synthesise the IG variant directly. We intentionally do NOT
+    // fall back to the WA text here — older rows that only have the
+    // WA template would otherwise expose bullets in the Instagram
+    // copy panel, which is the bug the channel split is meant to
+    // resolve. When neither is available we leave the field empty
+    // so the client side can synth its own copy.
+    const generatedTextIg = d.generated_text_instagram
+      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
     return {
       id: d.id,
       title: d.title,
@@ -1453,7 +1477,7 @@ async function handleDbSearch(request, env) {
       delivery_year: d.delivery_year,
       delivery_month: d.delivery_month,
       generated_text_whatsapp: generatedText,
-      generated_text_instagram: d.generated_text_instagram || generatedText,
+      generated_text_instagram: generatedTextIg,
       created_at: d.created_at,
       delivery_url: shortPath,
       short_code: shortCode,
@@ -1647,11 +1671,12 @@ async function handleDbRepairDelivery(request, env) {
   }
 
   const generatedText = buildDeliveryMessage(delivery.title || 'Ms.', delivery.client_name || '', shortCode, displayPassword);
+  const generatedTextIg = buildDeliveryMessageIg(delivery.title || 'Ms.', delivery.client_name || '', shortCode, displayPassword);
   const patch = {
     short_code: shortCode,
     password: '',
     generated_text_whatsapp: generatedText,
-    generated_text_instagram: generatedText
+    generated_text_instagram: generatedTextIg
   };
 
   if (!hasStoredHash || rotatePassword) {
@@ -1696,7 +1721,7 @@ async function handleDbRepairDelivery(request, env) {
       delivery_url: `/${shortCode}`,
       short_url: `/${shortCode}`,
       generated_text_whatsapp: generatedText,
-      generated_text_instagram: generatedText,
+      generated_text_instagram: generatedTextIg,
       needs_secure_repair: false
     }
   });
