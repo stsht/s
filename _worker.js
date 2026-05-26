@@ -11,10 +11,11 @@ const SERVICES = [
   { key: 'tn', label: 'TransferNow' }
 ];
 
+// Generated short codes/passwords intentionally exclude lowercase l.
 const SHORT_ALPHABET = '1236789abcdefghijkmnopqrstuvwxyz';
 const SHORT_CODE_LENGTH = 12;
 const LEGACY_SHORT_CODE_LENGTH = 7;
-const GALLERY_PASSWORD_LENGTH = 6;
+const GALLERY_PASSWORD_LENGTH = 7;
 const PUBLIC_SITE = 'https://starshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
 const ADMIN_SESSION_COOKIE = 'ss_admin_session';
@@ -1851,32 +1852,70 @@ async function handleDbUpdateDelivery(request, env) {
   const delivery = Array.isArray(rows) ? rows[0] : rows;
   if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
 
-  // Optional folder_name PATCH. We only PATCH when the operator
-  // sent a non-empty trimmed value AND it actually differs from
-  // the current row, to avoid pointless writes. The PATCH does
-  // not regenerate base_slug, short_code, or password — those are
-  // owned by Repair Secure Link / Regenerate Password. If the
-  // column is missing on a legacy schema we swallow the error so
+  // Optional delivery metadata PATCH. Folder and event date edits
+  // do not regenerate base_slug, short_code, or password — those are
+  // owned by Repair Secure Link / Regenerate Password. If a column
+  // is missing on a legacy schema we swallow the schema error so
   // the link rebuild still succeeds.
   let updatedFolderName = String(delivery.folder_name || '');
+  let updatedEventDate = String(delivery.event_date || '');
+  const deliveryPatch = {};
   const folderNameRaw = body.folderName ?? body.folder_name;
   if (folderNameRaw !== undefined && folderNameRaw !== null) {
     const trimmedFolder = String(folderNameRaw).trim();
     if (trimmedFolder && trimmedFolder !== String(delivery.folder_name || '').trim()) {
-      try {
-        const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
-          method: 'PATCH',
-          headers: { Prefer: 'return=representation' },
-          body: JSON.stringify({ folder_name: trimmedFolder })
-        });
-        const patchedRow = Array.isArray(patched) ? patched[0] : patched;
-        if (patchedRow?.folder_name) updatedFolderName = String(patchedRow.folder_name);
-        else updatedFolderName = trimmedFolder;
-      } catch (error) {
-        if (!isSchemaError(error)) throw error;
-        // Column missing on a legacy schema — drop the rename and
-        // continue with the link rebuild below.
+      deliveryPatch.folder_name = trimmedFolder;
+      updatedFolderName = trimmedFolder;
+    }
+  }
+  const eventDateRaw = body.eventDate ?? body.event_date;
+  if (eventDateRaw !== undefined && eventDateRaw !== null) {
+    const trimmedEventDate = String(eventDateRaw).trim();
+    if (trimmedEventDate && !/^\d{4}-\d{2}-\d{2}$/.test(trimmedEventDate)) {
+      return json({ error: 'Event Date must be YYYY-MM-DD.' }, 400);
+    }
+    const nextEventDate = trimmedEventDate || null;
+    if (String(nextEventDate || '') !== String(delivery.event_date || '').trim()) {
+      deliveryPatch.event_date = nextEventDate;
+      updatedEventDate = String(nextEventDate || '');
+    }
+  }
+
+  if (Object.keys(deliveryPatch).length) {
+    try {
+      const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(deliveryPatch)
+      });
+      const patchedRow = Array.isArray(patched) ? patched[0] : patched;
+      if (patchedRow) {
+        updatedFolderName = String(patchedRow.folder_name || updatedFolderName || '');
+        updatedEventDate = String(patchedRow.event_date || updatedEventDate || '');
       }
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      // Column missing on a legacy schema. If event_date was the
+      // incompatible field, retry a plain folder rename so older DBs
+      // keep the behaviour this endpoint already supported.
+      if (deliveryPatch.folder_name) {
+        try {
+          const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            headers: { Prefer: 'return=representation' },
+            body: JSON.stringify({ folder_name: deliveryPatch.folder_name })
+          });
+          const patchedRow = Array.isArray(patched) ? patched[0] : patched;
+          updatedFolderName = String(patchedRow?.folder_name || deliveryPatch.folder_name || delivery.folder_name || '');
+        } catch (retryError) {
+          if (!isSchemaError(retryError)) throw retryError;
+          updatedFolderName = String(delivery.folder_name || '');
+        }
+      } else {
+        updatedFolderName = String(delivery.folder_name || '');
+      }
+      // Drop the event-date edit and continue with the link rebuild.
+      updatedEventDate = String(delivery.event_date || '');
     }
   }
 
@@ -1908,6 +1947,7 @@ async function handleDbUpdateDelivery(request, env) {
     delivery: {
       ...delivery,
       folder_name: updatedFolderName,
+      event_date: updatedEventDate,
       links: Array.isArray(insertedLinks) ? insertedLinks : [],
     },
   });
