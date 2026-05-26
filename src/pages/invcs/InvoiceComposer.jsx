@@ -127,7 +127,7 @@ function imageFromFile(file) {
   });
 }
 
-function cropBoundsToSquare(bounds, width, height, marginRatio = 0.04) {
+function cropBoundsToSquare(bounds, width, height, marginRatio = 0.06) {
   const side = Math.max(bounds.width, bounds.height);
   const margin = side * marginRatio;
   const centerX = bounds.x + bounds.width / 2;
@@ -138,8 +138,47 @@ function cropBoundsToSquare(bounds, width, height, marginRatio = 0.04) {
   return { x, y, width: cropSide, height: cropSide };
 }
 
+// Center-square crop with a small inward padding so neither dimension
+// of the source spills off the canvas. Used as the safety fallback
+// whenever automatic QR detection fails — it guarantees we ship a
+// square crop instead of stretching the entire screenshot into a
+// 1:1 box. The crop side is min(width, height) so a tall mobile
+// screenshot loses the top/bottom UI bands but keeps the centred
+// QR (which is where operators tend to paste them); the inward
+// inset trims a sliver of the very edge so a bezel-thin border
+// doesn't dominate the output.
+function centerSquareCrop(width, height, insetRatio = 0.02) {
+  const side = Math.min(width, height);
+  const inset = Math.round(side * insetRatio);
+  const cropSide = Math.max(24, side - inset * 2);
+  const x = Math.round((width - cropSide) / 2);
+  const y = Math.round((height - cropSide) / 2);
+  return { x, y, width: cropSide, height: cropSide };
+}
+
+// Heuristic QR-code locator. Used as a fallback when the platform
+// has no BarcodeDetector (e.g. Safari pre-17) or the detector
+// returns nothing. QR codes are bimodal: roughly half of their
+// pixels are near-black and half near-white, with very few mid-
+// tones. We exploit that by computing per-window dark- and light-
+// pixel density at low resolution and scoring candidate squares
+// by:
+//
+//   1. dark + light coverage > 0.65 (strongly bimodal — most
+//      pixels are either near-black or near-white, not mid-grey),
+//   2. dark density between 0.20 and 0.70 (matches the printable
+//      QR range across version sizes + error-correction levels),
+//   3. closeness of the dark/light split to 50/50 (the closer a
+//      QR module distribution is to balanced, the higher the
+//      score).
+//
+// The score is then weighted by the candidate side length so the
+// algorithm prefers larger valid windows (a QR code) over equally
+// bimodal but smaller patches (e.g. a checkerbox icon). The
+// returned bounds are scaled back to the original image's
+// coordinate space.
 function findDenseSquare(ctx, width, height) {
-  const maxSide = 640;
+  const maxSide = 720;
   const scale = Math.min(1, maxSide / Math.max(width, height));
   const sampleWidth = Math.max(1, Math.round(width * scale));
   const sampleHeight = Math.max(1, Math.round(height * scale));
@@ -149,20 +188,27 @@ function findDenseSquare(ctx, width, height) {
   const sampleCtx = sample.getContext('2d', { willReadFrequently: true });
   sampleCtx.drawImage(ctx.canvas, 0, 0, sampleWidth, sampleHeight);
   const pixels = sampleCtx.getImageData(0, 0, sampleWidth, sampleHeight).data;
-  const integral = new Uint32Array((sampleWidth + 1) * (sampleHeight + 1));
+  const stride = sampleWidth + 1;
+  const darkInt = new Uint32Array(stride * (sampleHeight + 1));
+  const lightInt = new Uint32Array(stride * (sampleHeight + 1));
 
   for (let y = 0; y < sampleHeight; y += 1) {
-    let row = 0;
+    let rowDark = 0;
+    let rowLight = 0;
     for (let x = 0; x < sampleWidth; x += 1) {
       const index = (y * sampleWidth + x) * 4;
-      const dark = pixels[index + 3] > 24 && pixels[index] + pixels[index + 1] + pixels[index + 2] < 390 ? 1 : 0;
-      row += dark;
-      integral[(y + 1) * (sampleWidth + 1) + x + 1] = integral[y * (sampleWidth + 1) + x + 1] + row;
+      const alpha = pixels[index + 3];
+      const lum = pixels[index] + pixels[index + 1] + pixels[index + 2];
+      if (alpha > 32) {
+        if (lum < 360) rowDark += 1;
+        else if (lum > 600) rowLight += 1;
+      }
+      darkInt[(y + 1) * stride + x + 1] = darkInt[y * stride + x + 1] + rowDark;
+      lightInt[(y + 1) * stride + x + 1] = lightInt[y * stride + x + 1] + rowLight;
     }
   }
 
-  function sum(x, y, side) {
-    const stride = sampleWidth + 1;
+  function rectSum(integral, x, y, side) {
     const x2 = x + side;
     const y2 = y + side;
     return integral[y2 * stride + x2] - integral[y * stride + x2] - integral[y2 * stride + x] + integral[y * stride + x];
@@ -170,18 +216,24 @@ function findDenseSquare(ctx, width, height) {
 
   let best = null;
   const minDimension = Math.min(sampleWidth, sampleHeight);
-  const minSide = Math.max(80, Math.round(minDimension * 0.22));
-  const maxQrSide = Math.round(minDimension * 0.78);
-  const sideStep = Math.max(10, Math.round(minDimension / 34));
+  const minSide = Math.max(60, Math.round(minDimension * 0.16));
+  const maxQrSide = Math.round(minDimension * 0.92);
+  const sideStep = Math.max(8, Math.round(minDimension / 40));
 
   for (let side = maxQrSide; side >= minSide; side -= sideStep) {
-    const stride = Math.max(8, Math.round(side / 12));
-    for (let y = 0; y <= sampleHeight - side; y += stride) {
-      for (let x = 0; x <= sampleWidth - side; x += stride) {
-        const density = sum(x, y, side) / (side * side);
-        if (density < 0.28 || density > 0.68) continue;
-        const centerBias = 1 - Math.abs((x + side / 2) / sampleWidth - 0.5) * 0.18;
-        const score = side * density * centerBias;
+    const stepStride = Math.max(6, Math.round(side / 16));
+    const area = side * side;
+    for (let y = 0; y <= sampleHeight - side; y += stepStride) {
+      for (let x = 0; x <= sampleWidth - side; x += stepStride) {
+        const dRatio = rectSum(darkInt, x, y, side) / area;
+        if (dRatio < 0.20 || dRatio > 0.70) continue;
+        const lRatio = rectSum(lightInt, x, y, side) / area;
+        if (lRatio < 0.20 || lRatio > 0.78) continue;
+        const coverage = dRatio + lRatio;
+        if (coverage < 0.65) continue;
+        const balance = 1 - Math.abs(dRatio - 0.5) * 1.6;
+        if (balance <= 0) continue;
+        const score = side * balance * Math.min(1, coverage);
         if (!best || score > best.score) best = { x, y, width: side, height: side, score };
       }
     }
@@ -196,6 +248,27 @@ function findDenseSquare(ctx, width, height) {
   };
 }
 
+// Crop an uploaded payment screenshot down to a square 1:1 image
+// of the QR code itself. Three strategies in priority order:
+//
+//   1. BarcodeDetector — the best signal when the browser ships
+//      it (Chromium/Edge, Safari 17+). The detector returns the
+//      QR's exact boundingBox, which we square-pad slightly so a
+//      tight crop still includes the quiet zone.
+//   2. findDenseSquare — bimodal-density heuristic that locates
+//      the QR by its black/white module distribution. Used when
+//      the detector is absent or returned nothing.
+//   3. centerSquareCrop — last-resort "safe" crop. Never falls
+//      through to "use the entire image": surrounding payment-
+//      page UI ("Dicetak Oleh", margins, full screenshot) must
+//      not bleed into the QR canvas. A center square with a tiny
+//      inset is always smaller than the whole page and keeps the
+//      QR readable when it's near the centre, which is how
+//      operators frame their screenshots.
+//
+// The final output is a 720x720 PNG with a flat white background
+// so the invoice sheet's QR slot renders consistently regardless
+// of the source image's aspect ratio.
 async function cropQrImage(file) {
   const image = await imageFromFile(file);
   const canvas = document.createElement('canvas');
@@ -213,8 +286,22 @@ async function cropQrImage(file) {
     } catch {}
   }
 
-  bounds ||= findDenseSquare(ctx, canvas.width, canvas.height);
-  const crop = bounds ? cropBoundsToSquare(bounds, canvas.width, canvas.height) : { x: 0, y: 0, width: canvas.width, height: canvas.height };
+  if (!bounds) bounds = findDenseSquare(ctx, canvas.width, canvas.height);
+
+  // Reject "detections" that essentially span the entire image.
+  // Both BarcodeDetector and findDenseSquare can misfire on a
+  // full-page screenshot by reporting the whole frame as the QR
+  // — applying that crop would still ship the whole page. When
+  // the detected bounds cover ~the full source we treat it as
+  // no detection and fall through to the center-square fallback.
+  const minDim = Math.min(canvas.width, canvas.height);
+  if (bounds && Math.max(bounds.width, bounds.height) > minDim * 0.94) {
+    bounds = null;
+  }
+
+  const crop = bounds
+    ? cropBoundsToSquare(bounds, canvas.width, canvas.height)
+    : centerSquareCrop(canvas.width, canvas.height);
   const output = document.createElement('canvas');
   output.width = 720;
   output.height = 720;
@@ -474,13 +561,17 @@ export function InvoiceComposer() {
     try {
       setQrSrc(await cropQrImage(file));
       setStatus('QR ready.');
-    } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setQrSrc(String(reader.result || '/payment-qr.png'));
-        setStatus('QR ready.');
-      };
-      reader.readAsDataURL(file);
+    } catch (error) {
+      // cropQrImage already does both detection + center-square
+      // fallback, so the only reason we land here is a hard failure
+      // (e.g. unreadable file, decode error). Surface that instead
+      // of silently shipping the raw screenshot — using the file as
+      // the QR source would re-introduce the "whole payment page
+      // shows up inside the QR slot" bug. Keep the previous QR (or
+      // the default) and leave the operator to retry with a clearer
+      // image.
+      console.warn('[inv] QR crop failed:', error?.message || error);
+      setStatus('Could not read that image. Try another QR screenshot.');
     }
   }
 
