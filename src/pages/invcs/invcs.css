@@ -1109,7 +1109,6 @@ dd{margin:0;text-align:right;font-weight:800}
   flex:0 0 auto;
 }
 .add-client-button,
-.create-event-button,
 .db-back-button{
   min-height:44px;
   border:0;
@@ -1145,6 +1144,15 @@ dd{margin:0;text-align:right;font-weight:800}
   text-align:left;
   cursor:pointer;
 }
+/* Clients tab rows render an additional .event-date-pill column
+ * between the row text and the permanent X. The .has-event-pill
+ * marker (added in WorkspacePages.jsx for /db Clients rows only)
+ * widens the grid template by one auto-sized column so the pill
+ * sits flush against the X without squashing the title. Subs rows
+ * keep the original two-column layout. */
+.db-list-row.has-event-pill{
+  grid-template-columns:minmax(0,1fr) auto 28px;
+}
 .db-list-row:hover,
 .db-list-row.active{
   border-color:var(--line);
@@ -1173,6 +1181,22 @@ dd{margin:0;text-align:right;font-weight:800}
   font-size:12px;
   font-weight:650;
 }
+/* Scope the .db-list-row span rule above to the meta-line span
+ * inside .db-list-row-text, so it doesn't bleed onto the
+ * .event-date-pill <span> rendered as a direct child of the row.
+ * Specificity: `.db-list-row span` is (0,1,1); this scoped
+ * override is (0,2,1) so it wins for the layout/font properties.
+ * Colour is intentionally left to the tone-specific rules
+ * (`.event-date-pill.event-tone-*`, also (0,2,0)) which beat the
+ * (0,1,1) muted-text fallback, so the pill renders in its tone
+ * colour rather than the meta-line muted grey. */
+.db-list-row > span.event-date-pill{
+  max-width:none;
+  overflow:visible;
+  text-overflow:clip;
+  font-size:11px;
+  font-weight:800;
+}
 
 /* Subscription status tones (Subs tab + detail). Driven by
  * subscriptionTone() in WorkspacePages.jsx — applies to both the
@@ -1185,17 +1209,39 @@ dd{margin:0;text-align:right;font-weight:800}
  *
  * The CSS variables are defined here so light and dark modes pick
  * the right palette automatically. Tones colour the row title
- * (`strong`) primarily and dim the meta line (`span`) to match. */
+ * (`strong`) primarily and dim the meta line (`span`) to match.
+ *
+ * Event tones (--evt-*) are a parallel four-state palette used by
+ * /db Clients rows + per-event RecordRow rows. Shared with the
+ * compact .event-date-pill so both the row tint and the date pill
+ * read off the same tokens. The palette is deliberately muted —
+ * not neon — so a list of mixed-status events stays calm. Light
+ * and dark variants are tuned individually so the text retains
+ * AA contrast against their respective row backgrounds.
+ *
+ *   --evt-past   muted red    — event already happened
+ *   --evt-tba    muted amber  — no real event_date set yet
+ *   --evt-soon   muted blue   — event today/+1/+2 days WIB
+ *   --evt-future muted green  — event more than 2 days out
+ */
 :root{
   --sub-active:#1f8a4c;
   --sub-warning:#d97706;
   --sub-expired:#bc3b42;
+  --evt-past:#b04a51;
+  --evt-tba:#b87420;
+  --evt-soon:#3f6fb1;
+  --evt-future:#3f7d52;
 }
 @media(prefers-color-scheme:dark){
   :root{
     --sub-active:#3ec27a;
     --sub-warning:#f5a14a;
     --sub-expired:#e57078;
+    --evt-past:#d77a82;
+    --evt-tba:#e5a366;
+    --evt-soon:#7aa6dd;
+    --evt-future:#7ab592;
   }
 }
 .db-list-row.sub-active strong{
@@ -1267,6 +1313,157 @@ dd{margin:0;text-align:right;font-weight:800}
   text-transform:uppercase;
   line-height:1.4;
   border:1px solid var(--line);
+}
+
+/* Compact event date pill. Rendered on /db Clients left-list rows
+ * (right of the client name) and inside per-event RecordRow rows
+ * (leftmost cell). Same component, two surfaces. The four tone
+ * variants pull a muted palette via --evt-* and tint:
+ *   - text colour                          (heavier, primary signal)
+ *   - background fill (low-alpha)          (light tint)
+ *   - border                               (matches text colour)
+ * so the pill reads at a glance without dominating the row. The
+ * text intentionally stays uppercase + tracked so a "TBA" pill and
+ * a "1 Jun 2026" pill look like the same component.
+ *
+ * The .event-tone-* classes are also applied to the row container
+ * (e.g. .db-list-row.event-tone-soon, .record-row.event-tone-past)
+ * to subtly tint the row's left edge / accent without changing the
+ * neutral surface — see the row-level rules further down. */
+.event-date-pill{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 10px;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  border:1px solid var(--line);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.04em;
+  white-space:nowrap;
+  line-height:1.4;
+  font-variant-numeric:tabular-nums;
+}
+.event-date-pill.event-tone-past{
+  color:var(--evt-past);
+  border-color:color-mix(in srgb,var(--evt-past) 36%,transparent);
+  background:color-mix(in srgb,var(--evt-past) 10%,transparent);
+}
+.event-date-pill.event-tone-tba{
+  color:var(--evt-tba);
+  border-color:color-mix(in srgb,var(--evt-tba) 38%,transparent);
+  background:color-mix(in srgb,var(--evt-tba) 12%,transparent);
+}
+.event-date-pill.event-tone-soon{
+  color:var(--evt-soon);
+  border-color:color-mix(in srgb,var(--evt-soon) 34%,transparent);
+  background:color-mix(in srgb,var(--evt-soon) 10%,transparent);
+}
+.event-date-pill.event-tone-future{
+  color:var(--evt-future);
+  border-color:color-mix(in srgb,var(--evt-future) 32%,transparent);
+  background:color-mix(in srgb,var(--evt-future) 9%,transparent);
+}
+
+/* /l preview header pill — sits immediately under the "Short link
+ * + password" heading so the operator can confirm the event date
+ * the saved row will carry without scanning the form. Margin-top
+ * lifts it off the heading baseline so the eyebrow / heading /
+ * pill stack reads cleanly. */
+.lg-event-date-pill,
+.delivery-event-date-pill{
+  margin-top:8px;
+  align-self:flex-start;
+}
+
+/* Row-level tone tints. Soft, kept to a coloured left edge so the
+ * row's neutral surface is preserved and a list of mixed-tone
+ * rows still scans like a list, not a colour test. The row title
+ * stays in --ink; the muted accent on the left edge is what
+ * carries the status signal alongside the date pill. .past tone
+ * additionally fades the strong text so finished events visibly
+ * recede.
+ *
+ * Implemented as an inset box-shadow rather than border-left so
+ * the tint survives the row's hover state (which rewrites
+ * `border-color` shorthand and would otherwise wipe a coloured
+ * left border). The 3px shadow spans only the left edge so it
+ * reads as a status accent without affecting layout. */
+.db-list-row.event-tone-soon,
+.record-row.event-tone-soon{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-soon) 75%,transparent);
+}
+.db-list-row.event-tone-future,
+.record-row.event-tone-future{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-future) 65%,transparent);
+}
+.db-list-row.event-tone-tba,
+.record-row.event-tone-tba{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-tba) 60%,transparent);
+}
+.db-list-row.event-tone-past,
+.record-row.event-tone-past{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-past) 55%,transparent);
+  opacity:.86;
+}
+.db-list-row.event-tone-past strong,
+.record-row.event-tone-past strong{
+  color:color-mix(in srgb,var(--evt-past) 70%,var(--muted) 30%);
+}
+
+/* Inline "Create Events" sheet inside ClientDetail. Replaces the
+ * earlier full-width "Create Events" pill at the bottom of the
+ * client detail panel. Pressing the .create-event-trigger pill
+ * expands this sheet inline so the operator never leaves the
+ * client context — the two choices inside (Create Links / Create
+ * Invoice) share a freshly-generated event_key so whichever side
+ * the operator opens first stamps that key on the row, and the
+ * other side groups onto the same /db row when it saves later.
+ *
+ * The dashed border + soft fill (var(--field)) signals "scratchpad"
+ * rather than a heavy modal — no backdrop, no z-index escalation.
+ * On wide viewports the two action pills sit side-by-side; on
+ * narrow screens they wrap to two lines so each remains tappable
+ * without horizontal scrolling. */
+.create-event-trigger,
+.create-event-sheet{
+  margin-top:14px;
+}
+.create-event-trigger{
+  width:auto;
+  align-self:flex-start;
+  padding:0 18px;
+}
+.create-event-sheet{
+  display:grid;
+  gap:10px;
+  padding:14px;
+  border:1px dashed var(--line-strong);
+  border-radius:18px;
+  background:var(--field);
+}
+.create-event-eyebrow{
+  margin:0;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+}
+.create-event-choices{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.create-event-choices a{
+  flex:1 1 160px;
+  min-width:0;
+  text-align:center;
+}
+.create-event-cancel{
+  align-self:flex-start;
+  padding:0 14px;
 }
 
 /* Permanent X delete control. Same shape and palette across every
@@ -1418,13 +1615,16 @@ dd{margin:0;text-align:right;font-weight:800}
   margin-top:12px;
 }
 .record-row{
-  /* date / name / View Links / View Invoice / X
-   * The trailing 28px column is the permanent .row-delete-x. The
-   * three middle columns are auto so the inner anchors size to
-   * their text and shift left as the X column reserves its space —
-   * actions never overlap the delete affordance. */
+  /* date pill / name / View Links / View Invoice / X
+   * The date column is now an inline .event-date-pill (content-
+   * sized) so the grid uses `auto` to size to the pill rather
+   * than reserving a fixed 120px slot. The trailing 28px column
+   * is the permanent .row-delete-x; the three middle action
+   * columns are auto so the inner anchors size to their text and
+   * shift left as the X column reserves its space — actions
+   * never overlap the delete affordance. */
   display:grid;
-  grid-template-columns:120px minmax(0,1fr) auto auto 28px;
+  grid-template-columns:auto minmax(0,1fr) auto auto 28px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -1432,11 +1632,6 @@ dd{margin:0;text-align:right;font-weight:800}
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
-}
-.record-row span{
-  color:var(--muted);
-  font-size:12px;
-  font-weight:750;
 }
 .record-row strong{
   min-width:0;
@@ -1470,9 +1665,6 @@ dd{margin:0;text-align:right;font-weight:800}
   font-family:inherit;
   letter-spacing:inherit;
   white-space:nowrap;
-}
-.create-event-button{
-  margin-top:14px;
 }
 .db-back-button{
   display:none;
@@ -1583,16 +1775,24 @@ dd{margin:0;text-align:right;font-weight:800}
     background:var(--panel);
   }
 }
+/* Off-screen export artboard. Anchored far to the left so it
+ * never paints on screen and never disturbs document scroll/
+ * focus. Width is fixed at the export target (1600px landscape
+ * artboard) so html2canvas always rasterises the sheet at the
+ * same paper size regardless of how the live preview happened to
+ * be sized. The sheet inside is reset to that exact width — the
+ * default min(100%, 1440px) rule is intentionally overridden so
+ * scaling viewports never bleed into the export. */
 .invoice-export-host{
   position:fixed;
   left:-10000px;
   top:0;
   z-index:-1;
-  width:1440px;
+  width:1600px;
   background:#fff;
   pointer-events:none;
 }
-.invoice-export-host .invoice-sheet{width:1440px;box-shadow:none}
+.invoice-export-host .invoice-sheet{width:1600px;max-width:none;box-shadow:none}
 
 @media(max-width:1023px){
   body{overflow:auto}
