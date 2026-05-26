@@ -79,9 +79,14 @@
 }
 .pf-panel--left::-webkit-scrollbar,
 .pf-panel--right::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
   display: none;
-  width: 0;
-  height: 0;
+  background: transparent;
+}
+.pf-panel--left::-webkit-scrollbar-thumb,
+.pf-panel--right::-webkit-scrollbar-thumb {
+  background: transparent;
 }
 
 /* Header — matches /inv .panel-header.

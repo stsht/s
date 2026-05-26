@@ -49,9 +49,15 @@ html,body,.editor-panel{
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 .editor-panel::-webkit-scrollbar{
-  width:0;
-  height:0;
+  width:0!important;
+  height:0!important;
   display:none;
+  background:transparent;
+}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.editor-panel::-webkit-scrollbar-thumb{
+  background:transparent;
 }
 body{
   min-height:100dvh;
@@ -659,8 +665,8 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   background:var(--soft);
 }
 .invoice-sheet{
-  width:min(100%,1260px);
-  min-height:1047px;
+  width:min(100%,1440px);
+  min-height:920px;
   padding:0;
   border:1px solid #e9edf5;
   border-radius:28px;
@@ -669,10 +675,10 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   box-shadow:0 24px 64px rgba(15,23,42,.12);
   overflow:hidden;
 }
-.sheet-top{min-height:118px;padding:28px 36px 18px;border-bottom:1px solid #edf0f5;display:flex;align-items:center}
-.sheet-top img{width:228px}
-.sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:28px 36px 22px}
-.bottom-grid{display:grid;grid-template-columns:minmax(248px,.36fr) minmax(0,1.64fr);gap:18px;margin:24px 36px 0;padding-top:20px;border-top:1px dashed rgba(15,23,42,.12);align-items:stretch}
+.sheet-top{min-height:104px;padding:24px 40px 16px;border-bottom:1px solid #edf0f5;display:flex;align-items:center}
+.sheet-top img{width:196px}
+.sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:26px 40px 20px}
+.bottom-grid{display:grid;grid-template-columns:minmax(248px,.32fr) minmax(0,1.68fr);gap:18px;margin:22px 40px 0;padding-top:18px;border-top:1px dashed rgba(15,23,42,.12);align-items:start}
 .sheet-box{border:1px solid #edf0f5;border-radius:22px;padding:18px;background:#fff}
 .sheet-grid .sheet-box{min-height:142px}
 dl{display:grid;gap:10px;margin:14px 0 0}
@@ -690,7 +696,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;min-height:20px}
 .meta-row dt{flex:0 0 auto;color:#777;font-size:13px;font-weight:600}
 .meta-row dd{flex:1 1 auto;margin:0;text-align:right;font-weight:800;color:#1f1a17;overflow-wrap:anywhere}
-.line-table{margin:0 36px 0;overflow:hidden;padding:0}
+.line-table{margin:0 40px 0;overflow:hidden;padding:0}
 .line-head,.line-row{display:grid;grid-template-columns:minmax(0,1.55fr) .24fr minmax(124px,.92fr);gap:12px;align-items:center}
 .line-head{padding:14px 18px;border-bottom:1px solid #edf0f5;color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#fbfdff}
 .line-row{padding:16px 18px;border-bottom:1px solid #edf0f5;font-size:13px}
@@ -699,7 +705,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .line-row small{display:block;margin-top:5px;color:#777;line-height:1.45}
 .line-row span{text-align:right;font-weight:800}
 .line-row span:nth-child(2),.line-head span:nth-child(2){text-align:center}
-.summary-box{width:min(100%,360px);margin:18px 36px 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:14px 16px;background:#fff}
+.summary-box{width:min(100%,380px);margin:16px 40px 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:14px 16px;background:#fff}
 .summary-box p{display:flex;justify-content:space-between;margin:0 0 12px;color:#777}
 .summary-box p:last-child{margin-bottom:0}
 .summary-box .grand{padding-top:12px;border-top:1px dashed #dbe3ee;color:#1f1a17;font-size:18px}
@@ -722,9 +728,9 @@ dd{margin:0;text-align:right;font-weight:800}
  * the rupiah string, which made the panel look wider on a 7-figure
  * invoice than on a 5-figure one. That border is intentionally
  * removed and stays removed. */
-.bottom-grid > .sheet-box.payment-box{padding:14px 14px 16px}
-.payment-box{display:grid;gap:10px;justify-items:center;text-align:center}
-.payment-box img{display:block;width:180px;height:180px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:10px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
+.bottom-grid > .sheet-box.payment-box{padding:16px 16px 18px}
+.payment-box{display:grid;gap:11px;justify-items:center;text-align:center}
+.payment-box img{display:block;width:168px;height:168px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
 .payment-box .eyebrow{margin:0;padding:0;border:0;background:transparent}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
@@ -739,15 +745,25 @@ dd{margin:0;text-align:right;font-weight:800}
 .bank-details{
   width:100%;
   display:grid;
-  gap:10px;
+  gap:8px;
   text-align:left;
+}
+.bank-details-heading{
+  margin:0;
+  color:#1f1a17;
+  font-size:13px;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  text-align:center;
 }
 .bank-details-intro{
   margin:0;
   color:#5c6f86;
-  font-size:11.5px;
+  font-size:11px;
   font-weight:600;
-  line-height:1.55;
+  line-height:1.5;
+  text-align:center;
 }
 .bank-details-intro strong{font-weight:900;color:#1f1a17}
 .bank-details-list{
@@ -780,11 +796,11 @@ dd{margin:0;text-align:right;font-weight:800}
   font-variant-numeric:tabular-nums;
   word-break:break-all;
 }
-.terms-box{padding:22px 24px}
+.terms-box{padding:20px 24px}
 .terms-box .eyebrow{font-size:14px;letter-spacing:.15em;color:#66778b}
-.terms-box p{margin:18px 0 0;color:#708096;line-height:1.78;font-size:13px}
+.terms-box p{margin:14px 0 0;color:#708096;line-height:1.62;font-size:13px}
 .terms-box strong{font-weight:900;color:#5c6f86}
-.invoice-sheet footer{display:flex;justify-content:space-between;gap:12px;margin:20px 36px 0;padding:18px 2px 30px;border-top:1px solid #edf0f5;color:#708096;font-size:12px}
+.invoice-sheet footer{display:flex;justify-content:space-between;gap:12px;margin:20px 40px 0;padding:16px 2px 24px;border-top:1px solid #edf0f5;color:#708096;font-size:12px}
 .download-status{min-height:18px;margin:10px 4px 0;text-align:right;color:var(--muted);font-size:12px;font-weight:800}
 .mobile-tabs{display:none}
 .workspace-page{
@@ -1572,11 +1588,11 @@ dd{margin:0;text-align:right;font-weight:800}
   left:-10000px;
   top:0;
   z-index:-1;
-  width:1260px;
+  width:1440px;
   background:#fff;
   pointer-events:none;
 }
-.invoice-export-host .invoice-sheet{width:1260px;box-shadow:none}
+.invoice-export-host .invoice-sheet{width:1440px;box-shadow:none}
 
 @media(max-width:1023px){
   body{overflow:auto}

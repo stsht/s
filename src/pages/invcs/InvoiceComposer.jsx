@@ -1063,10 +1063,12 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               <p className="eyebrow">Payment</p>
               {paymentMethod === 'bank' ? (
                 <div className="bank-details">
+                  <p className="bank-details-heading">Bank Transfer</p>
                   <p className="bank-details-intro">
-                    Please remit payment by bank transfer to the following <strong>{BANK_DETAILS.bank}</strong> account:
+                    Please transfer the payment to the <strong>{BANK_DETAILS.bank}</strong> account below. Kindly use the client name as the payment note when available.
                   </p>
                   <dl className="bank-details-list">
+                    <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
                     <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountName}</dd></div>
                     <div><dt>Account Number</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
                   </dl>
