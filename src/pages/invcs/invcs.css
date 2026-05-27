@@ -1708,6 +1708,70 @@ dd{margin:0;text-align:right;font-weight:800}
   letter-spacing:inherit;
   white-space:nowrap;
 }
+
+/* Name + price wrapper inside an event row.
+ *
+ * The grid above gives this single cell minmax(0,1fr) so it grows
+ * to fill the row's middle column. We render the event name as a
+ * <strong> + an inline price <span> beside it; both are baseline-
+ * aligned so the price reads on the same eye-line as the name and
+ * never as a heavy badge. The price is plain text (no pill, no
+ * border) per the spec, with tabular-nums so a "Rp 1.850.000" /
+ * "Rp 850.000" stack lines up cleanly across rows. The strong
+ * shrinks first under truncation (its existing ellipsis rule
+ * still applies via .record-row strong above); the price column
+ * is 0-shrink so the rupiah figure stays whole.
+ *
+ * On mobile (single-column row, max-width:1023px) the wrapper
+ * keeps the name and price side-by-side via flex. On extremely
+ * narrow widths the name's ellipsis trims first; if even the
+ * price doesn't fit, flex-wrap allows it to drop to a second line
+ * cleanly without breaking the action pills below. */
+.record-row-title{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.record-row-title strong{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex:0 1 auto;
+}
+.record-row-price{
+  flex:0 0 auto;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* "Already created" pill state for the right-side action buttons.
+ *
+ * View Links / View Invoice (when the underlying delivery or
+ * invoice exists) flip to a soft-green pill so the operator can
+ * tell at a glance which side of the row is already shipped. The
+ * tint is layered through color-mix() against --sub-active —
+ * the same green token used by the Subs tab "active" state — so
+ * light/dark modes pick the right shade automatically without a
+ * second palette. The neutral "Create Links" / "Create Invoice"
+ * pill is unchanged when the row is missing the corresponding
+ * record. */
+.record-row a.is-created,
+.record-row button.record-row-link.is-created{
+  background:color-mix(in srgb,var(--sub-active) 14%,var(--panel));
+  border-color:color-mix(in srgb,var(--sub-active) 48%,var(--line));
+  color:var(--sub-active);
+}
+.record-row a.is-created:hover,
+.record-row button.record-row-link.is-created:hover{
+  background:color-mix(in srgb,var(--sub-active) 22%,var(--panel));
+  border-color:var(--sub-active);
+}
 .db-back-button{
   display:none;
   margin:0 0 14px;
