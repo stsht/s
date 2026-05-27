@@ -73,6 +73,9 @@ function isHumanReadableContact(value) {
   // Instagram — handle (@name) or full instagram.com URL.
   if (/^@[a-zA-Z0-9._]+$/.test(v)) return true;
   if (/instagram\.com\//i.test(v)) return true;
+  // Bare IG handles from existing rows, e.g. "lisofan". Require at
+  // least one letter so numeric IDs/dates do not masquerade as contact.
+  if (/^(?=.*[a-zA-Z])[a-zA-Z0-9._]{2,30}$/.test(v)) return true;
   // Phone — digits with optional +, spaces, dashes, parens. At
   // least 6 digits in total so 4-digit years can't masquerade.
   const digits = v.replace(/[^\d]/g, '');
@@ -88,8 +91,8 @@ function DeleteIcon() {
     <svg
       className="row-delete-icon"
       viewBox="0 0 16 16"
-      width="14"
-      height="14"
+      width="12"
+      height="12"
       aria-hidden="true"
       focusable="false"
     >
@@ -1093,6 +1096,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     String(currentDelivery?.gallery_code || '').trim() ||
     String(currentDelivery?.base_slug || '').trim();
   const password = String(currentDelivery?.password || '').trim();
+  const deliveryEventDate = plainEventDate(currentDelivery?.event_date);
+  const deliveryDateLabel = deliveryEventDate ? dateLabel(deliveryEventDate) : 'TBA';
 
   const shortCode = resolveDeliveryShortCode(currentDelivery);
   const shortUrl = buildShortUrl(shortCode);
@@ -1125,6 +1130,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     // submission can ship both link rebuilds and a folder_name
     // PATCH in one request.
     next.folderName = String(currentDelivery?.folder_name || '').trim();
+    next.eventDate = plainEventDate(currentDelivery?.event_date);
     setLinkDraft(next);
   }, [currentDelivery]);
 
@@ -1214,6 +1220,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     setRepairStatus('');
     try {
       const trimmedFolder = String(linkDraft.folderName || '').trim();
+      const draftEventDate = String(linkDraft.eventDate || '').trim();
       const response = await fetch('/api/db-update-delivery', {
         method: 'POST',
         credentials: 'same-origin',
@@ -1225,6 +1232,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
           // it whenever the operator left a non-empty value so a
           // rename takes effect without requiring fresh data.
           folderName: trimmedFolder,
+          eventDate: /^\d{4}-\d{2}-\d{2}$/.test(draftEventDate) ? draftEventDate : '',
           links: SERVICE_LABELS.map(({ key }) => ({
             service: key,
             originalUrl: linkDraft[key] || '',
@@ -1263,21 +1271,26 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
             {compactEventDateLabel(currentDelivery?.event_date)}
           </span>
         </div>
-        <div className="detail-actions">
-          <button type="button" className="ghost-button compact" onClick={() => setEditingLinks((value) => !value)}>
-            {editingLinks ? 'Close Edit' : 'Edit Links'}
-          </button>
-          <button
-            type="button"
-            className="db-close-button"
-            onClick={onClose}
-            aria-label="Close detail view"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+        <div className="dd-heading-side">
+          <div className="detail-actions">
+            <button type="button" className="ghost-button compact" onClick={() => setEditingLinks((value) => !value)}>
+              {editingLinks ? 'Close Edit' : 'Edit Links'}
+            </button>
+            <button
+              type="button"
+              className="db-close-button"
+              onClick={onClose}
+              aria-label="Close detail view"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className="dd-header-pills" aria-label="Delivery metadata">
+            <span className="dd-header-pill">{deliveryDateLabel}</span>
+          </div>
         </div>
       </div>
       {!hasAnyDetail ? (
@@ -1378,6 +1391,14 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                     value={linkDraft.folderName || ''}
                     onChange={(event) => setLinkDraft((draft) => ({ ...draft, folderName: event.target.value }))}
                     placeholder="e.g. 260524 Sahputra, Mr. ( Birthday )"
+                  />
+                </label>
+                <label key="eventDate">
+                  <span>Event Date</span>
+                  <input
+                    type="date"
+                    value={linkDraft.eventDate || ''}
+                    onChange={(event) => setLinkDraft((draft) => ({ ...draft, eventDate: event.target.value }))}
                   />
                 </label>
                 {SERVICE_LABELS.map(({ key, label }) => (
@@ -3338,11 +3359,11 @@ export function DatabasePage() {
 // /l — Link Generator.
 //
 // Recreates the legacy /l workflow on top of the current React
-// shell. The folder-name conventions, slug + display-password
-// derivation, URL normalisation, gallery-code prettifier, message
-// template, and invoice handoff (URL params + localStorage) all
-// match the legacy behaviour 1:1 so saved deliveries look the
-// same in the database.
+// shell. The folder-name conventions, URL normalisation, gallery-
+// code prettifier, message template, and invoice handoff (URL
+// params + localStorage) follow the legacy flow, with current
+// policy layered on top for no-lowercase-l slugs and 7-char
+// passwords.
 //
 // Server contract:
 //   POST /api/save with the legacy payload shape. The current
@@ -3367,9 +3388,8 @@ const LINK_SERVICES = [
   { key: 'tn', label: 'TransferNow', placeholder: 'https://transfernow.net/...' },
 ];
 
-// Small string helpers — direct ports of the legacy helpers used
-// by the static /l page so the slug + password the worker stores
-// match what the client previewed.
+// Small string helpers used by /l so the client preview matches the
+// payload sent to the worker.
 function cleanLinkText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
@@ -3379,6 +3399,8 @@ function sanitizeSlugSegment(value) {
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    // Avoid lowercase l in generated gallery slugs.
+    .replace(/l/g, '1')
     .replace(/["'\u2019`]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/-+/g, '-')
@@ -3429,8 +3451,12 @@ function buildBaseSlug(folder) {
 function buildFolderPassword(folder) {
   const parts = extractFolderParts(folder);
   const date = parts.date;
-  // Display password = DDMMYY derived from the folder's YYMMDD prefix.
-  return /^\d{6}$/.test(date) ? date.slice(4, 6) + date.slice(2, 4) + date.slice(0, 2) : '';
+  // Preview password = DDMMYY + one deterministic digit derived from
+  // the folder date. The worker still authoritatively returns the
+  // final secure 7-char password after save.
+  if (!/^\d{6}$/.test(date)) return '';
+  const checksum = date.split('').reduce((sum, digit) => sum + Number(digit || 0), 0) % 10;
+  return date.slice(4, 6) + date.slice(2, 4) + date.slice(0, 2) + String(checksum);
 }
 
 function normalizeLinkUrl(value) {
@@ -3954,7 +3980,7 @@ export function LinkGeneratorPage() {
             value={info.pass}
             readOnly
             tabIndex={-1}
-            placeholder="270426"
+            placeholder="2704267"
           />
         </label>
       </div>

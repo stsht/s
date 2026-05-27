@@ -1133,7 +1133,7 @@ dd{margin:0;text-align:right;font-weight:800}
   width:100%;
   min-height:58px;
   display:grid;
-  grid-template-columns:minmax(0,1fr) 28px;
+  grid-template-columns:minmax(0,1fr) 22px;
   align-items:center;
   column-gap:10px;
   border:1px solid transparent;
@@ -1145,13 +1145,13 @@ dd{margin:0;text-align:right;font-weight:800}
   cursor:pointer;
 }
 /* Clients tab rows render an additional .event-date-pill column
- * between the row text and the permanent X. The .has-event-pill
+ * between the row text and the quiet X. The .has-event-pill
  * marker (added in WorkspacePages.jsx for /db Clients rows only)
  * widens the grid template by one auto-sized column so the pill
  * sits flush against the X without squashing the title. Subs rows
  * keep the original two-column layout. */
 .db-list-row.has-event-pill{
-  grid-template-columns:minmax(0,1fr) auto 28px;
+  grid-template-columns:minmax(0,1fr) auto 22px;
 }
 .db-list-row:hover,
 .db-list-row.active{
@@ -1466,36 +1466,17 @@ dd{margin:0;text-align:right;font-weight:800}
   padding:0 14px;
 }
 
-/* Permanent X delete control. Same shape and palette across every
- * /db row (list rows in Clients/Subs/Invoices and event rows
- * inside the client detail). It lives in its own grid column at
- * the far right of the row so the inner action anchors (View
- * Links / View Invoice) shift left and never overlap it.
- *
- * Palette is fixed so the control reads the same in light and
- * dark themes:
- *   - idle:  #8A8F98 icon on #F2F3F5 fill
- *   - hover: #FFFFFF icon on #1F1A17 fill
- *   - focus: matches hover so keyboard navigation finds the same
- *     visual target as a mouse user.
- *
- * Row-level hover does NOT change the X's palette — only direct
- * hover/focus on the X itself does. That keeps the destructive
- * affordance visually quiet until the user actually targets it.
- *
- * Note: the older `.db-delete-button`, `.db-row-delete`,
- * `.record-row-delete`, and `.armed` reveal rules that this block
- * replaces have been deleted. The detail-heading "Delete Client"
- * pill still uses `.ghost-button.compact.db-delete-button` and is
- * styled separately below. */
+/* Quiet per-row X delete control. It reserves a tiny grid column so
+ * actions never overlap it, but the grey hit-box only appears when
+ * the operator directly hovers or keyboard-focuses the X. */
 .row-delete-x{
-  width:28px;
-  height:28px;
-  min-height:28px;
+  width:22px;
+  height:22px;
+  min-height:22px;
   padding:0;
   border:0;
-  border-radius:8px;
-  background:#F2F3F5;
+  border-radius:6px;
+  background:transparent;
   color:#8A8F98;
   display:inline-flex;
   align-items:center;
@@ -1506,22 +1487,17 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .row-delete-x:hover,
 .row-delete-x:focus-visible{
-  background:#1F1A17;
-  color:#FFFFFF;
+  background:#F2F3F5;
+  color:#1F1A17;
   outline:none;
 }
 .row-delete-icon{
   display:block;
 }
 @media(prefers-color-scheme:dark){
-  /* Keep the same physical palette in dark mode — the X is a
-   * fixed UI affordance that should read identically regardless
-   * of theme. The idle fill is bright enough to remain visible
-   * against the dark panel background, and the hover state stays
-   * dark-on-light just like the screenshots. */
-  .row-delete-x{background:#F2F3F5;color:#8A8F98}
+  .row-delete-x{background:transparent;color:#8A8F98}
   .row-delete-x:hover,
-  .row-delete-x:focus-visible{background:#1F1A17;color:#FFFFFF}
+  .row-delete-x:focus-visible{background:#F2F3F5;color:#1F1A17}
 }
 
 /* The "Delete Client" header button keeps its existing red
@@ -1616,15 +1592,16 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .record-row{
   /* date pill / name / View Links / View Invoice / X
-   * The date column is now an inline .event-date-pill (content-
+   * The date column is an inline .event-date-pill (content-
    * sized) so the grid uses `auto` to size to the pill rather
-   * than reserving a fixed 120px slot. The trailing 28px column
-   * is the permanent .row-delete-x; the three middle action
-   * columns are auto so the inner anchors size to their text and
-   * shift left as the X column reserves its space — actions
-   * never overlap the delete affordance. */
+   * than reserving a fixed slot. The trailing 22px column is
+   * the quiet .row-delete-x — small, transparent at rest, with
+   * a grey hit-box appearing only on direct hover/focus. The
+   * three middle action columns are auto so the inner anchors
+   * size to their text and shift left as the X column reserves
+   * its space — actions never overlap the delete affordance. */
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto auto 28px;
+  grid-template-columns:auto minmax(0,1fr) auto auto 22px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -1888,7 +1865,7 @@ dd{margin:0;text-align:right;font-weight:800}
     grid-template-columns:1fr;
     align-items:start;
     position:relative;
-    padding-right:46px;
+    padding-right:40px;
   }
   .record-row strong{
     white-space:normal;
@@ -2602,6 +2579,31 @@ dd{margin:0;text-align:right;font-weight:800}
   display:grid;
   gap:14px;
   margin-top:4px;
+}
+.dd-heading-side{
+  display:grid;
+  justify-items:end;
+  gap:8px;
+}
+.dd-header-pills{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:6px;
+}
+.dd-header-pill{
+  display:inline-flex;
+  align-items:center;
+  min-height:26px;
+  padding:0 10px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.03em;
+  white-space:nowrap;
 }
 .dd-grid-2{
   display:grid;
