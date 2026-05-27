@@ -660,7 +660,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onDeleteClient, onDeleteRecord, onViewLinks, onClose }) {
+function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClient, onDeleteRecord, onViewLinks, onClose }) {
   const todayIso = useMemo(() => jakartaTodayISO(), []);
   const records = buildClientRecords(client, invoices, deliveries, todayIso);
   const title = client?.title || 'Ms.';
@@ -717,6 +717,15 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onDeleteRe
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
+          <button
+            type="button"
+            className="ghost-button compact icon-button"
+            onClick={() => onEditClient?.(client)}
+            aria-label="Edit client"
+          >
+            <EditIcon />
+            <span>Edit</span>
+          </button>
           <button
             type="button"
             className="ghost-button compact db-delete-button"
@@ -873,8 +882,9 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onDeleteRe
 // /db Clients left list so both surfaces stay visually consistent.
 function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, onDelete, onViewLinks }) {
   const hasDelivery = !!row.delivery?.id;
+  const hasInvoice = !!row.invoice?.id;
   const linkLabel = hasDelivery ? 'View Links' : 'Create Links';
-  const invoiceLabel = row.invoice?.id ? 'View Invoice' : 'Create Invoice';
+  const invoiceLabel = hasInvoice ? 'View Invoice' : 'Create Invoice';
   // Compact date pill on the row. row.eventDate is populated by
   // buildClientRecords from real event_date columns only
   // (plainEventDate strips ISO timestamps), so a created_at /
@@ -883,14 +893,39 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   // bookkeeping timestamp.
   const dateText = compactEventDateLabel(row.eventDate);
   const toneClass = tone ? `event-tone-${tone}` : '';
+  // Plain-text price beside the event name. Pulled off the linked
+  // invoice when there is one — invoices carry the priced columns
+  // (total / grand_total / price), deliveries don't. Same column
+  // priority used by the legacy ListRow rendering further down so
+  // /db consistently surfaces the same field across surfaces.
+  // Rendered as plain text (not a pill/badge) and only when a
+  // non-zero numeric value is present, so events that genuinely
+  // have no price stay clean.
+  const rawPrice = hasInvoice
+    ? (row.invoice.total || row.invoice.grand_total || row.invoice.price)
+    : '';
+  const priceNumber = Number(rawPrice) || 0;
+  const priceText = priceNumber > 0 ? rupiah(priceNumber) : '';
+  // Green ("already created") state for the right-side action
+  // buttons. Driven directly by hasDelivery / hasInvoice so the
+  // visual state always matches reality — a row whose linked
+  // delivery exists shows a green "View Links", a row whose
+  // invoice exists shows a green "View Invoice", and rows missing
+  // either fall back to the neutral "Create …" pill.
+  const linkClassName = `record-row-link${hasDelivery ? ' is-created' : ''}`;
+  const invoiceClassName = `record-row-link-anchor${hasInvoice ? ' is-created' : ''}`;
+  const linkAnchorClass = `record-row-link-anchor${hasDelivery ? ' is-created' : ''}`;
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
       <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
-      <strong>{row.name || fallbackName}</strong>
+      <div className="record-row-title">
+        <strong>{row.name || fallbackName}</strong>
+        {priceText ? <span className="record-row-price">{priceText}</span> : null}
+      </div>
       {hasDelivery ? (
         <button
           type="button"
-          className="record-row-link"
+          className={linkClassName}
           onClick={(event) => {
             event.stopPropagation();
             onViewLinks?.(row.delivery);
@@ -899,11 +934,11 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
           {linkLabel}
         </button>
       ) : (
-        <a href={eventLinkHref} target="_blank" rel="noopener noreferrer">
+        <a className={linkAnchorClass} href={eventLinkHref} target="_blank" rel="noopener noreferrer">
           {linkLabel}
         </a>
       )}
-      <a href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
+      <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
         {invoiceLabel}
       </a>
       <button
@@ -2915,17 +2950,41 @@ export function DatabasePage() {
       return;
     }
 
+    // Edit-existing flow: when the right panel is the edit form
+    // (selected.type === 'client-edit'), forward the row's id so
+    // the worker PATCHes the existing client + cascades updates
+    // through linked invoices/deliveries (handleClientSave already
+    // does both when body.id is present and not legacy:*). New
+    // clients still POST without an id and reload the page so the
+    // freshly-inserted row is selectable from the list.
+    const isEdit = selected?.type === 'client-edit';
+    const editId = isEdit ? String(selected?.data?.id || selected?.data?.client_id || '') : '';
+
     setSaveStatus('Saving...');
     try {
+      const payload = isEdit && editId ? { ...draft, id: editId } : draft;
       const response = await fetch('/api/clients-save', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(payload),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || 'Save failed.');
-      window.location.reload();
+      if (isEdit) {
+        // Walk back to the parent client detail view so the right
+        // panel re-renders against the now-updated row, and refetch
+        // /api/db so the left list + the right panel pick up the
+        // saved name/contact immediately. selectedClient is computed
+        // via clients.find(id === selected.id), so the new payload
+        // automatically flows through both panels — no manual patch
+        // of selected.data needed.
+        setSaveStatus('');
+        back();
+        refetch();
+      } else {
+        window.location.reload();
+      }
     } catch (error) {
       setSaveStatus(error.message || 'Save failed.');
     }
@@ -3197,12 +3256,66 @@ export function DatabasePage() {
           />
         </>
       ) : null}
+      {selected?.type === 'client-edit' ? (
+        <>
+          <div className="detail-heading">
+            <div>
+              <p className="eyebrow">Edit Client</p>
+              <h2>{draft.name || selected?.data?.name || selected?.data?.client_name || 'Client'}</h2>
+            </div>
+            <div className="detail-actions">
+              <button
+                type="button"
+                className="db-close-button"
+                onClick={back}
+                aria-label="Close edit form"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <ClientForm
+            draft={draft}
+            onChange={setDraft}
+            onCancel={back}
+            onSave={saveClient}
+            status={saveStatus}
+          />
+        </>
+      ) : null}
       {selectedClient ? (
         <ClientDetail
           client={selectedClient}
           invoices={invoices}
           deliveries={data?.items || []}
           onDeleteClient={deleteClient}
+          onEditClient={(clientRow) => {
+            // Push the edit form onto the parent chain so closing
+            // it (Cancel / X / Esc) walks back to the same client
+            // detail view that launched it — same pattern used by
+            // View Links and SubscriptionEdit. Prefilling the draft
+            // here means the form mounts with the current name /
+            // title / contact and the operator sees what they're
+            // editing immediately. selected.data carries the row
+            // so saveClient can read its id when patching.
+            if (!clientRow) return;
+            const parent = selected;
+            setDraft({
+              title: String(clientRow.title || clientRow.client_title || 'Ms.'),
+              name: String(clientRow.name || clientRow.client_name || ''),
+              contact: String(clientRow.contact || clientRow.client_contact || ''),
+            });
+            setSaveStatus('');
+            setSelected({
+              type: 'client-edit',
+              id: clientRow.id,
+              data: clientRow,
+              parent,
+            });
+          }}
           onDeleteRecord={(row) =>
             deleteRecord({
               kind: 'event',
@@ -3298,7 +3411,7 @@ export function DatabasePage() {
           onCancel={back}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'delivery' ? (
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'delivery' ? (
         <>
           <div className="list-stack">
             <ListRow
