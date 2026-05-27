@@ -731,10 +731,16 @@ dd{margin:0;text-align:right;font-weight:800}
  * the rupiah string, which made the panel look wider on a 7-figure
  * invoice than on a 5-figure one. That border is intentionally
  * removed and stays removed. */
-.bottom-grid > .sheet-box.payment-box{padding:18px}
-.payment-box{display:grid;gap:11px;justify-items:center;align-content:start;text-align:center}
+.bottom-grid > .sheet-box.payment-box{padding:26px 18px}
+.payment-box{
+  display:grid;
+  grid-template-rows:auto auto 1fr auto;
+  gap:14px;
+  justify-items:center;
+  text-align:center;
+}
 .payment-box img{display:block;width:168px;height:168px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
-.payment-box .eyebrow{margin:0;padding:0;border:0;background:transparent}
+.payment-box .eyebrow{margin:0 0 4px;padding:0;border:0;background:transparent;letter-spacing:.2em}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .deposit-due strong{font-size:18px;font-weight:900;color:#1f1a17;line-height:1.2}
@@ -748,15 +754,16 @@ dd{margin:0;text-align:right;font-weight:800}
 .bank-details{
   width:100%;
   display:grid;
-  gap:10px;
+  gap:16px;
+  align-self:center;
   text-align:left;
 }
 .bank-details-heading{
-  margin:0;
+  margin:0 0 2px;
   color:#1f1a17;
   font-size:13px;
   font-weight:900;
-  letter-spacing:.04em;
+  letter-spacing:.08em;
   text-transform:uppercase;
   text-align:center;
 }
@@ -775,20 +782,15 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:space-between;
   gap:10px;
 }
-.bank-details-row--compact{
-  justify-content:center;
-  gap:18px;
-}
-.bank-details-row--compact dd{
-  text-align:left;
-}
 .bank-details-list dt{
+  flex:0 0 auto;
   color:#777;
   font-size:11px;
   font-weight:700;
   letter-spacing:.04em;
 }
 .bank-details-list dd{
+  flex:1 1 auto;
   margin:0;
   color:#1f1a17;
   font-size:13px;
@@ -1755,19 +1757,67 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 /* Off-screen export artboard. Anchored far to the left so it
  * never paints on screen and never disturbs document scroll/
- * focus. Width is fixed at 1000 CSS px, then html2canvas exports at
- * scale=3 for a crisp 3000px JPG. Height is content-driven so long
- * terms/payment sections cannot be clipped. */
+ * focus. Width is fixed at 3000 CSS px so html2canvas exports the
+ * JPG directly at the target width with scale=1. Height remains
+ * content-driven so long terms/payment sections cannot be clipped. */
 .invoice-export-host{
   position:fixed;
   left:-10000px;
   top:0;
   z-index:-1;
-  width:1000px;
+  width:3000px;
   background:#fff;
   pointer-events:none;
 }
-.invoice-export-host .invoice-sheet{width:1000px;max-width:none;height:auto;box-shadow:none}
+.invoice-export-host .invoice-sheet{
+  --invoice-page-width:3000px;
+  --invoice-page-min-height:2121px;
+  --invoice-page-margin:4.5cm;
+  width:3000px;
+  max-width:none;
+  height:auto;
+  box-shadow:none;
+  border-width:3px;
+  border-radius:84px;
+}
+.invoice-export-host .sheet-top{min-height:258px;padding:60px var(--invoice-page-margin) 42px;border-bottom-width:3px}
+.invoice-export-host .sheet-top img{width:510px}
+.invoice-export-host .sheet-grid{gap:54px;margin:66px var(--invoice-page-margin) 54px}
+.invoice-export-host .bottom-grid{gap:54px;margin:60px var(--invoice-page-margin) 0;padding-top:54px;border-top-width:3px}
+.invoice-export-host .sheet-box{border-width:3px;border-radius:66px;padding:54px}
+.invoice-export-host .sheet-grid .sheet-box{min-height:378px}
+.invoice-export-host .eyebrow{font-size:33px;letter-spacing:.14em}
+.invoice-export-host dl{gap:30px;margin:42px 0 0}
+.invoice-export-host dt{font-size:39px}
+.invoice-export-host .meta-list{gap:24px;margin:36px 0 0}
+.invoice-export-host .meta-row{gap:42px;min-height:60px}
+.invoice-export-host .meta-row dt{font-size:39px}
+.invoice-export-host .line-table{border-width:3px}
+.invoice-export-host .line-head,
+.invoice-export-host .line-row{gap:36px}
+.invoice-export-host .line-head{padding:42px 54px;border-bottom-width:3px;font-size:33px}
+.invoice-export-host .line-row{padding:48px 54px;border-bottom-width:3px;font-size:39px}
+.invoice-export-host .line-row small{margin-top:15px}
+.invoice-export-host .summary-box{width:min(100%,1020px);margin:42px var(--invoice-page-margin) 0 auto;border-width:3px;border-radius:60px;padding:39px 45px}
+.invoice-export-host .summary-box p{margin:0 0 36px}
+.invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:54px}
+.invoice-export-host .bottom-grid > .sheet-box.payment-box{padding:78px 54px}
+.invoice-export-host .payment-box{gap:42px}
+.invoice-export-host .payment-box img{width:504px;height:504px;border-width:3px;border-radius:54px;padding:27px}
+.invoice-export-host .payment-box .eyebrow{margin:0 0 12px;letter-spacing:.2em}
+.invoice-export-host .deposit-due{gap:12px}
+.invoice-export-host .deposit-due span{font-size:33px}
+.invoice-export-host .deposit-due strong{font-size:54px}
+.invoice-export-host .bank-details{gap:48px}
+.invoice-export-host .bank-details-heading{margin:0 0 6px;font-size:39px}
+.invoice-export-host .bank-details-list{gap:24px;padding:36px 42px;border-width:3px;border-radius:42px}
+.invoice-export-host .bank-details-row{gap:30px}
+.invoice-export-host .bank-details-list dt{font-size:33px}
+.invoice-export-host .bank-details-list dd{font-size:39px}
+.invoice-export-host .terms-box{padding:60px 72px}
+.invoice-export-host .terms-box .eyebrow{font-size:42px}
+.invoice-export-host .terms-box p{margin:42px 0 0;font-size:39px}
+.invoice-export-host .invoice-sheet footer{gap:36px;margin:54px var(--invoice-page-margin) 0;padding:42px 6px 60px;border-top-width:3px;font-size:36px}
 
 @media(max-width:1023px){
   body{overflow:auto}
