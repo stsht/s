@@ -2996,6 +2996,55 @@ function notFoundPage(path = '') {
 </html>`;
 }
 
+/**
+ * Wrap the entry-HTML responses we serve from the Pages asset
+ * bundle (and the inline rootHomepage / notFoundPage strings) with
+ * cache headers that force the browser to revalidate every time.
+ *
+ * Background. The hashed JS/CSS bundles emitted by Vite are
+ * content-addressed and can be cached forever — that part is fine.
+ * The entry HTML (g/index.html, db/index.html, …) is the index
+ * that pins which hashed bundle gets loaded; if a mobile browser
+ * keeps a stale entry HTML it will render an old build forever.
+ *
+ * That is the exact failure mode behind the "Android still shows
+ * the old `Hello, Title Name` UI after clearing site data" report
+ * for /g/<slug> and /<short>: those routes are served by the same
+ * /g/index.html as desktop (this worker rewrites both to /g/), but
+ * Pages' default ETag-based revalidation is treated as
+ * opportunistic by several Android engines (Firefox Focus and the
+ * DuckDuckGo browser in particular), so the old entry sticks
+ * around and pulls in stale CSS/JS.
+ *
+ * Forcing `Cache-Control: no-cache, must-revalidate, max-age=0`
+ * on the entry HTML makes every reload hit the origin (or at
+ * minimum validate against the ETag), and `Vary: Cookie` keeps
+ * admin and public visitors on separate cache entries — the
+ * gallery page POSTs an empty-password admin probe with
+ * credentials, and the rendered state diverges by cookie. The
+ * hashed bundles are unaffected (this only touches `text/html`
+ * responses), so the immutable-cache benefit on the heavy assets
+ * is preserved.
+ */
+function withFreshHtmlHeaders(response) {
+  if (!response) return response;
+  const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('text/html')) return response;
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'no-cache, must-revalidate, max-age=0');
+  const existingVary = headers.get('Vary');
+  if (!existingVary) {
+    headers.set('Vary', 'Cookie');
+  } else if (!/\bcookie\b/i.test(existingVary)) {
+    headers.set('Vary', `${existingVary}, Cookie`);
+  }
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -3003,7 +3052,9 @@ export default {
 
     try {
 	      if (request.method === 'GET' && url.pathname === '/') {
-	        return new Response(rootHomepage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+	        return withFreshHtmlHeaders(
+	          new Response(rootHomepage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+	        );
 	      }
 	      // /admin and /invcs were duplicate UI surfaces that we retired
 	      // in the unified-frame migration. _redirects sends /admin → /db/
@@ -3012,27 +3063,27 @@ export default {
 	      if (request.method === 'GET' && ['/inv', '/inv/', '/invoice', '/invoice/', '/inv/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/inv/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
       if (request.method === 'GET' && ['/l', '/l/', '/l/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/l/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
       if (request.method === 'GET' && ['/subs', '/subs/', '/subs/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/subs/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
       if (request.method === 'GET' && ['/db', '/db/', '/db/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/db/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
       if (request.method === 'GET' && ['/g', '/g/', '/g/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/g/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
       if (request.method === 'POST' && url.pathname === '/api/admin-check') return await handleAdminCheck(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-save') return await handleInvoiceSave(request, env);
@@ -3067,14 +3118,16 @@ export default {
           await insertLog(env, request, delivery.id, 'page_view');
           const assetUrl = new URL(request.url);
           assetUrl.pathname = '/g/';
-          return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+          return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
         }
         // Unknown short code: serve a real 404 so the address bar
         // keeps the URL the visitor typed (a 302 to "/" hid that)
         // and the browser marks the response as an error. Bots
         // walking the short-code space hit both this 404 and the
         // 40/min rate limit we already consumed above.
-        return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        return withFreshHtmlHeaders(
+          new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+        );
       }
 
       const galleryMatch = url.pathname.match(/^\/g\/([^/]+)\/?$/i);
@@ -3089,12 +3142,14 @@ export default {
           // not-public) get a generic 404. Indistinguishable from a
           // slug that simply does not exist — an attacker can't tell
           // "blocked" from "never existed".
-          return new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+          return withFreshHtmlHeaders(
+            new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+          );
         }
         if (delivery) await insertLog(env, request, delivery.id, 'page_view');
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/g/';
-        return env.ASSETS.fetch(new Request(assetUrl.toString(), request));
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
 
       const oldDeliveryMatch = url.pathname.match(/^\/l\/([^/]+)\/?$/i);

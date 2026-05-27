@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="robots" content="noindex,nofollow" />
+    <!--
+      Advertise both colour schemes at the document level so mobile
+      browsers (notably Firefox Android, Firefox Focus and the
+      DuckDuckGo browser) settle on the right palette at first
+      paint instead of either applying their own forced-dark
+      inversion or sticking to the previously-rendered scheme
+      across navigations. The CSS in invcs.css already toggles
+      `color-scheme: light` / `dark` on :root, but that runs only
+      after the React bundle parses — too late for these engines.
+    -->
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f7fb" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1226" />
     <title>StarShots Private Delivery</title>
