@@ -681,7 +681,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
 .sheet-top{min-height:86px;padding:20px var(--invoice-page-margin) 14px;border-bottom:1px solid #edf0f5;display:flex;align-items:center}
 .sheet-top img{width:170px}
 .sheet-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px var(--invoice-page-margin) 18px}
-.bottom-grid{display:grid;grid-template-columns:minmax(0,28fr) minmax(0,72fr);gap:18px;margin:20px var(--invoice-page-margin) 0;padding-top:18px;border-top:1px dashed rgba(15,23,42,.12);align-items:stretch}
+.bottom-grid{display:grid;grid-template-columns:minmax(0,30fr) minmax(0,70fr);gap:18px;margin:20px var(--invoice-page-margin) 0;padding-top:18px;border-top:1px dashed rgba(15,23,42,.12);align-items:stretch}
 .bottom-grid > .sheet-box{height:100%}
 .sheet-box{border:1px solid #edf0f5;border-radius:22px;padding:18px;background:#fff}
 .sheet-grid .sheet-box{min-height:126px}
@@ -699,24 +699,25 @@ dd{margin:0;text-align:right;font-weight:800}
 .meta-list{display:grid;gap:8px;margin:12px 0 0}
 .meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;min-height:20px}
 .meta-row dt{flex:0 0 auto;color:#777;font-size:13px;font-weight:600}
-.meta-row dd{flex:1 1 auto;margin:0;text-align:right;font-weight:800;color:#1f1a17;overflow-wrap:anywhere}
+.meta-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:15px;font-weight:800;color:#1f1a17;overflow-wrap:anywhere}
 .line-table{margin:0 var(--invoice-page-margin) 0;overflow:hidden;padding:0}
 .line-head,.line-row{display:grid;grid-template-columns:minmax(0,1.55fr) .24fr minmax(124px,.92fr);gap:12px;align-items:center}
-.line-head{padding:14px 18px;border-bottom:1px solid #edf0f5;color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#fbfdff}
+.line-head{padding:14px 18px;border-bottom:1px solid #dfe7f1;color:#5f6f83;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#f7faff}
 .line-row{padding:16px 18px;border-bottom:1px solid #edf0f5;font-size:13px}
 .line-row:last-child{border-bottom:0}
-.line-row strong{font-weight:850;color:#1f1a17}
+.line-row strong{font-size:15px;font-weight:850;color:#1f1a17}
 .line-row small{display:block;margin-top:5px;color:#777;line-height:1.45}
-.line-row span{text-align:right;font-weight:800}
+.line-row span{text-align:right;font-size:15px;font-weight:800}
 .line-row span:nth-child(2),.line-head span:nth-child(2){text-align:center}
 .summary-box{width:min(100%,340px);margin:14px var(--invoice-page-margin) 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:13px 15px;background:#fff}
 .summary-box p{display:flex;justify-content:space-between;margin:0 0 12px;color:#777}
 .summary-box p:last-child{margin-bottom:0}
 .summary-box .grand{padding-top:12px;border-top:1px dashed #dbe3ee;color:#1f1a17;font-size:18px}
+.summary-box .grand strong{font-weight:900}
 /* Payment box layout. The QR canvas (or Bank Transfer details
  * block) + caption live in a single column, centred. The card is
  * deliberately narrower than the Terms & Conditions card next to it:
- * the bottom-grid columns above are fixed at 28% / 72% so the two
+ * the bottom-grid columns above are fixed at 30% / 70% so the two
  * canvases are predictable in both preview and JPG export. The QR
  * image is kept readable but its container no longer dominates:
  * outer .sheet-box padding is tightened, the QR mat-card is smaller, and the inner
@@ -772,9 +773,9 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:8px;
   margin:0;
   padding:12px 14px;
-  border:1px solid #edf0f5;
+  border:1px solid #dfe7f1;
   border-radius:14px;
-  background:#fbfdff;
+  background:#f7faff;
 }
 .bank-details-row{
   display:flex;
@@ -1792,20 +1793,20 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .meta-list{gap:24px;margin:36px 0 0}
 .invoice-export-host .meta-row{gap:42px;min-height:60px}
 .invoice-export-host .meta-row dt{font-size:39px}
-.invoice-export-host .meta-row dd{font-size:39px}
+.invoice-export-host .meta-row dd{font-size:45px}
 .invoice-export-host .line-table{border-width:3px}
 .invoice-export-host .line-head,
 .invoice-export-host .line-row{gap:36px}
 .invoice-export-host .line-head{padding:42px 54px;border-bottom-width:3px;font-size:33px}
 .invoice-export-host .line-row{padding:48px 54px;border-bottom-width:3px;font-size:39px}
 .invoice-export-host .line-row strong,
-.invoice-export-host .line-row span{font-size:42px}
+.invoice-export-host .line-row span{font-size:45px}
 .invoice-export-host .line-row small{margin-top:15px;font-size:33px}
 .invoice-export-host .summary-box{width:min(100%,1020px);margin:42px var(--invoice-page-margin) 0 auto;border-width:3px;border-radius:60px;padding:39px 45px}
 .invoice-export-host .summary-box p{margin:0 0 36px;font-size:39px}
 .invoice-export-host .summary-box p strong{font-size:39px}
 .invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:54px}
-.invoice-export-host .summary-box .grand strong{font-size:54px}
+.invoice-export-host .summary-box .grand strong{font-size:54px;font-weight:900}
 .invoice-export-host .bottom-grid > .sheet-box.payment-box{padding:78px 54px}
 .invoice-export-host .payment-box{gap:42px}
 .invoice-export-host .payment-box img{width:504px;height:504px;border-width:3px;border-radius:54px;padding:27px}
