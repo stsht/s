@@ -737,11 +737,11 @@ export function InvoiceComposer() {
     // sheet into an off-screen host fixed at INVOICE_EXPORT_WIDTH
     // so html2canvas captures only the sheet (no preview-panel
     // chrome, scrollbar, toolbar, or panel padding) at a known
-    // pixel width, then rasterise it 1:1.
+    // pixel width, then rasterise it at a higher scale.
     //
-    // A4 landscape at CSS 96dpi is 1123 x 794 px. scale=1 keeps
-    // the generated JPG exactly that size instead of the earlier
-    // oversized wide canvas.
+    // Lay the sheet out at 1000px wide, then render at scale=3 so
+    // the JPG is 3000px wide and text stays crisp without forcing a
+    // fixed paper height that can clip the bottom content.
     const exportHost = document.createElement('div');
     exportHost.className = 'invoice-export-host';
     const exportSheet = documentRef.current.cloneNode(true);
@@ -750,23 +750,23 @@ export function InvoiceComposer() {
     try {
       const canvas = await html2canvas(exportSheet, {
         backgroundColor: '#ffffff',
-        scale: 1,
+        scale: 3,
         useCORS: true,
         allowTaint: true,
         imageTimeout: 0,
         logging: false,
-        // Match the A4 export host so html2canvas lays out the
-        // sheet at exactly the paper dimensions, with no
+        // Match the export host so html2canvas lays out the
+        // sheet at exactly the intended width, with no
         // wrap/overflow induced by the simulated window's narrower
         // default. Height is generous so a long content column
         // doesn't get clipped by the simulated viewport.
-        windowWidth: 1123,
-        windowHeight: 794,
+        windowWidth: 1000,
+        windowHeight: 3000,
       });
       const link = document.createElement('a');
       const safeClient = (clientName || 'Client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
       link.download = `${new Date().toISOString().slice(0, 10)}_${safeClient}_${mode}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 0.92);
+      link.href = canvas.toDataURL('image/jpeg', 0.95);
       link.click();
       setStatus('JPG ready.');
     } catch (error) {
@@ -1078,9 +1078,9 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                 <div className="bank-details">
                   <p className="bank-details-heading">Bank Transfer</p>
                   <dl className="bank-details-list">
-                    <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                    <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                    <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                    <div className="bank-details-row bank-details-row--compact"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                    <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                    <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
                   </dl>
                 </div>
               ) : (

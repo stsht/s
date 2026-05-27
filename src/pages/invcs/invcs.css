@@ -665,11 +665,11 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   background:var(--soft);
 }
 .invoice-sheet{
-  --invoice-page-width:1123px;
-  --invoice-page-height:794px;
+  --invoice-page-width:1000px;
+  --invoice-page-min-height:707px;
   --invoice-page-margin:1.5cm;
   width:min(100%,var(--invoice-page-width));
-  height:var(--invoice-page-height);
+  min-height:var(--invoice-page-min-height);
   padding:0;
   border:1px solid #e9edf5;
   border-radius:28px;
@@ -769,11 +769,18 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:14px;
   background:#fbfdff;
 }
-.bank-details-list > div{
+.bank-details-row{
   display:flex;
   align-items:baseline;
   justify-content:space-between;
   gap:10px;
+}
+.bank-details-row--compact{
+  justify-content:center;
+  gap:18px;
+}
+.bank-details-row--compact dd{
+  text-align:left;
 }
 .bank-details-list dt{
   color:#777;
@@ -794,7 +801,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .terms-box .eyebrow{font-size:14px;letter-spacing:.15em;color:#66778b}
 .terms-box p{margin:14px 0 0;color:#708096;line-height:1.62;font-size:13px}
 .terms-box strong{font-weight:900;color:#5c6f86}
-.invoice-sheet footer{display:flex;justify-content:space-between;gap:12px;margin:18px var(--invoice-page-margin) 0;padding:14px 2px 0;border-top:1px solid #edf0f5;color:#708096;font-size:12px}
+.invoice-sheet footer{display:flex;justify-content:space-between;gap:12px;margin:18px var(--invoice-page-margin) 0;padding:14px 2px 20px;border-top:1px solid #edf0f5;color:#708096;font-size:12px}
 .download-status{min-height:18px;margin:10px 4px 0;text-align:right;color:var(--muted);font-size:12px;font-weight:800}
 .mobile-tabs{display:none}
 .workspace-page{
@@ -1748,23 +1755,19 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 /* Off-screen export artboard. Anchored far to the left so it
  * never paints on screen and never disturbs document scroll/
- * focus. Size is fixed at A4 landscape (1123 x 794 CSS px) so
- * html2canvas always rasterises the sheet at the same paper size
- * regardless of how the live preview happened to be sized. The
- * sheet inside is reset to that exact size — the default
- * min(100%, A4) rule is intentionally overridden so
- * scaling viewports never bleed into the export. */
+ * focus. Width is fixed at 1000 CSS px, then html2canvas exports at
+ * scale=3 for a crisp 3000px JPG. Height is content-driven so long
+ * terms/payment sections cannot be clipped. */
 .invoice-export-host{
   position:fixed;
   left:-10000px;
   top:0;
   z-index:-1;
-  width:1123px;
-  height:794px;
+  width:1000px;
   background:#fff;
   pointer-events:none;
 }
-.invoice-export-host .invoice-sheet{width:1123px;max-width:none;height:794px;box-shadow:none}
+.invoice-export-host .invoice-sheet{width:1000px;max-width:none;height:auto;box-shadow:none}
 
 @media(max-width:1023px){
   body{overflow:auto}
@@ -1885,7 +1888,7 @@ dd{margin:0;text-align:right;font-weight:800}
   .mode-switch{width:100%}
   .two-col,.three-col{grid-template-columns:1fr}
   .line-head,.line-row{grid-template-columns:minmax(0,1fr) 44px 104px}
-  .invoice-sheet{width:1123px;max-width:none;transform:scale(.45);transform-origin:top left}
+  .invoice-sheet{width:1000px;max-width:none;transform:scale(.45);transform-origin:top left}
   .preview-canvas{place-items:start start;min-height:calc(100dvh - 230px)}
   .composer-shell.show-preview .preview-canvas{height:calc(100dvh - 230px)}
 }
