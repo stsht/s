@@ -109,6 +109,22 @@ button{cursor:pointer}
       radial-gradient(circle at 54% 72%, rgba(46,96,235,.46) 0%, transparent 58%),
       radial-gradient(circle at 78% 24%, rgba(150,196,255,.18) 0%, transparent 48%);
   }
+  /* Dark-mode logo fallback for the password gate and the public
+   * client delivery card. The components already ship a <picture>
+   * source-media swap to /logo-hero-white.png — this CSS filter is
+   * a belt-and-suspenders so the brand still inverts to white when
+   * the picture swap doesn't fire (some Firefox Android builds,
+   * stale <img> caches). brightness(0) flattens both PNG variants
+   * to black, invert(1) flips them to white; the result is identical
+   * whether the picture loaded the dark or the white asset, so the
+   * two mechanisms compose cleanly without conflicting. Pattern
+   * mirrors the existing _worker.js / index.html dark-mode rule
+   * already used for .logo / .ss-logo-hero. */
+  .gate-logo,
+  .public-delivery-logo{
+    filter:brightness(0) invert(1) sepia(.08) saturate(.7);
+    opacity:.92;
+  }
 }
 @keyframes ssDrift{
   from{transform:translate3d(-1.5%,-1%,0) scale(1)}
@@ -127,12 +143,16 @@ button{cursor:pointer}
   position:relative;
   z-index:1;
   width:min(100%,480px);
-  min-height:476px;
+  /* Cap min-height against the viewport so the card doesn't push
+   * its top off-screen on short / narrow phones. Centered layout
+   * is preserved on tall screens; on small ones the card shrinks
+   * to fit and the page stays scrollable. */
+  min-height:min(476px,calc(100dvh - 36px));
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:34px;
+  padding:clamp(24px,5vw,34px);
   border:1px solid var(--line);
   border-radius:28px;
   background:
@@ -186,13 +206,53 @@ button{cursor:pointer}
 .gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:12px;font-weight:800}
 .gate-status.error{color:var(--danger)}
 
+/* Mobile / narrow-viewport polish for the password gate.
+ *
+ * Goals (per mobile audit):
+ *   - No rigid widths/heights that overflow the viewport.
+ *   - Comfortable padding without feeling cramped.
+ *   - Typography that scales down so titles like
+ *     "Invoice Generator" or "Private Delivery" fit one line.
+ *   - Same glass / private workspace identity as desktop —
+ *     just sized properly for small screens.
+ *
+ * Switching the page from place-items:center to align-items:start
+ * on small viewports prevents the card top from sliding above the
+ * viewport when it exceeds 100dvh (which used to make the title
+ * unreachable on very short / landscape phones). The outer body
+ * still scrolls normally. */
+@media (max-width:640px){
+  .gate-page{
+    align-items:start;
+    padding:14px;
+  }
+  .gate-card{
+    min-height:auto;
+    padding:clamp(22px,6vw,28px);
+    border-radius:24px;
+  }
+  .gate-logo{width:min(190px,56vw);margin-bottom:22px}
+  .gate-card h1{
+    margin:0 0 22px;
+    font-size:clamp(26px,8vw,36px);
+  }
+  .gate-input{margin-bottom:14px}
+  .gate-input input{height:50px;border-radius:16px}
+  .gate-submit{min-height:50px;border-radius:16px}
+}
+
 .public-delivery-page{
   min-height:100svh;
   position:relative;
   display:grid;
   place-items:center;
   padding:clamp(18px,4vw,54px);
-  overflow:hidden;
+  /* No overflow:hidden here. The aurora/.ss-bg layers are
+   * position:fixed and unaffected by the page wrapper, so clipping
+   * here only ever cropped the card on tall content — and it was
+   * the trigger for the Firefox Android scroll-lock report. The
+   * outer body{overflow:auto} (set above) is the canonical scroll
+   * surface. */
 }
 .public-delivery-card{
   position:relative;
@@ -2580,12 +2640,30 @@ dd{margin:0;text-align:right;font-weight:800}
 
 @media(max-width:1023px){
   .public-delivery-page{
+    /* Top-aligned on mobile so a tall card never pushes its header
+     * above the viewport. The body keeps its overflow:auto so the
+     * card can scroll past the fold normally — no overflow:hidden
+     * trap on Firefox Android. */
     align-items:start;
     padding:14px;
   }
   .public-delivery-card{
-    min-height:calc(100svh - 28px);
+    /* Drop the rigid 760px / 100svh-72px floor on mobile. Cards
+     * grow to fit content and the page scrolls naturally — same
+     * design language as desktop, just unconstrained. */
+    min-height:auto;
     border-radius:24px;
+    padding:clamp(22px,5vw,32px);
+  }
+  .public-delivery-logo{
+    width:min(196px,58vw);
+  }
+  .public-delivery-header{
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .public-delivery-divider{
+    margin:0 0 18px;
   }
   .public-delivery-greeting,
   .public-delivery-card h1{
@@ -2600,17 +2678,52 @@ dd{margin:0;text-align:right;font-weight:800}
     text-align:center;
     margin:12px 0 20px;
   }
+  /* Keep the desktop 3-column row layout (icon → name → state)
+   * on mobile too. The previous override stacked the "Click"
+   * badge under the name, which read as the older delivery UI.
+   * The single-line modern row keeps mobile and desktop visually
+   * unified — just with a slightly smaller icon and tighter gap. */
   .public-delivery-row{
-    grid-template-columns:40px minmax(0,1fr);
+    grid-template-columns:40px minmax(0,1fr) auto;
+    gap:12px;
+    min-height:60px;
+    padding:10px 14px;
+  }
+  .public-delivery-icon{
+    width:32px;
+    height:32px;
+    border-radius:10px;
+    font-size:10px;
+  }
+  .public-delivery-name{
+    font-size:15px;
   }
   .public-delivery-state{
-    grid-column:2;
+    font-size:10px;
+    letter-spacing:.14em;
+  }
+  .public-delivery-signoff{
+    padding-top:24px;
   }
   .lg-services{grid-template-columns:1fr}
   .lg-actions{grid-template-columns:1fr}
   .lg-stats{grid-template-columns:1fr 1fr}
   .lg-output{min-height:220px}
   .dd-link-fields{grid-template-columns:1fr}
+}
+
+/* Extra-narrow phones: tighten the row state to a tap-friendly
+ * abbreviation slot. The badge stays right-aligned (modern feel)
+ * but its column collapses to a small chevron-style label so a
+ * 3-column row never wraps below ~340px wide. */
+@media(max-width:380px){
+  .public-delivery-row{
+    grid-template-columns:36px minmax(0,1fr) auto;
+    gap:10px;
+    padding:10px 12px;
+  }
+  .public-delivery-icon{width:30px;height:30px}
+  .public-delivery-state{letter-spacing:.10em}
 }
 
 
