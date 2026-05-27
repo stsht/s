@@ -44,16 +44,12 @@ const DEFAULT_PACKAGES = [
 // Bank transfer destination shown when the operator picks
 // "Bank Transfer" instead of "QR" in the payment block. Centralised
 // here so a future switch is a single-line change with no JSX/CSS
-// edits. The intro sentence is templated so the bank name flows
-// naturally into the wording on the JPG. `accountHolderLabel`
-// follows Indonesian banking convention with the "a.n." prefix
-// ("atas nama" — "in the name of"); the live preview/JPG render
-// it verbatim alongside the account number row.
+// edits.
 const BANK_DETAILS = {
   bank: 'Mandiri',
   accountName: 'BELLY',
   accountNumber: '1050023197043',
-  accountHolderLabel: 'a.n. BELLY',
+  accountHolderLabel: 'BELLY',
 };
 
 // Available payment methods rendered inside .payment-box. The
@@ -734,7 +730,7 @@ export function InvoiceComposer() {
       try { await document.fonts.ready; } catch {}
     }
     // Stable export artboard. The preview panel renders the sheet
-    // at min(100%, 1440px) which scales with viewport, but the
+    // at min(100%, A4 landscape) which scales with viewport, but the
     // exported JPG must always come out at the same paper size
     // regardless of how the preview happened to be sized when the
     // operator pressed Generate JPG. We clone the live invoice-
@@ -743,16 +739,9 @@ export function InvoiceComposer() {
     // chrome, scrollbar, toolbar, or panel padding) at a known
     // pixel width, then rasterise it 1:1.
     //
-    // Width 1600 produces a landscape JPG that's slightly wider
-    // than the previous on-screen 1440 sheet — readable at typical
-    // chat-pane sizes, and roughly 5x smaller than the previous
-    // export which used scale ~3 against the same 1440 host
-    // (yielding ~4320px-wide canvases). scale=1 keeps the output
-    // file size well bounded, and the 1600px raster is sharp at
-    // any normal viewing distance because every textual element
-    // in the sheet is laid out in CSS pixels (no fixed-resolution
-    // bitmaps in the body — the QR/logo are vector or
-    // generated-canvas, both of which re-rasterise crisply).
+    // A4 landscape at CSS 96dpi is 1123 x 794 px. scale=1 keeps
+    // the generated JPG exactly that size instead of the earlier
+    // oversized wide canvas.
     const exportHost = document.createElement('div');
     exportHost.className = 'invoice-export-host';
     const exportSheet = documentRef.current.cloneNode(true);
@@ -766,14 +755,13 @@ export function InvoiceComposer() {
         allowTaint: true,
         imageTimeout: 0,
         logging: false,
-        // Match the export host width so html2canvas lays out the
-        // sheet at exactly INVOICE_EXPORT_WIDTH pixels, with no
+        // Match the A4 export host so html2canvas lays out the
+        // sheet at exactly the paper dimensions, with no
         // wrap/overflow induced by the simulated window's narrower
         // default. Height is generous so a long content column
-        // doesn't get clipped — the canvas auto-trims to the
-        // sheet's actual rendered height.
-        windowWidth: 1600,
-        windowHeight: 2200,
+        // doesn't get clipped by the simulated viewport.
+        windowWidth: 1123,
+        windowHeight: 794,
       });
       const link = document.createElement('a');
       const safeClient = (clientName || 'Client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
@@ -988,8 +976,8 @@ function EditorPanel(props) {
               <span className="payment-method-label">Bank Transfer</span>
               <dl className="bank-details-summary-list">
                 <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                <div><dt>No. Rekening</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                <div><dt>Atas Nama</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
               </dl>
             </div>
           )}
@@ -1089,13 +1077,10 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               {paymentMethod === 'bank' ? (
                 <div className="bank-details">
                   <p className="bank-details-heading">Bank Transfer</p>
-                  <p className="bank-details-intro">
-                    Mohon lakukan pembayaran melalui transfer ke rekening <strong>{BANK_DETAILS.bank}</strong> berikut, <strong>{BANK_DETAILS.accountHolderLabel}</strong>. Mohon mencantumkan nama klien sebagai keterangan transfer.
-                  </p>
                   <dl className="bank-details-list">
                     <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                    <div><dt>No. Rekening</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                    <div><dt>Atas Nama</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                    <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                    <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
                   </dl>
                 </div>
               ) : (
