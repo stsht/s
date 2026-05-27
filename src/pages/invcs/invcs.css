@@ -702,13 +702,14 @@ dd{margin:0;text-align:right;font-weight:800}
 .meta-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:15px;font-weight:800;color:#1f1a17;overflow-wrap:anywhere}
 .line-table{margin:0 var(--invoice-page-margin) 0;overflow:hidden;padding:0}
 .line-head,.line-row{display:grid;grid-template-columns:minmax(0,1.55fr) .24fr minmax(124px,.92fr);gap:12px;align-items:center}
-.line-head{padding:14px 18px;border-bottom:1px solid #dfe7f1;color:#5f6f83;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#f7faff}
+.line-head{padding:14px 18px;border-bottom:1px solid #d8e2ee;color:#4f657c;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#f4f8fd}
 .line-row{padding:16px 18px;border-bottom:1px solid #edf0f5;font-size:13px}
 .line-row:last-child{border-bottom:0}
 .line-row strong{font-size:15px;font-weight:850;color:#1f1a17}
 .line-row small{display:block;margin-top:5px;color:#777;line-height:1.45}
 .line-row span{text-align:right;font-size:15px;font-weight:800}
 .line-row span:nth-child(2),.line-head span:nth-child(2){text-align:center}
+.line-head span:nth-child(3){text-align:right}
 .summary-box{width:min(100%,340px);margin:14px var(--invoice-page-margin) 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:13px 15px;background:#fff}
 .summary-box p{display:flex;justify-content:space-between;margin:0 0 12px;color:#777}
 .summary-box p:last-child{margin-bottom:0}
@@ -1794,7 +1795,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .meta-row{gap:42px;min-height:60px}
 .invoice-export-host .meta-row dt{font-size:39px}
 .invoice-export-host .meta-row dd{font-size:45px}
-.invoice-export-host .line-table{border-width:3px}
+.invoice-export-host .line-table{border-width:3px;padding:0}
 .invoice-export-host .line-head,
 .invoice-export-host .line-row{gap:36px}
 .invoice-export-host .line-head{padding:42px 54px;border-bottom-width:3px;font-size:33px}
