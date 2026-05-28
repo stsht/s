@@ -3110,13 +3110,15 @@ export function DatabasePage() {
   // Clients tab stays a pure CRM view (invoices + deliveries only).
   // Cross-leaks from Subs into Clients are handled server-side
   // (handleSubscriptionSave no longer creates client rows; orphan
-  // client rows are reaped on subscription delete) — this filter
-  // is the last line of defence so any stragglers from older runs
-  // don't surface here.
+  // client rows are reaped on subscription delete; buildClientSummaries
+  // filters out subscription-only client rows). This filter is the
+  // last line of defence so any stragglers from older runs don't
+  // surface here.
   const crmClients = useMemo(() => {
     return clients.filter((c) => {
       const invoiceCount = Number(c?.invoice_count || 0);
       const deliveryCount = Number(c?.delivery_count || 0);
+      const subscriptionCount = Number(c?.subscription_count || 0);
       const source = String(c?.source || '').toLowerCase();
       const hasInvoiceHistory =
         invoiceCount > 0 ||
@@ -3124,9 +3126,10 @@ export function DatabasePage() {
       const hasDeliveryHistory =
         deliveryCount > 0 ||
         (Array.isArray(c?.delivery_ids) && c.delivery_ids.length > 0);
+      const hasCrmHistory = hasInvoiceHistory || hasDeliveryHistory;
 
-      // Real history wins regardless of source state.
-      if (hasInvoiceHistory || hasDeliveryHistory) return true;
+      // Real CRM history wins regardless of source state.
+      if (hasCrmHistory) return true;
 
       // Drop legacy / subscription-derived summaries — these are
       // remnants from before the Subs/Clients decoupling.
@@ -3135,6 +3138,16 @@ export function DatabasePage() {
         source === 'subscription' ||
         source === 'subscriptions';
       if (isLegacyOrSubscriptionSource) return false;
+
+      // Subscription-only orphan: a public.clients row that exists
+      // ONLY because an older handleSubscriptionSave auto-created
+      // it (no invoices, no deliveries, but a subscription points
+      // at it). The Subs tab is the canonical surface for these
+      // people, so hide them from Clients. Fresh CRM clients with
+      // no history yet (operator just clicked Create Client and
+      // hasn't created any invoices/links) still pass because
+      // their subscription_count is zero.
+      if (subscriptionCount > 0) return false;
 
       // Otherwise include real client rows.
       return source === 'client';
