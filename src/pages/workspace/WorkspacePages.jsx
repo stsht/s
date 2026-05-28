@@ -1008,50 +1008,19 @@ function resolveDeliveryShortCode(delivery) {
   return '';
 }
 
-// Canonical public site for client-facing delivery links. We pin
-// this to the production hostname (and root short-code path)
-// instead of reading window.location.origin so a dashboard opened
-// on the legacy `sshots.pages.dev` host still produces, displays
-// and copies links on `starshots.pages.dev`. The worker keeps both
-// hosts working for already-delivered links via redirects, but
-// every newly generated/displayed link the operator sees is the
-// canonical form.
-const PUBLIC_SITE = 'https://starshots.pages.dev';
-const PUBLIC_HOST = 'starshots.pages.dev';
-
 // Build the canonical short URL the operator can paste/share.
 // Returns '' if the row has no usable short_code (caller renders
-// "Legacy link unavailable"). Always anchored to PUBLIC_SITE so a
-// `sshots.pages.dev/<short>` value never leaks into copy/paste.
+// "Legacy link unavailable"). Origin defaults to the current page
+// so the dashboard always copies a link on the same domain it was
+// opened on.
 function buildShortUrl(code) {
   if (!code) return '';
-  return `${PUBLIC_SITE}/${code}`;
-}
-
-// Repair any URL embedded in a stored or synthesised delivery
-// message so it points at the canonical `starshots.pages.dev/<short>`
-// shape regardless of which legacy form was originally saved:
-//   - https://sshots.pages.dev/<short>          → starshots.pages.dev/<short>
-//   - https://sshots.pages.dev/g/<short>        → starshots.pages.dev/<short>
-//   - https://starshots.pages.dev/g/<short>     → starshots.pages.dev/<short>
-// The underlying short_code/password are intentionally untouched —
-// this only rewrites the displayed/copied URL.
-function canonicalizeDeliveryUrls(text) {
-  const value = String(text || '');
-  if (!value) return value;
-  return value
-    // Old domain → new domain. Also strip an optional `/g/` prefix
-    // so legacy `sshots.pages.dev/g/<short>` collapses to the root
-    // short form on the canonical host in a single pass.
-    .replace(
-      /https?:\/\/(?:www\.)?sshots\.pages\.dev\/(?:g\/)?([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/gi,
-      `${PUBLIC_SITE}/$1`,
-    )
-    // Same-host /g/ legacy path → root short form on canonical host.
-    .replace(
-      /https?:\/\/(?:www\.)?starshots\.pages\.dev\/g\/([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/gi,
-      `${PUBLIC_SITE}/$1`,
-    );
+  if (typeof window === 'undefined') return `/${code}`;
+  try {
+    return new URL(`/${code}`, window.location.origin).toString();
+  } catch {
+    return `/${code}`;
+  }
 }
 
 // Synthesise a delivery message when the worker payload doesn't
@@ -1208,14 +1177,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
   // text into an empty IG slot) because that would re-introduce
   // bullet glyphs into the IG copy which is the bug the channel
   // split fixes.
-  // Stored templates may still contain legacy URL shapes
-  // (`sshots.pages.dev/...` or `starshots.pages.dev/g/...`). Repair
-  // them on display so the operator always copies the canonical
-  // `starshots.pages.dev/<short>` form. The underlying record's
-  // generated_text columns are not rewritten here — the canonicalizer
-  // only patches the rendered/copied output.
-  const storedWa = canonicalizeDeliveryUrls(String(currentDelivery?.generated_text_whatsapp || '').trim());
-  const storedIg = canonicalizeDeliveryUrls(String(currentDelivery?.generated_text_instagram || '').trim());
+  const storedWa = String(currentDelivery?.generated_text_whatsapp || '').trim();
+  const storedIg = String(currentDelivery?.generated_text_instagram || '').trim();
   const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, folder);
   const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password);
   const messageWa = storedWa || synthWa;
@@ -1379,7 +1342,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
               >
                 <span className="dd-eyebrow">Short Link</span>
                 <strong className="dd-card-strong">{shortDisplay}</strong>
-                <span className="dd-card-hint">Tap to Copy</span>
+                <span className="dd-card-hint">Tap To Copy &amp; Open</span>
               </button>
             ) : (
               <div className="dd-card dd-card--muted" aria-label="Legacy short link unavailable">
@@ -3804,13 +3767,8 @@ export function LinkGeneratorPage() {
     const slug = buildBaseSlug(folder);
     const pass = buildFolderPassword(folder);
     const galleryCode = prettyGalleryCode(slug);
-    // Pre-save preview URL. Anchored to the canonical public site
-    // (not window.location.origin) so the operator never sees a
-    // `sshots.pages.dev/g/<slug>` preview leak into copy/paste from
-    // a dashboard opened on the legacy host. Once the worker saves
-    // the delivery it returns the real 12-char short link, which
-    // overrides this preview.
-    const directUrl = slug ? `${PUBLIC_SITE}/g/${slug}` : PUBLIC_SITE;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const directUrl = slug ? `${origin}/g/${slug}` : origin;
     const cleanName = cleanLinkText(clientName);
     const matchesSaved =
       saved && saved.slug === slug && saved.pass === pass && saved.name === cleanName && saved.shortLink;
@@ -3946,7 +3904,7 @@ export function LinkGeneratorPage() {
 
       const finalShortLink =
         data.shortLink ||
-        (data.shortUrl ? `${PUBLIC_SITE}${data.shortUrl}` : info.directUrl);
+        (data.shortUrl ? `${window.location.origin}${data.shortUrl}` : info.directUrl);
       const finalPassword = String(data.password || '').trim() || info.pass;
       const finalMessage =
         data.generatedText ||
@@ -4053,8 +4011,8 @@ export function LinkGeneratorPage() {
 
   // What the delivery card displays. Mirrors the legacy logic:
   // saved → strip protocol; valid candidate slug+pass → "Save first";
-  // otherwise → canonical site host as a placeholder hint.
-  const fallbackHost = PUBLIC_HOST;
+  // otherwise → site host as a placeholder hint.
+  const fallbackHost = typeof window !== 'undefined' ? window.location.host : 'starshots.pages.dev';
   const deliveryDisplay = info.shortLink
     ? info.shortLink.replace(/^https?:\/\//, '')
     : info.slug && info.pass
