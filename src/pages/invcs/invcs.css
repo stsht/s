@@ -298,7 +298,7 @@ button{cursor:pointer}
    * visible animation reads better than two competing ones and
    * avoids the mask-compositor cost on iOS Safari / lower-powered
    * Android, where the sweep used to stutter ("patah-patah"). */
-  animation:ssElegantBreathe 5s cubic-bezier(.4,0,.2,1) infinite alternate;
+  animation:ssElegantBreathe 3.8s cubic-bezier(.4,0,.2,1) infinite alternate;
 }
 
 .gate-splash-hint{
@@ -339,7 +339,7 @@ button{cursor:pointer}
 
 /* Elegant breathing glow — replaces the prior ssShimmerSweep +
  * ssLogoBreathe pair. The brand fades from a low rest opacity up
- * to full strength, scales gently from .99 → 1.025, and gains a
+ * to full strength, scales gently from .96 → 1.03, and gains a
  * soft cool-blue drop-shadow glow that rises and falls with it.
  *
  * Composites entirely on the GPU: transform + opacity are layer
@@ -349,14 +349,14 @@ button{cursor:pointer}
  * previous mask-position sweep used to stutter. */
 @keyframes ssElegantBreathe{
   0%  {
-    transform:scale(.99);
+    transform:scale(.96);
     opacity:.35;
     filter:drop-shadow(0 0 0 rgba(138,180,248,0));
   }
   100%{
-    transform:scale(1.025);
+    transform:scale(1.03);
     opacity:1;
-    filter:drop-shadow(0 0 14px rgba(138,180,248,.32));
+    filter:drop-shadow(0 0 8px rgba(138,180,248,.35));
   }
 }
 
