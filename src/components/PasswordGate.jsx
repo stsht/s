@@ -74,6 +74,54 @@ export function PasswordGate({ title, children }) {
   const [lockUntil, setLockUntil] = useState(0);
   const [lockSeconds, setLockSeconds] = useState(0);
   const tickRef = useRef(null);
+  // Access-key input ref — used by the click/tap-to-focus handlers
+  // below so a tap on the card or the "Tap/Click to continue" hint
+  // pulls focus into the password field. Purely a UX affordance:
+  // typing the password without ever interacting with these still
+  // works exactly as before.
+  const inputRef = useRef(null);
+  const [inputFocused, setInputFocused] = useState(false);
+  // Pointer hint copy — "Tap to continue" on touch, "Click to
+  // continue" on mouse/trackpad. We pick by matchMedia so a hybrid
+  // device (laptop with touch screen) updates live when the user
+  // switches input modalities. Read synchronously on first render
+  // to avoid a flash of the wrong copy.
+  const [pointerCoarse, setPointerCoarse] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    try { return !!window.matchMedia('(pointer: coarse)').matches; } catch { return false; }
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const apply = () => setPointerCoarse(!!mq.matches);
+    apply();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+    if (mq.addListener) {
+      mq.addListener(apply);
+      return () => mq.removeListener(apply);
+    }
+    return undefined;
+  }, []);
+
+  function focusGateInput() {
+    const el = inputRef.current;
+    if (!el || el.disabled) return;
+    if (typeof document !== 'undefined' && document.activeElement === el) return;
+    try { el.focus({ preventScroll: false }); } catch { el.focus(); }
+  }
+
+  function handleCardClick(event) {
+    const t = event.target;
+    if (!t || typeof t.closest !== 'function') return;
+    // Don't steal focus from interactive children (the input itself,
+    // the show/hide toggle, the submit button, the linked label).
+    if (t.closest('input, button, a, label, [contenteditable="true"]')) return;
+    focusGateInput();
+  }
 
   // One-shot cookie probe. Runs only when localStorage had no
   // unexpired entry; success flips us to unlocked, failure leaves
@@ -195,23 +243,34 @@ export function PasswordGate({ title, children }) {
   return (
     <main className="gate-page">
       <GlobalBackground />
-      <form className="gate-card" onSubmit={openGate}>
+      <form className="gate-card" onSubmit={openGate} onClick={handleCardClick}>
         {/* picture/source swap to a real white-on-transparent asset
          * for dark mode — CSS filter:invert was unreliable on the
-         * existing PNG, so we ship a dedicated logo-hero-white.png. */}
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-          <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
-        </picture>
+         * existing PNG, so we ship a dedicated logo-hero-white.png.
+         *
+         * Wrapped in <span className="gate-brand"> so the idle
+         * shimmer/breathe animation (defined in invcs.css) has a
+         * positioned host with overflow:hidden to clip the sweep
+         * band to the brand bounding box. The PNG itself is
+         * untouched and stays at full opacity / crispness. */}
+        <span className="gate-brand">
+          <picture>
+            <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+            <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+          </picture>
+        </span>
         <p className="gate-eyebrow"><span />Private Workspace<span /></p>
         <h1>{title}</h1>
         <label htmlFor="gatePassword">Access key</label>
         <div className="gate-input">
           <input
             id="gatePassword"
+            ref={inputRef}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
@@ -225,6 +284,18 @@ export function PasswordGate({ title, children }) {
           {busy ? 'Opening...' : locked ? `Wait ${lockSeconds}s` : 'Sign In'}
         </button>
         <p className={`gate-status ${visibleStatus.includes('Unauthorized') || visibleStatus.includes('required') || locked ? 'error' : ''}`}>{visibleStatus}</p>
+        {/* Idle "continue" hint. Pulses gently in sync with the brand
+         * shimmer (CSS keyframes), hides while the input is focused
+         * so it never competes with active typing, and focuses the
+         * input on click/tap. Pointer-aware copy: "Tap" on touch,
+         * "Click" on mouse/trackpad. */}
+        <p
+          className={`gate-hint${inputFocused ? ' is-hidden' : ''}`}
+          onClick={focusGateInput}
+          aria-hidden={inputFocused ? 'true' : undefined}
+        >
+          {pointerCoarse ? 'Tap to continue' : 'Click to continue'}
+        </p>
       </form>
     </main>
   );
