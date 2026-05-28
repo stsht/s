@@ -85,26 +85,6 @@ export function PasswordGate({ title, children }) {
   // or fetch calls is touched — only the visual entry path.
   const inputRef = useRef(null);
   const [revealed, setRevealed] = useState(false);
-  // Pointer-aware copy for the splash hint. matchMedia is read on
-  // mount per spec; touch users see a brief desktop-default hint
-  // for a single frame, which is acceptable for the splash stage.
-  const [isTouch, setIsTouch] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const mq = window.matchMedia('(pointer: coarse)');
-    const apply = () => setIsTouch(!!mq.matches);
-    apply();
-    if (mq.addEventListener) {
-      mq.addEventListener('change', apply);
-      return () => mq.removeEventListener('change', apply);
-    }
-    if (mq.addListener) {
-      mq.addListener(apply);
-      return () => mq.removeListener(apply);
-    }
-    return undefined;
-  }, []);
 
   function handleReveal() {
     if (revealed) return;
@@ -252,7 +232,6 @@ export function PasswordGate({ title, children }) {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
-        <p className="gate-splash-hint">{isTouch ? 'Tap to continue' : 'Click to continue'}</p>
       </div>
 
       {/* Stage 2: the actual access-key form. Hidden (opacity 0,

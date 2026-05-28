@@ -127,22 +127,6 @@ function GalleryGate() {
   // slug behavior is touched.
   const inputRef = useRef(null);
   const [revealed, setRevealed] = useState(false);
-  const [isTouch, setIsTouch] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const mq = window.matchMedia('(pointer: coarse)');
-    const apply = () => setIsTouch(!!mq.matches);
-    apply();
-    if (mq.addEventListener) {
-      mq.addEventListener('change', apply);
-      return () => mq.removeEventListener('change', apply);
-    }
-    if (mq.addListener) {
-      mq.addListener(apply);
-      return () => mq.removeListener(apply);
-    }
-    return undefined;
   }, []);
 
   function handleReveal() {
@@ -289,7 +273,6 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
-        <p className="gate-splash-hint">{isTouch ? 'Tap to continue' : 'Click to continue'}</p>
       </div>
 
       {/* Stage 2: the actual access-key form. Identical inner

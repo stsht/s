@@ -289,26 +289,15 @@ button{cursor:pointer}
    * the keyframes) composites on its own layer too, so the entire
    * loop stays paint-free after the first frame. */
   will-change:transform,opacity;
-  /* Single 5 s breathing loop, alternating between the two endpoints
-   * defined by ssElegantBreathe below. cubic-bezier(.4,0,.2,1) is
-   * the Material/Apple "standard" ease — slightly slower at the
-   * extremes so the breath doesn't feel mechanical.
+  /* Single 3.8 s breathing loop, alternating between the two endpoints
+   * defined by ssElegantBreathe below. ease-in-out is used for a
+   * fluid, continuous loop without any flat pauses at the extremes.
    *
    * Replaces the prior shimmer-mask + breathe combo. One highly
    * visible animation reads better than two competing ones and
    * avoids the mask-compositor cost on iOS Safari / lower-powered
    * Android, where the sweep used to stutter ("patah-patah"). */
-  animation:ssElegantBreathe 3.8s cubic-bezier(.4,0,.2,1) infinite alternate;
-}
-
-.gate-splash-hint{
-  margin:0;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:800;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-  animation:ssHintPulse 3s ease-in-out infinite alternate;
+  animation:ssElegantBreathe 3.8s ease-in-out infinite alternate;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -360,11 +349,6 @@ button{cursor:pointer}
   }
 }
 
-@keyframes ssHintPulse{
-  0%  {opacity:.42}
-  100%{opacity:.88}
-}
-
 /* Reduced-motion: freeze every idle loop and skip the reveal
  * transition. The card and splash still toggle visibility via
  * the .is-revealed class — they just snap instead of fading. */
@@ -377,10 +361,6 @@ button{cursor:pointer}
     opacity:.85 !important;
     transform:scale(1) !important;
     filter:none !important;
-  }
-  .gate-splash-hint{
-    animation:none !important;
-    opacity:.75 !important;
   }
   .gate-splash,
   .gate-card{
