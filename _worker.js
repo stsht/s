@@ -565,8 +565,36 @@ async function fetchClients(env) {
   }
 }
 
+// Whether a contact value is "human-readable enough" to use as a
+// duplicate-detection key. The Clients tab and Subs tab both
+// store free-text contacts (phone, IG handle, IG URL, email), and
+// older imports sometimes left junk values (timestamps, opaque
+// ids, blanks). When the contact is not recognisably one of those
+// shapes we refuse to treat it as a match key — otherwise two
+// separate real people with the same name and the same blank
+// contact would collapse into a single bucket on save. Mirrors
+// the frontend isHumanReadableContact() in WorkspacePages.jsx so
+// both surfaces apply the same rule.
+function isHumanReadableContactValue(value = '') {
+  const v = String(value || '').trim();
+  if (!v) return false;
+  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) return false;
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return true; // email
+  if (/^@[a-zA-Z0-9._]+$/.test(v)) return true; // @handle
+  if (/instagram\.com\//i.test(v)) return true;
+  if (/^(?=.*[a-zA-Z])[a-zA-Z0-9._]{2,30}$/.test(v)) return true; // bare handle
+  const digits = v.replace(/[^\d]/g, '');
+  if (digits.length >= 6 && /^\+?[\d\s\-().]+$/.test(v)) return true;
+  return false;
+}
+
 async function findDuplicateClient(env, fields, currentId = '') {
   if (!fields.normalized_name) return null;
+  // Refuse to match on non-human-readable contacts so two real
+  // clients with the same name but no/blank/garbage contacts are
+  // not collapsed. Only an exact match on a recognisable
+  // phone/IG/email contact triggers duplicate detection.
+  if (!isHumanReadableContactValue(fields.contact)) return null;
   let rows = [];
   try {
     rows = await supabaseFetch(env, `/rest/v1/clients?select=*&normalized_name=eq.${encodeURIComponent(fields.normalized_name)}&limit=50`);
@@ -853,7 +881,12 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     if (!byNormalized.has(summary.normalized_name)) byNormalized.set(summary.normalized_name, summary);
   });
 
-  const bucketFor = (record, type) => {
+  // Bucketing for invoice/delivery rows. Either lands in an
+  // existing real client bucket (by client_id or normalized_name)
+  // or creates a `legacy:<name>` bucket so old rows that pre-date
+  // the typed client_id column still group under their name. This
+  // is the path that fuels the Clients tab on /db.
+  const bucketFor = (record) => {
     const clientId = String(record.client_id || '').trim();
     if (clientId && byId.has(clientId)) return byId.get(clientId);
     const normalized = normalizeClientName(record.client_name || record.name);
@@ -868,8 +901,26 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     return summary;
   };
 
+  // Subscription bucketing is intentionally narrower: a sub may
+  // ATTACH to an existing client bucket (so we can detect "this
+  // client also has a subscription") but it must NEVER create a
+  // brand-new bucket. The Clients tab is a CRM view of invoices +
+  // deliveries — subscription people belong on the Subs tab and
+  // must not surface here just because the Subs roster has them.
+  // This is the server-side enforcement of the Clients/Subs
+  // separation; the frontend `crmClients` filter is a defensive
+  // backstop against stale payloads.
+  const subsBucketFor = (record) => {
+    const clientId = String(record.client_id || '').trim();
+    if (clientId && byId.has(clientId)) return byId.get(clientId);
+    const normalized = normalizeClientName(record.client_name || record.name);
+    if (!normalized) return null;
+    if (byNormalized.has(normalized)) return byNormalized.get(normalized);
+    return null;
+  };
+
   (Array.isArray(invoices) ? invoices : []).forEach((invoice) => {
-    const summary = bucketFor(invoice, 'invoice');
+    const summary = bucketFor(invoice);
     if (!summary) return;
     summary.invoice_count += 1;
     summary.invoice_ids.push(String(invoice.id));
@@ -877,31 +928,43 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
   });
 
   (Array.isArray(deliveries) ? deliveries : []).forEach((delivery) => {
-    const summary = bucketFor(delivery, 'delivery');
+    const summary = bucketFor(delivery);
     if (!summary) return;
     summary.delivery_count += 1;
     summary.delivery_ids.push(String(delivery.id));
   });
 
   (Array.isArray(subscriptions) ? subscriptions : []).forEach((sub) => {
-    const summary = bucketFor(sub, 'subscription');
+    const summary = subsBucketFor(sub);
     if (!summary) return;
     summary.subscription_count += 1;
     summary.subscription_ids.push(String(sub.id));
-    if (!summary.contact && sub.client_contact) summary.contact = cleanText(sub.client_contact, 240);
-    if (!summary.updated_at || new Date(sub.updated_at || sub.created_at || 0) > new Date(summary.updated_at || 0)) {
-      summary.updated_at = sub.updated_at || sub.created_at || summary.updated_at;
-    }
   });
 
   const query = String(q || '').toLowerCase();
   return [...byId.values(), ...legacy.values()]
-    .filter((client) => (
-      client.source === 'client'
-      || Number(client.invoice_count || 0) > 0
-      || Number(client.delivery_count || 0) > 0
-      || Number(client.subscription_count || 0) > 0
-    ))
+    .filter((client) => {
+      const invoiceCount = Number(client.invoice_count || 0);
+      const deliveryCount = Number(client.delivery_count || 0);
+      const subscriptionCount = Number(client.subscription_count || 0);
+      const hasCrmHistory = invoiceCount > 0 || deliveryCount > 0;
+
+      // Legacy buckets are denormalized stubs — only keep them
+      // when they actually carry CRM history. (Construction also
+      // enforces this since legacy buckets are only created from
+      // invoice/delivery rows above.)
+      if (client.source === 'legacy') return hasCrmHistory;
+
+      // Real client rows. Subscription-only orphans (a public.clients
+      // row that exists ONLY because an older handleSubscriptionSave
+      // auto-created it) get hidden so Subs people stop appearing as
+      // TBA on the Clients tab. Fresh CRM clients with no records yet
+      // (operator just clicked "Create Client") still show because
+      // their subscription_count is zero.
+      if (subscriptionCount > 0 && !hasCrmHistory) return false;
+
+      return true;
+    })
     .filter((client) => !query || [
       client.title,
       client.name,
@@ -1707,10 +1770,14 @@ async function handleDbSearch(request, env) {
   });
 
   // Clients tab is a CRM driven by invoices + deliveries only.
-  // Subscriptions are kept entirely out of buildClientSummaries so
-  // a Subs save/import/delete never alters Clients results — the
-  // two systems share a database but not a UI surface.
-  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, [], q);
+  // We DO pass allSubscriptions to buildClientSummaries — but only
+  // so the summary builder can attach a subscription_count to any
+  // existing client bucket and filter out subscription-only orphans
+  // (legacy public.clients rows from older subscription saves that
+  // would otherwise leak into the Clients tab as TBA). The
+  // builder itself never creates a NEW bucket from a subscription,
+  // so the Subs roster never adds rows here.
+  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
 
   return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionsWithExtensions, clients });
 }
@@ -1725,12 +1792,39 @@ async function handleClientSave(request, env) {
   const fields = cleanClientPayload(body);
   if (!fields.name || !fields.normalized_name) return json({ error: 'Client name is required.' }, 400);
 
+  // Duplicate detection: a duplicate has the same normalized_name
+  // AND the same human-readable contact as the payload. Instead of
+  // blocking the save with 409 (which is what the previous version
+  // did and what the Amanda/Amanda W bug report tripped on), we
+  // resolve the conflict by merging:
+  //
+  //   • currentId is empty / 'legacy:*'  → adopt the duplicate as
+  //     the target. PATCH the duplicate row with the new fields and
+  //     attach the operator's invoice/delivery ids to it. This is
+  //     the case where a legacy:<name> bucket on /db is being
+  //     promoted to a real client row that already exists.
+  //
+  //   • currentId is a real client row  → merge the duplicate INTO
+  //     currentId. Reassign the duplicate's invoice/delivery/sub
+  //     rows to currentId, drop the duplicate client row, then
+  //     PATCH currentId with the new fields. The surviving client
+  //     row is currentId so the operator's stable selection
+  //     identity in the UI doesn't move under their feet.
+  //
+  // Same-id matches (the duplicate IS the current row) are filtered
+  // out by findDuplicateClient itself.
   const duplicate = await findDuplicateClient(env, fields, currentId);
+  let targetClientId = '';
+  let mergeSourceId = '';
   if (duplicate) {
-    return json({
-      error: `A client already exists for ${duplicate.title || ''} ${duplicate.name || 'this name'}${duplicate.contact ? ` (${duplicate.contact})` : ''}.`,
-      duplicate
-    }, 409);
+    if (!currentId || currentId.startsWith('legacy:')) {
+      targetClientId = String(duplicate.id);
+    } else {
+      targetClientId = currentId;
+      mergeSourceId = String(duplicate.id);
+    }
+  } else if (currentId && !currentId.startsWith('legacy:')) {
+    targetClientId = currentId;
   }
 
   const clientBody = {
@@ -1742,8 +1836,8 @@ async function handleClientSave(request, env) {
   };
 
   let clientRows;
-  if (currentId && !currentId.startsWith('legacy:')) {
-    clientRows = await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(currentId)}`, {
+  if (targetClientId) {
+    clientRows = await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(targetClientId)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify(clientBody)
@@ -1770,6 +1864,46 @@ async function handleClientSave(request, env) {
     client_name: fields.name
   };
 
+  // Merge step (only when a real-edit found a duplicate): pull the
+  // duplicate's invoice/delivery/sub rows over to the surviving
+  // currentId, then drop the duplicate client row. We do this
+  // BEFORE patching by client_id below so the surviving client
+  // ends up owning every record that used to be split between the
+  // two rows. Subscription rows are reassigned too so a sub that
+  // was tied to the merged duplicate keeps its CRM link instead of
+  // pointing at a deleted client_id.
+  if (mergeSourceId && mergeSourceId !== clientId) {
+    const fetchIds = async (table) => {
+      try {
+        const rows = await supabaseFetch(env, `/rest/v1/${table}?select=id&client_id=eq.${encodeURIComponent(mergeSourceId)}`);
+        return (Array.isArray(rows) ? rows : []).map((row) => String(row.id || '')).filter(Boolean);
+      } catch (error) {
+        if (isSchemaError(error)) return [];
+        throw error;
+      }
+    };
+    const [dupInvoiceIds, dupDeliveryIds, dupSubIds] = await Promise.all([
+      fetchIds('invoices'),
+      fetchIds('deliveries'),
+      fetchIds('subscriptions'),
+    ]);
+    if (dupInvoiceIds.length) await patchRowsByIds(env, 'invoices', dupInvoiceIds, invoicePayload, clientId);
+    if (dupDeliveryIds.length) await patchRowsByIds(env, 'deliveries', dupDeliveryIds, deliveryPayload, clientId);
+    if (dupSubIds.length) {
+      await patchRowsByIds(env, 'subscriptions', dupSubIds, {
+        client_title: fields.title,
+        client_name: fields.name,
+        client_contact: fields.contact
+      }, clientId);
+    }
+    await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(mergeSourceId)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    }).catch((error) => {
+      if (!isSchemaError(error)) console.warn('[clients] merge reap failed:', error?.message || error);
+    });
+  }
+
   const invoiceByClient = await patchRowsByClientId(env, 'invoices', clientId, invoicePayload);
   const deliveryByClient = await patchRowsByClientId(env, 'deliveries', clientId, deliveryPayload);
   const invoiceByIds = await patchRowsByIds(env, 'invoices', body.invoiceIds, invoicePayload, clientId);
@@ -1781,6 +1915,7 @@ async function handleClientSave(request, env) {
   return json({
     ok: true,
     client,
+    merged: !!mergeSourceId,
     updated: {
       invoices: invoiceIds.size,
       deliveries: deliveryIds.size
