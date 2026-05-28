@@ -380,6 +380,13 @@ function readInitialQuery() {
       // event_key yet) and is persisted on save so /db's grouping
       // pass merges this invoice with its sibling delivery.
       eventKey: (params.get('eventKey') || '').trim().slice(0, 80),
+      // Stable parent clients.id forwarded by /db's Create Events
+      // sheet. Empty for top-level Create Invoice / legacy buckets
+      // — the worker still has its name+contact fallback. When set
+      // it is forwarded on save so handleInvoiceSave attaches the
+      // invoice to THIS exact clients row instead of name+contact-
+      // matching its way to a duplicate sibling.
+      clientId: (params.get('clientId') || '').trim().slice(0, 80),
     };
   } catch {
     return {};
@@ -411,6 +418,11 @@ export function InvoiceComposer() {
   // with its sibling delivery. Empty for a standalone /inv session
   // (top-level Create Invoice with no event context).
   const [eventKey, setEventKey] = useState(initial.eventKey || '');
+  // Parent clients.id from the /db Create Events handoff. Sticky
+  // for the session so subsequent saves keep targeting the same
+  // bucket, but the worker re-validates the id (fetchClientById)
+  // and falls back to name+contact when it's stale or unknown.
+  const [linkedClientId, setLinkedClientId] = useState(initial.clientId || '');
   const [issuedDate, setIssuedDate] = useState(today);
   // Discount defaults to 0 — never auto-prefill a value. If the
   // operator wants a discount they type it; loaded invoices restore
@@ -511,6 +523,12 @@ export function InvoiceComposer() {
         // delivery on subsequent saves, even after the URL no
         // longer carries the eventKey query param.
         if (row.event_key && !initial.eventKey) setEventKey(String(row.event_key));
+        // Same idea for client_id: when reopening an existing
+        // invoice without a URL-supplied clientId, adopt the row's
+        // own client_id so subsequent saves stay attached to that
+        // clients row. The worker's findOrCreateClient validates
+        // the id (fetchClientById) before using it.
+        if (row.client_id && !initial.clientId) setLinkedClientId(String(row.client_id));
         if (row.invoice_date) setIssuedDate(String(row.invoice_date));
         if (row.status === 'invoice' || row.status === 'deposit' || row.status === 'paid') setMode(row.status);
 
@@ -679,12 +697,22 @@ export function InvoiceComposer() {
         eventDate: invoice.event_date,
         invoiceId: invoice.id || '(new)',
         clientName: invoice.client_name,
+        linkedClientId,
       });
       const response = await fetch('/api/invoices-save', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoice }),
+        body: JSON.stringify({
+          invoice,
+          // Top-level handoff so the worker can use it as the
+          // preferredId in findOrCreateClient. Sits alongside the
+          // invoice payload — the invoice itself never carries
+          // client_id directly (the worker writes it after
+          // resolving the bucket), but this hint guarantees the
+          // resolution lands on the chosen /db client.
+          clientId: linkedClientId || '',
+        }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) {
