@@ -120,22 +120,19 @@ function GalleryGate() {
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
-  // Access-key input ref + idle UX state. Used by the click/tap-to
-  // -focus handlers below so a tap on the card or the
-  // "Tap/Click to continue" hint pulls focus into the password
-  // field. Purely a UX affordance — none of the unlock fetch /
-  // payload / slug logic is changed.
+
+  // ---- Apple-style splash → form reveal stage ----
+  // Mirrors the private PasswordGate so /g visitors see the same
+  // calm two-stage entry. None of the unlock fetch / payload /
+  // slug behavior is touched.
   const inputRef = useRef(null);
-  const [inputFocused, setInputFocused] = useState(false);
-  const [pointerCoarse, setPointerCoarse] = useState(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return false;
-    try { return !!window.matchMedia('(pointer: coarse)').matches; } catch { return false; }
-  });
+  const [revealed, setRevealed] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
     const mq = window.matchMedia('(pointer: coarse)');
-    const apply = () => setPointerCoarse(!!mq.matches);
+    const apply = () => setIsTouch(!!mq.matches);
     apply();
     if (mq.addEventListener) {
       mq.addEventListener('change', apply);
@@ -148,18 +145,15 @@ function GalleryGate() {
     return undefined;
   }, []);
 
-  function focusGateInput() {
-    const el = inputRef.current;
-    if (!el || el.disabled) return;
-    if (typeof document !== 'undefined' && document.activeElement === el) return;
-    try { el.focus({ preventScroll: false }); } catch { el.focus(); }
-  }
-
-  function handleCardClick(event) {
-    const t = event.target;
-    if (!t || typeof t.closest !== 'function') return;
-    if (t.closest('input, button, a, label, [contenteditable="true"]')) return;
-    focusGateInput();
+  function handleReveal() {
+    if (revealed) return;
+    setRevealed(true);
+    // Sync focus inside the user-gesture task (so iOS / Android can
+    // raise the soft keyboard) plus a deferred re-focus after the
+    // card's fade/scale transition completes (380 ms ≈ a hair after
+    // the 0.5 s opacity transition lands).
+    inputRef.current?.focus();
+    setTimeout(() => { inputRef.current?.focus(); }, 380);
   }
 
   // Admin auto-unlock + public gate metadata probe.
@@ -283,19 +277,35 @@ function GalleryGate() {
     : 'Hello';
 
   return (
-    <main className="gate-page">
+    <main
+      className={`gate-page ${revealed ? 'is-revealed' : 'is-splash'}`}
+      onClick={handleReveal}
+    >
       <GlobalBackground />
-      <form className="gate-card" onSubmit={unlock} onClick={handleCardClick}>
-        {/* Real white-on-transparent asset for dark mode (no filter).
-         * Wrapped in .gate-brand so the idle shimmer/breathe loop
-         * (CSS in invcs.css) has a positioned host with overflow
-         * hidden to clip the sweep band to the brand bounding box. */}
-        <span className="gate-brand">
-          <picture>
-            <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-            <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
-          </picture>
-        </span>
+
+      {/* Stage 1: Apple-style splash. */}
+      <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
+        <picture className="gate-splash-logo-wrapper">
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
+        <p className="gate-splash-hint">{isTouch ? 'Tap to continue' : 'Click to continue'}</p>
+      </div>
+
+      {/* Stage 2: the actual access-key form. Identical inner
+        * markup and behavior to the previous /g gate; only
+        * stopPropagation on the form's onClick is added so a click
+        * inside the card never re-triggers the page-level reveal. */}
+      <form
+        className="gate-card"
+        onSubmit={unlock}
+        onClick={(event) => event.stopPropagation()}
+      >
+        {/* Real white-on-transparent asset for dark mode (no filter). */}
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
         <h1>{greeting}</h1>
         <label htmlFor="galleryPassword">Access key</label>
         <div className="gate-input">
@@ -305,8 +315,6 @@ function GalleryGate() {
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
@@ -320,17 +328,6 @@ function GalleryGate() {
           {gateBusy ? 'Opening...' : 'Sign In'}
         </button>
         <p className={`gate-status ${gateStatusClass}`}>{gateStatus}</p>
-        {/* Idle "continue" hint — same component-shape as the
-         * private PasswordGate so /g visitors see the same calm
-         * cue. Pulses gently with the brand shimmer (CSS), hides
-         * while the input is focused. */}
-        <p
-          className={`gate-hint${inputFocused ? ' is-hidden' : ''}`}
-          onClick={focusGateInput}
-          aria-hidden={inputFocused ? 'true' : undefined}
-        >
-          {pointerCoarse ? 'Tap to continue' : 'Click to continue'}
-        </p>
       </form>
     </main>
   );

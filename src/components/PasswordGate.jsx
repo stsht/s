@@ -74,27 +74,26 @@ export function PasswordGate({ title, children }) {
   const [lockUntil, setLockUntil] = useState(0);
   const [lockSeconds, setLockSeconds] = useState(0);
   const tickRef = useRef(null);
-  // Access-key input ref — used by the click/tap-to-focus handlers
-  // below so a tap on the card or the "Tap/Click to continue" hint
-  // pulls focus into the password field. Purely a UX affordance:
-  // typing the password without ever interacting with these still
-  // works exactly as before.
+
+  // ---- Apple-style splash → form reveal stage ----
+  //
+  // The gate now renders in two stages: a centered logo splash with
+  // a "Tap/Click to continue" hint (stage 1, .gate-page.is-splash),
+  // and the actual access-key card (stage 2, .gate-page.is-revealed).
+  // Tapping/clicking the page swaps stages and pulls focus into the
+  // input. None of the existing auth logic, lockout, session probe,
+  // or fetch calls is touched — only the visual entry path.
   const inputRef = useRef(null);
-  const [inputFocused, setInputFocused] = useState(false);
-  // Pointer hint copy — "Tap to continue" on touch, "Click to
-  // continue" on mouse/trackpad. We pick by matchMedia so a hybrid
-  // device (laptop with touch screen) updates live when the user
-  // switches input modalities. Read synchronously on first render
-  // to avoid a flash of the wrong copy.
-  const [pointerCoarse, setPointerCoarse] = useState(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return false;
-    try { return !!window.matchMedia('(pointer: coarse)').matches; } catch { return false; }
-  });
+  const [revealed, setRevealed] = useState(false);
+  // Pointer-aware copy for the splash hint. matchMedia is read on
+  // mount per spec; touch users see a brief desktop-default hint
+  // for a single frame, which is acceptable for the splash stage.
+  const [isTouch, setIsTouch] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return undefined;
     const mq = window.matchMedia('(pointer: coarse)');
-    const apply = () => setPointerCoarse(!!mq.matches);
+    const apply = () => setIsTouch(!!mq.matches);
     apply();
     if (mq.addEventListener) {
       mq.addEventListener('change', apply);
@@ -107,20 +106,19 @@ export function PasswordGate({ title, children }) {
     return undefined;
   }, []);
 
-  function focusGateInput() {
-    const el = inputRef.current;
-    if (!el || el.disabled) return;
-    if (typeof document !== 'undefined' && document.activeElement === el) return;
-    try { el.focus({ preventScroll: false }); } catch { el.focus(); }
-  }
-
-  function handleCardClick(event) {
-    const t = event.target;
-    if (!t || typeof t.closest !== 'function') return;
-    // Don't steal focus from interactive children (the input itself,
-    // the show/hide toggle, the submit button, the linked label).
-    if (t.closest('input, button, a, label, [contenteditable="true"]')) return;
-    focusGateInput();
+  function handleReveal() {
+    if (revealed) return;
+    setRevealed(true);
+    // Two focus attempts:
+    //   1) Synchronous, inside the user-gesture task — this is the
+    //      only window in which iOS Safari / Android Chrome will
+    //      pop up the soft keyboard from a programmatic focus().
+    //   2) Deferred ~380 ms after the card's fade/scale transition
+    //      completes, in case the synchronous focus was preempted
+    //      by React's re-render flipping pointer-events on the
+    //      input from none → auto.
+    inputRef.current?.focus();
+    setTimeout(() => { inputRef.current?.focus(); }, 380);
   }
 
   // One-shot cookie probe. Runs only when localStorage had no
@@ -241,24 +239,39 @@ export function PasswordGate({ title, children }) {
   const visibleStatus = locked ? `Too many attempts. Try again in ${lockSeconds}s.` : status;
 
   return (
-    <main className="gate-page">
+    <main
+      className={`gate-page ${revealed ? 'is-revealed' : 'is-splash'}`}
+      onClick={handleReveal}
+    >
       <GlobalBackground />
-      <form className="gate-card" onSubmit={openGate} onClick={handleCardClick}>
+
+      {/* Stage 1: Apple-style splash. Position-absolute, fades out
+        * (and slides up subtly) when .gate-page.is-revealed flips on. */}
+      <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
+        <picture className="gate-splash-logo-wrapper">
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
+        <p className="gate-splash-hint">{isTouch ? 'Tap to continue' : 'Click to continue'}</p>
+      </div>
+
+      {/* Stage 2: the actual access-key form. Hidden (opacity 0,
+        * scale .95, pointer-events none) until the splash is
+        * dismissed. stopPropagation so a click inside the card
+        * never re-triggers handleReveal (idempotent anyway, but
+        * keeps the intent explicit). */}
+      <form
+        className="gate-card"
+        onSubmit={openGate}
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* picture/source swap to a real white-on-transparent asset
          * for dark mode — CSS filter:invert was unreliable on the
-         * existing PNG, so we ship a dedicated logo-hero-white.png.
-         *
-         * Wrapped in <span className="gate-brand"> so the idle
-         * shimmer/breathe animation (defined in invcs.css) has a
-         * positioned host with overflow:hidden to clip the sweep
-         * band to the brand bounding box. The PNG itself is
-         * untouched and stays at full opacity / crispness. */}
-        <span className="gate-brand">
-          <picture>
-            <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-            <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
-          </picture>
-        </span>
+         * existing PNG, so we ship a dedicated logo-hero-white.png. */}
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
         <p className="gate-eyebrow"><span />Private Workspace<span /></p>
         <h1>{title}</h1>
         <label htmlFor="gatePassword">Access key</label>
@@ -269,8 +282,6 @@ export function PasswordGate({ title, children }) {
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            onFocus={() => setInputFocused(true)}
-            onBlur={() => setInputFocused(false)}
             autoComplete="off"
             autoCapitalize="off"
             spellCheck="false"
@@ -284,18 +295,6 @@ export function PasswordGate({ title, children }) {
           {busy ? 'Opening...' : locked ? `Wait ${lockSeconds}s` : 'Sign In'}
         </button>
         <p className={`gate-status ${visibleStatus.includes('Unauthorized') || visibleStatus.includes('required') || locked ? 'error' : ''}`}>{visibleStatus}</p>
-        {/* Idle "continue" hint. Pulses gently in sync with the brand
-         * shimmer (CSS keyframes), hides while the input is focused
-         * so it never competes with active typing, and focuses the
-         * input on click/tap. Pointer-aware copy: "Tap" on touch,
-         * "Click" on mouse/trackpad. */}
-        <p
-          className={`gate-hint${inputFocused ? ' is-hidden' : ''}`}
-          onClick={focusGateInput}
-          aria-hidden={inputFocused ? 'true' : undefined}
-        >
-          {pointerCoarse ? 'Tap to continue' : 'Click to continue'}
-        </p>
       </form>
     </main>
   );
