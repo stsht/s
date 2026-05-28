@@ -745,6 +745,17 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   background:var(--line);
   flex:0 0 auto;
 }
+/* Whole-field hit area + cursor. The field reads as a single
+ * unified clickable surface — the day/month/year segments, the
+ * separators, and the trailing calendar icon all advertise the
+ * same pointer affordance so the operator can tap anywhere along
+ * the row to interact with the picker. The popover is opened by
+ * the wrap-level onClick handler in DateTimeField.jsx; clicks on
+ * the icon button continue to toggle (so a second tap closes the
+ * picker), and clicks on the input segments still focus them for
+ * keyboard typing — both gestures resolve to the same picker. */
+.dtf{cursor:pointer}
+.dtf-segment{cursor:pointer}
 .dtf-icon{
   margin-left:auto;
   display:grid;
@@ -756,10 +767,20 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   background:transparent;
   color:var(--muted);
   flex:0 0 auto;
-  transition:background .14s ease,color .14s ease;
+  cursor:pointer;
+  transition:color .14s ease;
 }
-.dtf-icon:hover{background:var(--soft);color:var(--ink)}
-.dtf-icon[aria-expanded="true"]{background:var(--soft);color:var(--ink)}
+/* The icon was previously a separate "square button" with its own
+ * grey hover/background bubble. That made the calendar icon read
+ * as a distinct control sitting beside the field instead of part
+ * of the same rounded input. We keep the icon visible but drop
+ * the hover/expanded background so the only thing that changes on
+ * hover/open is the icon colour — the rest of the field hover
+ * affordance is provided by the wrap's :focus-within border /
+ * .dtf--open accent ring rules above. */
+.dtf:hover .dtf-icon,
+.dtf-icon:hover,
+.dtf-icon[aria-expanded="true"]{color:var(--ink)}
 .dtf-icon svg{width:18px;height:18px;display:block}
 
 /* Custom calendar popover. Anchored to the field via position:
@@ -1618,6 +1639,33 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .add-client-button{
   width:100%;
+}
+/* Two-up actions row used by /db Subs to host the "New
+ * Subscription" + "Import JPG" buttons side-by-side. The pair
+ * preserves the same 44-tall pill chrome as a single full-width
+ * .add-client-button (so the toolbar height matches Clients) while
+ * giving the operator a one-tap route to either create flow.
+ *
+ * The ghost variant is the tonal muted twin used by Import JPG so
+ * the primary "New Subscription" stays the visual anchor without
+ * looking like two identical buttons. Both click targets keep the
+ * 44px touch height, equal flex widths, and no left-padding-vs-
+ * right-padding asymmetry. */
+.subs-list-actions{
+  display:flex;
+  align-items:stretch;
+  gap:10px;
+  width:100%;
+}
+.subs-list-actions > .add-client-button{
+  width:auto;
+  flex:1 1 0;
+  min-width:0;
+  padding:0 14px;
+}
+.add-client-button--ghost{
+  background:var(--soft);
+  color:var(--ink);
 }
 .db-list{
   min-height:0;

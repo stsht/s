@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
+import { selectAllIfZero } from '../../utils/moneyInput.js';
 
 // Lightweight gated debug logger. Mirrors the helper in
 // WorkspacePages.jsx so /db, /l, and /inv share one ?debug=1 flag
@@ -978,7 +979,7 @@ function EditorPanel(props) {
               }} placeholder="Optional note" /></label>
               <div className="three-col">
                 <label>Qty<input type="number" min="1" value={item.qty} onChange={(event) => props.updateItem(item.id, { qty: event.target.value })} /></label>
-                <label>Amount<input type="number" min="0" value={item.price} onChange={(event) => props.updateItem(item.id, { price: event.target.value })} /></label>
+                <label>Amount<input type="number" min="0" value={item.price} onFocus={selectAllIfZero} onChange={(event) => props.updateItem(item.id, { price: event.target.value })} /></label>
                 <button className="remove" type="button" onClick={() => props.removeItem(item.id)}>Remove</button>
               </div>
             </div>
@@ -989,7 +990,7 @@ function EditorPanel(props) {
 
       <Fieldset title="Payment">
         <div className="field-stack">
-          <label>Discount<input type="number" min="0" value={props.discount} onChange={(event) => props.setDiscount(event.target.value)} placeholder="0" /></label>
+          <label>Discount<input type="number" min="0" value={props.discount} onFocus={selectAllIfZero} onChange={(event) => props.setDiscount(event.target.value)} placeholder="0" /></label>
           <div className="deposit-block">
             <span className="deposit-label">Deposit</span>
             <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
@@ -1026,6 +1027,7 @@ function EditorPanel(props) {
                   type="number"
                   min="0"
                   value={props.depositCustomAmount}
+                  onFocus={selectAllIfZero}
                   onChange={(event) => props.setDepositCustomAmount(event.target.value)}
                   placeholder="e.g. 500000"
                 />
