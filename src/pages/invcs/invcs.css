@@ -131,11 +131,44 @@ button{cursor:pointer}
   to{transform:translate3d(1.5%,2%,0) scale(1.04)}
 }
 
+/* Password gate layout
+ *
+ * Layered viewport units: each later declaration overrides the
+ * earlier one in engines that support it.
+ *   100vh  — universal fallback. On iOS Safari and Android Chrome
+ *            the visible viewport can be smaller than 100vh while
+ *            the URL bar is showing, which used to push the gate
+ *            card off-screen. Kept as a baseline for very old
+ *            engines.
+ *   100svh — the *small* viewport (chrome always visible). A safe
+ *            minimum that never overflows.
+ *   100dvh — the *dynamic* viewport. Tracks the visible area as
+ *            the chrome collapses/expands. Best mobile UX.
+ *
+ * Flexbox (not grid) is used so a card taller than the viewport
+ * grows the container instead of overflowing centered (which
+ * clipped the top on short / landscape phones with the previous
+ * place-items:center grid). With align-items:center and a single
+ * card child, when the card is shorter than the viewport it sits
+ * perfectly centered; when it's taller the page scrolls and the
+ * card keeps its full natural height.
+ *
+ * Safe-area padding keeps the card clear of the iOS notch / home
+ * indicator and the Android status bar, and adds a deliberate
+ * floor above the Safari/Chrome bottom toolbar so the input never
+ * sits behind it. The bottom inset is generous because env()
+ * resolves to 0 on desktop and we still want a comfortable cushion. */
 .gate-page{
+  min-height:100vh;
+  min-height:100svh;
   min-height:100dvh;
-  display:grid;
-  place-items:center;
-  padding:18px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding-top:max(18px,env(safe-area-inset-top));
+  padding-right:max(18px,env(safe-area-inset-right));
+  padding-bottom:max(28px,calc(env(safe-area-inset-bottom) + 18px));
+  padding-left:max(18px,env(safe-area-inset-left));
   position:relative;
   isolation:isolate;
 }
@@ -143,11 +176,15 @@ button{cursor:pointer}
   position:relative;
   z-index:1;
   width:min(100%,480px);
-  /* Cap min-height against the viewport so the card doesn't push
-   * its top off-screen on short / narrow phones. Centered layout
-   * is preserved on tall screens; on small ones the card shrinks
-   * to fit and the page stays scrollable. */
-  min-height:min(476px,calc(100dvh - 36px));
+  /* No artificial min-height — the card sizes to its content and
+   * the surrounding flex container handles vertical centering.
+   * The previous min-height:min(476px,calc(100dvh - 36px)) caused
+   * a "top-heavy" feel on mobile because the card was forced to
+   * stretch on tall phones and forced to start-align (via the
+   * mobile media query below) on short phones. Letting the card
+   * size to its content + flex-center the parent gives a clean
+   * Apple-style centered layout on every viewport. */
+  min-height:auto;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -160,6 +197,67 @@ button{cursor:pointer}
     linear-gradient(180deg,color-mix(in srgb,var(--panel) 96%,white 4%),var(--panel));
   box-shadow:var(--shadow);
 }
+
+/* Brand wrapper (logo container)
+ *
+ * Hosts the calm idle animation: a slow, premium right-to-left
+ * "light sweep" pass clipped to the brand bounding box, plus a
+ * very subtle breathing scale/opacity. The PNG itself stays at
+ * full opacity and crispness — the shimmer is an additive band
+ * passing over the brand mark, evoking the Apple "Slide to Unlock"
+ * cadence without any spinner / loading affordance.
+ *
+ * Period: 6.5s for the sweep, 6s for the breathe. Slow enough to
+ * feel deliberate and premium; the sweep occupies ~60% of the
+ * loop with the remainder held invisible so the brand reads as a
+ * static logo most of the time and shimmers in occasional, calm
+ * passes. The card itself is intentionally NOT animated — only
+ * the brand mark — to keep password entry feeling serious. */
+.gate-brand{
+  position:relative;
+  display:inline-block;
+  margin:0 0 28px;
+  line-height:0;
+  overflow:hidden;
+  border-radius:6px;
+  animation:ssGateBrandBreathe 6s ease-in-out infinite;
+  will-change:transform,opacity;
+}
+.gate-brand .gate-logo{margin:0}
+.gate-brand::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%);
+  transform:translateX(110%);
+  opacity:0;
+  animation:ssGateBrandSweep 6.5s ease-in-out infinite;
+  mix-blend-mode:soft-light;
+}
+@media(prefers-color-scheme:dark){
+  /* Dark logo lives on a deep blue panel; soft-light barely shows.
+   * Switch to a faint cool-white sweep with screen blending so the
+   * highlight is visible without being harsh. */
+  .gate-brand::after{
+    background:linear-gradient(115deg,transparent 35%,rgba(190,215,255,.32) 50%,transparent 65%);
+    mix-blend-mode:screen;
+  }
+}
+@keyframes ssGateBrandBreathe{
+  0%,100%{transform:scale(1);opacity:1}
+  50%    {transform:scale(1.012);opacity:.96}
+}
+@keyframes ssGateBrandSweep{
+  0%       {transform:translateX(110%);opacity:0}
+  10%      {opacity:1}
+  60%      {transform:translateX(-110%);opacity:1}
+  62%,100% {transform:translateX(-110%);opacity:0}
+}
+
+/* .gate-logo styles preserved for any unwrapped fallback usage
+ * (e.g. legacy markup outside .gate-brand). When wrapped, the
+ * margin is overridden above so layout is owned by .gate-brand. */
 .gate-logo{width:min(226px,68vw);height:auto;margin-bottom:28px}
 .gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
 .gate-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.18)}
@@ -233,6 +331,63 @@ button{cursor:pointer}
 .gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:12px;font-weight:800}
 .gate-status.error{color:var(--danger)}
 
+/* Subtle pulse on the eyebrow accent dot, in soft sync with the
+ * brand sweep (same 6s cadence). The halo expands and dims rather
+ * than the dot itself flashing — keeps it calm. */
+.gate-eyebrow::before{
+  animation:ssGateDotPulse 6s ease-in-out infinite;
+}
+@keyframes ssGateDotPulse{
+  0%,100%{box-shadow:0 0 0 4px rgba(138,180,248,.18)}
+  50%    {box-shadow:0 0 0 7px rgba(138,180,248,.08)}
+}
+
+/* "Tap/Click to continue" idle hint
+ *
+ * Sits below the access-key form and pulses gently with the brand
+ * sweep. Clicking/tapping it focuses the access-key input. The
+ * hint hides while the input is focused so it never competes with
+ * active typing. It is purely a visual invitation — typing the
+ * password works without ever interacting with the hint. */
+.gate-hint{
+  align-self:stretch;
+  margin:14px 0 0;
+  text-align:center;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.04em;
+  color:var(--muted);
+  user-select:none;
+  cursor:pointer;
+  animation:ssGateHintPulse 5.5s ease-in-out infinite;
+  transition:opacity .25s ease-out;
+}
+.gate-hint.is-hidden{
+  opacity:0;
+  pointer-events:none;
+  animation:none;
+}
+@keyframes ssGateHintPulse{
+  0%,100%{opacity:.55}
+  50%    {opacity:.92}
+}
+
+/* Honor user's reduced-motion preference: kill every idle loop
+ * (sweep, breathe, dot pulse, hint pulse) and freeze the brand at
+ * its rest state. Static layout still benefits from the centering
+ * and safe-area work above. */
+@media (prefers-reduced-motion:reduce){
+  .gate-brand,
+  .gate-brand::after,
+  .gate-eyebrow::before,
+  .gate-hint{
+    animation:none !important;
+    transition:none !important;
+  }
+  .gate-brand::after{opacity:0 !important}
+  .gate-brand{transform:none !important;opacity:1 !important}
+}
+
 /* Mobile / narrow-viewport polish for the password gate.
  *
  * Goals (per mobile audit):
@@ -243,21 +398,39 @@ button{cursor:pointer}
  *   - Same glass / private workspace identity as desktop —
  *     just sized properly for small screens.
  *
- * Switching the page from place-items:center to align-items:start
- * on small viewports prevents the card top from sliding above the
- * viewport when it exceeds 100dvh (which used to make the title
- * unreachable on very short / landscape phones). The outer body
- * still scrolls normally. */
+ * Mobile / narrow-viewport polish for the password gate.
+ *
+ * Goals (per mobile audit):
+ *   - No rigid widths/heights that overflow the viewport.
+ *   - Comfortable padding without feeling cramped.
+ *   - Typography that scales down so titles like
+ *     "Invoice Generator" or "Private Delivery" fit one line.
+ *   - Same glass / private workspace identity as desktop —
+ *     just sized properly for small screens.
+ *
+ * The previous build switched the page from place-items:center to
+ * align-items:start on small viewports because grid centering was
+ * clipping cards taller than 100dvh. That start-align was the
+ * root of the "top-heavy" mobile feel — even short cards would
+ * stick to the top of the viewport. The new flex-center layout
+ * with layered svh/dvh viewport units centers correctly on every
+ * mobile chrome state, so we can drop the start-align here and
+ * just tune paddings + bottom safe-area cushion. */
 @media (max-width:640px){
   .gate-page{
-    align-items:start;
-    padding:14px;
+    /* Same padding pattern as desktop, just tighter, with a beefier
+     * bottom floor so the card and its hint never sit flush against
+     * the iOS Safari / Android Chrome bottom toolbar. */
+    padding-top:max(14px,env(safe-area-inset-top));
+    padding-right:max(14px,env(safe-area-inset-right));
+    padding-bottom:max(34px,calc(env(safe-area-inset-bottom) + 22px));
+    padding-left:max(14px,env(safe-area-inset-left));
   }
   .gate-card{
-    min-height:auto;
     padding:clamp(22px,6vw,28px);
     border-radius:24px;
   }
+  .gate-brand{margin-bottom:22px}
   .gate-logo{width:min(190px,56vw);margin-bottom:22px}
   .gate-card h1{
     margin:0 0 22px;
