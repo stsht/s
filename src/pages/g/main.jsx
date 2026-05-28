@@ -127,7 +127,6 @@ function GalleryGate() {
   // slug behavior is touched.
   const inputRef = useRef(null);
   const [revealed, setRevealed] = useState(false);
-  }, []);
 
   function handleReveal() {
     if (revealed) return;
