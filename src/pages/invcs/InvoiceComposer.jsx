@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
-import { Combobox, DateField } from '../../components/ui/index.js';
+import { Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
 // Lightweight gated debug logger. Mirrors the helper in
@@ -939,9 +939,23 @@ function EditorPanel(props) {
         <div className="field-stack">
           <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} onBlur={onBlurTitleCase(props.setVenue)} placeholder="Venue" /></label>
           <div className="event-date-row">
-            <label>Event date<DateField value={props.eventDate} onChange={props.setEventDate} ariaLabel="Event date" /></label>
-            <label>Time<input className="time-input" type="time" value={props.eventTime} onChange={(event) => props.setEventTime(event.target.value)} /></label>
-            <label>Issued<input type="date" value={props.issuedDate} onChange={(event) => props.setIssuedDate(event.target.value)} /></label>
+            <label>Event date
+              <DateTimeField
+                value={props.eventDate}
+                onChange={props.setEventDate}
+                timeValue={props.eventTime}
+                onTimeChange={props.setEventTime}
+                withTime
+                ariaLabel="Event date and time"
+              />
+            </label>
+            <label>Issued
+              <DateTimeField
+                value={props.issuedDate}
+                onChange={props.setIssuedDate}
+                ariaLabel="Issued date"
+              />
+            </label>
           </div>
         </div>
       </Fieldset>
