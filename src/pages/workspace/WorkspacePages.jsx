@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
-import { Segmented, EmptyState, Combobox } from '../../components/ui/index.js';
+import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
 // Lightweight gated debug logger.
@@ -1547,10 +1547,10 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                 </label>
                 <label key="eventDate">
                   <span>Event Date</span>
-                  <input
-                    type="date"
+                  <DateTimeField
                     value={linkDraft.eventDate || ''}
-                    onChange={(event) => setLinkDraft((draft) => ({ ...draft, eventDate: event.target.value }))}
+                    onChange={(value) => setLinkDraft((draft) => ({ ...draft, eventDate: value }))}
+                    ariaLabel="Event date"
                   />
                 </label>
                 {SERVICE_LABELS.map(({ key, label }) => (
@@ -1814,20 +1814,43 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   function setExtensionField(key, value) {
     setExtensionDraft((current) => {
       const next = { ...current, [key]: value };
-      // Keep expiry in sync with start + access_period when the
-      // operator hasn't manually overridden the expiry yet. Mirrors
-      // the /subs composer's expiry = start + N days behaviour so
-      // the form has a sensible default while still allowing a
-      // manual edit.
+      // Auto-sync expiry off start + period when the operator
+      // hasn't manually overridden it. Mirrors the /subs composer's
+      // "expiry = start + N days" behaviour. We treat the expiry as
+      // "untouched" in two cases:
+      //   1. it is empty, or
+      //   2. it equals what the formula would produce from the
+      //      CURRENT start + period values (i.e. it was last set by
+      //      this same effect, not by hand).
+      // Once the operator types a custom expiry that doesn't match
+      // the formula, the guard goes false and we stop overwriting
+      // it on subsequent start/period edits, per the spec in
+      // .kiro/steering/subscription-extensions.md.
+      const currentPeriod = Number(current.access_period) || 0;
+      const currentStart = current.start_date || '';
+      const currentExpected = currentStart && currentPeriod > 0
+        ? addDays(currentStart, currentPeriod)
+        : '';
+      const expiryDateUntouched = !current.expiry_date
+        || current.expiry_date === currentExpected;
+      const expiryTimeUntouched = !current.expiry_time
+        || current.expiry_time === current.start_time;
+
       if (key === 'start_date' || key === 'access_period') {
-        const period = Number(next.access_period) || 0;
-        const start = next.start_date || '';
-        if (start && period > 0) {
-          const computed = addDays(start, period);
-          if (computed && (!current.expiry_date || current.expiry_date === addDays(current.start_date || '', Number(current.access_period) || 0))) {
-            next.expiry_date = computed;
-          }
+        const nextPeriod = Number(next.access_period) || 0;
+        const nextStart = next.start_date || '';
+        if (nextStart && nextPeriod > 0 && expiryDateUntouched) {
+          const computed = addDays(nextStart, nextPeriod);
+          if (computed) next.expiry_date = computed;
         }
+      }
+      // Keep expiry time in lockstep with start time when the
+      // operator hasn't typed a custom expiry time. Adding 30 days
+      // doesn't shift the clock, so a fresh draft naturally has
+      // expiry_time === start_time; we keep that invariant alive
+      // through subsequent edits unless the operator breaks it.
+      if (key === 'start_time' && expiryTimeUntouched) {
+        next.expiry_time = next.start_time;
       }
       return next;
     });
@@ -2079,36 +2102,24 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                 </label>
               </div>
               <div className="two-col">
-                <label>Start Date
-                  <input
-                    type="date"
+                <label>Start
+                  <DateTimeField
                     value={extensionDraft.start_date}
-                    onChange={(e) => setExtensionField('start_date', e.target.value)}
+                    onChange={(value) => setExtensionField('start_date', value)}
+                    timeValue={extensionDraft.start_time}
+                    onTimeChange={(value) => setExtensionField('start_time', value)}
+                    withTime
+                    ariaLabel="Extension start"
                   />
                 </label>
-                <label>Start Time
-                  <input
-                    type="time"
-                    step="1"
-                    value={extensionDraft.start_time}
-                    onChange={(e) => setExtensionField('start_time', e.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="two-col">
-                <label>Expiry Date
-                  <input
-                    type="date"
+                <label>Expiry
+                  <DateTimeField
                     value={extensionDraft.expiry_date}
-                    onChange={(e) => setExtensionField('expiry_date', e.target.value)}
-                  />
-                </label>
-                <label>Expiry Time
-                  <input
-                    type="time"
-                    step="1"
-                    value={extensionDraft.expiry_time}
-                    onChange={(e) => setExtensionField('expiry_time', e.target.value)}
+                    onChange={(value) => setExtensionField('expiry_date', value)}
+                    timeValue={extensionDraft.expiry_time}
+                    onTimeChange={(value) => setExtensionField('expiry_time', value)}
+                    withTime
+                    ariaLabel="Extension expiry"
                   />
                 </label>
               </div>
@@ -2817,57 +2828,36 @@ function SubscriptionImport({ onSaved, onCancel }) {
             />
           </label>
         </div>
-        <div className="two-col">
-          <label>Payment Date
-            <input
-              type="date"
-              value={draft.payment_date}
-              onChange={(e) => setField('payment_date', e.target.value)}
-            />
-          </label>
-          <label>Payment Time
-            <input
-              type="time"
-              step="1"
-              value={draft.payment_time}
-              onChange={(e) => setField('payment_time', e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="two-col">
-          <label>Start Date
-            <input
-              type="date"
-              value={draft.start_date}
-              onChange={(e) => setField('start_date', e.target.value)}
-            />
-          </label>
-          <label>Start Time
-            <input
-              type="time"
-              step="1"
-              value={draft.start_time}
-              onChange={(e) => setField('start_time', e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="two-col">
-          <label>Expiry Date
-            <input
-              type="date"
-              value={draft.expiry_date}
-              onChange={(e) => setField('expiry_date', e.target.value)}
-            />
-          </label>
-          <label>Expiry Time
-            <input
-              type="time"
-              step="1"
-              value={draft.expiry_time}
-              onChange={(e) => setField('expiry_time', e.target.value)}
-            />
-          </label>
-        </div>
+        <label>Payment
+          <DateTimeField
+            value={draft.payment_date}
+            onChange={(value) => setField('payment_date', value)}
+            timeValue={draft.payment_time}
+            onTimeChange={(value) => setField('payment_time', value)}
+            withTime
+            ariaLabel="Payment date and time"
+          />
+        </label>
+        <label>Start
+          <DateTimeField
+            value={draft.start_date}
+            onChange={(value) => setField('start_date', value)}
+            timeValue={draft.start_time}
+            onTimeChange={(value) => setField('start_time', value)}
+            withTime
+            ariaLabel="Start date and time"
+          />
+        </label>
+        <label>Expiry
+          <DateTimeField
+            value={draft.expiry_date}
+            onChange={(value) => setField('expiry_date', value)}
+            timeValue={draft.expiry_time}
+            onTimeChange={(value) => setField('expiry_time', value)}
+            withTime
+            ariaLabel="Expiry date and time"
+          />
+        </label>
         <label>Price (IDR)
           <input
             type="number"
@@ -3025,57 +3015,36 @@ function SubscriptionEdit({ subscription, onSaved, onCancel }) {
             />
           </label>
         </div>
-        <div className="two-col">
-          <label>Payment Date
-            <input
-              type="date"
-              value={draft.payment_date}
-              onChange={(e) => setField('payment_date', e.target.value)}
-            />
-          </label>
-          <label>Payment Time
-            <input
-              type="time"
-              step="1"
-              value={draft.payment_time}
-              onChange={(e) => setField('payment_time', e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="two-col">
-          <label>Start Date
-            <input
-              type="date"
-              value={draft.start_date}
-              onChange={(e) => setField('start_date', e.target.value)}
-            />
-          </label>
-          <label>Start Time
-            <input
-              type="time"
-              step="1"
-              value={draft.start_time}
-              onChange={(e) => setField('start_time', e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="two-col">
-          <label>Expiry Date
-            <input
-              type="date"
-              value={draft.expiry_date}
-              onChange={(e) => setField('expiry_date', e.target.value)}
-            />
-          </label>
-          <label>Expiry Time
-            <input
-              type="time"
-              step="1"
-              value={draft.expiry_time}
-              onChange={(e) => setField('expiry_time', e.target.value)}
-            />
-          </label>
-        </div>
+        <label>Payment
+          <DateTimeField
+            value={draft.payment_date}
+            onChange={(value) => setField('payment_date', value)}
+            timeValue={draft.payment_time}
+            onTimeChange={(value) => setField('payment_time', value)}
+            withTime
+            ariaLabel="Payment date and time"
+          />
+        </label>
+        <label>Start
+          <DateTimeField
+            value={draft.start_date}
+            onChange={(value) => setField('start_date', value)}
+            timeValue={draft.start_time}
+            onTimeChange={(value) => setField('start_time', value)}
+            withTime
+            ariaLabel="Start date and time"
+          />
+        </label>
+        <label>Expiry
+          <DateTimeField
+            value={draft.expiry_date}
+            onChange={(value) => setField('expiry_date', value)}
+            timeValue={draft.expiry_time}
+            onTimeChange={(value) => setField('expiry_time', value)}
+            withTime
+            ariaLabel="Expiry date and time"
+          />
+        </label>
         <label>Price (IDR)
           <input
             type="number"
@@ -4585,10 +4554,9 @@ export function LinkGeneratorPage() {
       </label>
       <label>
         Event Date
-        <input
-          type="date"
+        <DateTimeField
           value={eventDateHandoff}
-          onChange={(event) => {
+          onChange={(value) => {
             // Real event date the operator wants stamped on the
             // saved /l row. Empty = TBA, which is the spec default
             // when an event hasn't been scheduled yet. The /l save
@@ -4596,9 +4564,10 @@ export function LinkGeneratorPage() {
             // the worker writes it to deliveries.event_date when
             // non-empty and skips the column when empty so the row
             // remains TBA-grouped.
-            setEventDateHandoff(event.target.value);
+            setEventDateHandoff(value);
             markDirty();
           }}
+          ariaLabel="Event date"
         />
       </label>
       <div className="two-col">
@@ -5478,19 +5447,25 @@ export function SubscriptionsPage() {
             </select>
           </label>
           <label>Date Issued
-            <input type="date" value={issuedDate} onChange={(event) => setIssuedDate(event.target.value)} />
+            <DateTimeField
+              value={issuedDate}
+              onChange={(value) => setIssuedDate(value)}
+              ariaLabel="Date issued"
+            />
           </label>
         </>
       ) : (
         <>
-          <div className="two-col">
-            <label>Date of Payment
-              <input type="date" value={paymentDate} onChange={(event) => setPaymentDate(event.target.value)} />
-            </label>
-            <label>Time of Payment
-              <input type="time" value={paymentTime} onChange={(event) => setPaymentTime(event.target.value)} />
-            </label>
-          </div>
+          <label>Payment
+            <DateTimeField
+              value={paymentDate}
+              onChange={(value) => setPaymentDate(value)}
+              timeValue={paymentTime}
+              onTimeChange={(value) => setPaymentTime(value)}
+              withTime
+              ariaLabel="Payment date and time"
+            />
+          </label>
           <label>Access Period
             <select value={accessPeriod} onChange={(event) => setAccessPeriod(Number(event.target.value))}>
               {SUBS_PERIOD_OPTIONS.map((option) => (
@@ -5498,14 +5473,16 @@ export function SubscriptionsPage() {
               ))}
             </select>
           </label>
-          <div className="two-col">
-            <label>Start Access
-              <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-            </label>
-            <label>Start Time
-              <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} />
-            </label>
-          </div>
+          <label>Start Access
+            <DateTimeField
+              value={startDate}
+              onChange={(value) => setStartDate(value)}
+              timeValue={startTime}
+              onTimeChange={(value) => setStartTime(value)}
+              withTime
+              ariaLabel="Start access date and time"
+            />
+          </label>
         </>
       )}
     </form>

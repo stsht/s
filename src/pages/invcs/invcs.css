@@ -674,16 +674,217 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   opacity:0;
 }
 
-/* Event date / time / issued row inside the Details fieldset. The
- * date column is given a touch more breathing room than the time
- * column since its segmented contents read wider; Issued retains
- * roughly the same proportional weight it had in the previous
- * two-col layout. Collapses to a single column on narrow viewports
- * so the segments and time picker never get crushed. */
+/* DateTimeField — the unified date(+time) editor used across /db,
+ * /inv, and /subs. Replaces .date-field everywhere; the legacy
+ * .date-field* rules above are kept only because a few non-React
+ * surfaces still ship those classes inline.
+ *
+ * Visually identical to .date-field (same border, height, focus
+ * ring, segment widths) plus:
+ *   - an optional time half (HH:mm) appearing after a thin divider,
+ *   - a trailing calendar button that opens a custom React popover
+ *     instead of the OS-native date picker. */
+.dtf{
+  position:relative;
+  display:flex;
+  align-items:center;
+  width:100%;
+  height:48px;
+  padding:0 6px 0 14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--field);
+  color:var(--ink);
+  font-weight:750;
+  transition:border-color .14s ease,box-shadow .14s ease;
+}
+.dtf:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(95,149,245,.12);
+}
+.dtf--open{
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(95,149,245,.12);
+}
+.dtf-segment{
+  width:auto;
+  height:auto;
+  min-width:0;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  text-align:center;
+  font:inherit;
+  font-weight:750;
+  letter-spacing:.01em;
+  outline:none;
+  font-variant-numeric:tabular-nums;
+}
+.dtf-segment::placeholder{
+  color:color-mix(in srgb,var(--muted) 64%,transparent);
+  font-weight:600;
+  letter-spacing:.04em;
+}
+.dtf-day,
+.dtf-month,
+.dtf-hour,
+.dtf-minute{width:2.4ch}
+.dtf-year{width:4.4ch}
+.dtf-sep{
+  margin:0 4px;
+  color:color-mix(in srgb,var(--muted) 75%,transparent);
+  font-weight:700;
+  user-select:none;
+}
+.dtf-time-divider{
+  display:inline-block;
+  width:1px;
+  height:22px;
+  margin:0 10px 0 8px;
+  background:var(--line);
+  flex:0 0 auto;
+}
+.dtf-icon{
+  margin-left:auto;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:var(--muted);
+  flex:0 0 auto;
+  transition:background .14s ease,color .14s ease;
+}
+.dtf-icon:hover{background:var(--soft);color:var(--ink)}
+.dtf-icon[aria-expanded="true"]{background:var(--soft);color:var(--ink)}
+.dtf-icon svg{width:18px;height:18px;display:block}
+
+/* Custom calendar popover. Anchored to the field via position:
+ * absolute, sized to roughly the field width with a sensible
+ * minimum so the day cells stay tappable on mobile. The header,
+ * dow strip, and day grid all share the same accent palette and
+ * tokens so it picks up dark mode automatically. */
+.dtf-popover{
+  position:absolute;
+  z-index:50;
+  top:calc(100% + 8px);
+  left:0;
+  width:min(320px,calc(100vw - 24px));
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--panel);
+  box-shadow:0 24px 60px rgba(15,23,42,.18);
+  user-select:none;
+}
+.dtf-popover-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:8px;
+}
+.dtf-popover-nav{
+  width:32px;
+  height:32px;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:var(--muted);
+  transition:background .14s ease,color .14s ease;
+}
+.dtf-popover-nav:hover{background:var(--soft);color:var(--ink)}
+.dtf-popover-title{
+  font-weight:800;
+  letter-spacing:.01em;
+  color:var(--ink);
+}
+.dtf-popover-dow{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:2px;
+  margin-bottom:4px;
+  padding:0 2px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+  text-align:center;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.dtf-popover-dow span{padding:6px 0}
+.dtf-popover-grid{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:2px;
+}
+.dtf-popover-cell{
+  height:34px;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+}
+.dtf-popover-cell:hover{background:var(--soft)}
+.dtf-popover-cell.dtf-muted{color:color-mix(in srgb,var(--muted) 60%,transparent)}
+.dtf-popover-cell.dtf-today{
+  box-shadow:inset 0 0 0 1px var(--line-strong);
+}
+.dtf-popover-cell.dtf-selected{
+  background:var(--accent);
+  color:#fff;
+}
+.dtf-popover-cell.dtf-selected:hover{background:var(--accent-2)}
+.dtf-popover-foot{
+  display:flex;
+  justify-content:flex-end;
+  gap:6px;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+}
+.dtf-popover-foot-btn{
+  min-height:32px;
+  padding:0 12px;
+  border:0;
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--ink);
+  font:inherit;
+  font-weight:800;
+  letter-spacing:.01em;
+  cursor:pointer;
+  transition:background .14s ease,color .14s ease;
+}
+.dtf-popover-foot-btn:hover{
+  background:color-mix(in srgb,var(--accent) 18%,var(--soft));
+  color:var(--accent-2);
+}
+.dtf-popover-foot-btn--ghost{background:transparent;color:var(--muted)}
+.dtf-popover-foot-btn--ghost:hover{background:var(--soft);color:var(--ink)}
+
+/* Event date+time / issued row inside the Details fieldset. The
+ * combined DateTimeField (date + HH:mm) is wider than the legacy
+ * three-column grid, so the row collapses to two cells: the
+ * date+time pair on the left and Issued on the right. Falls back
+ * to a single column on narrow viewports so neither field gets
+ * crushed. */
 .event-date-row{
   display:grid;
   gap:12px;
-  grid-template-columns:minmax(0,1.35fr) minmax(0,.85fr) minmax(0,1fr);
+  grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);
   align-items:end;
 }
 @media(max-width:560px){
