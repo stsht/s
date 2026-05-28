@@ -1475,6 +1475,83 @@ dd{margin:0;text-align:right;font-weight:800}
   align-self:flex-start;
 }
 
+/* Delivery header — folder name and event-date pill sit on one
+ * row separated by a small bullet. The previous duplicate plain
+ * pill rendered on the far right (under Close Edit / Edit Links)
+ * has been removed so there's exactly one date pill in the
+ * header, beside the folder name, with the tone-coloured styling
+ * that signals event status at a glance. */
+.dd-name-line{
+  display:inline-flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:4px;
+}
+.dd-name-line .dd-folder-name{
+  font-weight:500;
+  color:var(--muted);
+}
+.dd-name-line .dd-name-sep{
+  color:var(--muted);
+  opacity:.6;
+  font-weight:600;
+  line-height:1;
+}
+.dd-name-line .delivery-event-date-pill{
+  margin-top:0;
+}
+
+/* Subs detail panel — extensions section. Mirrors the visual
+ * weight of the field list above it without competing for the
+ * eye: a subtle eyebrow, an Add Extension trigger on the right,
+ * and a stack of list-row cards underneath. Each extension row
+ * picks up its own sub-* tone class (active/warning/expired) so
+ * a finished extension visibly recedes the same way an expired
+ * subscription does on the Subs list. */
+.subs-extensions{
+  margin-top:18px;
+  display:grid;
+  gap:12px;
+}
+.subs-extensions-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.subs-extensions-head .eyebrow{
+  margin:0;
+}
+.subs-extension-form{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+  background:var(--soft);
+  gap:12px;
+}
+.subs-extension-form-eyebrow{
+  margin:0 0 4px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.subs-extension-list{
+  margin-top:0;
+}
+.subs-extension-row-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.subs-extensions-empty{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+}
+
 /* Row-level tone tints. Soft, kept to a coloured left edge so the
  * row's neutral surface is preserved and a list of mixed-tone
  * rows still scans like a list, not a colour test. The row title

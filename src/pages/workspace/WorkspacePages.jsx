@@ -357,6 +357,65 @@ function subscriptionTone(sub = {}) {
   return 'active';
 }
 
+// Apply an extension on top of a base subscription so the visible
+// expiry/status/period/price/service reflect the most recent
+// renewal. The base row keeps its own values for the printed
+// receipt; only the *active* surface is overridden. Returns the
+// subscription unchanged when no extension is supplied. Pure
+// function so module-scope callers (SubscriptionDetail, the Subs
+// list memos) can share it without prop drilling.
+function applySubscriptionExtension(sub, extension) {
+  if (!sub || typeof sub !== 'object') return sub;
+  if (!extension || typeof extension !== 'object') return sub;
+  return {
+    ...sub,
+    service: String(extension.service || '').trim() || sub.service,
+    status: extension.status || sub.status,
+    access_period: Number.isFinite(Number(extension.access_period)) && Number(extension.access_period) > 0
+      ? Number(extension.access_period)
+      : sub.access_period,
+    price: Number.isFinite(Number(extension.price)) ? Number(extension.price) : sub.price,
+    start_date: extension.start_date || sub.start_date,
+    start_time: extension.start_time || sub.start_time,
+    expiry_date: extension.expiry_date || sub.expiry_date,
+    expiry_time: extension.expiry_time || sub.expiry_time,
+  };
+}
+
+// Pick the latest extension out of a list — same priority the
+// /api/db response uses (expiry_date → start_date → created_at,
+// most recent wins). Returns null on an empty / undefined list.
+function pickLatestSubscriptionExtension(list) {
+  const arr = Array.isArray(list) ? list.slice() : [];
+  if (!arr.length) return null;
+  arr.sort((a, b) => {
+    const aKey = String(a?.expiry_date || a?.start_date || a?.created_at || '');
+    const bKey = String(b?.expiry_date || b?.start_date || b?.created_at || '');
+    return bKey.localeCompare(aKey);
+  });
+  return arr[0];
+}
+
+// Initial draft shape used by the Subs detail panel's "Add /
+// Edit Extension" form. Defined at module scope so the form can
+// be re-seeded from the same source after a save / cancel /
+// subscription swap.
+function makeExtensionDraft(subscription, extension) {
+  const sub = subscription || {};
+  const ext = extension || {};
+  const period = Number(ext.access_period || sub.access_period || 30);
+  return {
+    service: String(ext.service || sub.service || '').trim(),
+    status: String(ext.status || 'paid').toLowerCase(),
+    access_period: Number.isFinite(period) && period > 0 ? period : 30,
+    price: Number.isFinite(Number(ext.price)) ? Number(ext.price) : 0,
+    start_date: String(ext.start_date || ''),
+    start_time: String(ext.start_time || ''),
+    expiry_date: String(ext.expiry_date || ''),
+    expiry_time: String(ext.expiry_time || ''),
+  };
+}
+
 // Format the Subs-tab list meta from a subscription row. Produces
 // e.g. "ChatGPT Paid" / "Google Drive Active" / "Dropbox Expired" —
 // the service name passed through verbatim, status capitalised and
@@ -1131,8 +1190,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     String(currentDelivery?.gallery_code || '').trim() ||
     String(currentDelivery?.base_slug || '').trim();
   const password = String(currentDelivery?.password || '').trim();
-  const deliveryEventDate = plainEventDate(currentDelivery?.event_date);
-  const deliveryDateLabel = deliveryEventDate ? dateLabel(deliveryEventDate) : 'TBA';
 
   const shortCode = resolveDeliveryShortCode(currentDelivery);
   const shortUrl = buildShortUrl(shortCode);
@@ -1297,13 +1354,25 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
         <div>
           <p className="eyebrow">Delivery</p>
           <h2>Hello, {title} {clientName}</h2>
-          {folder ? <span>{folder}</span> : null}
-          <span
-            className={`event-date-pill event-tone-${eventDateTone(currentDelivery?.event_date, jakartaTodayISO())} delivery-event-date-pill`}
-            aria-label={`Event ${compactEventDateLabel(currentDelivery?.event_date)}`}
-          >
-            {compactEventDateLabel(currentDelivery?.event_date)}
-          </span>
+          {folder ? (
+            <span className="dd-name-line">
+              <span className="dd-folder-name">{folder}</span>
+              <span className="dd-name-sep" aria-hidden="true">{'\u2022'}</span>
+              <span
+                className={`event-date-pill event-tone-${eventDateTone(currentDelivery?.event_date, jakartaTodayISO())} delivery-event-date-pill`}
+                aria-label={`Event ${compactEventDateLabel(currentDelivery?.event_date)}`}
+              >
+                {compactEventDateLabel(currentDelivery?.event_date)}
+              </span>
+            </span>
+          ) : (
+            <span
+              className={`event-date-pill event-tone-${eventDateTone(currentDelivery?.event_date, jakartaTodayISO())} delivery-event-date-pill`}
+              aria-label={`Event ${compactEventDateLabel(currentDelivery?.event_date)}`}
+            >
+              {compactEventDateLabel(currentDelivery?.event_date)}
+            </span>
+          )}
         </div>
         <div className="dd-heading-side">
           <div className="detail-actions">
@@ -1321,9 +1390,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-          </div>
-          <div className="dd-header-pills" aria-label="Delivery metadata">
-            <span className="dd-header-pill">{deliveryDateLabel}</span>
           </div>
         </div>
       </div>
@@ -1540,10 +1606,17 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
 // subscription is a recurring service, not a one-off event, so
 // those CTAs don't apply. The Subs page (/subs) is the canonical
 // entry for editing/regenerating a subscription bill or receipt.
-function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription, onClose }) {
+function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription, onChanged, onClose }) {
   const name = client?.name || client?.client_name || subscription?.client_name || 'Client';
   const contact = client?.contact || client?.client_contact || subscription?.client_contact || '';
-  const tone = subscription ? subscriptionTone(subscription) : '';
+
+  // Extensions ride along on the subscription record from /api/db.
+  // Compute the EFFECTIVE subscription (base + latest extension)
+  // so the heading badge reflects the current renewal state.
+  const extensions = Array.isArray(subscription?.extensions) ? subscription.extensions : [];
+  const latestExtension = subscription?.latest_extension || pickLatestSubscriptionExtension(extensions);
+  const effective = subscription ? applySubscriptionExtension(subscription, latestExtension) : null;
+  const tone = effective ? subscriptionTone(effective) : '';
 
   const statusRaw = String(subscription?.status || '').trim();
   const statusLabel = statusRaw ? toTitleCase(statusRaw) : '';
@@ -1662,6 +1735,143 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     onDeleteSubscription?.(subscription);
   }
 
+  // ── Extensions state ───────────────────────────────────────────
+  // Subs-side renewal history. Each extension is its own row in
+  // public.subscription_extensions; the latest one drives the
+  // Subs-list visible status/expiry. The base subscription's
+  // own Payment / Start / Expiry stay as the receipt of record.
+  const [extensionFormOpen, setExtensionFormOpen] = useState(false);
+  const [editingExtensionId, setEditingExtensionId] = useState('');
+  const [extensionDraft, setExtensionDraft] = useState(() => makeExtensionDraft(subscription, latestExtension));
+  const [extensionBusy, setExtensionBusy] = useState(false);
+  const [extensionStatus, setExtensionStatus] = useState('');
+  const [extensionStatusTone, setExtensionStatusTone] = useState('');
+
+  // Reset the extension form whenever the parent swaps to a
+  // different subscription so it doesn't carry stale draft state
+  // across rows.
+  useEffect(() => {
+    setExtensionFormOpen(false);
+    setEditingExtensionId('');
+    setExtensionDraft(makeExtensionDraft(subscription, latestExtension));
+    setExtensionStatus('');
+    setExtensionStatusTone('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscription?.id]);
+
+  function setExtensionField(key, value) {
+    setExtensionDraft((current) => {
+      const next = { ...current, [key]: value };
+      // Keep expiry in sync with start + access_period when the
+      // operator hasn't manually overridden the expiry yet. Mirrors
+      // the /subs composer's expiry = start + N days behaviour so
+      // the form has a sensible default while still allowing a
+      // manual edit.
+      if (key === 'start_date' || key === 'access_period') {
+        const period = Number(next.access_period) || 0;
+        const start = next.start_date || '';
+        if (start && period > 0) {
+          const computed = addDays(start, period);
+          if (computed && (!current.expiry_date || current.expiry_date === addDays(current.start_date || '', Number(current.access_period) || 0))) {
+            next.expiry_date = computed;
+          }
+        }
+      }
+      return next;
+    });
+  }
+
+  function openAddExtension() {
+    // Seed the new extension off the EFFECTIVE subscription so a
+    // renewal naturally chains to "now → +30 days from current
+    // expiry". Operators can still override every field before
+    // saving. todaySubs() is the floor when there's no expiry yet.
+    const seedStart = effective?.expiry_date || todaySubs();
+    const period = Number(effective?.access_period) || 30;
+    setExtensionDraft({
+      service: effective?.service || '',
+      status: 'paid',
+      access_period: period,
+      price: 0,
+      start_date: seedStart,
+      start_time: '',
+      expiry_date: addDays(seedStart, period) || '',
+      expiry_time: '',
+    });
+    setEditingExtensionId('');
+    setExtensionStatus('');
+    setExtensionStatusTone('');
+    setExtensionFormOpen(true);
+  }
+
+  function openEditExtension(ext) {
+    setExtensionDraft(makeExtensionDraft(subscription, ext));
+    setEditingExtensionId(String(ext?.id || ''));
+    setExtensionStatus('');
+    setExtensionStatusTone('');
+    setExtensionFormOpen(true);
+  }
+
+  function closeExtensionForm() {
+    setExtensionFormOpen(false);
+    setEditingExtensionId('');
+    setExtensionStatus('');
+    setExtensionStatusTone('');
+  }
+
+  async function saveExtension(event) {
+    event.preventDefault();
+    if (!subscription?.id) return;
+    setExtensionBusy(true);
+    setExtensionStatus('Saving\u2026');
+    setExtensionStatusTone('');
+    try {
+      const payload = {
+        ...extensionDraft,
+        subscription_id: subscription.id,
+        ...(editingExtensionId ? { id: editingExtensionId } : {}),
+      };
+      const response = await fetch('/api/subscription-extensions-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extension: payload }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      setExtensionFormOpen(false);
+      setEditingExtensionId('');
+      setExtensionStatus('');
+      onChanged?.();
+    } catch (error) {
+      setExtensionStatus(error?.message || 'Save failed.');
+      setExtensionStatusTone('error');
+    } finally {
+      setExtensionBusy(false);
+    }
+  }
+
+  async function deleteExtension(ext) {
+    if (!ext?.id) return;
+    try {
+      const response = await fetch('/api/subscription-extensions-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: ext.id }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Delete failed (${response.status}).`);
+      }
+      onChanged?.();
+    } catch (error) {
+      console.warn('[subs/ext] delete failed:', error);
+    }
+  }
+
   // Build the field list. Empty fields are dropped so the panel
   // never shows a wall of "—" placeholders for a thin record.
   // Service / Status / Period now live in the heading pills above.
@@ -1760,6 +1970,158 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           {!fields.length ? <p className="empty-state">No subscription details available.</p> : null}
         </div>
       )}
+      {subscription?.id ? (
+        <section className="subs-extensions" aria-label="Subscription extensions">
+          <div className="subs-extensions-head">
+            <p className="eyebrow">Extensions</p>
+            {!extensionFormOpen ? (
+              <button
+                type="button"
+                className="ghost-button compact"
+                onClick={openAddExtension}
+              >
+                Add Extension
+              </button>
+            ) : null}
+          </div>
+          {extensionFormOpen ? (
+            <form className="form-stack subs-extension-form" onSubmit={saveExtension}>
+              <p className="subs-extension-form-eyebrow">
+                {editingExtensionId ? 'Edit Extension' : 'New Extension'}
+              </p>
+              <label>Service
+                <input
+                  value={extensionDraft.service}
+                  onChange={(e) => setExtensionField('service', e.target.value)}
+                  placeholder={subscription?.service || 'ChatGPT, iCloud, Google Drive\u2026'}
+                />
+              </label>
+              <div className="two-col">
+                <label>Status
+                  <select
+                    value={extensionDraft.status}
+                    onChange={(e) => setExtensionField('status', e.target.value)}
+                  >
+                    <option value="paid">Paid</option>
+                    <option value="invoice">Invoice</option>
+                  </select>
+                </label>
+                <label>Access Period (Days)
+                  <select
+                    value={String(extensionDraft.access_period)}
+                    onChange={(e) => setExtensionField('access_period', Number(e.target.value) || 0)}
+                  >
+                    <option value="7">7</option>
+                    <option value="15">15</option>
+                    <option value="30">30</option>
+                    {[7, 15, 30].includes(Number(extensionDraft.access_period))
+                      ? null
+                      : <option value={String(extensionDraft.access_period)}>{`${extensionDraft.access_period} (custom)`}</option>}
+                  </select>
+                </label>
+              </div>
+              <div className="two-col">
+                <label>Start Date
+                  <input
+                    type="date"
+                    value={extensionDraft.start_date}
+                    onChange={(e) => setExtensionField('start_date', e.target.value)}
+                  />
+                </label>
+                <label>Start Time
+                  <input
+                    type="time"
+                    step="1"
+                    value={extensionDraft.start_time}
+                    onChange={(e) => setExtensionField('start_time', e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="two-col">
+                <label>Expiry Date
+                  <input
+                    type="date"
+                    value={extensionDraft.expiry_date}
+                    onChange={(e) => setExtensionField('expiry_date', e.target.value)}
+                  />
+                </label>
+                <label>Expiry Time
+                  <input
+                    type="time"
+                    step="1"
+                    value={extensionDraft.expiry_time}
+                    onChange={(e) => setExtensionField('expiry_time', e.target.value)}
+                  />
+                </label>
+              </div>
+              <label>Price (IDR)
+                <input
+                  type="number"
+                  min="0"
+                  value={extensionDraft.price}
+                  onChange={(e) => setExtensionField('price', Number(e.target.value) || 0)}
+                />
+              </label>
+              {extensionStatus ? (
+                <p className={`download-status${extensionStatusTone ? ` lg-status-${extensionStatusTone}` : ''}`}>
+                  {extensionStatus}
+                </p>
+              ) : null}
+              <div className="client-actions">
+                <button className="primary-button" type="submit" disabled={extensionBusy}>
+                  {extensionBusy ? 'Saving\u2026' : (editingExtensionId ? 'Save Changes' : 'Save Extension')}
+                </button>
+                <button className="ghost-button compact" type="button" onClick={closeExtensionForm}>Cancel</button>
+              </div>
+            </form>
+          ) : null}
+          {extensions.length ? (
+            <div className="list-stack subs-extension-list">
+              {extensions.map((ext) => {
+                const extEffective = applySubscriptionExtension(subscription, ext);
+                const extToneCls = subscriptionTone(extEffective);
+                const startLabel = ext.start_date ? `${dateLabel(ext.start_date)}${ext.start_time ? ` \u00b7 ${fmtSubsTime(ext.start_time)}` : ''}` : '';
+                const expiryLabel = ext.expiry_date ? `${dateLabel(ext.expiry_date)}${ext.expiry_time ? ` \u00b7 ${fmtSubsTime(ext.expiry_time)}` : ''}` : '';
+                const periodLabel = Number(ext.access_period) > 0 ? `${ext.access_period} Days` : '';
+                const priceLabelExt = Number(ext.price) > 0 ? rupiah(ext.price) : '';
+                const statusLabelExt = ext.status ? toTitleCase(ext.status) : '';
+                const meta = [ext.service, statusLabelExt, periodLabel, priceLabelExt].filter(Boolean).join(' \u00b7 ');
+                const headline = startLabel && expiryLabel
+                  ? `${startLabel}  \u2192  ${expiryLabel}`
+                  : (expiryLabel || startLabel || 'Extension');
+                return (
+                  <article className={`list-row sub-${extToneCls}`} key={ext.id}>
+                    <div>
+                      <strong>{headline}</strong>
+                      {meta ? <span>{meta}</span> : null}
+                    </div>
+                    <div className="subs-extension-row-actions">
+                      <button
+                        type="button"
+                        className="ghost-button compact icon-button"
+                        onClick={() => openEditExtension(ext)}
+                        aria-label="Edit extension"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="row-delete-x"
+                        onClick={() => deleteExtension(ext)}
+                        aria-label="Delete extension"
+                      >
+                        <DeleteIcon />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            !extensionFormOpen ? <p className="empty-state subs-extensions-empty">No extensions yet.</p> : null
+          )}
+        </section>
+      ) : null}
       {printStatus ? <p className="download-status">{printStatus}</p> : null}
       {/* Off-screen export host. The card is always rendered (just
           hidden via the .subs-export-host wrapper styling) so Print
@@ -2682,6 +3044,17 @@ export function DatabasePage() {
   const rawClients = data?.clients || [];
   const invoices = data?.invoices || [];
   const subscriptions = data?.subscriptions || [];
+
+  // Apply the latest extension on top of the base subscription so
+  // the visible expiry/status/period/price/service reflect the
+  // most recent renewal. Thin wrapper around the module-scope
+  // helper so the dependency list is stable.
+  const effectiveSubscription = useCallback((sub) => {
+    if (!sub || typeof sub !== 'object') return sub;
+    const ext = sub.latest_extension || pickLatestSubscriptionExtension(sub.extensions);
+    return applySubscriptionExtension(sub, ext);
+  }, []);
+
   // Sort clients alphabetically (case-insensitive) by display name
   // for the Clients tab. Search/query filtering still happens server
   // side via /api/db?q=... so the alphabetical ordering composes
@@ -2694,21 +3067,36 @@ export function DatabasePage() {
     });
   }, [rawClients]);
 
-  const subClients = useMemo(() => {
-    return clients.filter(c => (c.subscription_count || 0) > 0 || (c.subscription_ids && c.subscription_ids.length > 0));
-  }, [clients]);
+  // Subs tab data source. The Subs roster is driven directly by
+  // the `subscriptions` array — NOT by joined client summaries —
+  // so an edited subscription's client_name shows up immediately
+  // and a deleted subscription disappears without leaving a
+  // stub Clients row behind. Each row's stable id is the
+  // subscription id (used for selection and delete), and the
+  // subscription record itself rides along on `row.subscription`
+  // so downstream lookups don't need a separate query.
+  const subRows = useMemo(() => {
+    return (Array.isArray(subscriptions) ? subscriptions : []).map((sub) => ({
+      id: String(sub.id || ''),
+      client_name: String(sub.client_name || '').trim(),
+      client_title: String(sub.client_title || '').trim(),
+      client_contact: String(sub.client_contact || '').trim(),
+      subscription: sub,
+    }));
+  }, [subscriptions]);
 
   // CRM Clients tab: real client rows + any client with invoice/delivery
-  // history. Subscription-only summaries (no invoice/delivery rows but
-  // a non-zero subscription count, or rows sourced from the legacy /
-  // subscriptions buckets) are intentionally excluded so the Clients
-  // tab stays a CRM view, not a subscription roster. Those entries
-  // still appear in the Subs tab via subClients.
+  // history. Subscription data is intentionally NOT included so the
+  // Clients tab stays a pure CRM view (invoices + deliveries only).
+  // Cross-leaks from Subs into Clients are handled server-side
+  // (handleSubscriptionSave no longer creates client rows; orphan
+  // client rows are reaped on subscription delete) — this filter
+  // is the last line of defence so any stragglers from older runs
+  // don't surface here.
   const crmClients = useMemo(() => {
     return clients.filter((c) => {
       const invoiceCount = Number(c?.invoice_count || 0);
       const deliveryCount = Number(c?.delivery_count || 0);
-      const subscriptionCount = Number(c?.subscription_count || 0);
       const source = String(c?.source || '').toLowerCase();
       const hasInvoiceHistory =
         invoiceCount > 0 ||
@@ -2717,46 +3105,41 @@ export function DatabasePage() {
         deliveryCount > 0 ||
         (Array.isArray(c?.delivery_ids) && c.delivery_ids.length > 0);
 
-      // Real history wins regardless of source/subscription state.
+      // Real history wins regardless of source state.
       if (hasInvoiceHistory || hasDeliveryHistory) return true;
 
-      // Drop legacy / subscription-derived summaries that have no
-      // invoice or delivery history. These are subscription-only
-      // entries (e.g. Keysyanaf, Kornelius) that previously leaked
-      // into the Clients list.
+      // Drop legacy / subscription-derived summaries — these are
+      // remnants from before the Subs/Clients decoupling.
       const isLegacyOrSubscriptionSource =
         source === 'legacy' ||
         source === 'subscription' ||
         source === 'subscriptions';
       if (isLegacyOrSubscriptionSource) return false;
 
-      // Even when source === 'client', a row with only subscription
-      // history is still a subscription-only summary for CRM purposes.
-      if (subscriptionCount > 0) return false;
-
       // Otherwise include real client rows.
       return source === 'client';
     });
   }, [clients]);
 
-  const getClientSubscription = useCallback((client) => {
-    const clientId = String(client?.id || '').trim();
-    const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
-    return subscriptions.find(sub => {
-      const subClientId = String(sub?.client_id || '').trim();
-      const subName = String(sub?.client_name || sub?.name || '').trim().toLowerCase();
-      if (clientId && subClientId && clientId === subClientId) return true;
-      return !!clientName && !!subName && clientName === subName;
-    });
+  // Resolve a subscription by id (used by SubscriptionDetail /
+  // SubscriptionEdit when the parent's selection points at a Subs
+  // row). Falls back to the row's bundled subscription if the list
+  // hasn't been refreshed yet, so the right panel never goes blank
+  // mid-transition.
+  const getSubscriptionById = useCallback((id) => {
+    const cleanId = String(id || '').trim();
+    if (!cleanId) return null;
+    return subscriptions.find((sub) => String(sub?.id || '') === cleanId) || null;
   }, [subscriptions]);
 
   // Resolve all real event_dates a CRM client owns by walking the
   // /api/db payload (invoices + deliveries). Match on client_id
   // first, fall back to a case-insensitive name match so rows that
   // pre-date the typed client_id column still associate. Mirrors
-  // the matching used in buildClientRecords / getClientSubscription
-  // so the Clients tab tone, the right-panel records, and the Subs
-  // tab association all read off the same definition.
+  // the matching used in buildClientRecords so the Clients tab
+  // tone and the right-panel records read off the same definition.
+  // Subs are resolved separately by subscription id (subRows /
+  // getSubscriptionById) so this helper stays Clients-only.
   const deliveriesAll = data?.items || [];
   const todayIso = useMemo(() => jakartaTodayISO(), []);
   const eventDatesByClient = useCallback((client) => {
@@ -2851,11 +3234,12 @@ export function DatabasePage() {
   //                of how recently they expired. Within the
   //                expired bucket we still keep newest-first so
   //                the most recently lapsed reads first.
-  // The recency key is an ISO/YYYY-MM-DD string, so a plain
-  // reverse localeCompare is sufficient — no Date parsing needed.
-  // Subscription lookup is cached once per row to avoid an O(n²)
-  // walk inside the comparator.
-  const sortedSubClients = useMemo(() => {
+  // Tone is computed against the EFFECTIVE subscription so a
+  // recent extension's expiry can flip an "expired" base row back
+  // to active without a separate codepath. The recency key is an
+  // ISO/YYYY-MM-DD string, so a plain reverse localeCompare is
+  // sufficient — no Date parsing needed.
+  const sortedSubRows = useMemo(() => {
     function recencyKey(sub) {
       return String(
         sub?.expiry_date
@@ -2865,13 +3249,14 @@ export function DatabasePage() {
         || ''
       );
     }
-    const annotated = subClients.map((row) => {
-      const sub = getClientSubscription(row) || null;
-      const tone = sub ? subscriptionTone(sub) : 'active';
+    const annotated = subRows.map((row) => {
+      const sub = row.subscription || null;
+      const effective = sub ? effectiveSubscription(sub) : null;
+      const tone = effective ? subscriptionTone(effective) : 'active';
       return {
         row,
         bucket: tone === 'expired' ? 1 : 0,
-        key: recencyKey(sub),
+        key: recencyKey(effective || sub),
       };
     });
     annotated.sort((a, b) => {
@@ -2880,19 +3265,21 @@ export function DatabasePage() {
       return b.key.localeCompare(a.key);
     });
     return annotated.map((entry) => entry.row);
-  }, [subClients, getClientSubscription]);
+  }, [subRows, effectiveSubscription]);
 
   const activeRows = tab === 'subs'
-    ? sortedSubClients
+    ? sortedSubRows
     : sortedCrmClients.map((entry) => entry.client);
   const selectedClient = selected?.type === 'client' ? clients.find((client) => client.id === selected.id) || selected.data : null;
-  // For Subs tab selections, resolve the actual subscription row so the
-  // detail panel renders subscription fields instead of reusing the
-  // CRM event flow (which produced a misleading "No events yet"). The
-  // 'subs-edit' branch reuses the same client row in selected.data,
-  // so we resolve the subscription for both types.
+  // For Subs tab selections, resolve the actual subscription row by
+  // its id. Both 'subscription' and 'subs-edit' selection branches
+  // carry the subscription id directly (Subs rows are subscription-
+  // backed now), so a single getSubscriptionById lookup is enough.
+  // Falls back to the row's bundled subscription if the list
+  // hasn't been refreshed yet (e.g. mid-transition right after a
+  // save) so the right panel never goes blank.
   const selectedSubscription = (selected?.type === 'subscription' || selected?.type === 'subs-edit')
-    ? getClientSubscription(selected.data || {})
+    ? (getSubscriptionById(selected.id) || selected.data?.subscription || null)
     : null;
 
   // Walk back one level through the selection's parent chain.
@@ -3134,8 +3521,13 @@ export function DatabasePage() {
           const isClient = tab === 'clients';
           const isSub = tab === 'subs';
           const title = row.client_name || row.name || row.title || row.slug;
-          const clientSub = isSub ? getClientSubscription(row) : null;
-          const subTone = clientSub ? subscriptionTone(clientSub) : '';
+          // Subs row tone reads off the EFFECTIVE subscription so a
+          // recent extension can flip an "expired" base row back to
+          // active. row.subscription is the canonical subscription
+          // record that came down on /api/db.
+          const subRecord = isSub ? (row.subscription || null) : null;
+          const subEffective = subRecord ? effectiveSubscription(subRecord) : null;
+          const subTone = subEffective ? subscriptionTone(subEffective) : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
           // The tone drives both the row text colour and the small
@@ -3149,8 +3541,8 @@ export function DatabasePage() {
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
             meta = isHumanReadableContact(contact) ? contact : '';
-          } else if (isSub && clientSub) {
-            meta = formatSubscriptionMeta(clientSub);
+          } else if (isSub && subEffective) {
+            meta = formatSubscriptionMeta(subEffective);
           }
           const rowId = row.id || `row-${index}`;
           const className = [
@@ -3167,11 +3559,12 @@ export function DatabasePage() {
             // taps just select. The previous arm/disarm dance was
             // removed along with armedRowId state in PR #56.
             if (isSub) {
-              // Subs tab → subscription detail (resolved via
-              // getClientSubscription on render). Keeps the row's
-              // client summary in selected.data so heading/contact
-              // stay available when the subscription record is
-              // missing fields.
+              // Subs tab → subscription detail. row.id IS the
+              // subscription id (subRows builds it that way) so
+              // selectedSubscription resolves directly. We keep
+              // the row in selected.data as a fallback for the
+              // mid-transition window where the list hasn't been
+              // refreshed yet.
               setSelected({ type: 'subscription', id: row.id, data: row });
             } else if (isClient) {
               setSelected({ type: 'client', id: row.id, data: row });
@@ -3183,11 +3576,12 @@ export function DatabasePage() {
             event.stopPropagation();
             if (isSub) {
               // Deleting from the Subs list removes the subscription
-              // record itself, not the underlying client. The client
-              // can still own invoices/deliveries that should survive.
-              const sub = getClientSubscription(row);
-              if (sub?.id) {
-                deleteRecord({ kind: 'subscription', id: sub.id });
+              // row directly. The orphan-client cleanup is handled
+              // server-side in handleSubscriptionDelete so a real
+              // CRM client (one with invoices/deliveries) is never
+              // touched.
+              if (row.id) {
+                deleteRecord({ kind: 'subscription', id: row.id });
                 if (selected?.type === 'subscription' && selected.id === row.id) {
                   setSelected(null);
                   setMobileView('left');
@@ -3380,6 +3774,7 @@ export function DatabasePage() {
             setSelected(null);
             setMobileView('left');
           }}
+          onChanged={refetch}
           onClose={back}
         />
       ) : null}
