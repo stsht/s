@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
-import { Segmented, EmptyState } from '../../components/ui/index.js';
+import { Segmented, EmptyState, Combobox } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
 // Lightweight gated debug logger.
@@ -525,6 +525,17 @@ function ListRow({ title, meta, amount }) {
   );
 }
 
+const TITLE_OPTIONS = ['Mr.', 'Ms.', 'Mrs.', 'Family'];
+const SUBSCRIPTION_STATUS_OPTIONS = [
+  { value: 'paid', label: 'Paid' },
+  { value: 'invoice', label: 'Invoice' },
+];
+const ACCESS_PERIOD_OPTIONS = [
+  { value: '7', label: '7' },
+  { value: '15', label: '15' },
+  { value: '30', label: '30' },
+];
+
 function buildClientRecords(client, invoices, deliveries, todayIso) {
   // One real event = one row. Records are merged into a group when
   // any of these axes match a sibling already in the group:
@@ -698,10 +709,13 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
     <form className="client-form" onSubmit={onSave}>
       <div className="client-form-grid">
         <label>Title
-          <select value={draft.title} onChange={(event) => onChange({ ...draft, title: event.target.value })}>
-            <option>Ms.</option>
-            <option>Mr.</option>
-          </select>
+          <Combobox
+            value={draft.title}
+            options={TITLE_OPTIONS}
+            placeholder="Title"
+            ariaLabel="Client title"
+            onChange={(value) => onChange({ ...draft, title: value })}
+          />
         </label>
         <label>Name
           <input value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} placeholder="Client name" />
@@ -1998,26 +2012,24 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               </label>
               <div className="two-col">
                 <label>Status
-                  <select
+                  <Combobox
                     value={extensionDraft.status}
-                    onChange={(e) => setExtensionField('status', e.target.value)}
-                  >
-                    <option value="paid">Paid</option>
-                    <option value="invoice">Invoice</option>
-                  </select>
+                    options={SUBSCRIPTION_STATUS_OPTIONS}
+                    placeholder="Status"
+                    ariaLabel="Extension status"
+                    onChange={(value) => setExtensionField('status', value)}
+                  />
                 </label>
                 <label>Access Period (Days)
-                  <select
+                  <Combobox
                     value={String(extensionDraft.access_period)}
-                    onChange={(e) => setExtensionField('access_period', Number(e.target.value) || 0)}
-                  >
-                    <option value="7">7</option>
-                    <option value="15">15</option>
-                    <option value="30">30</option>
-                    {[7, 15, 30].includes(Number(extensionDraft.access_period))
-                      ? null
-                      : <option value={String(extensionDraft.access_period)}>{`${extensionDraft.access_period} (custom)`}</option>}
-                  </select>
+                    options={[...ACCESS_PERIOD_OPTIONS, ...([7, 15, 30].includes(Number(extensionDraft.access_period))
+                      ? []
+                      : [{ value: String(extensionDraft.access_period), label: `${extensionDraft.access_period} (custom)` }])]}
+                    placeholder="Days"
+                    ariaLabel="Extension access period"
+                    onChange={(value) => setExtensionField('access_period', Number(value) || 0)}
+                  />
                 </label>
               </div>
               <div className="two-col">
@@ -2716,12 +2728,13 @@ function SubscriptionImport({ onSaved, onCancel }) {
       <form className="form-stack" onSubmit={handleSave}>
         <div className="two-col">
           <label>Title
-            <select value={draft.client_title} onChange={(e) => setField('client_title', e.target.value)}>
-              <option>Mr.</option>
-              <option>Ms.</option>
-              <option>Mrs.</option>
-              <option>Family</option>
-            </select>
+            <Combobox
+              value={draft.client_title}
+              options={TITLE_OPTIONS}
+              placeholder="Title"
+              ariaLabel="Subscription client title"
+              onChange={(value) => setField('client_title', value)}
+            />
           </label>
           <label>Client Name
             <input
@@ -2741,10 +2754,13 @@ function SubscriptionImport({ onSaved, onCancel }) {
         </label>
         <div className="two-col">
           <label>Status
-            <select value={draft.status} onChange={(e) => setField('status', e.target.value)}>
-              <option value="paid">Paid</option>
-              <option value="invoice">Invoice</option>
-            </select>
+            <Combobox
+              value={draft.status}
+              options={SUBSCRIPTION_STATUS_OPTIONS}
+              placeholder="Status"
+              ariaLabel="Subscription status"
+              onChange={(value) => setField('status', value)}
+            />
           </label>
           <label>Access Period (Days)
             <input
@@ -2920,12 +2936,13 @@ function SubscriptionEdit({ subscription, onSaved, onCancel }) {
       <form className="form-stack" onSubmit={handleSave}>
         <div className="two-col">
           <label>Title
-            <select value={draft.client_title} onChange={(e) => setField('client_title', e.target.value)}>
-              <option>Mr.</option>
-              <option>Ms.</option>
-              <option>Mrs.</option>
-              <option>Family</option>
-            </select>
+            <Combobox
+              value={draft.client_title}
+              options={TITLE_OPTIONS}
+              placeholder="Title"
+              ariaLabel="Subscription client title"
+              onChange={(value) => setField('client_title', value)}
+            />
           </label>
           <label>Client Name
             <input
@@ -2945,10 +2962,13 @@ function SubscriptionEdit({ subscription, onSaved, onCancel }) {
         </label>
         <div className="two-col">
           <label>Status
-            <select value={draft.status} onChange={(e) => setField('status', e.target.value)}>
-              <option value="paid">Paid</option>
-              <option value="invoice">Invoice</option>
-            </select>
+            <Combobox
+              value={draft.status}
+              options={SUBSCRIPTION_STATUS_OPTIONS}
+              placeholder="Status"
+              ariaLabel="Subscription status"
+              onChange={(value) => setField('status', value)}
+            />
           </label>
           <label>Access Period (Days)
             <input
@@ -3344,11 +3364,21 @@ export function DatabasePage() {
     // clients still POST without an id and reload the page so the
     // freshly-inserted row is selectable from the list.
     const isEdit = selected?.type === 'client-edit';
-    const editId = isEdit ? String(selected?.data?.id || selected?.data?.client_id || '') : '';
+    const editSource = isEdit ? (selected?.data || {}) : {};
+    const editId = isEdit ? String(editSource.id || editSource.client_id || '') : '';
+    const groupedInvoiceIds = Array.isArray(editSource.invoice_ids) ? editSource.invoice_ids : [];
+    const groupedDeliveryIds = Array.isArray(editSource.delivery_ids) ? editSource.delivery_ids : [];
 
     setSaveStatus('Saving...');
     try {
-      const payload = isEdit && editId ? { ...draft, id: editId } : draft;
+      const payload = isEdit
+        ? {
+            ...draft,
+            ...(editId && !editId.startsWith('legacy:') ? { id: editId } : {}),
+            invoiceIds: groupedInvoiceIds,
+            deliveryIds: groupedDeliveryIds,
+          }
+        : draft;
       const response = await fetch('/api/clients-save', {
         method: 'POST',
         credentials: 'same-origin',
