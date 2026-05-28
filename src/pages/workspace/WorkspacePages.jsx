@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
+import { selectAllIfZero, parseMoneyInput } from '../../utils/moneyInput.js';
 
 // Lightweight gated debug logger.
 //
@@ -1684,9 +1685,20 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         : '';
   const period = Number(subscription?.access_period);
   const periodLabel = Number.isFinite(period) && period > 0 ? `${period} Days` : '';
-  const priceLabel = Number.isFinite(Number(subscription?.price))
-    ? rupiah(subscription.price)
-    : '';
+  // Resolve the saved price defensively. The Subs schema only has
+  // a single `price` column, but historical rows or other parsers
+  // may have stamped the amount onto an alias (paid_amount /
+  // amount / total) — read whichever non-zero value lands first
+  // so a real Rp 50.000 shows up instead of "Rp 0". Mirrors the
+  // formatting rule used by the extension list rows below
+  // (`Number(ext.price) > 0 ? rupiah(...) : ''`) so the main
+  // detail row drops out cleanly when no price was ever recorded.
+  const priceValue = Number(subscription?.price)
+    || Number(subscription?.paid_amount)
+    || Number(subscription?.amount)
+    || Number(subscription?.total)
+    || 0;
+  const priceLabel = priceValue > 0 ? rupiah(priceValue) : '';
   const isPaid = String(subscription?.status || '').toLowerCase() === 'paid';
   const priceField = isPaid ? 'Paid Amount' : 'Price';
 
@@ -2128,7 +2140,8 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   type="number"
                   min="0"
                   value={extensionDraft.price}
-                  onChange={(e) => setExtensionField('price', Number(e.target.value) || 0)}
+                  onFocus={selectAllIfZero}
+                  onChange={(e) => setExtensionField('price', parseMoneyInput(e.target.value))}
                 />
               </label>
               {extensionStatus ? (
@@ -2541,6 +2554,26 @@ function SubscriptionImport({ onSaved, onCancel }) {
   // fall back to the current draft so a partial extraction still
   // leaves any defaults the operator already saw.
   function applyParsed(parsed = {}) {
+    // Resolve the price field across the aliases the server prompt
+    // and any local OCR fallback might use. Subs only has a single
+    // `price` column on disk, but the parser shape isn't a hard
+    // contract — keep this lenient so a Rp 50.000 on the receipt
+    // lands in the draft regardless of which key the JSON used.
+    const parsedPriceCandidates = [
+      parsed.price,
+      parsed.paid_amount,
+      parsed.paidAmount,
+      parsed.amount,
+      parsed.total,
+    ];
+    let parsedPrice = NaN;
+    for (const candidate of parsedPriceCandidates) {
+      if (candidate === undefined || candidate === null || candidate === '') continue;
+      const digits = String(candidate).replace(/[^0-9]/g, '');
+      if (!digits) continue;
+      const num = Number(digits);
+      if (Number.isFinite(num) && num > 0) { parsedPrice = num; break; }
+    }
     setDraft((current) => ({
       ...current,
       client_title: parsed.client_title || current.client_title,
@@ -2549,9 +2582,7 @@ function SubscriptionImport({ onSaved, onCancel }) {
       service: parsed.service || current.service,
       storage_slot: parsed.storage_slot || current.storage_slot,
       rate_mode: parsed.rate_mode || current.rate_mode,
-      price: Number.isFinite(Number(parsed.price)) && Number(parsed.price) > 0
-        ? Number(parsed.price)
-        : current.price,
+      price: Number.isFinite(parsedPrice) ? parsedPrice : current.price,
       status: parsed.status || current.status,
       invoice_date: parsed.invoice_date || current.invoice_date,
       payment_date: parsed.payment_date || current.payment_date,
@@ -2863,7 +2894,8 @@ function SubscriptionImport({ onSaved, onCancel }) {
             type="number"
             min="0"
             value={draft.price}
-            onChange={(e) => setField('price', Number(e.target.value) || 0)}
+            onFocus={selectAllIfZero}
+            onChange={(e) => setField('price', parseMoneyInput(e.target.value))}
           />
         </label>
         {status ? (
@@ -2886,8 +2918,19 @@ function SubscriptionImport({ onSaved, onCancel }) {
 // /api/subscriptions-save with the row's id so saving updates the
 // existing row instead of inserting. On success the parent swaps
 // the right panel back to the read-only detail view.
-function SubscriptionEdit({ subscription, onSaved, onCancel }) {
+//
+// Doubles as the "New Subscription" composer when invoked with no
+// `subscription` prop (or a freshly-shaped empty draft). In create
+// mode the heading, eyebrow, and submit-button copy switch over and
+// the save POST flows through the same /api/subscriptions-save
+// endpoint without an `id`, so the worker treats it as an insert.
+// Subs/Clients separation is preserved server-side: handleSubscription
+// Save explicitly does not auto-create a public.clients row from a
+// subscription save (see comment block in _worker.js), so manual
+// creation here keeps the two systems independent.
+function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
   const id = String(subscription?.id || '');
+  const isCreate = mode === 'create' || !id;
   const [draft, setDraft] = useState(() => subscriptionToDraft(subscription || {}));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
@@ -2952,15 +2995,19 @@ function SubscriptionEdit({ subscription, onSaved, onCancel }) {
       <div className="detail-heading">
         <div>
           <p className="eyebrow">Subscription</p>
-          <h2>Edit Subscription</h2>
-          <span>Update the saved fields and Save to apply changes.</span>
+          <h2>{isCreate ? 'New Subscription' : 'Edit Subscription'}</h2>
+          <span>
+            {isCreate
+              ? 'Fill in the details and Save to add a subscription. This does not create a Clients record.'
+              : 'Update the saved fields and Save to apply changes.'}
+          </span>
         </div>
         <div className="detail-actions">
           <button
             type="button"
             className="db-close-button"
             onClick={onCancel}
-            aria-label="Cancel edit"
+            aria-label={isCreate ? 'Cancel new subscription' : 'Cancel edit'}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -3050,7 +3097,8 @@ function SubscriptionEdit({ subscription, onSaved, onCancel }) {
             type="number"
             min="0"
             value={draft.price}
-            onChange={(e) => setField('price', Number(e.target.value) || 0)}
+            onFocus={selectAllIfZero}
+            onChange={(e) => setField('price', parseMoneyInput(e.target.value))}
           />
         </label>
         {status ? (
@@ -3058,7 +3106,7 @@ function SubscriptionEdit({ subscription, onSaved, onCancel }) {
         ) : null}
         <div className="client-actions">
           <button className="primary-button" type="submit" disabled={busy}>
-            {busy ? 'Saving\u2026' : 'Save Subscription'}
+            {busy ? 'Saving\u2026' : (isCreate ? 'Create Subscription' : 'Save Subscription')}
           </button>
           <button className="ghost-button compact" type="button" onClick={onCancel}>Cancel</button>
         </div>
@@ -3450,6 +3498,18 @@ export function DatabasePage() {
     setSelected({ type: 'subs-import' });
   }
 
+  // /db Subs → "New Subscription". Opens the same editable form
+  // SubscriptionEdit uses but in create mode (no id), so saving
+  // POSTs through /api/subscriptions-save as a fresh insert. Subs
+  // and Clients stay separate: handleSubscriptionSave never auto-
+  // creates a public.clients row from this path, and the new row
+  // shows up only on the Subs tab — never as a TBA Clients row.
+  function openCreateSubscription() {
+    setTab('subs');
+    setSelected({ type: 'subs-create' });
+    setMobileView('right');
+  }
+
   // The earlier top-level "Create Events" button on the client
   // detail panel has been folded into an inline sheet inside
   // ClientDetail (see the createOpen/pendingEventKey flow). The
@@ -3568,9 +3628,14 @@ export function DatabasePage() {
           </button>
         ) : null}
         {tab === 'subs' ? (
-          <button className="add-client-button" type="button" onClick={openImportSubscription}>
-            Import JPG
-          </button>
+          <div className="subs-list-actions">
+            <button className="add-client-button" type="button" onClick={openCreateSubscription}>
+              New Subscription
+            </button>
+            <button className="add-client-button add-client-button--ghost" type="button" onClick={openImportSubscription}>
+              Import JPG
+            </button>
+          </div>
         ) : null}
       </div>
       {status ? <EmptyState>{status}</EmptyState> : null}
@@ -3863,7 +3928,38 @@ export function DatabasePage() {
           onCancel={back}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'delivery' ? (
+      {selected?.type === 'subs-create' ? (
+        <SubscriptionEdit
+          subscription={null}
+          mode="create"
+          onSaved={(saved) => {
+            // Refresh the list so the new row is selectable, then
+            // route the right panel into the freshly-created
+            // subscription's detail view. Falls back to the list
+            // view when the worker didn't echo back a row id.
+            refetch();
+            const newId = String(saved?.id || '');
+            if (newId) {
+              setSelected({
+                type: 'subscription',
+                id: newId,
+                data: {
+                  id: newId,
+                  client_name: String(saved?.client_name || ''),
+                  client_title: String(saved?.client_title || ''),
+                  client_contact: String(saved?.client_contact || ''),
+                  subscription: saved,
+                },
+              });
+            } else {
+              setSelected(null);
+              setMobileView('left');
+            }
+          }}
+          onCancel={back}
+        />
+      ) : null}
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'subs-create' && selected.type !== 'delivery' ? (
         <>
           <div className="list-stack">
             <ListRow
@@ -5422,6 +5518,7 @@ export function SubscriptionsPage() {
           type="number"
           min="0"
           value={price}
+          onFocus={selectAllIfZero}
           onChange={(event) => setPrice(event.target.value)}
           readOnly={mode === 'paid'}
           aria-readonly={mode === 'paid'}

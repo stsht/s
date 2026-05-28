@@ -2859,7 +2859,8 @@ const SUBSCRIPTION_IMPORT_PROMPT = `You are reading a StarShots subscription rec
   "start_date": "YYYY-MM-DD or null",
   "start_time": "HH:MM:SS or null",
   "expiry_date": "YYYY-MM-DD or null",
-  "expiry_time": "HH:MM:SS or null"
+  "expiry_time": "HH:MM:SS or null",
+  "price": "<integer rupiah amount, e.g. 50000, or null>"
 }
 
 Hints:
@@ -2869,6 +2870,8 @@ Hints:
 - Times printed in HH.MM form (e.g. 18.41) → convert to HH:MM:SS (18:41:00)
 - Dates printed as "May 13, 2026" → convert to ISO 2026-05-13
 - Title-case the client name (e.g. "medacandra" → "Medacandra")
+- "Paid Amount" or "Total" tile printed as "Rp 50.000" or "Rp 50,000" → price=50000 (strip
+  the "Rp " prefix and any thousand separators; integer rupiah only, no decimals).
 - Set a field to null if you cannot read it confidently. Do not guess.`;
 
 function bytesToBase64(bytes) {
@@ -2988,6 +2991,29 @@ function normalizeImportedSubscription(extracted = {}) {
     ? nameRaw.replace(/\b[a-z]/g, (c) => c.toUpperCase())
     : '';
 
+  // Price may arrive under any of these aliases depending on which
+  // model variant or fallback parser produced the JSON. The Subs
+  // schema only has `price`, so collapse all of them onto that
+  // single output field. Strings like "Rp 50.000" / "Rp 50,000" /
+  // "50,000.00" are scrubbed to integer rupiah; non-numeric values
+  // and zeros come back as null so applyParsed/normalize don't
+  // accidentally clobber a sensible default with 0.
+  const priceCandidates = [
+    extracted.price,
+    extracted.paid_amount,
+    extracted.paidAmount,
+    extracted.amount,
+    extracted.total,
+  ];
+  let priceValue = null;
+  for (const candidate of priceCandidates) {
+    if (candidate === undefined || candidate === null || candidate === '') continue;
+    const digits = String(candidate).replace(/[^0-9]/g, '');
+    if (!digits) continue;
+    const num = Number(digits);
+    if (Number.isFinite(num) && num > 0) { priceValue = num; break; }
+  }
+
   return {
     client_title: titleClean,
     client_name: clientName,
@@ -2999,7 +3025,8 @@ function normalizeImportedSubscription(extracted = {}) {
     start_date: cleanIsoDate(extracted.start_date),
     start_time: normalizeTime(extracted.start_time),
     expiry_date: cleanIsoDate(extracted.expiry_date),
-    expiry_time: normalizeTime(extracted.expiry_time)
+    expiry_time: normalizeTime(extracted.expiry_time),
+    price: priceValue
   };
 }
 

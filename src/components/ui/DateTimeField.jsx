@@ -272,6 +272,24 @@ export function DateTimeField({
       className={`dtf${withTime ? ' dtf--with-time' : ''}${popoverOpen ? ' dtf--open' : ''}`}
       role="group"
       aria-label={ariaLabel || (withTime ? 'Date and time' : 'Date')}
+      onClick={(event) => {
+        // Make the entire field one clickable target so a tap on
+        // the day/month/year text or the calendar icon resolves
+        // to the same picker. We skip when the click target is
+        // already inside the calendar button — it owns a toggle
+        // handler, so leaving that gesture alone preserves the
+        // close-on-second-tap behaviour. Segment input clicks
+        // still bubble through (the focus has already happened
+        // by the time onClick fires) so the operator can type
+        // OR tap to open the calendar without picking one over
+        // the other. The popover is treated as additive: opening
+        // it doesn't steal focus from a segment that was just
+        // tapped, so paste/keyboard editing still work. */
+        if (!showCalendar) return;
+        if (event.target.closest?.('.dtf-icon')) return;
+        if (event.target.closest?.('.dtf-popover')) return;
+        if (!popoverOpen) setPopoverOpen(true);
+      }}
     >
       <input
         ref={dayRef}
