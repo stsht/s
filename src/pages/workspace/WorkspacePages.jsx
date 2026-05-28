@@ -382,15 +382,37 @@ function applySubscriptionExtension(sub, extension) {
   };
 }
 
-// Pick the latest extension out of a list — same priority the
-// /api/db response uses (expiry_date → start_date → created_at,
-// most recent wins). Returns null on an empty / undefined list.
+// Build a sortable "YYYY-MM-DDTHH:MM:SS" key for an extension so
+// ties on the same expiry_date are broken by expiry_time. Falls
+// back to start_date/time when the extension has no expiry yet,
+// and to created_at as a last resort. Mixing date-only strings
+// with ISO timestamps in the same key would mis-order rows, so
+// every branch returns the same shape.
+function subscriptionExtensionSortKey(ext) {
+  const e = ext || {};
+  if (e.expiry_date) {
+    return `${e.expiry_date}T${e.expiry_time || '00:00:00'}`;
+  }
+  if (e.start_date) {
+    return `${e.start_date}T${e.start_time || '00:00:00'}`;
+  }
+  return String(e.created_at || '');
+}
+
+// Pick the latest extension out of a list. Priority is:
+//   1. expiry_date + expiry_time (highest wins — extends furthest
+//      into the future)
+//   2. start_date + start_time (fallback for extensions still
+//      missing an expiry — operator typed only the start)
+//   3. created_at (last resort so a fresh row still surfaces).
+// See .kiro/steering/subscription-extensions.md for the full
+// "next extension chains off the latest expiry" requirement.
 function pickLatestSubscriptionExtension(list) {
   const arr = Array.isArray(list) ? list.slice() : [];
   if (!arr.length) return null;
   arr.sort((a, b) => {
-    const aKey = String(a?.expiry_date || a?.start_date || a?.created_at || '');
-    const bKey = String(b?.expiry_date || b?.start_date || b?.created_at || '');
+    const aKey = subscriptionExtensionSortKey(a);
+    const bKey = subscriptionExtensionSortKey(b);
     return bKey.localeCompare(aKey);
   });
   return arr[0];
@@ -1813,20 +1835,28 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
 
   function openAddExtension() {
     // Seed the new extension off the EFFECTIVE subscription so a
-    // renewal naturally chains to "now → +30 days from current
-    // expiry". Operators can still override every field before
-    // saving. todaySubs() is the floor when there's no expiry yet.
+    // renewal chains to the latest known expiry. `effective`
+    // already merges the latest extension into the base row (via
+    // applySubscriptionExtension), so `effective.expiry_*` is
+    // automatically:
+    //   1. latest extension expiry, if any extension exists, else
+    //   2. base subscription expiry, else
+    //   3. empty — and we fall back to today.
+    // See .kiro/steering/subscription-extensions.md for the full
+    // requirement. Operators can still override every field.
     const seedStart = effective?.expiry_date || todaySubs();
+    const seedStartTime = effective?.expiry_date ? (effective?.expiry_time || '') : '';
     const period = Number(effective?.access_period) || 30;
+    const seedExpiry = addDays(seedStart, period) || '';
     setExtensionDraft({
       service: effective?.service || '',
       status: 'paid',
       access_period: period,
       price: 0,
       start_date: seedStart,
-      start_time: '',
-      expiry_date: addDays(seedStart, period) || '',
-      expiry_time: '',
+      start_time: seedStartTime,
+      expiry_date: seedExpiry,
+      expiry_time: seedStartTime,
     });
     setEditingExtensionId('');
     setExtensionStatus('');

@@ -1607,16 +1607,29 @@ async function handleDbSearch(request, env) {
   // Pick the "latest" extension per subscription for the list
   // tone/expiry override. Priority is the same one the frontend
   // sorts on:
-  //   1. expiry_date (highest wins — extends furthest into the future)
-  //   2. start_date (fallback for extensions still missing an
-  //      expiry — operator typed only the start)
+  //   1. expiry_date + expiry_time (highest wins — extends
+  //      furthest into the future)
+  //   2. start_date + start_time (fallback for extensions still
+  //      missing an expiry — operator typed only the start)
   //   3. created_at (last resort so a fresh row still surfaces).
+  // See .kiro/steering/subscription-extensions.md — the new
+  // extension's Start Date/Time defaults to this row's expiry.
+  function extensionSortKey(ext) {
+    const e = ext || {};
+    if (e.expiry_date) {
+      return `${e.expiry_date}T${e.expiry_time || '00:00:00'}`;
+    }
+    if (e.start_date) {
+      return `${e.start_date}T${e.start_time || '00:00:00'}`;
+    }
+    return String(e.created_at || '');
+  }
   function pickLatestExtension(list) {
     const arr = Array.isArray(list) ? list.slice() : [];
     if (!arr.length) return null;
     arr.sort((a, b) => {
-      const aKey = String(a?.expiry_date || a?.start_date || a?.created_at || '');
-      const bKey = String(b?.expiry_date || b?.start_date || b?.created_at || '');
+      const aKey = extensionSortKey(a);
+      const bKey = extensionSortKey(b);
       // Reverse — newest first.
       return bKey.localeCompare(aKey);
     });
