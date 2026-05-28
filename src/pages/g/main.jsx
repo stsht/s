@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import '../invcs/invcs.css';
@@ -121,6 +121,41 @@ function GalleryGate() {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // ---- Apple-style splash → form reveal stage ----
+  // Mirrors the private PasswordGate so /g visitors see the same
+  // calm two-stage entry. None of the unlock fetch / payload /
+  // slug behavior is touched.
+  const inputRef = useRef(null);
+  const [revealed, setRevealed] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const apply = () => setIsTouch(!!mq.matches);
+    apply();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+    if (mq.addListener) {
+      mq.addListener(apply);
+      return () => mq.removeListener(apply);
+    }
+    return undefined;
+  }, []);
+
+  function handleReveal() {
+    if (revealed) return;
+    setRevealed(true);
+    // Sync focus inside the user-gesture task (so iOS / Android can
+    // raise the soft keyboard) plus a deferred re-focus after the
+    // card's fade/scale transition completes (380 ms ≈ a hair after
+    // the 0.5 s opacity transition lands).
+    inputRef.current?.focus();
+    setTimeout(() => { inputRef.current?.focus(); }, 380);
+  }
+
   // Admin auto-unlock + public gate metadata probe.
   //
   // POSTs an empty-password unlock with credentials so the worker
@@ -242,9 +277,30 @@ function GalleryGate() {
     : 'Hello';
 
   return (
-    <main className="gate-page">
+    <main
+      className={`gate-page ${revealed ? 'is-revealed' : 'is-splash'}`}
+      onClick={handleReveal}
+    >
       <GlobalBackground />
-      <form className="gate-card" onSubmit={unlock}>
+
+      {/* Stage 1: Apple-style splash. */}
+      <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
+        <picture className="gate-splash-logo-wrapper">
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
+        <p className="gate-splash-hint">{isTouch ? 'Tap to continue' : 'Click to continue'}</p>
+      </div>
+
+      {/* Stage 2: the actual access-key form. Identical inner
+        * markup and behavior to the previous /g gate; only
+        * stopPropagation on the form's onClick is added so a click
+        * inside the card never re-triggers the page-level reveal. */}
+      <form
+        className="gate-card"
+        onSubmit={unlock}
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* Real white-on-transparent asset for dark mode (no filter). */}
         <picture>
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
@@ -255,6 +311,7 @@ function GalleryGate() {
         <div className="gate-input">
           <input
             id="galleryPassword"
+            ref={inputRef}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}

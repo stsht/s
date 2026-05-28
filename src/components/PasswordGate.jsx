@@ -75,6 +75,52 @@ export function PasswordGate({ title, children }) {
   const [lockSeconds, setLockSeconds] = useState(0);
   const tickRef = useRef(null);
 
+  // ---- Apple-style splash → form reveal stage ----
+  //
+  // The gate now renders in two stages: a centered logo splash with
+  // a "Tap/Click to continue" hint (stage 1, .gate-page.is-splash),
+  // and the actual access-key card (stage 2, .gate-page.is-revealed).
+  // Tapping/clicking the page swaps stages and pulls focus into the
+  // input. None of the existing auth logic, lockout, session probe,
+  // or fetch calls is touched — only the visual entry path.
+  const inputRef = useRef(null);
+  const [revealed, setRevealed] = useState(false);
+  // Pointer-aware copy for the splash hint. matchMedia is read on
+  // mount per spec; touch users see a brief desktop-default hint
+  // for a single frame, which is acceptable for the splash stage.
+  const [isTouch, setIsTouch] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia('(pointer: coarse)');
+    const apply = () => setIsTouch(!!mq.matches);
+    apply();
+    if (mq.addEventListener) {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+    if (mq.addListener) {
+      mq.addListener(apply);
+      return () => mq.removeListener(apply);
+    }
+    return undefined;
+  }, []);
+
+  function handleReveal() {
+    if (revealed) return;
+    setRevealed(true);
+    // Two focus attempts:
+    //   1) Synchronous, inside the user-gesture task — this is the
+    //      only window in which iOS Safari / Android Chrome will
+    //      pop up the soft keyboard from a programmatic focus().
+    //   2) Deferred ~380 ms after the card's fade/scale transition
+    //      completes, in case the synchronous focus was preempted
+    //      by React's re-render flipping pointer-events on the
+    //      input from none → auto.
+    inputRef.current?.focus();
+    setTimeout(() => { inputRef.current?.focus(); }, 380);
+  }
+
   // One-shot cookie probe. Runs only when localStorage had no
   // unexpired entry; success flips us to unlocked, failure leaves
   // the gate visible.
@@ -193,9 +239,32 @@ export function PasswordGate({ title, children }) {
   const visibleStatus = locked ? `Too many attempts. Try again in ${lockSeconds}s.` : status;
 
   return (
-    <main className="gate-page">
+    <main
+      className={`gate-page ${revealed ? 'is-revealed' : 'is-splash'}`}
+      onClick={handleReveal}
+    >
       <GlobalBackground />
-      <form className="gate-card" onSubmit={openGate}>
+
+      {/* Stage 1: Apple-style splash. Position-absolute, fades out
+        * (and slides up subtly) when .gate-page.is-revealed flips on. */}
+      <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
+        <picture className="gate-splash-logo-wrapper">
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
+        </picture>
+        <p className="gate-splash-hint">{isTouch ? 'Tap to continue' : 'Click to continue'}</p>
+      </div>
+
+      {/* Stage 2: the actual access-key form. Hidden (opacity 0,
+        * scale .95, pointer-events none) until the splash is
+        * dismissed. stopPropagation so a click inside the card
+        * never re-triggers handleReveal (idempotent anyway, but
+        * keeps the intent explicit). */}
+      <form
+        className="gate-card"
+        onSubmit={openGate}
+        onClick={(event) => event.stopPropagation()}
+      >
         {/* picture/source swap to a real white-on-transparent asset
          * for dark mode — CSS filter:invert was unreliable on the
          * existing PNG, so we ship a dedicated logo-hero-white.png. */}
@@ -209,6 +278,7 @@ export function PasswordGate({ title, children }) {
         <div className="gate-input">
           <input
             id="gatePassword"
+            ref={inputRef}
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}

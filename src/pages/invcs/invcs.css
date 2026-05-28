@@ -233,6 +233,146 @@ button{cursor:pointer}
 .gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:12px;font-weight:800}
 .gate-status.error{color:var(--danger)}
 
+/* ============================================================
+ * Apple-style splash → form reveal stage
+ * ============================================================
+ *
+ * The gate page now toggles two stages via a class on .gate-page:
+ *   .is-splash    — initial state, only the centered logo + hint
+ *                   are visible. The form card is hidden (opacity 0,
+ *                   slightly scaled down, no pointer events).
+ *   .is-revealed  — after the user taps/clicks anywhere on the
+ *                   page, the splash fades out and the card
+ *                   fades + scales up into view.
+ *
+ * The splash itself uses absolute centering inside the relatively
+ * positioned .gate-page, so it stays perfectly centered regardless
+ * of the surrounding flex/grid layout. The card remains the natural
+ * flex child of .gate-page so its layout is unchanged once revealed.
+ *
+ * All animations are GPU-friendly (transform + opacity only) and
+ * are gated behind prefers-reduced-motion: reduce. */
+
+.gate-splash{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  z-index:2;
+  width:100%;
+  padding:24px;
+  /* Splash never intercepts clicks — taps fall through to the
+   * .gate-page handler that flips the stage. */
+  pointer-events:none;
+  opacity:1;
+  transition:
+    opacity .4s cubic-bezier(.4,0,.2,1),
+    transform .4s cubic-bezier(.4,0,.2,1);
+}
+
+.gate-splash-logo-wrapper{
+  display:block;
+  margin-bottom:24px;
+}
+
+.gate-splash-logo{
+  width:min(280px,75vw);          /* hero-sized emblem */
+  height:auto;
+  opacity:.96;
+  /* Apple-style shimmer: a soft mask gradient slides across the
+   * mark from right to left, simultaneously breathing in scale +
+   * opacity. Mask is in light/dark range 0.3 → 1.0 → 0.3 so the
+   * brand never fully disappears — it just gets a calm highlight
+   * pass. */
+  -webkit-mask-image:linear-gradient(120deg,rgba(0,0,0,.3) 25%,rgba(0,0,0,1) 50%,rgba(0,0,0,.3) 75%);
+          mask-image:linear-gradient(120deg,rgba(0,0,0,.3) 25%,rgba(0,0,0,1) 50%,rgba(0,0,0,.3) 75%);
+  -webkit-mask-size:300% 100%;
+          mask-size:300% 100%;
+  -webkit-mask-position:150% 0;
+          mask-position:150% 0;
+  animation:
+    ssShimmerSweep 5.5s cubic-bezier(.4,0,.2,1) infinite,
+    ssLogoBreathe  6s   cubic-bezier(.4,0,.2,1) infinite alternate;
+}
+
+.gate-splash-hint{
+  margin:0;
+  color:var(--muted);
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  animation:ssHintPulse 3s ease-in-out infinite alternate;
+}
+
+/* ---- Card hidden-by-default + reveal transition ----
+ *
+ * The card lives in the flex flow of .gate-page; we don't change
+ * its layout, only its visibility. opacity 0 + tiny scale-down so
+ * the reveal feels like the card "lifts in" instead of popping. */
+.gate-card{
+  opacity:0;
+  transform:scale(.95);
+  pointer-events:none;
+  transition:
+    opacity .5s cubic-bezier(.4,0,.2,1),
+    transform .5s cubic-bezier(.4,0,.2,1);
+}
+
+.gate-page.is-revealed .gate-splash{
+  opacity:0;
+  /* Subtle upward drift as the splash dissolves — adds a sense of
+   * direction to the reveal without being showy. */
+  transform:translate(-50%,-46%) scale(.96);
+}
+.gate-page.is-revealed .gate-card{
+  opacity:1;
+  transform:scale(1);
+  pointer-events:auto;
+}
+
+/* GPU-composited keyframes (transform + opacity / mask-position
+ * only — no layout-triggering properties). */
+@keyframes ssShimmerSweep{
+  0%  {-webkit-mask-position:150% 0; mask-position:150% 0}
+  100%{-webkit-mask-position:-50% 0; mask-position:-50% 0}
+}
+
+@keyframes ssLogoBreathe{
+  0%  {transform:scale(1);     opacity:.92}
+  100%{transform:scale(1.018); opacity:1}
+}
+
+@keyframes ssHintPulse{
+  0%  {opacity:.42}
+  100%{opacity:.88}
+}
+
+/* Reduced-motion: freeze every idle loop and skip the reveal
+ * transition. The card and splash still toggle visibility via
+ * the .is-revealed class — they just snap instead of fading. */
+@media (prefers-reduced-motion:reduce){
+  .gate-splash-logo{
+    animation:none !important;
+    -webkit-mask-image:none !important;
+            mask-image:none !important;
+    opacity:1 !important;
+  }
+  .gate-splash-hint{
+    animation:none !important;
+    opacity:.75 !important;
+  }
+  .gate-splash,
+  .gate-card{
+    transition:none !important;
+  }
+}
+
 /* Mobile / narrow-viewport polish for the password gate.
  *
  * Goals (per mobile audit):
