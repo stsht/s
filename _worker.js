@@ -374,15 +374,7 @@ function cleanShortCode(value) {
 
 function shortCodeFromText(value = '') {
   const text = String(value || '');
-  // Match the canonical `starshots.pages.dev/<short>` form first;
-  // also accept the legacy host (`sshots.pages.dev`) and the legacy
-  // `/g/<short>` path prefix so an existing stored generated_text
-  // template (saved before the canonical short-form rollout) still
-  // yields its short_code unchanged. We never rewrite the slug —
-  // only canonicalize how it is displayed/copied.
-  const match = text.match(
-    /(?:https?:\/\/)?(?:www\.)?(?:starshots|sshots)\.pages\.dev\/(?:g\/)?([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/i,
-  );
+  const match = text.match(/(?:https?:\/\/)?(?:www\.)?starshots\.pages\.dev\/([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/i);
   return match ? cleanShortCode(match[1]) : '';
 }
 
@@ -3057,47 +3049,6 @@ export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
     const url = new URL(request.url);
-
-    // Canonical-link redirect pass.
-    //
-    // Three legacy URL shapes still circulate in client inboxes
-    // and stored templates from before the canonical short-form
-    // rollout:
-    //
-    //   1. https://sshots.pages.dev/<short>
-    //   2. https://sshots.pages.dev/g/<short>
-    //   3. https://starshots.pages.dev/g/<short>
-    //
-    // All three must continue to work for clients who already
-    // received them, but every navigation should land on the
-    // canonical `starshots.pages.dev/<short>` URL so the public
-    // delivery UI, address-bar share, and `Open in new tab` all
-    // surface a single shape. We send a 301 (permanent) for GET so
-    // browsers, link previewers, and chat apps collapse the old
-    // form on first visit; non-GET requests fall through to the
-    // existing API/asset routing so e.g. `/api/unlock` POSTs from a
-    // legacy embed are not interrupted.
-    //
-    // Slug/password integrity is intentionally untouched here — we
-    // only canonicalize the host and strip a leading `/g/` segment
-    // when the next path component is a 7/12-char short code.
-    if (request.method === 'GET') {
-      const isLegacyHost = /^(?:www\.)?sshots\.pages\.dev$/i.test(url.hostname);
-      const galleryShortMatch = url.pathname.match(/^\/g\/([a-z0-9]{7}|[a-z0-9]{12})\/?$/i);
-      const needsHostRewrite = isLegacyHost;
-      const needsPathRewrite = !!galleryShortMatch;
-      if (needsHostRewrite || needsPathRewrite) {
-        const target = new URL(url.toString());
-        target.hostname = 'starshots.pages.dev';
-        target.protocol = 'https:';
-        target.port = '';
-        if (galleryShortMatch) {
-          // Collapse `/g/<short>` to `/<short>` regardless of host.
-          target.pathname = `/${cleanShortCode(galleryShortMatch[1]) || galleryShortMatch[1].toLowerCase()}`;
-        }
-        return Response.redirect(target.toString(), 301);
-      }
-    }
 
     try {
 	      if (request.method === 'GET' && url.pathname === '/') {
