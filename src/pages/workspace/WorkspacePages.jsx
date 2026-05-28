@@ -1099,7 +1099,7 @@ function RefreshIcon() {
 // stored WhatsApp/Instagram message templates.
 //
 // Tap behaviour:
-//   • Short Link card  → copies URL AND opens in a new tab.
+//   • Short Link card  → copies URL to clipboard.
 //   • Password card    → copies password to clipboard.
 //   • Service cards    → opens the original GD/DB/WT/TN link.
 //   • Copy WA / Copy IG → copies the displayed message variant.
@@ -1196,7 +1196,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     if (!shortUrl) return;
     await copyToClipboard(shortUrl);
     flashTarget('short');
-    window.open(shortUrl, '_blank', 'noopener,noreferrer');
   }
   async function handlePasswordClick() {
     if (!password) return;
@@ -1338,11 +1337,11 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                 type="button"
                 className={`dd-card dd-card--action${flash === 'short' ? ' is-flash' : ''}`}
                 onClick={handleShortLinkClick}
-                aria-label="Copy short link and open in new tab"
+                aria-label="Copy short link"
               >
                 <span className="dd-eyebrow">Short Link</span>
                 <strong className="dd-card-strong">{shortDisplay}</strong>
-                <span className="dd-card-hint">Tap To Copy &amp; Open</span>
+                <span className="dd-card-hint">Tap to Copy</span>
               </button>
             ) : (
               <div className="dd-card dd-card--muted" aria-label="Legacy short link unavailable">
@@ -1383,7 +1382,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
                 >
                   <span className="dd-eyebrow">Password</span>
                   <strong className="dd-card-strong">{password}</strong>
-                  <span className="dd-card-hint">Tap To Copy</span>
+                  <span className="dd-card-hint">Tap to Copy</span>
                 </button>
                 <button
                   type="button"
@@ -3768,7 +3767,15 @@ export function LinkGeneratorPage() {
     const pass = buildFolderPassword(folder);
     const galleryCode = prettyGalleryCode(slug);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const directUrl = slug ? `${origin}/g/${slug}` : origin;
+    // Preview URL shown in the /l output card before the operator
+    // hits Save. We intentionally drop the legacy "/g/" prefix so
+    // even the placeholder mirrors the canonical client-facing
+    // shape `https://<host>/<slug>` — the worker still serves
+    // /g/<slug> for backward compatibility, but generated copy /
+    // share text never references it. Once the row is saved the
+    // worker returns a true 12-char shortLink which replaces this
+    // value everywhere it's surfaced.
+    const directUrl = slug ? `${origin}/${slug}` : origin;
     const cleanName = cleanLinkText(clientName);
     const matchesSaved =
       saved && saved.slug === slug && saved.pass === pass && saved.name === cleanName && saved.shortLink;
@@ -3999,20 +4006,25 @@ export function LinkGeneratorPage() {
   }
 
   function openShortLink() {
+    // Despite the legacy name, this action now copies the short
+    // link to clipboard rather than opening it in a new tab. The
+    // operator can still inspect the live page from /db's
+    // delivery detail; the /l preview card is purely a
+    // tap-to-copy convenience while composing.
     const url = info.shortLink;
     if (!url) {
-      setStatus({ text: 'Generate first to open the short link.', tone: 'error' });
+      setStatus({ text: 'Generate first to copy the short link.', tone: 'error' });
       return;
     }
-    window.open(url, '_blank', 'noopener,noreferrer');
+    copyToClipboard(url);
     flash('short');
-    setStatus({ text: 'Opened short link.', tone: 'success' });
+    setStatus({ text: 'Copied.', tone: 'success' });
   }
 
   // What the delivery card displays. Mirrors the legacy logic:
   // saved → strip protocol; valid candidate slug+pass → "Save first";
   // otherwise → site host as a placeholder hint.
-  const fallbackHost = typeof window !== 'undefined' ? window.location.host : 'starshots.pages.dev';
+  const fallbackHost = typeof window !== 'undefined' ? window.location.host : 'sshots.pages.dev';
   const deliveryDisplay = info.shortLink
     ? info.shortLink.replace(/^https?:\/\//, '')
     : info.slug && info.pass
@@ -4146,7 +4158,7 @@ export function LinkGeneratorPage() {
           type="button"
           className={`lg-stat-card${copyFlash === 'short' ? ' is-flash' : ''}`}
           onClick={openShortLink}
-          aria-label="Open short link in new tab"
+          aria-label="Copy short link"
         >
           <span>Short Link</span>
           <strong>{deliveryDisplay}</strong>
