@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
+import { Combobox, DateField } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 
 // Lightweight gated debug logger. Mirrors the helper in
@@ -134,6 +135,27 @@ function prettyDate(value) {
   if (!value) return '-';
   return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`));
 }
+
+// Combined "Event Date • Event Time" formatter used by the
+// preview/JPG Details box. Renders `28 May 2026 • 18:30` when both
+// are present, just the date when time is empty, and the existing
+// dash when the date itself is empty so empty drafts don't
+// suddenly read "•".
+function prettyDateTime(date, time) {
+  if (!date) return '-';
+  const datePart = prettyDate(date);
+  const raw = String(time || '').trim();
+  const match = /^(\d{2}):(\d{2})/.exec(raw);
+  if (!match) return datePart;
+  return `${datePart} \u2022 ${match[1]}:${match[2]}`;
+}
+
+// Title options shown in the modernized Bill To selector. Searchable
+// labels via Combobox so a /family/ event still types straight to
+// the option without scrolling. Keeping these as plain strings so
+// the same set works for a future custom title (the Combobox would
+// only need a free-text override; today the catalogue is fixed).
+const TITLE_OPTIONS = ['Ms.', 'Mr.', 'Mrs.', 'Family'];
 
 function emptyItem(packages) {
   const option = (packages && packages[0]) || DEFAULT_PACKAGES[0];
@@ -412,6 +434,12 @@ export function InvoiceComposer() {
   const [contact, setContact] = useState(initial.contact || '');
   const [venue, setVenue] = useState('TBA');
   const [eventDate, setEventDate] = useState(initial.eventDate || '');
+  // Event-of-day time stored as the native HTML "HH:MM" 24-hour
+  // string (matches <input type=time>'s wire format). Persisted on
+  // the typed event_time column AND mirrored into invoice_data
+  // for older rows that may not have the column yet, so reopening
+  // a saved invoice always restores whichever path the worker took.
+  const [eventTime, setEventTime] = useState('');
   // Per-event grouping key. Sourced from the URL handoff or
   // hydrated from the saved row (row.event_key) so that subsequent
   // saves reuse it and /db's grouping pass merges this invoice
@@ -517,6 +545,14 @@ export function InvoiceComposer() {
         if (row.client_contact != null) setContact(String(row.client_contact || ''));
         if (data.venue != null || row.venue != null) setVenue(String(data.venue ?? row.venue ?? 'TBA'));
         if (row.event_date != null) setEventDate(String(row.event_date || ''));
+        // Event time hydration. Prefer the typed column; fall back
+        // to invoice_data.eventTime for older rows where the
+        // column was empty. Anything that doesn't look like the
+        // canonical HH:MM (or HH:MM:SS) shape is dropped so the
+        // <input type=time> binding doesn't render a stray string.
+        const rawEventTime = String(row.event_time || data.eventTime || '').trim();
+        const matchEventTime = /^(\d{2}:\d{2})(?::\d{2})?$/.exec(rawEventTime);
+        if (matchEventTime) setEventTime(matchEventTime[1]);
         // Adopt the row's event_key when the URL handoff didn't
         // already supply one. This way reopening an existing
         // invoice from /db keeps it grouped with its sibling
@@ -666,7 +702,7 @@ export function InvoiceComposer() {
         client_contact: String(contact || ''),
         invoice_date: String(issuedDate || ''),
         event_date: String(eventDate || ''),
-        event_time: '',
+        event_time: String(eventTime || ''),
         event_key: String(eventKey || ''),
         venue: String(venue || ''),
         status: mode,
@@ -689,6 +725,7 @@ export function InvoiceComposer() {
           qrSrc: String(qrSrc || ''),
           qrFileName: String(qrFileName || ''),
           paymentMethod: String(paymentMethod || 'qr'),
+          eventTime: String(eventTime || ''),
         },
       };
       if (savedId) invoice.id = savedId;
@@ -821,6 +858,8 @@ export function InvoiceComposer() {
           setVenue={setVenue}
           eventDate={eventDate}
           setEventDate={setEventDate}
+          eventTime={eventTime}
+          setEventTime={setEventTime}
           issuedDate={issuedDate}
           setIssuedDate={setIssuedDate}
           items={items}
@@ -850,6 +889,7 @@ export function InvoiceComposer() {
           venue={venue}
           eventDate={eventDate}
           issuedDate={issuedDate}
+          eventTime={eventTime}
           items={items}
           totals={totals}
           qrSrc={qrSrc}
@@ -888,7 +928,7 @@ function EditorPanel(props) {
       <Fieldset title="Bill To">
         <div className="field-stack">
           <div className="two-col">
-            <label>Title<select value={props.title} onChange={(event) => props.setTitle(event.target.value)}><option>Ms.</option><option>Mr.</option><option>Mrs.</option><option>Family</option></select></label>
+            <label>Title<Combobox value={props.title} onChange={props.setTitle} options={TITLE_OPTIONS} ariaLabel="Title" placeholder="Title" /></label>
             <label>Client name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} onBlur={onBlurTitleCase(props.setClientName)} placeholder="Client Name" /></label>
           </div>
           <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} onBlur={onBlurTitleCase(props.setContact)} placeholder="Instagram / Phone / Email" /></label>
@@ -898,8 +938,9 @@ function EditorPanel(props) {
       <Fieldset title="Details">
         <div className="field-stack">
           <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} onBlur={onBlurTitleCase(props.setVenue)} placeholder="Venue" /></label>
-          <div className="two-col">
-            <label>Event date<input type="date" value={props.eventDate} onChange={(event) => props.setEventDate(event.target.value)} /></label>
+          <div className="event-date-row">
+            <label>Event date<DateField value={props.eventDate} onChange={props.setEventDate} ariaLabel="Event date" /></label>
+            <label>Time<input className="time-input" type="time" value={props.eventTime} onChange={(event) => props.setEventTime(event.target.value)} /></label>
             <label>Issued<input type="date" value={props.issuedDate} onChange={(event) => props.setIssuedDate(event.target.value)} /></label>
           </div>
         </div>
@@ -1043,7 +1084,7 @@ function QrUploadField({ onChange, fileName }) {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, items, totals, qrSrc, paymentMethod, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   const dueLabel = isFullPayment(totals) ? 'Payment Due' : 'Deposit Due';
   return (
     <section className="preview-panel panel">
@@ -1079,7 +1120,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               <p className="eyebrow">Details</p>
               <dl className="meta-list">
                 <div className="meta-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
-                <div className="meta-row"><dt>Event Date</dt><dd>{prettyDate(eventDate)}</dd></div>
+                <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
                 <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
               </dl>
             </div>
