@@ -506,6 +506,72 @@ input,select{
   font-weight:750;
 }
 input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95,149,245,.12)}
+.combobox{
+  position:relative;
+  width:100%;
+}
+.combobox-control{
+  position:relative;
+}
+.combobox-input{
+  padding-right:42px;
+}
+.combobox-chevron{
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-54%);
+  color:var(--muted);
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+  pointer-events:none;
+}
+.combobox-menu{
+  position:absolute;
+  z-index:40;
+  top:calc(100% + 6px);
+  left:0;
+  right:0;
+  max-height:min(236px,42vh);
+  overflow:auto;
+  padding:6px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  box-shadow:0 18px 42px rgba(15,23,42,.14);
+}
+.combobox-option{
+  width:100%;
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  border:0;
+  border-radius:12px;
+  background:transparent;
+  color:var(--ink);
+  padding:0 11px;
+  text-align:left;
+  font-weight:800;
+}
+.combobox-option.is-active,
+.combobox-option:hover{
+  background:var(--soft);
+}
+.combobox-option.is-selected{
+  background:color-mix(in srgb,var(--accent) 14%,var(--panel));
+  color:var(--accent-2);
+}
+.combobox-empty{
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  padding:0 11px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
 .item-list{display:grid;gap:12px}
 .item-editor{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:18px;background:#fff}
 .remove,.ghost-button,.primary-button{
@@ -3423,147 +3489,5 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .subs-import-upload .subs-drop-title{
     font-size:18px;
-  }
-}
-
-
-
-/* Combobox
- * Reusable styled drop-down used in place of native <select>. Keeps
- * the same visual rhythm as the input/select rules above (48px
- * height, 16px radius, --field background, --line border, --accent
- * focus halo) so a Title or Status picker reads as part of the
- * same form family. The menu sits in the document flow so it
- * scrolls naturally inside the right panel on mobile and never
- * relies on portals or fixed positioning.
- *
- * Tones:
- *   .combobox-trigger          - idle field surface.
- *   .combobox-trigger.open     - active/expanded.
- *   .combobox-option.highlighted - keyboard / hover cursor.
- *   .combobox-option.selected  - current value.
- */
-.combobox{
-  position:relative;
-  display:block;
-  width:100%;
-}
-.combobox-trigger{
-  width:100%;
-  height:48px;
-  border:1px solid var(--line);
-  border-radius:16px;
-  background:var(--field);
-  color:var(--ink);
-  padding:0 14px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  font:inherit;
-  font-weight:750;
-  text-align:left;
-  cursor:pointer;
-  outline:none;
-  transition:border-color .12s ease, box-shadow .12s ease;
-}
-.combobox-trigger:focus-visible,
-.combobox-trigger.open{
-  border-color:var(--accent);
-  box-shadow:0 0 0 4px rgba(95,149,245,.12);
-}
-.combobox-trigger:disabled{
-  opacity:.55;
-  cursor:not-allowed;
-}
-.combobox-value{
-  flex:1 1 auto;
-  min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.combobox-value.is-placeholder{color:var(--muted);font-weight:600}
-.combobox-caret{
-  flex:0 0 auto;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  color:var(--muted);
-  transition:transform .15s ease, color .15s ease;
-}
-.combobox.open .combobox-caret{
-  transform:rotate(180deg);
-  color:var(--ink);
-}
-.combobox-menu{
-  position:absolute;
-  top:calc(100% + 6px);
-  left:0;
-  right:0;
-  z-index:40;
-  background:var(--card,#ffffff);
-  border:1px solid var(--line);
-  border-radius:16px;
-  box-shadow:var(--shadow2,0 12px 34px rgba(30,30,28,.07));
-  padding:6px;
-  max-height:min(56vh, 320px);
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-}
-.combobox-search{
-  padding:4px 4px 6px;
-}
-.combobox-search input{
-  height:36px;
-  border-radius:12px;
-  padding:0 12px;
-  font-weight:700;
-}
-.combobox-list{
-  list-style:none;
-  margin:0;
-  padding:2px;
-  overflow:auto;
-  max-height:100%;
-}
-.combobox-option{
-  min-height:40px;
-  padding:9px 12px;
-  border-radius:12px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  color:var(--ink);
-  font-weight:700;
-  cursor:pointer;
-  user-select:none;
-  -webkit-user-select:none;
-}
-.combobox-option.highlighted{
-  background:var(--accentSoft, rgba(95,149,245,.12));
-  color:var(--ink);
-}
-.combobox-option.selected{
-  background:var(--accent);
-  color:#fff;
-}
-.combobox-option.selected.highlighted{
-  background:var(--accent2, var(--accent));
-  color:#fff;
-}
-.combobox-empty{
-  padding:10px 12px;
-  color:var(--muted);
-  font-weight:700;
-  font-size:13px;
-}
-@media(max-width:560px){
-  .combobox-menu{
-    max-height:min(60vh, 360px);
-  }
-  .combobox-option{
-    min-height:44px;
   }
 }
