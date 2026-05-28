@@ -1299,11 +1299,22 @@ async function handleSave(request, env) {
       .then((rows) => Array.isArray(rows) ? rows[0] : rows)
       .catch(() => null);
   }
+  // Stable parent clients.id forwarded from /db's Create Events
+  // sheet (or /inv when an invoice originated there). When set, it
+  // takes priority over the linked invoice's client_id and acts as
+  // the preferredId for findOrCreateClient — guaranteeing that a
+  // new delivery saved from a selected /db client attaches to THAT
+  // exact clients row instead of name+contact-matching its way to
+  // a duplicate sibling. fetchClientById inside findOrCreateClient
+  // already validates the id, so a stale/unknown value falls
+  // through to the legacy name+contact lookup safely.
+  const handoffClientId = String(body.clientId || '').trim().slice(0, 80);
+  const preferredClientId = handoffClientId || String(linkedInvoice?.client_id || '').trim();
   const client = await findOrCreateClient(env, {
     title: linkedInvoice?.client_title || body.title || 'Ms.',
     name: linkedInvoice?.client_name || body.clientName,
     contact: linkedInvoice?.client_contact || ''
-  }, linkedInvoice?.client_id || '');
+  }, preferredClientId);
   const clientId = client?.id ? String(client.id) : '';
   if (linkedInvoice?.id && clientId && !linkedInvoice.client_id) {
     await patchRowsByIds(env, 'invoices', [linkedInvoice.id], {}, clientId).catch(() => []);
@@ -2329,7 +2340,7 @@ async function handleInvoiceSave(request, env) {
     title: invoice.client_title,
     name: invoice.client_name,
     contact: invoice.client_contact
-  }, existingInvoice?.client_id || '');
+  }, String(body.clientId || '').trim() || existingInvoice?.client_id || '');
   const linkedInvoice = client?.id ? { ...invoice, client_id: String(client.id) } : invoice;
   const invoiceWithoutClient = { ...invoice };
   // Schema-tolerant retry layers: stripping event_key (missing on

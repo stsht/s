@@ -768,17 +768,27 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
     setCreateOpen(false);
     setPendingEventKey('');
   };
+  // Thread the parent client's stable id into both Create Events
+  // hand-offs. /l + /inv forward it on the API save body so the
+  // worker attaches the new delivery / invoice to THIS exact
+  // clients row rather than name+contact-matching its way to a
+  // (possibly duplicate) sibling. Empty for legacy buckets — the
+  // server keeps its name/contact fallback for those rows. Sits
+  // alongside eventKey, which still controls per-event grouping.
+  const parentClientId = String(client?.client_id || '').trim();
   const newEventLinkHref = createRecordUrl('/l/', {
     title,
     name,
     contact,
     eventKey: pendingEventKey,
+    clientId: parentClientId,
   });
   const newEventInvoiceHref = createRecordUrl('/inv/', {
     title,
     name,
     contact,
     eventKey: pendingEventKey,
+    clientId: parentClientId,
   });
 
   return (
@@ -847,6 +857,11 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 // for /db's cross-ref recovery when the new
                 // delivery row's event_key column was stripped.
                 invoiceId: row.invoice?.id || '',
+                // Stable parent client id — keeps the new delivery
+                // attached to THIS clients row instead of letting
+                // the worker name/contact-match its way to a
+                // duplicate sibling.
+                clientId: parentClientId,
               });
           const eventInvoiceHref = row.invoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.invoice.id })
@@ -856,6 +871,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 contact,
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
+                clientId: parentClientId,
               });
           dbg('ClientDetail row', {
             recordKey: row.delivery?.id || row.invoice?.id || `${row.date}-${index}`,
@@ -4056,6 +4072,10 @@ function readInvoiceHandoff() {
     eventDate: params.get('eventDate') || '',
     invoiceId: params.get('invoiceId') || '',
     eventKey: params.get('eventKey') || '',
+    // Stable parent client id forwarded by /db's Create Events
+    // sheet. Empty when /l is opened standalone or from a legacy
+    // bucket — the worker still has its name+contact fallback.
+    clientId: params.get('clientId') || '',
   };
   if (cleanLinkText(fromUrl.name)) return fromUrl;
   try {
@@ -4140,6 +4160,14 @@ export function LinkGeneratorPage() {
   const [status, setStatus] = useState({ text: '', tone: '' });
   const [busy, setBusy] = useState(false);
   const [linkedInvoiceId, setLinkedInvoiceId] = useState('');
+  // Stable parent clients.id forwarded from /db's Create Events
+  // sheet (or from /inv when an invoice row originated there). The
+  // worker uses this as the preferredId in findOrCreateClient so
+  // the saved delivery attaches to THIS exact client bucket
+  // instead of name+contact-matching its way to a duplicate
+  // sibling. Sits alongside `eventKey`, which still controls
+  // per-event grouping; the two are independent.
+  const [linkedClientId, setLinkedClientId] = useState('');
   // Stable per-event grouping key handed off from /db. When the
   // user clicks "Create Links" on an existing event row this is the
   // row's event_key (or the cross-ref anchor id when the row is
@@ -4171,6 +4199,13 @@ export function LinkGeneratorPage() {
     const handoffTitle = normalizeInvoiceTitleValue(handoff.title);
     setTitle(handoffTitle);
     setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
+    // Capture the stable parent client id when present. /db
+    // forwards the selected client's clients.id so the worker
+    // can attach the new delivery to that exact bucket. Any
+    // non-empty trimmed value is accepted (UUIDs, legacy ids); an
+    // empty string round-trips cleanly and the worker falls back
+    // to its name+contact lookup, matching pre-fix behaviour.
+    setLinkedClientId(String(handoff.clientId || '').trim().slice(0, 80));
     // Capture the per-event grouping anchors. eventKey is whatever
     // /db handed us (an existing row's event_key, the row's id used
     // as a cross-ref, or empty when the link page was opened
@@ -4306,6 +4341,7 @@ export function LinkGeneratorPage() {
       eventKey,
       eventDateHandoff,
       linkedInvoiceId,
+      linkedClientId,
       folderName: info.folder,
     });
     try {
@@ -4329,6 +4365,15 @@ export function LinkGeneratorPage() {
           generatedTextWhatsapp: '',
           generatedTextInstagram: '',
           invoiceId: linkedInvoiceId,
+          // Stable parent clients.id when /l was opened from a
+          // selected /db client (or from /inv with one). The
+          // worker treats this as the preferredId for
+          // findOrCreateClient so the new delivery attaches to
+          // this exact bucket and never spawns a duplicate. Empty
+          // for standalone /l opens and the legacy fallback runs.
+          // It sits alongside eventKey (per-event grouping anchor)
+          // — the two are independent and both round-trip on save.
+          clientId: linkedClientId,
           // Event grouping fields. Empty strings round-trip cleanly:
           // the worker only writes the columns when they're non-
           // empty and falls back to the legacy schema-tolerant
@@ -4405,6 +4450,7 @@ export function LinkGeneratorPage() {
     setFolderName('');
     setServiceUrls({ gd: '', db: '', wt: '', tn: '' });
     setLinkedInvoiceId('');
+    setLinkedClientId('');
     setEventKey('');
     setEventDateHandoff('');
     setSaved(null);
