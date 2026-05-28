@@ -104,30 +104,39 @@ function GalleryLinks({ payload }) {
 function GalleryGate() {
   const slug = useMemo(() => deliverySlug(), []);
   const [payload, setPayload] = useState(null);
-  // checking = the one-shot admin-bypass probe is still in flight.
-  // While true we render nothing so an authenticated admin (cookie
-  // already set by /db) never sees the password gate flash before
-  // the auto-unlock resolves. A public visitor's probe returns 401
-  // quickly and the gate then renders.
+  // Safe public-facing metadata returned by the empty-password
+  // probe (worker handleUnlock). Holds { title, clientName } so the
+  // gate can render "Hello, <Title> <Client Name>" before the
+  // visitor types the access key. Empty when the metadata could
+  // not be loaded — the gate then falls back to a bare "Hello".
+  const [gateInfo, setGateInfo] = useState(null);
+  // checking = the one-shot admin-bypass / metadata probe is still
+  // in flight. While true we render nothing so an authenticated
+  // admin (cookie already set by /db) never sees the password gate
+  // flash before the auto-unlock resolves. A public visitor's
+  // probe returns gate metadata quickly and the gate then renders.
   const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Admin auto-unlock probe.
+  // Admin auto-unlock + public gate metadata probe.
   //
   // POSTs an empty-password unlock with credentials so the worker
   // can read the HttpOnly admin session cookie. The cookie is never
-  // exposed to JS — only the server can verify it. If the worker
-  // accepts (admin session valid), it returns the same payload as a
-  // successful password unlock and we bypass the gate. If it rejects
-  // (no/expired admin session), the response is 401 and we show the
-  // gate as before.
+  // exposed to JS — only the server can verify it. The worker
+  // responds in three shapes:
+  //   - { ok: true, delivery, links }  -> admin bypass: jump to UI
+  //   - { ok: false, gate: { title, clientName } }
+  //         -> public visitor: render the gate with a personalised
+  //            "Hello, <Title> <Client Name>" greeting
+  //   - 4xx error                      -> render the bare gate
   //
   // Empty-password probes do not count toward the gallery 12/min
   // rate limit (see handleUnlock in _worker.js), so this single
-  // mount-time call never burns a public visitor's password budget.
+  // mount-time call never burns a public visitor's password budget
+  // and never writes a password_failed log.
   useEffect(() => {
     let alive = true;
     if (!slug) {
@@ -146,9 +155,18 @@ function GalleryGate() {
     })
       .then(async (response) => {
         if (!alive) return;
-        if (response.ok) {
-          const data = await response.json().catch(() => ({}));
-          if (data?.ok) setPayload(data);
+        if (!response.ok) return;
+        const data = await response.json().catch(() => ({}));
+        if (data?.ok) {
+          setPayload(data);
+          return;
+        }
+        const gate = data?.gate;
+        if (gate && (gate.title || gate.clientName)) {
+          setGateInfo({
+            title: String(gate.title || '').trim(),
+            clientName: String(gate.clientName || '').trim(),
+          });
         }
       })
       .catch(() => {})
@@ -212,6 +230,17 @@ function GalleryGate() {
   const gateStatus = checking ? 'Opening...' : status;
   const gateStatusClass = status && !checking ? 'error' : '';
 
+  // Personalised greeting derived from the safe public metadata
+  // returned by the empty-password probe. If the probe didn't
+  // resolve (network error, missing record, dev mode) we fall
+  // back to a bare "Hello" — never to the old "Private Delivery"
+  // chrome.
+  const honorific = String(gateInfo?.title || '').trim();
+  const clientName = String(gateInfo?.clientName || '').trim();
+  const greeting = clientName
+    ? `Hello, ${honorific ? `${honorific} ` : ''}${clientName}`
+    : 'Hello';
+
   return (
     <main className="gate-page">
       <GlobalBackground />
@@ -221,8 +250,7 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
-        <p className="gate-eyebrow"><span />Private Workspace<span /></p>
-        <h1>Private Delivery</h1>
+        <h1>{greeting}</h1>
         <label htmlFor="galleryPassword">Access key</label>
         <div className="gate-input">
           <input

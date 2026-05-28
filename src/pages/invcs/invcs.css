@@ -164,7 +164,34 @@ button{cursor:pointer}
 .gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
 .gate-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.18)}
 .gate-eyebrow span{width:28px;height:1px;background:linear-gradient(90deg,transparent,var(--line-strong),transparent)}
-.gate-card h1{margin:0 0 28px;text-align:center;font-size:clamp(32px,5vw,44px);line-height:1.02;font-weight:900;letter-spacing:0}
+.gate-card h1{
+  margin:0 0 28px;
+  /* Cap the heading line length so a long client name like
+   * "Hello, Mrs. Christina Patricia Wijaya" wraps cleanly inside
+   * the card instead of pushing past the logo or running edge to
+   * edge. Roughly tracks the desktop logo width (max 226px) but
+   * a touch wider so two-word names fit on one line. */
+  width:100%;
+  max-width:min(100%,300px);
+  margin-left:auto;
+  margin-right:auto;
+  text-align:center;
+  /* Smaller than the logo wordmark so the brand reads first and
+   * the greeting reads as a personalised label, not a hero
+   * title. Min/preferred/max all kept comfortably under the old
+   * 32-44px hero range. */
+  font-size:clamp(18px,3.6vw,24px);
+  line-height:1.25;
+  font-weight:700;
+  letter-spacing:0;
+  /* Long client names (multi-word, hyphenated, etc.) wrap into
+   * the card instead of overflowing or causing a horizontal
+   * scrollbar on the gate page. */
+  overflow-wrap:break-word;
+  word-wrap:break-word;
+  word-break:normal;
+  hyphens:auto;
+}
 .gate-card label{align-self:stretch;margin:0 0 8px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
 .gate-input{align-self:stretch;position:relative;margin-bottom:18px}
 .gate-input input{
@@ -234,7 +261,13 @@ button{cursor:pointer}
   .gate-logo{width:min(190px,56vw);margin-bottom:22px}
   .gate-card h1{
     margin:0 0 22px;
-    font-size:clamp(26px,8vw,36px);
+    /* Mobile cap mirrors the smaller logo width (max 190px) so
+     * the greeting line never feels visually wider than the
+     * brand mark above it. Font scales down with viewport so
+     * "Hello, Title Name" still reads at one or two short
+     * lines on phones. */
+    max-width:min(100%,260px);
+    font-size:clamp(17px,5vw,22px);
   }
   .gate-input{margin-bottom:14px}
   .gate-input input{height:50px;border-radius:16px}

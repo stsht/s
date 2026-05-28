@@ -16,7 +16,15 @@ const SHORT_ALPHABET = '1236789abcdefghijkmnopqrstuvwxyz';
 const SHORT_CODE_LENGTH = 12;
 const LEGACY_SHORT_CODE_LENGTH = 7;
 const GALLERY_PASSWORD_LENGTH = 7;
-const PUBLIC_SITE = 'https://starshots.pages.dev';
+// Canonical public host for client-facing delivery links.
+//
+// All copy/share/send paths (WhatsApp template, Instagram DM
+// template, /db Short Link card, /l preview) are built off this
+// constant so the URL the customer sees is always the deployed
+// Pages project host. Admin/internal routes (/db, /inv, /l, /subs)
+// do not depend on this — they are served from whatever origin the
+// operator is currently logged in to.
+const PUBLIC_SITE = 'https://sshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
 const ADMIN_SESSION_COOKIE = 'ss_admin_session';
 const ADMIN_SESSION_MS = 15 * 60 * 1000;
@@ -374,7 +382,11 @@ function cleanShortCode(value) {
 
 function shortCodeFromText(value = '') {
   const text = String(value || '');
-  const match = text.match(/(?:https?:\/\/)?(?:www\.)?starshots\.pages\.dev\/([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/i);
+  // Accept both the current public host (sshots.pages.dev) and the
+  // legacy alias (starshots.pages.dev) so old saved messages keep
+  // resolving to the same short code on /db. The host change does
+  // not affect the slug logic itself.
+  const match = text.match(/(?:https?:\/\/)?(?:www\.)?s(?:tar)?shots\.pages\.dev\/([a-z0-9]{7}|[a-z0-9]{12})(?![a-z0-9-])/i);
   return match ? cleanShortCode(match[1]) : '';
 }
 
@@ -1413,11 +1425,30 @@ async function handleUnlock(request, env) {
     // password_success / opens stats with operator-side traffic.
     await insertLog(env, request, delivery.id, 'admin_unlock');
   } else {
-    if (!password || !(await verifyGalleryPassword(delivery, password))) {
+    // Empty-password probe by a non-admin visitor.
+    //
+    // The public gate calls /api/unlock once on mount with an empty
+    // password so it can render "Hello, <Title> <Client Name>"
+    // before the visitor types the access key. We answer with
+    // ONLY the safe public-facing metadata (title + client name —
+    // the same values that already appear in the WhatsApp/IG
+    // delivery message we sent the client). No links, no folder
+    // name, no delivery id, no logs are written. If the metadata
+    // cannot be loaded the gate falls back gracefully to "Hello".
+    if (!password) {
+      return json({
+        ok: false,
+        gate: {
+          title: String(delivery.title || ''),
+          clientName: String(delivery.client_name || '')
+        }
+      });
+    }
+    if (!(await verifyGalleryPassword(delivery, password))) {
       // Only count an attempt as failed when a password was actually
-      // submitted. Empty-password probes return the same 401 shape
-      // but don't add a password_failed row.
-      if (password) await insertLog(env, request, delivery.id, 'password_failed');
+      // submitted. Empty-password probes return the gate metadata
+      // shape above and don't add a password_failed row.
+      await insertLog(env, request, delivery.id, 'password_failed');
       return json({ error: 'Wrong password.' }, 401);
     }
     await insertLog(env, request, delivery.id, 'password_success');
