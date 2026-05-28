@@ -281,22 +281,29 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo{
-  width:min(280px,75vw);          /* hero-sized emblem */
+  /* Width matches the standard .gate-logo proportion (min 226px,
+   * max 68vw) so the splash logo and the eventual gate-card logo
+   * read as the same brand mark at the same scale on every
+   * viewport. The previous 280px hero size was too large on short
+   * phones and pushed the brand too close to the viewport edges. */
+  width:min(226px,68vw);
   height:auto;
   /* GPU acceleration — promotes the element to its own compositor
-   * layer so the breathing animation runs off the main thread.
-   * transform and opacity composite natively; drop-shadow (used in
-   * the keyframes) composites on its own layer too, so the entire
-   * loop stays paint-free after the first frame. */
+   * layer so the transform + opacity breathing animation runs off
+   * the main thread, paint-free after the first frame. */
   will-change:transform,opacity;
-  /* Single 3.8 s breathing loop, alternating between the two endpoints
-   * defined by ssElegantBreathe below. ease-in-out is used for a
-   * fluid, continuous loop without any flat pauses at the extremes.
+  /* Single 3.8 s breathing loop, alternating between the two
+   * endpoints defined by ssElegantBreathe below. ease-in-out
+   * gives a fluid, continuous loop without any flat pauses at
+   * the extremes.
    *
-   * Replaces the prior shimmer-mask + breathe combo. One highly
-   * visible animation reads better than two competing ones and
-   * avoids the mask-compositor cost on iOS Safari / lower-powered
-   * Android, where the sweep used to stutter ("patah-patah"). */
+   * No filter / drop-shadow on this loop. filter: drop-shadow
+   * rasterises the element on a paint layer that doesn't
+   * subpixel-align with the underlying pixel grid — which made
+   * the brand mark render as a slightly blurry bitmap on Retina
+   * screens and froze the scale animation in mobile Safari. Pure
+   * transform + opacity composites natively, stays razor-crisp at
+   * every devicePixelRatio, and never stutters. */
   animation:ssElegantBreathe 3.8s ease-in-out infinite alternate;
 }
 
@@ -326,26 +333,22 @@ button{cursor:pointer}
   pointer-events:auto;
 }
 
-/* Elegant breathing glow — replaces the prior ssShimmerSweep +
- * ssLogoBreathe pair. The brand fades from a low rest opacity up
- * to full strength, scales gently from .96 → 1.03, and gains a
- * soft cool-blue drop-shadow glow that rises and falls with it.
+/* Elegant breathing — fades the brand from a low rest opacity
+ * up to full strength while scaling gently from .96 → 1.03.
  *
- * Composites entirely on the GPU: transform + opacity are layer
- * properties; drop-shadow is a filter that runs in its own
- * filter layer. No mask, no layout, no paint, so the loop stays
- * smooth on iOS Safari and lower-powered Android where the
- * previous mask-position sweep used to stutter. */
+ * Composites entirely on the GPU: transform and opacity are
+ * native layer properties so the loop runs paint-free after the
+ * first frame. No mask, no filter — those introduced rasterised
+ * paint layers that blurred the logo on Retina screens and
+ * stalled the loop in mobile Safari. */
 @keyframes ssElegantBreathe{
   0%  {
     transform:scale(.96);
     opacity:.35;
-    filter:drop-shadow(0 0 0 rgba(138,180,248,0));
   }
   100%{
     transform:scale(1.03);
     opacity:1;
-    filter:drop-shadow(0 0 8px rgba(138,180,248,.35));
   }
 }
 
@@ -354,13 +357,11 @@ button{cursor:pointer}
  * the .is-revealed class — they just snap instead of fading. */
 @media (prefers-reduced-motion:reduce){
   .gate-splash-logo{
-    /* Freeze the breathing loop and clear every animated property
-     * (transform from the scale, filter from the drop-shadow) so
-     * the brand sits at a steady, calm rest opacity. */
+    /* Freeze the breathing loop and clear the animated transform
+     * so the brand sits at a steady, calm rest opacity. */
     animation:none !important;
     opacity:.85 !important;
     transform:scale(1) !important;
-    filter:none !important;
   }
   .gate-splash,
   .gate-card{
@@ -378,14 +379,16 @@ button{cursor:pointer}
  *   - Same glass / private workspace identity as desktop —
  *     just sized properly for small screens.
  *
- * Switching the page from place-items:center to align-items:start
- * on small viewports prevents the card top from sliding above the
- * viewport when it exceeds 100dvh (which used to make the title
- * unreachable on very short / landscape phones). The outer body
- * still scrolls normally. */
+ * Stays flex-centered on small viewports. Earlier we used
+ * align-items:start here to prevent the card top from sliding
+ * above the viewport on very short / landscape phones, but with
+ * the current splash → reveal flow the card no longer exceeds
+ * 100dvh and the start-alignment was responsible for the "card
+ * glued to the top" feel reported on iOS / Android. The outer
+ * body still scrolls if a card ever does overflow, so the safety
+ * net is preserved. */
 @media (max-width:640px){
   .gate-page{
-    align-items:start;
     padding:14px;
   }
   .gate-card{
