@@ -210,3 +210,54 @@ alter default privileges for role postgres in schema public
 grant usage, select on sequences to service_role;
 
 notify pgrst, 'reload schema';
+
+
+-- ── Subscription extensions (mirrors db-migration-part-7.sql) ──────
+-- Subs-side renewal/extension history. Each row is a renewal event
+-- on an existing subscription; the latest extension's expiry/status
+-- drives the visible "active" state in the /db Subs list.
+
+create table if not exists public.subscription_extensions (
+  id              uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.subscriptions(id) on delete cascade,
+  service         text,
+  status          text not null default 'paid',
+  access_period   integer not null default 30,
+  price           integer not null default 0,
+  start_date      date,
+  start_time      time,
+  expiry_date     date,
+  expiry_time     time,
+  created_at      timestamptz not null default now(),
+  updated_at      timestamptz not null default now()
+);
+
+alter table public.subscription_extensions add column if not exists subscription_id uuid;
+alter table public.subscription_extensions add column if not exists service       text;
+alter table public.subscription_extensions add column if not exists status        text not null default 'paid';
+alter table public.subscription_extensions add column if not exists access_period integer not null default 30;
+alter table public.subscription_extensions add column if not exists price         integer not null default 0;
+alter table public.subscription_extensions add column if not exists start_date    date;
+alter table public.subscription_extensions add column if not exists start_time    time;
+alter table public.subscription_extensions add column if not exists expiry_date   date;
+alter table public.subscription_extensions add column if not exists expiry_time   time;
+alter table public.subscription_extensions add column if not exists created_at    timestamptz not null default now();
+alter table public.subscription_extensions add column if not exists updated_at    timestamptz not null default now();
+
+create index if not exists subscription_extensions_subscription_id_idx
+  on public.subscription_extensions(subscription_id);
+create index if not exists subscription_extensions_expiry_date_idx
+  on public.subscription_extensions(expiry_date desc);
+create index if not exists subscription_extensions_created_at_idx
+  on public.subscription_extensions(created_at desc);
+
+alter table public.subscription_extensions enable row level security;
+grant select, insert, update, delete on public.subscription_extensions to service_role;
+
+drop trigger if exists subscription_extensions_updated_at on public.subscription_extensions;
+create trigger subscription_extensions_updated_at
+  before update on public.subscription_extensions
+  for each row
+  execute function public.set_current_timestamp_updated_at();
+
+notify pgrst, 'reload schema';

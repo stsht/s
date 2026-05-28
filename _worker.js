@@ -1509,6 +1509,46 @@ async function handleDbSearch(request, env) {
     fetchClients(env),
   ]);
 
+  // Subscription extensions for the loaded subscriptions. Fetched
+  // in a single in-list query so the whole Subs tab can render
+  // with extension state without N round-trips. tolerantSupabase
+  // returns [] when the table doesn't exist yet (pre-part-7
+  // schemas) so /db keeps working without the migration applied.
+  let allExtensions = [];
+  const subIds = allSubscriptions.map((s) => s.id).filter(Boolean);
+  if (subIds.length) {
+    const inList = subIds.join(',');
+    allExtensions = await tolerantSupabase(
+      `/rest/v1/subscription_extensions?select=*&subscription_id=in.(${inList})&order=created_at.desc&limit=1000`
+    );
+  }
+  const extensionsBySubId = new Map();
+  for (const ext of (Array.isArray(allExtensions) ? allExtensions : [])) {
+    const sid = String(ext?.subscription_id || '');
+    if (!sid) continue;
+    let bucket = extensionsBySubId.get(sid);
+    if (!bucket) { bucket = []; extensionsBySubId.set(sid, bucket); }
+    bucket.push(ext);
+  }
+  // Pick the "latest" extension per subscription for the list
+  // tone/expiry override. Priority is the same one the frontend
+  // sorts on:
+  //   1. expiry_date (highest wins — extends furthest into the future)
+  //   2. start_date (fallback for extensions still missing an
+  //      expiry — operator typed only the start)
+  //   3. created_at (last resort so a fresh row still surfaces).
+  function pickLatestExtension(list) {
+    const arr = Array.isArray(list) ? list.slice() : [];
+    if (!arr.length) return null;
+    arr.sort((a, b) => {
+      const aKey = String(a?.expiry_date || a?.start_date || a?.created_at || '');
+      const bKey = String(b?.expiry_date || b?.start_date || b?.created_at || '');
+      // Reverse — newest first.
+      return bKey.localeCompare(aKey);
+    });
+    return arr[0];
+  }
+
   // Delivery-scoped reads (links + access logs) depend on the
   // delivery id list, so they wait on the deliveries query — but
   // the two queries themselves run in parallel.
@@ -1653,9 +1693,26 @@ async function handleDbSearch(request, env) {
       ].join(' ').toLowerCase().includes(q))
     : allSubscriptions;
 
-  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
+  // Attach `extensions` and `latest_extension` to each subscription
+  // so the /db Subs detail panel can render the renewal history
+  // without an extra round-trip and the Subs list can pick the
+  // latest extension's expiry/status as the visible tone.
+  const subscriptionsWithExtensions = subscriptionRows.map((sub) => {
+    const exts = extensionsBySubId.get(String(sub.id || '')) || [];
+    return {
+      ...sub,
+      extensions: exts,
+      latest_extension: pickLatestExtension(exts)
+    };
+  });
 
-  return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionRows, clients });
+  // Clients tab is a CRM driven by invoices + deliveries only.
+  // Subscriptions are kept entirely out of buildClientSummaries so
+  // a Subs save/import/delete never alters Clients results — the
+  // two systems share a database but not a UI surface.
+  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, [], q);
+
+  return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionsWithExtensions, clients });
 }
 
 
@@ -2247,12 +2304,15 @@ async function handleInvoiceDelete(request, env) {
 
 // ─── Subscriptions ────────────────────────────────────────────────
 //
-// Subscriptions live in their own table (db-migration-part-4.sql).
-// We keep the same shape as invoices: a stable client record (created
-// or matched on the fly via findOrCreateClient) plus a denormalized
-// snapshot on the subscription row so listings stay readable even if
-// the parent client is later renamed or deleted (FK is ON DELETE SET
-// NULL, see the migration).
+// Subscriptions live in their own table (db-migration-part-4.sql)
+// and are intentionally kept separate from the public.clients
+// roster: the /db Clients tab is a CRM driven by invoices +
+// deliveries only, while /db Subs is its own subscription roster.
+// A subscription save NEVER creates or updates a client row — the
+// denormalized client_name / client_title / client_contact on the
+// subscription row are the single source of truth for the Subs UI.
+// An optional client_id link survives for legacy rows but is only
+// honoured by lookup, never written from a subscription save.
 
 const SUBSCRIPTION_STATUSES = new Set(['invoice', 'paid']);
 const SUBSCRIPTION_RATE_MODES = new Set(['normal', 'discount']);
@@ -2344,15 +2404,18 @@ async function handleSubscriptionSave(request, env) {
       .catch(() => null);
   }
 
-  // Reuse or create a client record so the subscription joins the
-  // same client bucket that drives the /db Clients tab.
-  const client = await findOrCreateClient(env, {
-    title: subscription.client_title,
-    name: subscription.client_name,
-    contact: subscription.client_contact
-  }, existing?.client_id || '');
-
-  const linked = client?.id ? { ...subscription, client_id: String(client.id) } : { ...subscription };
+  // Subs and Clients are kept as separate systems on /db. We never
+  // create a public.clients row from a subscription save — Subs is
+  // its own roster, and the Clients tab is a CRM driven by invoices
+  // + deliveries only. We DO honour an explicit existing client_id
+  // (already attached on prior saves), so historical pairings keep
+  // working without forcing every subscription edit to mutate the
+  // clients table.
+  const preservedClientId = String(existing?.client_id || '').trim();
+  const existingClient = preservedClientId ? await fetchClientById(env, preservedClientId).catch(() => null) : null;
+  const linked = existingClient?.id
+    ? { ...subscription, client_id: String(existingClient.id) }
+    : { ...subscription };
   const fallback = { ...subscription };
 
   if (id) {
@@ -2410,11 +2473,197 @@ async function handleSubscriptionDelete(request, env) {
   const id = String(body.id || '').trim();
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing subscription id.' }, 400);
+
+  // Capture the linked client_id before the delete so we can
+  // garbage-collect a client row that only existed because of this
+  // subscription (e.g. legacy rows auto-created by older versions
+  // of handleSubscriptionSave). The reap is conditional and never
+  // touches a client that has any real CRM history.
+  const existing = await supabaseFetch(env, `/rest/v1/subscriptions?select=id,client_id&id=eq.${encodeURIComponent(id)}&limit=1`)
+    .then((rows) => Array.isArray(rows) ? rows[0] : rows)
+    .catch(() => null);
+  const linkedClientId = String(existing?.client_id || '').trim();
+
   await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { Prefer: 'return=minimal' }
   });
+
+  // Best-effort orphan-client cleanup. Rules:
+  //   • Only consider rows the subscription actually pointed at
+  //     (no name-based matching here — that would risk deleting
+  //     a real client just because the names happened to match).
+  //   • Skip if the client still has any other subscription,
+  //     invoice, or delivery rows. The Subs tab and Clients tab
+  //     never share data, so a client without any of those is by
+  //     definition a subscription-only orphan and is safe to drop.
+  //   • Schema errors and lookup failures are ignored — the
+  //     subscription delete is the contract; reaping is a hygiene
+  //     bonus that must not regress the primary action.
+  if (linkedClientId) {
+    try {
+      await reapOrphanClientIfEmpty(env, linkedClientId);
+    } catch (error) {
+      console.warn('[subs] orphan client reap skipped:', error?.message || error);
+    }
+  }
+
   return json({ ok: true });
+}
+
+// Drop a client row when nothing else points at it. Used on
+// subscription delete to clean up legacy orphans (a sub created a
+// client row, the sub got removed later, the client row stayed
+// behind and leaked into the Clients tab). Behaves like a no-op
+// when the client still has any subscription / invoice / delivery
+// row, so a real CRM client can never be deleted by accident.
+async function reapOrphanClientIfEmpty(env, clientId) {
+  const cleanId = String(clientId || '').trim();
+  if (!cleanId || cleanId.startsWith('legacy:')) return false;
+  const filter = `client_id=eq.${encodeURIComponent(cleanId)}`;
+  const limit = '&limit=1';
+  // Run the three count queries in parallel; any non-empty result
+  // aborts the reap. We use limit=1 + select=id so we can short-
+  // circuit on the first hit instead of paying for full counts.
+  const [subs, invoices, deliveries] = await Promise.all([
+    supabaseFetch(env, `/rest/v1/subscriptions?select=id&${filter}${limit}`).catch((error) => isSchemaError(error) ? [] : Promise.reject(error)),
+    supabaseFetch(env, `/rest/v1/invoices?select=id&${filter}${limit}`).catch((error) => isSchemaError(error) ? [] : Promise.reject(error)),
+    supabaseFetch(env, `/rest/v1/deliveries?select=id&${filter}${limit}`).catch((error) => isSchemaError(error) ? [] : Promise.reject(error))
+  ]);
+  const hasAny = (Array.isArray(subs) ? subs.length : 0)
+    + (Array.isArray(invoices) ? invoices.length : 0)
+    + (Array.isArray(deliveries) ? deliveries.length : 0);
+  if (hasAny > 0) return false;
+  await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(cleanId)}`, {
+    method: 'DELETE',
+    headers: { Prefer: 'return=minimal' }
+  }).catch((error) => {
+    if (!isSchemaError(error)) throw error;
+  });
+  return true;
+}
+
+// ── Subscription extensions ────────────────────────────────────────
+// Each extension is a renewal/extension event on an existing
+// subscription. The base subscription row is treated as the
+// receipt of record (fixed Payment / Start / Expiry); extensions
+// stack on top with their own Start / Expiry / Access Period /
+// Price / Status / Service. The latest extension drives the
+// visible "active" expiry/status in the /db Subs list — the
+// frontend reads `latest_extension` off each subscription row
+// emitted by /api/db.
+
+function normalizeSubscriptionExtensionPayload(raw = {}) {
+  const cleanInt = (v, fallback = 0) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
+  const status = SUBSCRIPTION_STATUSES.has(String(raw.status || '').toLowerCase())
+    ? String(raw.status).toLowerCase()
+    : 'paid';
+  const accessPeriod = cleanInt(raw.access_period ?? raw.accessPeriod, 30) || 30;
+  const startDate = cleanIsoDate(raw.start_date ?? raw.startDate);
+  const startTime = cleanIsoTime(raw.start_time ?? raw.startTime);
+  let expiryDate = cleanIsoDate(raw.expiry_date ?? raw.expiryDate);
+  if (!expiryDate && startDate) expiryDate = addDaysIso(startDate, accessPeriod);
+  const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
+  return {
+    service: String(raw.service || '').trim().slice(0, 60) || null,
+    status,
+    access_period: accessPeriod,
+    price: cleanInt(raw.price, 0),
+    start_date: startDate,
+    start_time: startTime,
+    expiry_date: expiryDate,
+    expiry_time: expiryTime
+  };
+}
+
+async function handleSubscriptionExtensionsGet(request, env) {
+  const url = new URL(request.url);
+  const subscriptionId = String(url.searchParams.get('subscription_id') || '').trim();
+  if (!subscriptionId) return json({ error: 'Missing subscription_id.' }, 400);
+  try {
+    const rows = await supabaseFetch(
+      env,
+      `/rest/v1/subscription_extensions?select=*&subscription_id=eq.${encodeURIComponent(subscriptionId)}&order=created_at.desc`
+    );
+    return json({ ok: true, extensions: Array.isArray(rows) ? rows : [] });
+  } catch (error) {
+    // Pre-part-7 schemas don't have the table yet; return an empty
+    // list rather than 500ing so the UI can render its empty state
+    // and the migration can be applied without breaking /db.
+    if (isSchemaError(error)) return json({ ok: true, extensions: [] });
+    throw error;
+  }
+}
+
+async function handleSubscriptionExtensionSave(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+
+  const raw = body.extension || body;
+  const subscriptionId = String(raw.subscription_id || raw.subscriptionId || '').trim();
+  if (!subscriptionId) return json({ error: 'Missing subscription_id.' }, 400);
+  const id = String(raw.id || '').trim();
+
+  // Verify the parent subscription exists; refuse to write a
+  // dangling extension row.
+  const parent = await supabaseFetch(
+    env,
+    `/rest/v1/subscriptions?select=id,service&id=eq.${encodeURIComponent(subscriptionId)}&limit=1`
+  )
+    .then((rows) => Array.isArray(rows) ? rows[0] : rows)
+    .catch(() => null);
+  if (!parent?.id) return json({ error: 'Subscription not found.' }, 404);
+
+  const fields = normalizeSubscriptionExtensionPayload(raw);
+  const payload = { ...fields, subscription_id: subscriptionId };
+
+  try {
+    if (id) {
+      const rows = await supabaseFetch(env, `/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payload)
+      });
+      const saved = Array.isArray(rows) ? rows[0] : rows;
+      return json({ ok: true, extension: saved });
+    }
+    const rows = await supabaseFetch(env, '/rest/v1/subscription_extensions', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(payload)
+    });
+    const saved = Array.isArray(rows) ? rows[0] : rows;
+    return json({ ok: true, extension: saved });
+  } catch (error) {
+    if (isSchemaError(error)) {
+      return json({
+        error: 'Extensions table missing. Run db-migration-part-7.sql first.'
+      }, 503);
+    }
+    throw error;
+  }
+}
+
+async function handleSubscriptionExtensionDelete(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  const id = String(body.id || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!id) return json({ error: 'Missing extension id.' }, 400);
+  try {
+    await supabaseFetch(env, `/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { Prefer: 'return=minimal' }
+    });
+    return json({ ok: true });
+  } catch (error) {
+    if (isSchemaError(error)) return json({ ok: true });
+    throw error;
+  }
 }
 
 // ── Subscription receipt import (vision-backed) ────────────────────
@@ -3124,6 +3373,9 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/subscriptions-get') return await handleSubscriptionGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-delete') return await handleSubscriptionDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-import') return await handleSubscriptionImport(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/subscription-extensions') return await handleSubscriptionExtensionsGet(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/subscription-extensions-save') return await handleSubscriptionExtensionSave(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/subscription-extensions-delete') return await handleSubscriptionExtensionDelete(request, env);
       if (request.method === 'GET' && url.pathname === '/api/packages') return await handlePackagesGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-save') return await handlePackageSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-delete') return await handlePackageDelete(request, env);
