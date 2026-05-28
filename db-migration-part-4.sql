@@ -22,6 +22,7 @@ create table if not exists public.subscriptions (
   service         text not null,
   storage_slot    text,
   access_period   integer not null default 30,
+  bonus           integer not null default 0,
   rate_mode       text not null default 'normal',
   price           integer not null,
   manual_override boolean not null default false,
@@ -48,6 +49,7 @@ alter table public.subscriptions add column if not exists client_contact  text;
 alter table public.subscriptions add column if not exists service         text;
 alter table public.subscriptions add column if not exists storage_slot    text;
 alter table public.subscriptions add column if not exists access_period   integer not null default 30;
+alter table public.subscriptions add column if not exists bonus           integer not null default 0;
 alter table public.subscriptions add column if not exists rate_mode       text not null default 'normal';
 alter table public.subscriptions add column if not exists price           integer not null default 0;
 alter table public.subscriptions add column if not exists manual_override boolean not null default false;

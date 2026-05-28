@@ -2139,6 +2139,31 @@ dd{margin:0;text-align:right;font-weight:800}
   font-size:13px;
 }
 
+/* Two-column grid wrapper used inside SubscriptionDetail to render
+ * paired detail rows side-by-side on desktop while keeping each
+ * cell as a regular .list-row internally. The pairs grouped by
+ * SubscriptionDetail are: Price + Payment Date, Start Date +
+ * Expiry Date, Access Period + Bonus. On mobile (<= 640px) the
+ * grid collapses to a single column so each row stacks vertically
+ * the same way the unpaired rows (Storage / Contact) do. The gap
+ * is removed on mobile so the stacked rows preserve the visual
+ * rhythm of the surrounding .list-stack — adjacent rows there
+ * already carry their own bottom borders. */
+.subs-detail-row-group{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.subs-detail-row-group > .list-row{
+  border-bottom:1px solid var(--line);
+}
+@media (max-width: 640px){
+  .subs-detail-row-group{
+    grid-template-columns:1fr;
+    gap:0;
+  }
+}
+
 /* Row-level tone tints. Soft, kept to a coloured left edge so the
  * row's neutral surface is preserved and a list of mixed-tone
  * rows still scans like a list, not a colour test. The row title
