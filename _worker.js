@@ -1008,6 +1008,50 @@ async function patchRowsByClientId(env, table, clientId = '', payload = {}) {
   }
 }
 
+// Patch every row in `table` whose client_id IS NULL and whose
+// client_name normalises to one of `normalizedNames`. Used by
+// handleClientSave so renaming a client also re-links the
+// historical "name only" rows that were being grouped under that
+// client by /api/db's name-fallback bucket. The select happens
+// in two steps (fetch then PATCH by id) because PostgREST has no
+// SQL-side normalize() function — we have to apply the same
+// normaliser the rest of the code uses (NFKD, lower, strip non
+// alphanumerics) on the JS side and then issue a PATCH for the
+// matching ids.
+//
+// Rows with a non-null client_id are NEVER touched here: a record
+// pointing at a different client row is presumed to belong to that
+// client (auto-merging unrelated people is out of scope per the
+// /db spec). PATCH always stamps client_id alongside the rename so
+// the next dashboard load buckets the row by id, not by name.
+async function patchOrphanRowsByName(env, table, normalizedNames = [], payload = {}, clientId = '') {
+  const targets = [...new Set((Array.isArray(normalizedNames) ? normalizedNames : [])
+    .map((name) => String(name || '').trim())
+    .filter(Boolean))];
+  if (!clientId || !targets.length) return [];
+
+  let rows = [];
+  try {
+    rows = await supabaseFetch(
+      env,
+      `/rest/v1/${table}?select=id,client_id,client_name&client_id=is.null&limit=500`
+    );
+  } catch (error) {
+    if (isSchemaError(error)) return [];
+    throw error;
+  }
+
+  const matching = (Array.isArray(rows) ? rows : []).filter((row) => {
+    if (row?.client_id) return false;
+    const normalized = normalizeClientName(row?.client_name || row?.name || '');
+    return !!normalized && targets.includes(normalized);
+  });
+  const ids = matching.map((row) => String(row.id || '')).filter(Boolean);
+  if (!ids.length) return [];
+
+  return await patchRowsByIds(env, table, ids, payload, clientId);
+}
+
 function shellStyles() {
   return `
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
@@ -1733,6 +1777,35 @@ async function handleClientSave(request, env) {
     }, 409);
   }
 
+  // Capture the existing client row BEFORE we patch it so we know
+  // the old normalized_name. Renaming "Amanda" to "Amanda W"
+  // shifts the bucket key in /api/db's buildClientSummaries from
+  // "amanda" to "amanda w". Any historical invoice/delivery row
+  // that lacks a client_id and was being grouped under this row
+  // by name alone would otherwise spawn a fresh "Amanda" legacy
+  // bucket — visually splitting the client into two entries. The
+  // sweep below repairs those rows by stamping the client_id +
+  // new name fields. Subscriptions are intentionally NOT touched
+  // — Subs is a separate roster from Clients per the /db spec.
+  let existingClient = null;
+  if (currentId && !currentId.startsWith('legacy:')) {
+    existingClient = await fetchClientById(env, currentId).catch(() => null);
+  }
+  // Legacy ids ride into the editor as "legacy:<normalized_name>"
+  // — the bucket the dashboard fabricated for records with no real
+  // clients row. Splitting that suffix off recovers the old
+  // normalized_name even when no clients row exists yet, so the
+  // orphan sweep below can still pick up the right records when an
+  // operator promotes a legacy bucket to a real client by saving
+  // the edit form.
+  const legacyNormalized = currentId.startsWith('legacy:')
+    ? String(currentId.slice('legacy:'.length) || '').trim()
+    : '';
+  const oldNormalized = existingClient?.normalized_name
+    || normalizeClientName(existingClient?.name || existingClient?.client_name || '')
+    || legacyNormalized
+    || '';
+
   const clientBody = {
     title: fields.title,
     name: fields.name,
@@ -1775,8 +1848,45 @@ async function handleClientSave(request, env) {
   const invoiceByIds = await patchRowsByIds(env, 'invoices', body.invoiceIds, invoicePayload, clientId);
   const deliveryByIds = await patchRowsByIds(env, 'deliveries', body.deliveryIds, deliveryPayload, clientId);
 
-  const invoiceIds = new Set([...invoiceByClient, ...invoiceByIds].map((row) => String(row.id || '')).filter(Boolean));
-  const deliveryIds = new Set([...deliveryByClient, ...deliveryByIds].map((row) => String(row.id || '')).filter(Boolean));
+  // Server-side safety net: walk every invoice / delivery whose
+  // client_id is NULL and whose client_name normalises to either
+  // the old (pre-rename) bucket key or the new one. Both axes are
+  // intentional — pre-rename so a stale "Amanda" record gets
+  // re-linked even if the dashboard payload that drove the call
+  // didn't include its id, and post-rename so a record that was
+  // somehow created with the new name but no client_id (e.g. by
+  // an older save path) snaps onto this client too.
+  //
+  // Records that already carry a client_id pointing at a DIFFERENT
+  // client row are left untouched — auto-merging unrelated people
+  // is explicitly out of scope per the /db spec ("only repair
+  // records clearly linked by existing delivery/invoice/client
+  // relationship"). The is.null filter enforces that boundary.
+  const orphanInvoices = await patchOrphanRowsByName(
+    env,
+    'invoices',
+    [oldNormalized, fields.normalized_name].filter(Boolean),
+    invoicePayload,
+    clientId
+  );
+  const orphanDeliveries = await patchOrphanRowsByName(
+    env,
+    'deliveries',
+    [oldNormalized, fields.normalized_name].filter(Boolean),
+    deliveryPayload,
+    clientId
+  );
+
+  const invoiceIds = new Set([
+    ...invoiceByClient,
+    ...invoiceByIds,
+    ...orphanInvoices,
+  ].map((row) => String(row.id || '')).filter(Boolean));
+  const deliveryIds = new Set([
+    ...deliveryByClient,
+    ...deliveryByIds,
+    ...orphanDeliveries,
+  ].map((row) => String(row.id || '')).filter(Boolean));
 
   return json({
     ok: true,
