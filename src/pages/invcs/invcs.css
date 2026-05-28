@@ -283,32 +283,22 @@ button{cursor:pointer}
 .gate-splash-logo{
   width:min(280px,75vw);          /* hero-sized emblem */
   height:auto;
-  opacity:.96;
-  /* GPU acceleration hint — promotes the element to its own
-   * compositor layer so the mask-position animation no longer
-   * forces CPU repaints, fixing the "patah-patah" stutter on iOS
-   * Safari and lower-powered Android. transform is included
-   * because ssLogoBreathe animates scale on the same node. */
-  will-change:mask-position,-webkit-mask-position,transform;
-  /* Smooth, unified mask gradient.
+  /* GPU acceleration — promotes the element to its own compositor
+   * layer so the breathing animation runs off the main thread.
+   * transform and opacity composite natively; drop-shadow (used in
+   * the keyframes) composites on its own layer too, so the entire
+   * loop stays paint-free after the first frame. */
+  will-change:transform,opacity;
+  /* Single 5 s breathing loop, alternating between the two endpoints
+   * defined by ssElegantBreathe below. cubic-bezier(.4,0,.2,1) is
+   * the Material/Apple "standard" ease — slightly slower at the
+   * extremes so the breath doesn't feel mechanical.
    *
-   * Both outer stops sit at a uniform alpha (0.72) so the mask in
-   * the rest position looks identical on either side of the loop
-   * boundary. Combined with the out-of-bounds keyframe endpoints
-   * below (160% → -60%), the wrap from 100% back to 0% is
-   * visually invisible — there's no snap, no jump, and no flash
-   * of brightness change. The 50% peak still goes to fully
-   * opaque so the highlight pass through the middle reads
-   * clearly as a calm light beam, not a fade. */
-  -webkit-mask-image:linear-gradient(120deg,rgba(0,0,0,.72) 30%,rgba(0,0,0,1) 50%,rgba(0,0,0,.72) 70%);
-          mask-image:linear-gradient(120deg,rgba(0,0,0,.72) 30%,rgba(0,0,0,1) 50%,rgba(0,0,0,.72) 70%);
-  -webkit-mask-size:300% 100%;
-          mask-size:300% 100%;
-  -webkit-mask-position:150% 0;
-          mask-position:150% 0;
-  animation:
-    ssShimmerSweep 6.5s cubic-bezier(.4,0,.2,1) infinite,
-    ssLogoBreathe  6s   cubic-bezier(.4,0,.2,1) infinite alternate;
+   * Replaces the prior shimmer-mask + breathe combo. One highly
+   * visible animation reads better than two competing ones and
+   * avoids the mask-compositor cost on iOS Safari / lower-powered
+   * Android, where the sweep used to stutter ("patah-patah"). */
+  animation:ssElegantBreathe 5s cubic-bezier(.4,0,.2,1) infinite alternate;
 }
 
 .gate-splash-hint{
@@ -347,22 +337,27 @@ button{cursor:pointer}
   pointer-events:auto;
 }
 
-/* GPU-composited keyframes (transform + opacity / mask-position
- * only — no layout-triggering properties).
+/* Elegant breathing glow — replaces the prior ssShimmerSweep +
+ * ssLogoBreathe pair. The brand fades from a low rest opacity up
+ * to full strength, scales gently from .99 → 1.025, and gains a
+ * soft cool-blue drop-shadow glow that rises and falls with it.
  *
- * The sweep runs from 160% → -60% so the highlight beam is fully
- * off-canvas at both endpoints. Together with the uniform .72
- * alpha at the gradient's outer stops (see .gate-splash-logo
- * above), this makes the 100% → 0% loop wrap visually identical
- * — no snap, no flash. */
-@keyframes ssShimmerSweep{
-  0%  {-webkit-mask-position:160% 0; mask-position:160% 0}
-  100%{-webkit-mask-position:-60% 0; mask-position:-60% 0}
-}
-
-@keyframes ssLogoBreathe{
-  0%  {transform:scale(1);     opacity:.92}
-  100%{transform:scale(1.018); opacity:1}
+ * Composites entirely on the GPU: transform + opacity are layer
+ * properties; drop-shadow is a filter that runs in its own
+ * filter layer. No mask, no layout, no paint, so the loop stays
+ * smooth on iOS Safari and lower-powered Android where the
+ * previous mask-position sweep used to stutter. */
+@keyframes ssElegantBreathe{
+  0%  {
+    transform:scale(.99);
+    opacity:.35;
+    filter:drop-shadow(0 0 0 rgba(138,180,248,0));
+  }
+  100%{
+    transform:scale(1.025);
+    opacity:1;
+    filter:drop-shadow(0 0 14px rgba(138,180,248,.32));
+  }
 }
 
 @keyframes ssHintPulse{
@@ -375,10 +370,13 @@ button{cursor:pointer}
  * the .is-revealed class — they just snap instead of fading. */
 @media (prefers-reduced-motion:reduce){
   .gate-splash-logo{
+    /* Freeze the breathing loop and clear every animated property
+     * (transform from the scale, filter from the drop-shadow) so
+     * the brand sits at a steady, calm rest opacity. */
     animation:none !important;
-    -webkit-mask-image:none !important;
-            mask-image:none !important;
-    opacity:1 !important;
+    opacity:.85 !important;
+    transform:scale(1) !important;
+    filter:none !important;
   }
   .gate-splash-hint{
     animation:none !important;
