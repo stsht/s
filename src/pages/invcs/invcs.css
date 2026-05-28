@@ -1690,12 +1690,13 @@ dd{margin:0;text-align:right;font-weight:800}
   text-align:left;
   cursor:pointer;
 }
-/* Clients tab rows render an additional .event-date-pill column
- * between the row text and the quiet X. The .has-event-pill
- * marker (added in WorkspacePages.jsx for /db Clients rows only)
- * widens the grid template by one auto-sized column so the pill
- * sits flush against the X without squashing the title. Subs rows
- * keep the original two-column layout. */
+/* Clients tab + Subs tab rows render an additional .event-date-pill
+ * column between the row text and the quiet X. The .has-event-pill
+ * marker (added in WorkspacePages.jsx for any row that ships a pill)
+ * widens the grid template by one auto-sized column so the pill sits
+ * flush against the X without squashing the title. Clients show the
+ * representative event date; Subs show the effective expiry (latest
+ * extension wins). Both pills share the same event-tone-* palette. */
 .db-list-row.has-event-pill{
   grid-template-columns:minmax(0,1fr) auto 22px;
 }

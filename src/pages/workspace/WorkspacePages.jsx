@@ -295,6 +295,26 @@ function eventDateTone(eventDate, todayIso) {
   return 'future';
 }
 
+// Tone classifier for the right-aligned expiry pill on /db Subs
+// rows. Three states only — green when the expiry is still valid,
+// red when it has passed, amber/TBA when no expiry was ever set.
+// Deliberately narrower than eventDateTone() (which has a fourth
+// "soon/+2 day" warning bucket) because the Subs row already
+// communicates the soon-to-expire / warning case through the row
+// tint via subscriptionTone(); the pill itself only needs to read
+// as a binary still-valid / expired stamp plus a TBA placeholder.
+// Returns one of the existing event-tone-* class suffixes so the
+// pill picks up the same palette and chrome as the Clients date
+// pill without introducing a parallel set of CSS variables.
+function subscriptionExpiryPillTone(expiryDate, todayIso) {
+  const date = plainEventDate(expiryDate);
+  if (!date) return 'tba';
+  const diff = daysBetweenIso(todayIso, date);
+  if (!Number.isFinite(diff)) return 'tba';
+  if (diff < 0) return 'past';
+  return 'future';
+}
+
 // Compact label for the date pill on /db client rows + event rows.
 // Examples: "1 Jun 2026", "29 May 2026", "TBA". Uses
 // day:'numeric' (no leading zero) so the single-digit days read
@@ -440,16 +460,17 @@ function makeExtensionDraft(subscription, extension) {
 }
 
 // Format the Subs-tab list meta from a subscription row. Produces
-// e.g. "ChatGPT Paid" / "Google Drive Active" / "Dropbox Expired" —
-// the service name passed through verbatim, status capitalised and
-// joined with a single space (no hyphen). Falls back to "Active"
-// when the row has no status, mirroring the empty-state used by
-// the rest of the dashboard.
+// just the service name, e.g. "ChatGPT" / "iCloud" / "Google Drive".
+// The row already communicates state via two parallel surfaces — a
+// tone-driven left-edge tint (subscriptionTone → .sub-active /
+// .sub-warning / .sub-expired / .sub-tba) and the right-aligned
+// expiry-date pill — so repeating the status word in the subtitle
+// would be redundant. Falls back to "Subscription" when the row
+// has no service name set, matching the empty-state language used
+// elsewhere in the dashboard.
 function formatSubscriptionMeta(sub = {}) {
   const service = String(sub.service || 'Subscription').trim();
-  const statusRaw = String(sub.status || '').trim();
-  const status = statusRaw ? toTitleCase(statusRaw) : 'Active';
-  return `${service} ${status}`.trim();
+  return service || 'Subscription';
 }
 
 function PageChrome() {
@@ -3651,6 +3672,16 @@ export function DatabasePage() {
           const subRecord = isSub ? (row.subscription || null) : null;
           const subEffective = subRecord ? effectiveSubscription(subRecord) : null;
           const subTone = subEffective ? subscriptionTone(subEffective) : '';
+          // Subs row right-aligned expiry pill. Mirrors the Clients
+          // date pill: same chrome / event-tone-* palette, same
+          // {pill, X} grid column. effectiveSubscription has already
+          // merged the latest extension on top of the base row, so
+          // its expiry_date is the renewal-aware "current" expiry.
+          // No extension → base subscription expiry. No expiry on
+          // either → 'tba'. The compact label produces "14 Jun 2026"
+          // and "TBA" so the column reads identically to Clients.
+          const subExpiry = isSub ? String(subEffective?.expiry_date || '') : '';
+          const subPillTone = isSub ? subscriptionExpiryPillTone(subExpiry, todayIso) : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
           // The tone drives both the row text colour and the small
@@ -3674,6 +3705,7 @@ export function DatabasePage() {
             subTone ? `sub-${subTone}` : '',
             clientToneClass,
             isClient ? 'has-event-pill' : '',
+            isSub ? 'has-event-pill' : '',
           ]
             .filter(Boolean)
             .join(' ');
@@ -3738,6 +3770,14 @@ export function DatabasePage() {
                   aria-label={`Event ${compactEventDateLabel(clientPillDate)}`}
                 >
                   {compactEventDateLabel(clientPillDate)}
+                </span>
+              ) : null}
+              {isSub ? (
+                <span
+                  className={`event-date-pill event-tone-${subPillTone || 'tba'}`}
+                  aria-label={`Expiry ${compactEventDateLabel(subExpiry)}`}
+                >
+                  {compactEventDateLabel(subExpiry)}
                 </span>
               ) : null}
               <button
