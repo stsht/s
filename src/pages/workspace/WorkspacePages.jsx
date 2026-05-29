@@ -178,6 +178,30 @@ function TrashIcon() {
   );
 }
 
+// Plus glyph for the Subs detail "Add Extension" toolbar action.
+// Same 14x14 stroke-only family as Edit/Print/Delete so the top
+// action bar reads as one icon group.
+function PlusIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -2185,36 +2209,50 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           ) : null}
           {contact ? <span>{contact}</span> : null}
         </div>
-        <div className="detail-actions">
+        <div className="detail-actions subs-detail-actions">
+          {subscription?.id && !extensionFormOpen ? (
+            <button
+              type="button"
+              className="toolbar-icon-btn"
+              onClick={openAddExtension}
+              aria-label="Add extension"
+              title="Add Extension"
+            >
+              <PlusIcon />
+            </button>
+          ) : null}
           {subscription?.id ? (
             <button
               type="button"
-              className="ghost-button compact icon-button"
+              className="toolbar-icon-btn"
               onClick={() => onEdit?.(subscription)}
+              aria-label="Edit subscription"
+              title="Edit"
             >
               <EditIcon />
-              <span>Edit</span>
             </button>
           ) : null}
           {subscription?.id ? (
             <button
               type="button"
-              className="ghost-button compact icon-button"
+              className="toolbar-icon-btn"
               onClick={handlePrint}
+              aria-label="Print subscription"
+              title="Print"
             >
               <PrintIcon />
-              <span>Print</span>
             </button>
           ) : null}
           {subscription?.id ? (
             <button
               type="button"
-              className={`ghost-button compact icon-button db-delete-button${confirmDelete ? ' armed' : ''}`}
+              className={`toolbar-icon-btn toolbar-icon-btn--danger${confirmDelete ? ' armed' : ''}`}
               onClick={handleDeleteClick}
               aria-pressed={confirmDelete}
+              aria-label={confirmDelete ? 'Confirm delete subscription' : 'Delete subscription'}
+              title={confirmDelete ? 'Confirm Delete' : 'Delete'}
             >
               <TrashIcon />
-              <span>{confirmDelete ? 'Confirm Delete' : 'Delete'}</span>
             </button>
           ) : null}
           <button
@@ -2315,15 +2353,6 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         <section className="subs-extensions" aria-label="Subscription extensions">
           <div className="subs-extensions-head">
             <p className="eyebrow">Extensions</p>
-            {!extensionFormOpen ? (
-              <button
-                type="button"
-                className="ghost-button compact"
-                onClick={openAddExtension}
-              >
-                Add Extension
-              </button>
-            ) : null}
           </div>
           {extensionFormOpen ? (
             <form className="form-stack subs-extension-form" onSubmit={saveExtension}>

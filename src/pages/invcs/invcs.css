@@ -2172,10 +2172,12 @@ dd{margin:0;text-align:right;font-weight:800}
  * Initial" segment in its meta line does the labelling; this just
  * softens the row so it sits quietly at the bottom of the list. */
 .subs-extension-list > .subs-period-base{
-  opacity:.85;
-}
-.subs-extension-list > .subs-period-base .subs-extension-date-value{
-  font-weight:700;
+  /* The Initial row reads as the original purchase, but it must use
+   * the SAME emphasis as every other row — no opacity dimming, no
+   * lighter weight. Tone (red/amber/green) and weight are driven by
+   * the shared rules below so a row is never "randomly" bolder than
+   * its siblings (complaint #5). The "Initial" chip in the meta line
+   * does the labelling. */
 }
 .subs-extensions-empty{
   margin:0;
@@ -2183,12 +2185,12 @@ dd{margin:0;text-align:right;font-weight:800}
   font-size:13px;
 }
 
-/* Extension/period timeline rows. Each row stacks a labelled
- * Start / Expiry date pair over a single metadata line. The pair
- * sits in two columns on desktop and stacks vertically on mobile,
- * so the range never depends on a "->" arrow to read (complaint #1).
- * The row itself centres its content against the icon-only actions
- * so Edit / X and the text share one vertical centre (complaint #3). */
+/* Extension/period timeline rows. Each row is a clean ledger entry:
+ * a labelled Start / Expiry pair over a single metadata line. The
+ * pair sits in two aligned columns on desktop and stacks vertically
+ * on mobile, so the range never depends on a "->" arrow to read.
+ * The row centres its content against the icon-only actions so the
+ * Edit / X controls share one vertical centre. */
 .subs-extension-row{
   align-items:center;
   gap:12px;
@@ -2197,21 +2199,24 @@ dd{margin:0;text-align:right;font-weight:800}
   flex:1 1 auto;
   min-width:0;
   display:grid;
-  gap:6px;
+  gap:8px;
 }
+/* Two equal columns. Each column is a label-over-value stack so the
+ * Start and Expiry VALUES share the same top baseline and left edge
+ * regardless of label width — fixes the misaligned Expiry column
+ * (complaint #5). */
 .subs-extension-dates{
   display:grid;
   grid-template-columns:1fr 1fr;
-  gap:2px 18px;
+  gap:4px 18px;
 }
 .subs-extension-date{
   display:flex;
-  align-items:baseline;
-  gap:8px;
+  flex-direction:column;
+  gap:2px;
   min-width:0;
 }
 .subs-extension-date-label{
-  flex:0 0 auto;
   font-size:10px;
   font-weight:900;
   letter-spacing:.1em;
@@ -2223,6 +2228,7 @@ dd{margin:0;text-align:right;font-weight:800}
   font-weight:750;
   color:var(--ink);
   font-variant-numeric:tabular-nums;
+  line-height:1.25;
 }
 .subs-extension-meta{
   color:var(--muted);
@@ -2231,14 +2237,17 @@ dd{margin:0;text-align:right;font-weight:800}
 @media (max-width:640px){
   .subs-extension-dates{
     grid-template-columns:1fr;
+    gap:8px;
   }
 }
 
-/* Tone parity with the Subs list. An expired extension — including
- * the Initial row when the whole subscription has lapsed — reads
- * red, and a warning row amber, exactly like .db-list-row.sub-* on
- * the Subs list (complaint #2). Scoped to the extension list so the
- * neutral detail rows above are untouched. */
+/* Tone parity with the Subs list, applied uniformly to BOTH the
+ * Start and Expiry values of EVERY row in the matching tone —
+ * including the Initial (base) row. An expired row reads red, a
+ * warning row amber, an active row green, exactly like
+ * .db-list-row.sub-* on the Subs list. No row gets a different
+ * weight/emphasis from its siblings (complaint #2 + #5). Scoped to
+ * the extension list so the neutral detail rows above are untouched. */
 .subs-extension-list .list-row.sub-expired .subs-extension-date-value{
   color:var(--sub-expired);
 }
@@ -2496,6 +2505,60 @@ dd{margin:0;text-align:right;font-weight:800}
 .btn-icon{
   display:block;
   flex-shrink:0;
+}
+
+/* Subs detail top toolbar — icon-only action group (Add Extension /
+ * Edit / Print / Delete) sitting beside the round Close button. No
+ * text labels, no chunky pill frames: each control is a subtle
+ * square tap target that only shows a soft fill on hover/focus, so
+ * the row reads as a toolbar rather than a stack of CTA buttons.
+ * Scoped to .subs-detail-actions so the Clients detail view's
+ * labelled buttons are untouched. The buttons match the 38px
+ * .db-close-button so the whole group shares one height/baseline. */
+.subs-detail-actions{
+  align-items:center;
+  gap:6px;
+}
+.toolbar-icon-btn{
+  width:38px;
+  height:38px;
+  min-height:38px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  transition:background .12s ease,color .12s ease;
+}
+.toolbar-icon-btn:hover,
+.toolbar-icon-btn:focus-visible{
+  background:var(--soft);
+  color:var(--ink);
+  outline:none;
+}
+.toolbar-icon-btn .btn-icon{
+  width:18px;
+  height:18px;
+}
+/* Delete stays red at rest (icon tint) and escalates to a filled
+ * red armed state on the first click — same confirm-then-delete
+ * behaviour as before, now without a text label. */
+.toolbar-icon-btn--danger{
+  color:var(--danger);
+}
+.toolbar-icon-btn--danger:hover,
+.toolbar-icon-btn--danger:focus-visible{
+  background:color-mix(in srgb,var(--danger) 12%,transparent);
+  color:var(--danger);
+}
+.toolbar-icon-btn--danger.armed,
+.toolbar-icon-btn--danger.armed:hover{
+  background:var(--danger);
+  color:#fff;
 }
 
 /* Safe spacing between the destructive Delete button and the
