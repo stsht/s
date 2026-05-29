@@ -3352,7 +3352,7 @@ function rootHomepage() {
     .ig-link:active{transform:scale(.985)}
     .intro-settled .reveal{transition-delay:0ms!important}
     @media(prefers-color-scheme:dark){.ss-logo-hero{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
-    @media(prefers-reduced-motion:reduce){*{-webkit-animation:none!important;animation:none!important;-webkit-transition:none!important;transition:none!important;scroll-behavior:auto!important}.home-card,.reveal{opacity:1!important;-webkit-transform:none!important;transform:none!important}}
+    @media(prefers-reduced-motion:reduce){html:not(.ss-force-motion) *{-webkit-animation:none!important;animation:none!important;-webkit-transition:none!important;transition:none!important;scroll-behavior:auto!important}html:not(.ss-force-motion) .home-card,html:not(.ss-force-motion) .reveal{opacity:1!important;-webkit-transform:none!important;transform:none!important}}
     @media(max-width:520px){.home-card{padding:32px 22px}.construct{width:min(220px,70vw)}.ig-link{font-size:17px}}
   </style>
   ${animateAssets()}
@@ -3449,7 +3449,7 @@ function notFoundPage(path = '') {
     .nf-btn:active{transform:translateY(0) scale(.992)}
     .intro-settled .reveal{transition-delay:0ms!important}
     @media(prefers-color-scheme:dark){.ss-logo-hero{filter:brightness(0) invert(1) sepia(.08) saturate(.7);opacity:.92}}
-    @media(prefers-reduced-motion:reduce){*{-webkit-animation:none!important;animation:none!important;-webkit-transition:none!important;transition:none!important;scroll-behavior:auto!important}.home-card,.reveal{opacity:1!important;-webkit-transform:none!important;transform:none!important}}
+    @media(prefers-reduced-motion:reduce){html:not(.ss-force-motion) *{-webkit-animation:none!important;animation:none!important;-webkit-transition:none!important;transition:none!important;scroll-behavior:auto!important}html:not(.ss-force-motion) .home-card,html:not(.ss-force-motion) .reveal{opacity:1!important;-webkit-transform:none!important;transform:none!important}}
     @media(max-width:520px){.home-card{padding:32px 22px}.nf-actions{flex-direction:column}.nf-btn{width:100%;justify-content:center}}
   </style>
   ${animateAssets()}
