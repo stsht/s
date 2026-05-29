@@ -89,6 +89,23 @@
   background: transparent;
 }
 
+/* Bulletproof scrollbar hiding for the entire workspace frame.
+ * The per-panel rules above cover the two scroll surfaces, but
+ * Safari (macOS/iOS) can still paint a grey scrollbar capsule for
+ * nested overflow containers — and "always show scroll bars" in
+ * System Settings overrides the panel-level rules on some
+ * viewports. Scoping a wildcard ::-webkit-scrollbar killer under
+ * .pf-page (the workspace root) guarantees no WebKit scrollbar
+ * chrome renders anywhere inside the frame, regardless of OS/mouse
+ * display settings. Scroll itself (wheel, drag, keyboard, touch)
+ * is unaffected. */
+.pf-page *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
 /* Header — matches /inv .panel-header.
  *
  * Sticky on the left panel so logo + contextual pills/segmented
