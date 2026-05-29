@@ -173,6 +173,35 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+// Local-time "YYYY-MM-DD" / "HH:MM" for a freshly created deposit
+// payment row. Uses the operator's system clock (not toISOString,
+// which is UTC) so a deposit recorded at 23:30 local time doesn't
+// roll forward to the next calendar day.
+function nowDateParts() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+  };
+}
+
+// Factory for a new deposit instalment row. Each row is a recorded
+// deposit payment: { id, paid, paidAtDate, paidAtTime, amount }.
+// Defaults are "paid now, for the current Invoice-tab deposit due"
+// — a blank/zero due simply lands as 0, which reads like a
+// placeholder via the shared selectAllIfZero focus behaviour.
+function makeDepositPayment(amountDefault) {
+  const { date, time } = nowDateParts();
+  return {
+    id: crypto.randomUUID(),
+    paid: true,
+    paidAtDate: date,
+    paidAtTime: time,
+    amount: Math.max(0, Math.round(Number(amountDefault) || 0)),
+  };
+}
+
 function imageFromFile(file) {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -463,6 +492,15 @@ export function InvoiceComposer() {
   // small invoices never silently produce a 0 deposit.
   const [depositMode, setDepositMode] = useState('20');
   const [depositCustomAmount, setDepositCustomAmount] = useState('');
+  // Deposit-mode payment ledger. Lives ONLY inside invoice_data —
+  // no new DB columns. Each entry is a recorded deposit instalment
+  // { id, paid, paidAtDate, paidAtTime, amount }. The Deposit tab is
+  // where these are added/edited; the Invoice tab stays the source
+  // of truth for identity, packages, discount and the requested
+  // deposit due. `requestBalanceDue` toggles the "Balance Due" line
+  // on the generated Deposit Invoice JPG.
+  const [depositPayments, setDepositPayments] = useState([]);
+  const [requestBalanceDue, setRequestBalanceDue] = useState(false);
   const [packages, setPackages] = useState(DEFAULT_PACKAGES);
   const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
@@ -610,6 +648,49 @@ export function InvoiceComposer() {
           setDepositCustomAmount(inferred.customAmount);
         }
 
+        // Deposit instalment ledger + balance-due request. Both live
+        // only in invoice_data (no DB columns). Backward compatible:
+        // a legacy deposit row (status 'deposit', paid_amount > 0)
+        // with no depositPayments array is surfaced as ONE synthesized
+        // paid instalment so the historical deposit is visible instead
+        // of an empty ledger. Malformed/missing data never crashes —
+        // it falls through to an empty ledger.
+        const blobPayments = Array.isArray(data.depositPayments) ? data.depositPayments : null;
+        if (blobPayments && blobPayments.length) {
+          setDepositPayments(blobPayments.map((payment) => {
+            const rawDate = String(payment?.paidAtDate || '').trim();
+            const rawTime = String(payment?.paidAtTime || '').trim();
+            const timeMatch = /^(\d{2}:\d{2})/.exec(rawTime);
+            return {
+              id: String(payment?.id || crypto.randomUUID()),
+              paid: payment?.paid !== false,
+              paidAtDate: /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate : '',
+              paidAtTime: timeMatch ? timeMatch[1] : '',
+              amount: Math.max(0, Math.round(Number(payment?.amount) || 0)),
+            };
+          }));
+        } else if (row.status === 'deposit' && Math.round(Number(row.paid_amount) || 0) > 0) {
+          const legacyDate = /^\d{4}-\d{2}-\d{2}$/.test(String(row.invoice_date || ''))
+            ? String(row.invoice_date)
+            : '';
+          setDepositPayments([{
+            id: crypto.randomUUID(),
+            paid: true,
+            paidAtDate: legacyDate,
+            paidAtTime: '',
+            amount: Math.max(0, Math.round(Number(row.paid_amount) || 0)),
+          }]);
+        }
+        // Balance-due request flag: explicit blob value wins. For a
+        // legacy deposit row that recorded a positive balance_due but
+        // no flag, surface the Balance Due line by default so the
+        // regenerated invoice keeps showing what the client still owes.
+        if (typeof data.requestBalanceDue === 'boolean') {
+          setRequestBalanceDue(data.requestBalanceDue);
+        } else if (row.status === 'deposit' && Math.round(Number(row.balance_due) || 0) > 0) {
+          setRequestBalanceDue(true);
+        }
+
         if (typeof data.qrSrc === 'string' && data.qrSrc) setQrSrc(data.qrSrc);
         if (typeof data.qrFileName === 'string' && data.qrFileName) setQrFileName(data.qrFileName);
         // Payment method: only adopt the saved value when it matches
@@ -636,6 +717,16 @@ export function InvoiceComposer() {
     return { subtotal, grandTotal, depositDue };
   }, [discount, depositMode, depositCustomAmount, items]);
 
+  // Sum of the deposit instalments currently marked paid. This is the
+  // figure persisted to paid_amount in deposit mode, and the basis for
+  // the balance still owed. Toggled-off (unpaid) rows are excluded so
+  // the operator can stage a row before confirming it landed.
+  const depositPaidTotal = depositPayments.reduce(
+    (sum, payment) => sum + (payment.paid ? Math.max(0, Math.round(Number(payment.amount) || 0)) : 0),
+    0,
+  );
+  const balanceDue = Math.max(0, Math.round(Number(totals.grandTotal) || 0) - depositPaidTotal);
+
   function updateItem(id, patch) {
     setItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
@@ -651,6 +742,21 @@ export function InvoiceComposer() {
 
   function removeItem(id) {
     setItems((current) => current.length === 1 ? current : current.filter((item) => item.id !== id));
+  }
+
+  // Deposit ledger mutators. addDepositPayment seeds the new row with
+  // the current system date/time and the Invoice-tab deposit due (see
+  // makeDepositPayment). update/remove are the usual id-keyed patches.
+  function addDepositPayment() {
+    setDepositPayments((current) => [...current, makeDepositPayment(totals.depositDue)]);
+  }
+
+  function updateDepositPayment(id, patch) {
+    setDepositPayments((current) => current.map((payment) => payment.id === id ? { ...payment, ...patch } : payment));
+  }
+
+  function removeDepositPayment(id) {
+    setDepositPayments((current) => current.filter((payment) => payment.id !== id));
   }
 
   async function uploadQr(event) {
@@ -686,12 +792,22 @@ export function InvoiceComposer() {
     try {
       const grandTotal = Math.max(0, Math.round(Number(totals.grandTotal) || 0));
       const depositDue = Math.max(0, Math.round(Number(totals.depositDue) || 0));
+      // paid_amount / balance_due are mode-driven:
+      //   • paid    — invoice settled in full: paid = grand, balance 0.
+      //   • deposit — paid = sum of the recorded *paid* instalments
+      //               (depositPaidTotal); balance = whatever remains
+      //               of the grand total.
+      //   • invoice — draft: nothing collected yet.
+      // deposit_amount always stores the *requested* deposit due so the
+      // figure survives independently of what has actually been paid.
       const paidAmount = mode === 'paid'
         ? grandTotal
         : mode === 'deposit'
-          ? depositDue
+          ? depositPaidTotal
           : 0;
-      const balanceDue = Math.max(0, grandTotal - paidAmount);
+      const balanceDueAmount = mode === 'paid'
+        ? 0
+        : Math.max(0, grandTotal - paidAmount);
       // Mirror the /subs Save shape (see WorkspacePages.jsx
       // saveSubscription) so the worker's handleInvoiceSave gets the
       // typed columns it expects, plus the loose invoice_data blob
@@ -710,7 +826,7 @@ export function InvoiceComposer() {
         grand_total: grandTotal,
         deposit_amount: depositDue,
         paid_amount: paidAmount,
-        balance_due: balanceDue,
+        balance_due: balanceDueAmount,
         invoice_data: {
           discount: Math.max(0, Math.round(Number(discount) || 0)),
           items: items.map((item) => ({
@@ -727,6 +843,18 @@ export function InvoiceComposer() {
           qrFileName: String(qrFileName || ''),
           paymentMethod: String(paymentMethod || 'qr'),
           eventTime: String(eventTime || ''),
+          // Deposit-mode workflow state — read back by the hydrate
+          // effect. Persisted in every mode so switching invoice ↔
+          // deposit ↔ paid never silently drops a recorded ledger
+          // (e.g. a paid invoice keeps the deposits that led to it).
+          depositPayments: depositPayments.map((payment) => ({
+            id: String(payment.id || ''),
+            paid: !!payment.paid,
+            paidAtDate: String(payment.paidAtDate || ''),
+            paidAtTime: String(payment.paidAtTime || ''),
+            amount: Math.max(0, Math.round(Number(payment.amount) || 0)),
+          })),
+          requestBalanceDue: !!requestBalanceDue,
         },
       };
       if (savedId) invoice.id = savedId;
@@ -876,6 +1004,14 @@ export function InvoiceComposer() {
           depositCustomAmount={depositCustomAmount}
           setDepositCustomAmount={setDepositCustomAmount}
           totals={totals}
+          depositPayments={depositPayments}
+          addDepositPayment={addDepositPayment}
+          updateDepositPayment={updateDepositPayment}
+          removeDepositPayment={removeDepositPayment}
+          requestBalanceDue={requestBalanceDue}
+          setRequestBalanceDue={setRequestBalanceDue}
+          depositPaidTotal={depositPaidTotal}
+          balanceDue={balanceDue}
           uploadQr={uploadQr}
           qrFileName={qrFileName}
           paymentMethod={paymentMethod}
@@ -895,6 +1031,9 @@ export function InvoiceComposer() {
           totals={totals}
           qrSrc={qrSrc}
           paymentMethod={paymentMethod}
+          depositPayments={depositPayments}
+          requestBalanceDue={requestBalanceDue}
+          balanceDue={balanceDue}
           status={status}
           documentRef={documentRef}
           downloadJpg={downloadJpg}
@@ -926,6 +1065,8 @@ function EditorPanel(props) {
         </div>
       </header>
 
+      {props.mode === 'invoice' ? (
+        <>
       <Fieldset title="Bill To">
         <div className="field-stack">
           <div className="two-col">
@@ -1070,7 +1211,159 @@ function EditorPanel(props) {
           <div className="total-card"><span>{isFullPayment(props.totals) ? 'Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
       </Fieldset>
+        </>
+      ) : (
+        <>
+          <LockedDetails
+            mode={props.mode}
+            title={props.title}
+            clientName={props.clientName}
+            contact={props.contact}
+            venue={props.venue}
+            eventDate={props.eventDate}
+            eventTime={props.eventTime}
+            totals={props.totals}
+          />
+          {props.mode === 'deposit' ? (
+            <DepositLedger
+              payments={props.depositPayments}
+              addPayment={props.addDepositPayment}
+              updatePayment={props.updateDepositPayment}
+              removePayment={props.removeDepositPayment}
+              requestBalanceDue={props.requestBalanceDue}
+              setRequestBalanceDue={props.setRequestBalanceDue}
+              depositPaidTotal={props.depositPaidTotal}
+              balanceDue={props.balanceDue}
+              totals={props.totals}
+            />
+          ) : (
+            <PaidSummary totals={props.totals} payments={props.depositPayments} />
+          )}
+        </>
+      )}
     </aside>
+  );
+}
+
+// Read-only identity + event recap shown on the Deposit and Paid
+// tabs. The Invoice tab is the single source of truth for these
+// fields (client_title/name/contact, venue, event date+time) and
+// the grand total — the Deposit/Paid tabs deliberately cannot edit
+// them, they only display the locked snapshot so the operator has
+// context while recording payments. Preserves client_id / event_key
+// / client_name / event_date grouping inputs untouched.
+function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eventTime, totals }) {
+  return (
+    <Fieldset title="Invoice Details (locked)">
+      <p className="locked-hint">
+        {mode === 'deposit'
+          ? 'Identity and event details are set on the Invoice tab. Record deposit payments below.'
+          : 'Identity and event details are set on the Invoice tab. Saving here marks the invoice paid in full.'}
+      </p>
+      <dl className="locked-list">
+        <div className="locked-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
+        <div className="locked-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
+        <div className="locked-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
+        <div className="locked-row"><dt>Event</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
+        <div className="locked-row"><dt>Grand Total</dt><dd>{rupiah(totals.grandTotal)}</dd></div>
+      </dl>
+    </Fieldset>
+  );
+}
+
+// Deposit-tab ledger. Lets the operator log one or more deposit
+// instalments (date/time + amount, each with a paid toggle), request
+// the Balance Due line on the JPG, and see the running Deposit Paid /
+// Balance Due figures. All of this is persisted inside invoice_data —
+// no new DB columns.
+function DepositLedger({ payments, addPayment, updatePayment, removePayment, requestBalanceDue, setRequestBalanceDue, depositPaidTotal, balanceDue, totals }) {
+  return (
+    <Fieldset title="Deposit Payments">
+      <div className="dp-context">
+        <span>Requested Deposit Due</span>
+        <strong>{rupiah(totals.depositDue)}</strong>
+      </div>
+      <div className="dp-list">
+        {payments.length === 0 ? (
+          <p className="dp-empty">No deposit payments recorded yet. Use the Add DP Paid button to log one.</p>
+        ) : payments.map((payment) => (
+          <div className="dp-row" key={payment.id}>
+            <label className="dp-paid-toggle">
+              <input
+                type="checkbox"
+                checked={!!payment.paid}
+                onChange={(event) => updatePayment(payment.id, { paid: event.target.checked })}
+              />
+              <span>DP Paid</span>
+            </label>
+            <label className="dp-field">Paid on
+              <DateTimeField
+                value={payment.paidAtDate}
+                onChange={(value) => updatePayment(payment.id, { paidAtDate: value })}
+                timeValue={payment.paidAtTime}
+                onTimeChange={(value) => updatePayment(payment.id, { paidAtTime: value })}
+                withTime
+                ariaLabel="Deposit paid date and time"
+              />
+            </label>
+            <div className="dp-amount-row">
+              <label className="dp-field">Amount
+                <input
+                  type="number"
+                  min="0"
+                  value={payment.amount}
+                  onFocus={selectAllIfZero}
+                  onChange={(event) => updatePayment(payment.id, { amount: event.target.value })}
+                  placeholder="0"
+                />
+              </label>
+              <button className="remove" type="button" onClick={() => removePayment(payment.id)}>Remove</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="ghost-button" type="button" onClick={addPayment}>+ Add DP Paid</button>
+      <label className="dp-balance-toggle">
+        <input
+          type="checkbox"
+          checked={!!requestBalanceDue}
+          onChange={(event) => setRequestBalanceDue(event.target.checked)}
+        />
+        <span>Show Balance Due on invoice</span>
+      </label>
+      <div className="dp-totals">
+        <div className="dp-total-row"><span>Deposit Paid</span><strong>{rupiah(depositPaidTotal)}</strong></div>
+        <div className="dp-total-row dp-total-balance"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></div>
+      </div>
+    </Fieldset>
+  );
+}
+
+// Paid-tab summary. Paid means settled in full after any deposits:
+// the save path forces paid_amount = grand total and balance_due = 0.
+// Any deposit instalments already recorded are shown read-only so the
+// operator can confirm them, but they are not edited here.
+function PaidSummary({ totals, payments }) {
+  const paidRows = (payments || []).filter((payment) => payment.paid);
+  return (
+    <Fieldset title="Mark as Paid">
+      <p className="locked-hint">Saving in Paid mode records this invoice as settled in full: paid amount equals the grand total and the balance due is cleared to zero.</p>
+      <div className="dp-totals">
+        <div className="dp-total-row"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></div>
+        <div className="dp-total-row dp-total-balance"><span>Balance Due</span><strong>{rupiah(0)}</strong></div>
+      </div>
+      {paidRows.length ? (
+        <div className="dp-list dp-list--readonly">
+          <p className="dp-context-label">Recorded deposit payments</p>
+          {paidRows.map((payment) => (
+            <div className="dp-readonly-row" key={payment.id}>
+              <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+              <strong>{rupiah(payment.amount)}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </Fieldset>
   );
 }
 
@@ -1100,14 +1393,19 @@ function QrUploadField({ onChange, fileName }) {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, requestBalanceDue, balanceDue, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   const dueLabel = isFullPayment(totals) ? 'Payment Due' : 'Deposit Due';
+  // Deposit instalments actually marked paid — these are what the
+  // Deposit Invoice JPG itemises in the totals area.
+  const paidDeposits = mode === 'deposit'
+    ? (depositPayments || []).filter((payment) => payment.paid)
+    : [];
   return (
     <section className="preview-panel panel">
       <header className="preview-toolbar">
         <div>
           <p className="eyebrow">Live Preview</p>
-          <h2>{mode === 'paid' ? 'Receipt' : mode === 'deposit' ? 'Deposit Invoice' : 'Draft Invoice'}</h2>
+          <h2>{mode === 'paid' ? 'Paid Receipt' : mode === 'deposit' ? 'Deposit Invoice' : 'Draft Invoice'}</h2>
         </div>
         <div className="preview-toolbar-actions">
           <button
@@ -1154,24 +1452,42 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           <section className="summary-box">
             <p><span>Subtotal</span><strong>{rupiah(totals.subtotal)}</strong></p>
             <p><span>Discount</span><strong>{rupiah(Number(totals.subtotal) - Number(totals.grandTotal))}</strong></p>
+            {paidDeposits.map((payment) => (
+              <p className="deposit-paid" key={payment.id}>
+                <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+                <strong>{rupiah(payment.amount)}</strong>
+              </p>
+            ))}
             <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
+            {mode === 'deposit' && requestBalanceDue ? (
+              <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>
+            ) : null}
           </section>
           <section className="bottom-grid">
             <div className="sheet-box payment-box">
               <p className="eyebrow">Payment</p>
-              {paymentMethod === 'bank' ? (
-                <div className="bank-details">
-                  <p className="bank-details-heading">Bank Transfer</p>
-                  <dl className="bank-details-list">
-                    <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                    <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                    <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                  </dl>
+              {mode === 'paid' ? (
+                <div className="paid-stamp">
+                  <span className="paid-stamp-badge">PAID</span>
+                  <p className="paid-stamp-note">Thank you. Your invoice has been paid in full.</p>
                 </div>
               ) : (
-                <img src={qrSrc} alt="Payment QR" />
+                <>
+                  {paymentMethod === 'bank' ? (
+                    <div className="bank-details">
+                      <p className="bank-details-heading">Bank Transfer</p>
+                      <dl className="bank-details-list">
+                        <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                        <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                        <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                      </dl>
+                    </div>
+                  ) : (
+                    <img src={qrSrc} alt="Payment QR" />
+                  )}
+                  <div className="deposit-due"><span>{dueLabel}</span><strong>{rupiah(totals.depositDue)}</strong></div>
+                </>
               )}
-              <div className="deposit-due"><span>{dueLabel}</span><strong>{rupiah(totals.depositDue)}</strong></div>
             </div>
             <div className="sheet-box terms-box">
               <p className="eyebrow">Terms & Conditions</p>
