@@ -72,38 +72,57 @@
  *   - -ms-overflow-style:none keeps legacy Edge consistent.
  * The scroll surface itself is preserved — wheel, drag, keyboard,
  * and touch all keep working. */
+/* Scrollbar hiding — all layers. scrollbar-width:none covers
+ * Firefox + modern standards. -ms-overflow-style covers legacy
+ * Edge. The ::-webkit-scrollbar rules cover every Safari/Chromium
+ * surface. We target the panels explicitly AND use a scoped
+ * wildcard under .pf-page so nested overflow containers (sticky
+ * headers, extension lists, form stacks) are also silenced even
+ * when macOS System Settings → "Always" show scrollbars is on. */
+.pf-panel,
 .pf-panel--left,
 .pf-panel--right {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
+.pf-panel::-webkit-scrollbar,
 .pf-panel--left::-webkit-scrollbar,
 .pf-panel--right::-webkit-scrollbar {
+  display: none !important;
   width: 0 !important;
   height: 0 !important;
-  display: none;
-  background: transparent;
+  background: transparent !important;
 }
+.pf-panel::-webkit-scrollbar-thumb,
 .pf-panel--left::-webkit-scrollbar-thumb,
-.pf-panel--right::-webkit-scrollbar-thumb {
-  background: transparent;
+.pf-panel--right::-webkit-scrollbar-thumb,
+.pf-panel::-webkit-scrollbar-track,
+.pf-panel--left::-webkit-scrollbar-track,
+.pf-panel--right::-webkit-scrollbar-track {
+  background: transparent !important;
+  display: none !important;
 }
-
-/* Bulletproof scrollbar hiding for the entire workspace frame.
- * The per-panel rules above cover the two scroll surfaces, but
- * Safari (macOS/iOS) can still paint a grey scrollbar capsule for
- * nested overflow containers — and "always show scroll bars" in
- * System Settings overrides the panel-level rules on some
- * viewports. Scoping a wildcard ::-webkit-scrollbar killer under
- * .pf-page (the workspace root) guarantees no WebKit scrollbar
- * chrome renders anywhere inside the frame, regardless of OS/mouse
- * display settings. Scroll itself (wheel, drag, keyboard, touch)
- * is unaffected. */
+/* Wildcard catch-all: any nested overflow surface inside the
+ * workspace frame — form stacks, extension lists, pillsets —
+ * is also fully suppressed. */
+.pf-page,
+.pf-page * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pf-page::-webkit-scrollbar,
 .pf-page *::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
   background: transparent !important;
+}
+.pf-page::-webkit-scrollbar-thumb,
+.pf-page *::-webkit-scrollbar-thumb,
+.pf-page::-webkit-scrollbar-track,
+.pf-page *::-webkit-scrollbar-track {
+  background: transparent !important;
+  display: none !important;
 }
 
 /* Header — matches /inv .panel-header.
