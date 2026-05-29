@@ -1386,7 +1386,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .line-row span{text-align:right;font-size:15px;font-weight:800}
 .line-row span:nth-child(2),.line-head span:nth-child(2){text-align:center}
 .line-head span:nth-child(3){text-align:right}
-.summary-box{width:min(100%,340px);margin:14px var(--invoice-page-margin) 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:13px 15px;background:#fff}
+.summary-box{width:min(100%,380px);margin:14px var(--invoice-page-margin) 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:13px 15px;background:#fff}
 .summary-box p{display:flex;justify-content:space-between;margin:0 0 12px;color:#777}
 .summary-box p:last-child{margin-bottom:0}
 .summary-box .grand{padding-top:12px;border-top:1px dashed #dbe3ee;color:#1f1a17;font-size:18px}
@@ -2868,7 +2868,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .line-row strong,
 .invoice-export-host .line-row span{font-size:45px}
 .invoice-export-host .line-row small{margin-top:15px;font-size:33px}
-.invoice-export-host .summary-box{width:min(100%,1020px);margin:42px var(--invoice-page-margin) 0 auto;border-width:3px;border-radius:60px;padding:39px 45px}
+.invoice-export-host .summary-box{width:min(100%,1140px);margin:42px var(--invoice-page-margin) 0 auto;border-width:3px;border-radius:60px;padding:39px 45px}
 .invoice-export-host .summary-box p{margin:0 0 36px;font-size:39px}
 .invoice-export-host .summary-box p strong{font-size:39px}
 .invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:54px}
@@ -4256,3 +4256,177 @@ dd{margin:0;text-align:right;font-weight:800}
     font-size:18px;
   }
 }
+
+/* ============================================================
+ * /inv Deposit + Paid workflow
+ * ============================================================
+ *
+ * The Deposit and Paid tabs reuse the same editor/preview shell as
+ * the Invoice tab but swap the editable Bill To / Details / Packages /
+ * Payment fieldsets for a read-only recap (.locked-*) plus, on the
+ * Deposit tab, the instalment ledger (.dp-*). The Invoice tab stays
+ * the single source of truth for identity, packages, discount and the
+ * requested deposit due — these surfaces only display or record
+ * payments, never re-edit the locked fields.
+ *
+ * All deposit ledger state lives in invoice_data (no DB columns); the
+ * styles below are purely presentational. */
+
+/* Locked identity/event recap (Deposit + Paid tabs) */
+.locked-hint{margin:0 0 14px;color:var(--muted);font-size:12px;font-weight:700;line-height:1.55}
+.locked-list{display:grid;gap:8px;margin:0}
+.locked-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:14px;
+  min-height:22px;
+  padding:10px 14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--field);
+}
+.locked-row dt{flex:0 0 auto;margin:0;color:var(--muted);font-size:12px;font-weight:800}
+.locked-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:13px;font-weight:800;color:var(--ink);overflow-wrap:anywhere}
+
+/* Deposit ledger context strip — the requested deposit due carried
+ * over from the Invoice tab, shown read-only above the instalments. */
+.dp-context{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 0 14px;
+  padding:12px 14px;
+  border:1px dashed var(--line-strong);
+  border-radius:14px;
+  background:var(--soft);
+}
+.dp-context span{color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.dp-context strong{font-size:15px;font-weight:900;color:var(--ink)}
+
+/* Instalment rows */
+.dp-list{display:grid;gap:12px;margin:0}
+.dp-empty{margin:0;color:var(--muted);font-size:12px;font-weight:700;line-height:1.55}
+.dp-row{
+  display:grid;
+  gap:12px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--field);
+}
+.dp-field{display:grid;gap:7px;color:var(--muted);font-size:12px;font-weight:800}
+.dp-amount-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+
+/* Paid toggle + balance-due toggle. The global input{height:48px}
+ * rule must be neutralised for these checkboxes or they balloon to a
+ * full-width 48px block — scope a compact native checkbox instead. */
+.dp-paid-toggle,
+.dp-balance-toggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:var(--ink);
+  font-size:12px;
+  font-weight:800;
+}
+.dp-balance-toggle{margin:14px 0 0}
+.dp-paid-toggle input[type="checkbox"],
+.dp-balance-toggle input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  min-width:18px;
+  flex:0 0 auto;
+  padding:0;
+  border-radius:6px;
+  accent-color:var(--accent);
+  cursor:pointer;
+}
+
+/* Running Deposit Paid / Balance Due totals (and the Paid tab recap) */
+.dp-totals{
+  display:grid;
+  gap:8px;
+  margin:16px 0 0;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--soft);
+}
+.dp-total-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.dp-total-row span{color:var(--muted);font-size:12px;font-weight:800}
+.dp-total-row strong{font-size:15px;font-weight:900;color:var(--ink)}
+.dp-total-balance{padding-top:8px;border-top:1px dashed var(--line-strong)}
+.dp-total-balance strong{color:var(--accent-2)}
+
+/* Read-only deposit list shown on the Paid tab */
+.dp-list--readonly{margin-top:14px}
+.dp-context-label{margin:0 0 4px;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.dp-readonly-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  padding:9px 13px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--field);
+}
+.dp-readonly-row span{color:var(--muted);font-size:12px;font-weight:700}
+.dp-readonly-row strong{font-size:13px;font-weight:900;color:var(--ink)}
+
+/* ---- Generated JPG: Deposit Invoice totals rows ----
+ * The deposit-paid lines sit between Discount and Grand Total; the
+ * Balance Due line sits just under Grand Total. Both are <p> children
+ * of .summary-box so they inherit the existing flex (label-left,
+ * amount-right) layout and the export-host font scaling automatically. */
+.summary-box .deposit-paid span{color:#777}
+.summary-box .deposit-paid strong{color:#1f1a17}
+.summary-box .balance-due{color:#1f1a17;font-weight:800}
+.summary-box .balance-due strong{font-weight:900}
+
+/* ---- Generated JPG: Paid receipt stamp ----
+ * Replaces the QR/bank block + deposit-due caption in the payment box
+ * when mode === 'paid'. Spans the remaining payment-box grid rows so
+ * the PAID badge + thank-you note centre in the canvas; Terms &
+ * Conditions are untouched in the adjacent column. */
+.paid-stamp{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  width:100%;
+  text-align:center;
+}
+.payment-box .paid-stamp{grid-row:2 / -1;align-self:center}
+.paid-stamp-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 30px;
+  border:2px solid #1f9d57;
+  border-radius:14px;
+  color:#1f9d57;
+  font-size:30px;
+  font-weight:900;
+  letter-spacing:.24em;
+}
+.paid-stamp-note{
+  margin:0;
+  max-width:240px;
+  color:#5c6f86;
+  font-size:13px;
+  font-weight:700;
+  line-height:1.55;
+}
+
+/* Export-host (3x artboard) overrides for the paid stamp so the JPG
+ * renders the badge/note at the same proportions as the rest of the
+ * scaled sheet. The deposit-paid / balance-due rows need no extra
+ * rules — they ride the existing .invoice-export-host .summary-box p
+ * scaling. */
+.invoice-export-host .paid-stamp{gap:42px}
+.invoice-export-host .paid-stamp-badge{padding:30px 90px;border-width:6px;border-radius:42px;font-size:90px}
+.invoice-export-host .paid-stamp-note{max-width:720px;font-size:39px}
