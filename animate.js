@@ -47,6 +47,9 @@
   var SAFETY_TIMEOUT_MS = 2200;
 
   var docEl = document.documentElement;
+  // StarShots motion is brief and intentional; keep it enabled even
+  // when iOS reports system Reduce Motion.
+  docEl.classList.add('ss-force-motion');
   var forceMotion = docEl.classList.contains('ss-force-motion');
   var prefersReduced = false;
   try {

@@ -233,7 +233,7 @@ html.ss-firefox .aurora{
     transform:none !important;
     opacity:1 !important;
   }
-  .aurora{display:none !important}
+  html:not(.ss-force-motion) .aurora{display:none !important}
   html:not(.ss-force-motion).ss-js [data-ss-intro]{
     opacity:1 !important;
     -webkit-transform:none !important;
