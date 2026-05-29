@@ -288,23 +288,20 @@ button{cursor:pointer}
    * phones and pushed the brand too close to the viewport edges. */
   width:min(226px,68vw);
   height:auto;
+  opacity:0.85;
+  transform:scale(0.97);
+  -webkit-filter:blur(0px);
+  filter:blur(0px);
   /* GPU acceleration — promotes the element to its own compositor
-   * layer so the transform + opacity breathing animation runs off
+   * layer so the transform + opacity + filter breathing animation runs off
    * the main thread, paint-free after the first frame. */
-  will-change:transform,opacity;
-  /* Single 3.8 s breathing loop, alternating between the two
-   * endpoints defined by ssElegantBreathe below. ease-in-out
-   * gives a fluid, continuous loop without any flat pauses at
-   * the extremes.
-   *
-   * No filter / drop-shadow on this loop. filter: drop-shadow
-   * rasterises the element on a paint layer that doesn't
-   * subpixel-align with the underlying pixel grid — which made
-   * the brand mark render as a slightly blurry bitmap on Retina
-   * screens and froze the scale animation in mobile Safari. Pure
-   * transform + opacity composites natively, stays razor-crisp at
-   * every devicePixelRatio, and never stutters. */
-  animation:ssElegantBreathe 3.8s ease-in-out infinite alternate;
+  will-change:transform,opacity,filter;
+}
+
+.gate-splash-logo.is-loaded{
+  /* 2.8 s breathing heart-beat pulse, starting only after the page
+   * is fully loaded. */
+  animation:ssElegantBreathe 2.8s cubic-bezier(.25,1,.5,1) infinite;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -334,21 +331,50 @@ button{cursor:pointer}
 }
 
 /* Elegant breathing — fades the brand from a low rest opacity
- * up to full strength while scaling gently from .96 → 1.03.
- *
- * Composites entirely on the GPU: transform and opacity are
- * native layer properties so the loop runs paint-free after the
- * first frame. No mask, no filter — those introduced rasterised
- * paint layers that blurred the logo on Retina screens and
- * stalled the loop in mobile Safari. */
+ * up to full strength while scaling gently from .97 → 1.08.
+ * It follows a heartbeat pulse rhythm:
+ *   - 0% to 45%: Calm, clear, sharp rest phase (deep breath).
+ *   - 52%: First sharp punch up, becoming blurred (blurry party!).
+ *   - 58%: Fast recoil/dip.
+ *   - 65%: Second, slightly larger punch and peak blur.
+ *   - 74%: Settles back to sharp rest.
+ *   - 74% to 100%: Quiet hold to complete the breathing loop. */
 @keyframes ssElegantBreathe{
-  0%  {
-    transform:scale(.96);
-    opacity:.35;
+  0%, 100%{
+    transform:scale(0.97);
+    -webkit-filter:blur(0px);
+    filter:blur(0px);
+    opacity:0.85;
   }
-  100%{
-    transform:scale(1.03);
-    opacity:1;
+  45%{
+    transform:scale(0.97);
+    -webkit-filter:blur(0px);
+    filter:blur(0px);
+    opacity:0.85;
+  }
+  52%{
+    transform:scale(1.06);
+    -webkit-filter:blur(3px);
+    filter:blur(3px);
+    opacity:0.45;
+  }
+  58%{
+    transform:scale(0.98);
+    -webkit-filter:blur(1px);
+    filter:blur(1px);
+    opacity:0.75;
+  }
+  65%{
+    transform:scale(1.08);
+    -webkit-filter:blur(4px);
+    filter:blur(4px);
+    opacity:0.35;
+  }
+  74%{
+    transform:scale(0.97);
+    -webkit-filter:blur(0px);
+    filter:blur(0px);
+    opacity:0.85;
   }
 }
 
@@ -357,11 +383,13 @@ button{cursor:pointer}
  * the .is-revealed class — they just snap instead of fading. */
 @media (prefers-reduced-motion:reduce){
   .gate-splash-logo{
-    /* Freeze the breathing loop and clear the animated transform
-     * so the brand sits at a steady, calm rest opacity. */
+    /* Freeze the breathing loop, clear the animated transform,
+     * and completely strip filters so it sits at a steady, sharp rest opacity. */
     animation:none !important;
     opacity:.85 !important;
     transform:scale(1) !important;
+    -webkit-filter:none !important;
+    filter:none !important;
   }
   .gate-splash,
   .gate-card{

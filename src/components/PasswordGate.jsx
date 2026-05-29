@@ -85,6 +85,17 @@ export function PasswordGate({ title, children }) {
   // or fetch calls is touched — only the visual entry path.
   const inputRef = useRef(null);
   const [revealed, setRevealed] = useState(false);
+  const [isPageLoaded, setIsPageLoaded] = useState(false);
+
+  useEffect(() => {
+    if (document.readyState === 'complete') {
+      setIsPageLoaded(true);
+    } else {
+      const handleLoad = () => setIsPageLoaded(true);
+      window.addEventListener('load', handleLoad);
+      return () => window.removeEventListener('load', handleLoad);
+    }
+  }, []);
 
   function handleReveal() {
     if (revealed) return;
@@ -230,7 +241,7 @@ export function PasswordGate({ title, children }) {
       <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
         <picture className="gate-splash-logo-wrapper">
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-          <img className="gate-splash-logo" src="/logo-hero.png" alt="StarShots" />
+          <img className={`gate-splash-logo ${isPageLoaded ? 'is-loaded' : ''}`} src="/logo-hero.png" alt="StarShots" />
         </picture>
       </div>
 
