@@ -229,6 +229,8 @@ create table if not exists public.subscription_extensions (
   start_time      time,
   expiry_date     date,
   expiry_time     time,
+  payment_date    date,
+  payment_time    time,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -243,6 +245,8 @@ alter table public.subscription_extensions add column if not exists start_date  
 alter table public.subscription_extensions add column if not exists start_time    time;
 alter table public.subscription_extensions add column if not exists expiry_date   date;
 alter table public.subscription_extensions add column if not exists expiry_time   time;
+alter table public.subscription_extensions add column if not exists payment_date  date;
+alter table public.subscription_extensions add column if not exists payment_time  time;
 alter table public.subscription_extensions add column if not exists created_at    timestamptz not null default now();
 alter table public.subscription_extensions add column if not exists updated_at    timestamptz not null default now();
 

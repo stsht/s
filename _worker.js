@@ -2743,7 +2743,9 @@ function normalizeSubscriptionExtensionPayload(raw = {}) {
     start_date: startDate,
     start_time: startTime,
     expiry_date: expiryDate,
-    expiry_time: expiryTime
+    expiry_time: expiryTime,
+    payment_date: cleanIsoDate(raw.payment_date ?? raw.paymentDate),
+    payment_time: cleanIsoTime(raw.payment_time ?? raw.paymentTime)
   };
 }
 
@@ -2788,28 +2790,40 @@ async function handleSubscriptionExtensionSave(request, env) {
 
   const fields = normalizeSubscriptionExtensionPayload(raw);
   const payload = { ...fields, subscription_id: subscriptionId };
-  // Defensive: older DB schemas may not have the `bonus` column on
-  // public.subscription_extensions yet (added in db-migration-part-7).
-  // If the first write fails with a schema error, retry once with
-  // bonus stripped so an unmigrated environment still saves the row.
-  const stripBonus = (obj) => { const { bonus: _ignored, ...rest } = obj; return rest; };
-  const payloadNoBonus = stripBonus(payload);
+  // Defensive: older DB schemas may not have every column on
+  // public.subscription_extensions yet — `bonus` arrived in
+  // db-migration-part-7, and `payment_date`/`payment_time` were
+  // added later. If a write fails with a schema error we retry with
+  // the newest columns progressively stripped, newest-first, so an
+  // un-migrated environment still saves the row (losing only the
+  // columns it can't store) instead of 500ing.
+  const dropKeys = (obj, keys) => {
+    const next = { ...obj };
+    keys.forEach((k) => { delete next[k]; });
+    return next;
+  };
+  // Each fallback drops strictly more columns than the previous one.
+  const payloadVariants = [
+    payload,
+    dropKeys(payload, ['payment_date', 'payment_time']),
+    dropKeys(payload, ['payment_date', 'payment_time', 'bonus'])
+  ];
 
   async function writeExtension(url, method) {
-    try {
-      return await supabaseFetch(env, url, {
-        method,
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(payload)
-      });
-    } catch (error) {
-      if (!isSchemaError(error)) throw error;
-      return await supabaseFetch(env, url, {
-        method,
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(payloadNoBonus)
-      });
+    let lastError = null;
+    for (const body of payloadVariants) {
+      try {
+        return await supabaseFetch(env, url, {
+          method,
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(body)
+        });
+      } catch (error) {
+        if (!isSchemaError(error)) throw error;
+        lastError = error;
+      }
     }
+    throw lastError;
   }
 
   try {
