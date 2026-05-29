@@ -2509,31 +2509,40 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                       )}
                       {meta ? <span className="subs-extension-meta">{meta}</span> : null}
                     </div>
-                    {/* Base subscription is edited via the main "Edit"
-                        button at the top of the panel, so its row-level
-                        edit/delete actions are intentionally hidden —
-                        only real extensions expose per-row controls.
-                        Actions are icon-only and vertically centered. */}
-                    {!ext.isBase ? (
-                      <div className="subs-extension-row-actions">
-                        <button
-                          type="button"
-                          className="row-icon-btn"
-                          onClick={() => openEditExtension(ext)}
-                          aria-label="Edit extension"
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="row-delete-x"
-                          onClick={() => deleteExtension(ext)}
-                          aria-label="Delete extension"
-                        >
-                          <DeleteIcon />
-                        </button>
-                      </div>
-                    ) : null}
+                    {/* Action column is rendered on EVERY row so the
+                        Start/Expiry grid and right edge line up across
+                        the whole list. The base subscription is edited
+                        via the main "Edit" button at the top of the
+                        panel, so its row renders an invisible spacer of
+                        the same fixed width instead of live controls —
+                        keeping alignment identical without breaking the
+                        "base is edited up top" data rule. Actions are
+                        icon-only and vertically centered. */}
+                    <div
+                      className="subs-extension-row-actions"
+                      aria-hidden={ext.isBase ? 'true' : undefined}
+                    >
+                      {!ext.isBase ? (
+                        <>
+                          <button
+                            type="button"
+                            className="row-icon-btn"
+                            onClick={() => openEditExtension(ext)}
+                            aria-label="Edit extension"
+                          >
+                            <EditIcon />
+                          </button>
+                          <button
+                            type="button"
+                            className="row-delete-x"
+                            onClick={() => deleteExtension(ext)}
+                            aria-label="Delete extension"
+                          >
+                            <DeleteIcon />
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   </article>
                 );
               })}

@@ -2159,8 +2159,17 @@ dd{margin:0;text-align:right;font-weight:800}
   margin-top:0;
 }
 .subs-extension-row-actions{
+  /* Fixed, always-reserved action column so EVERY row — including the
+   * Initial (base) row, which renders this group empty as a spacer —
+   * shares the exact same body width. This keeps the Start/Expiry
+   * grid and the row's right edge aligned across the whole list
+   * regardless of whether a row exposes edit/delete controls.
+   * Width = two 22px icon buttons + the 6px gap between them. */
+  flex:0 0 auto;
+  width:50px;
   display:flex;
   align-items:center;
+  justify-content:flex-end;
   gap:6px;
 }
 /* Base subscription row pinned at the bottom of the unified
