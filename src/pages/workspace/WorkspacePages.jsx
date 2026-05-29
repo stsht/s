@@ -1727,16 +1727,40 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   const effective = subscription ? applySubscriptionExtension(subscription, latestExtension) : null;
   const tone = effective ? subscriptionTone(effective) : '';
 
-  // Newest-first ordering for the rendered extension history list.
-  // Shares the same sort key as pickLatestSubscriptionExtension so
-  // the row pinned at the top is always the same row that drives
-  // the effective subscription. Falls back to created_at when both
-  // expiry_date and start_date are missing, so a freshly inserted
-  // row without dates still surfaces above older entries. Stays a
-  // memo so re-renders don't re-sort an already-stable array.
-  const sortedExtensions = useMemo(() => {
-    if (!Array.isArray(extensions) || extensions.length <= 1) return extensions || [];
-    return [...extensions].sort((a, b) => {
+  // Unified, newest-first transaction history. The base subscription
+  // is folded into the same list as an extension-like row (isBase:
+  // true) so the rendered timeline shows every period at a glance —
+  // the latest renewal pinned at the very top and the original
+  // "Initial Purchase" sitting at the bottom. Shares the same sort
+  // key (subscriptionExtensionSortKey) as pickLatestSubscriptionExtension
+  // so the row pinned at the top is always the same row that drives
+  // the `effective` subscription rendered in the top card above.
+  //
+  // Sort priority (all descending): expiry_date + expiry_time →
+  // start_date + start_time → created_at. The base row carries no
+  // created_at, so on a tie it naturally falls below a real
+  // extension and lands at the bottom of the timeline. Stays a memo
+  // so re-renders don't re-sort an already-stable array.
+  const allPeriods = useMemo(() => {
+    const basePeriod = {
+      id: 'base_subscription',
+      service: subscription?.service || '',
+      status: subscription?.status || '',
+      price: Number(subscription?.price)
+        || Number(subscription?.paid_amount)
+        || Number(subscription?.amount)
+        || Number(subscription?.total)
+        || 0,
+      access_period: Number(subscription?.access_period) || 0,
+      bonus: Number(subscription?.bonus) || 0,
+      start_date: subscription?.start_date || '',
+      start_time: subscription?.start_time || '',
+      expiry_date: subscription?.expiry_date || '',
+      expiry_time: subscription?.expiry_time || '',
+      isBase: true,
+    };
+    const rawExtensions = Array.isArray(subscription?.extensions) ? subscription.extensions : [];
+    return [basePeriod, ...rawExtensions].sort((a, b) => {
       const aKey = subscriptionExtensionSortKey(a);
       const bKey = subscriptionExtensionSortKey(b);
       const cmp = bKey.localeCompare(aKey);
@@ -1748,9 +1772,14 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       const bCreated = String(b?.created_at || '');
       return bCreated.localeCompare(aCreated);
     });
-  }, [extensions]);
+  }, [subscription]);
 
-  const statusRaw = String(subscription?.status || '').trim();
+  // Top-card display reads from the EFFECTIVE subscription (base +
+  // latest extension) so price, status, dates and access period
+  // always reflect the current active/ongoing renewal rather than
+  // stale base data. The base values stay visible at the bottom of
+  // the transaction history (the isBase row in allPeriods).
+  const statusRaw = String(effective?.status || '').trim();
   const statusLabel = statusRaw ? toTitleCase(statusRaw) : '';
   // Friendly tone label for the status badge — "Active" / "Expiring
   // Soon" / "Expired". Falls back to the raw status if no expiry-
@@ -1762,13 +1791,15 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       : tone === 'active'
         ? (statusLabel || 'Active')
         : '';
-  const period = Number(subscription?.access_period);
+  const period = Number(effective?.access_period);
   const periodLabel = Number.isFinite(period) && period > 0 ? `${period} Days` : '';
   // Bonus is an integer add-on day count layered on top of the
   // access period (e.g. 30 + 1 → expiry stretches by one extra
   // day). Always shows in the detail panel (even at 0) so the
-  // operator can see at a glance that no bonus was applied.
-  const bonusDays = Number(subscription?.bonus);
+  // operator can see at a glance that no bonus was applied. Reads
+  // from the effective subscription so a bonus carried by the
+  // latest extension surfaces in the top card.
+  const bonusDays = Number(effective?.bonus);
   const bonusValue = Number.isFinite(bonusDays) && bonusDays >= 0 ? bonusDays : 0;
   const bonusLabel = `${bonusValue} ${bonusValue === 1 ? 'Day' : 'Days'}`;
   // Resolve the saved price defensively. The Subs schema only has
@@ -1779,10 +1810,10 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // formatting rule used by the extension list rows below
   // (`Number(ext.price) > 0 ? rupiah(...) : ''`) so the main
   // detail row drops out cleanly when no price was ever recorded.
-  const priceValue = Number(subscription?.price)
-    || Number(subscription?.paid_amount)
-    || Number(subscription?.amount)
-    || Number(subscription?.total)
+  const priceValue = Number(effective?.price)
+    || Number(effective?.paid_amount)
+    || Number(effective?.amount)
+    || Number(effective?.total)
     || 0;
   const priceLabel = priceValue > 0 ? rupiah(priceValue) : '';
   const isPaid = String(subscription?.status || '').toLowerCase() === 'paid';
@@ -1852,7 +1883,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // bubbles. The Expired/Active/Expiring Soon tone badge stays beside
   // the <h2> name (rendered separately above).
   const headingPills = [
-    subscription?.service ? String(subscription.service).trim() : '',
+    effective?.service ? String(effective.service).trim() : '',
     statusLabel,
     periodLabel,
   ].filter(Boolean);
@@ -2073,9 +2104,13 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // directly into the <h2> heading instead, matching the "Ms. Linda"
   // shape called out in the spec.
   const storageValue = String(subscription?.storage_slot || subscription?.storage || '').trim();
+  // Payment Date stays sourced from the base subscription — it is the
+  // receipt of record for the original purchase and is not shifted by
+  // a renewal. Start/Expiry, however, read from the effective
+  // subscription so the top card shows the current active window.
   const paymentValue = fmtDateTime(subscription?.payment_date, subscription?.payment_time);
-  const startValue = fmtDateTime(subscription?.start_date, subscription?.start_time);
-  const expiryValue = fmtDateTime(subscription?.expiry_date, subscription?.expiry_time);
+  const startValue = fmtDateTime(effective?.start_date, effective?.start_time);
+  const expiryValue = fmtDateTime(effective?.expiry_date, effective?.expiry_time);
   // Composed h2 label: "<title> <client_name>" — e.g. "Ms. Linda" or
   // "Mr. Fenny Sofian". Falls back to the client name alone when no
   // title prefix is set, so a row missing a title prefix still reads
@@ -2338,9 +2373,9 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               </div>
             </form>
           ) : null}
-          {extensions.length ? (
+          {allPeriods.length ? (
             <div className="list-stack subs-extension-list">
-              {sortedExtensions.map((ext) => {
+              {allPeriods.map((ext) => {
                 const extEffective = applySubscriptionExtension(subscription, ext);
                 const extToneCls = subscriptionTone(extEffective);
                 const startLabel = ext.start_date ? `${dateLabel(ext.start_date)}${ext.start_time ? ` \u00b7 ${fmtSubsTime(ext.start_time)}` : ''}` : '';
@@ -2356,36 +2391,50 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                 const bonusLabelExt = Number.isFinite(bonusDaysExt) && bonusDaysExt > 0
                   ? `Bonus ${bonusDaysExt} ${bonusDaysExt === 1 ? 'Day' : 'Days'}`
                   : '';
-                const meta = [ext.service, statusLabelExt, periodLabel, bonusLabelExt, priceLabelExt]
+                // Base subscription gets a trailing "· Initial" tag so
+                // the bottom row of the timeline reads as the original
+                // purchase rather than a renewal. Extensions render no
+                // such tag.
+                const baseTag = ext.isBase ? 'Initial' : '';
+                const meta = [ext.service, statusLabelExt, periodLabel, bonusLabelExt, priceLabelExt, baseTag]
                   .filter(Boolean)
                   .join(' \u00b7 ');
                 const headline = startLabel && expiryLabel
                   ? `${startLabel}  \u2192  ${expiryLabel}`
-                  : (expiryLabel || startLabel || 'Extension');
+                  : (expiryLabel || startLabel || (ext.isBase ? 'Initial Purchase' : 'Extension'));
                 return (
-                  <article className={`list-row sub-${extToneCls}`} key={ext.id}>
+                  <article
+                    className={`list-row sub-${extToneCls}${ext.isBase ? ' subs-period-base' : ''}`}
+                    key={ext.id}
+                  >
                     <div>
                       <strong>{headline}</strong>
                       {meta ? <span>{meta}</span> : null}
                     </div>
-                    <div className="subs-extension-row-actions">
-                      <button
-                        type="button"
-                        className="ghost-button compact icon-button"
-                        onClick={() => openEditExtension(ext)}
-                        aria-label="Edit extension"
-                      >
-                        <EditIcon />
-                      </button>
-                      <button
-                        type="button"
-                        className="row-delete-x"
-                        onClick={() => deleteExtension(ext)}
-                        aria-label="Delete extension"
-                      >
-                        <DeleteIcon />
-                      </button>
-                    </div>
+                    {/* Base subscription is edited via the main "Edit"
+                        button at the top of the panel, so its row-level
+                        edit/delete actions are intentionally hidden —
+                        only real extensions expose per-row controls. */}
+                    {!ext.isBase ? (
+                      <div className="subs-extension-row-actions">
+                        <button
+                          type="button"
+                          className="ghost-button compact icon-button"
+                          onClick={() => openEditExtension(ext)}
+                          aria-label="Edit extension"
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="row-delete-x"
+                          onClick={() => deleteExtension(ext)}
+                          aria-label="Delete extension"
+                        >
+                          <DeleteIcon />
+                        </button>
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}
