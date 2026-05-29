@@ -75,45 +75,49 @@ export function PrivateWorkspaceFrame({
       <GlobalBackground />
       <section className="pf-shell">
         <aside className="pf-panel pf-panel--left">
-          <header className="pf-header">
-            <a className="pf-logo" href={logoHref} aria-label="StarShots Workspace">
-              {/* Picture/source swap to a real white asset in dark
-               * mode keeps the brand visible on the deep-blue panel
-               * without relying on CSS filter:invert. */}
-              <picture>
-                <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-                <img src="/logo-hero.png" alt="StarShots" />
-              </picture>
-            </a>
-            {pills ? <div className="pf-pills">{pills}</div> : <div className="pf-pills" aria-hidden="true" />}
-          </header>
-          {renderNav ? (
-            <nav
-              className="pf-nav"
-              aria-label="Workspace tools"
-              // Override the default 4-column grid so a single back-link
-              // (e.g. /l => only "Database") spans the full row instead
-              // of sitting in a 1/4-width cell.
-              style={{ gridTemplateColumns: `repeat(${navList.length}, minmax(0, 1fr))` }}
-            >
-              {navList.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  target={item.target || undefined}
-                  rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                  className={active === item.href ? 'active' : ''}
-                  aria-current={active === item.href ? 'page' : undefined}
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-          ) : null}
-          {left}
+          <div className="pf-panel-scroll">
+            <header className="pf-header">
+              <a className="pf-logo" href={logoHref} aria-label="StarShots Workspace">
+                {/* Picture/source swap to a real white asset in dark
+                 * mode keeps the brand visible on the deep-blue panel
+                 * without relying on CSS filter:invert. */}
+                <picture>
+                  <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+                  <img src="/logo-hero.png" alt="StarShots" />
+                </picture>
+              </a>
+              {pills ? <div className="pf-pills">{pills}</div> : <div className="pf-pills" aria-hidden="true" />}
+            </header>
+            {renderNav ? (
+              <nav
+                className="pf-nav"
+                aria-label="Workspace tools"
+                // Override the default 4-column grid so a single back-link
+                // (e.g. /l => only "Database") spans the full row instead
+                // of sitting in a 1/4-width cell.
+                style={{ gridTemplateColumns: `repeat(${navList.length}, minmax(0, 1fr))` }}
+              >
+                {navList.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    target={item.target || undefined}
+                    rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                    className={active === item.href ? 'active' : ''}
+                    aria-current={active === item.href ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
+            ) : null}
+            {left}
+          </div>
         </aside>
         {right !== null ? (
-          <section className="pf-panel pf-panel--right">{right}</section>
+          <section className="pf-panel pf-panel--right">
+            <div className="pf-panel-scroll">{right}</div>
+          </section>
         ) : null}
       </section>
       {right !== null && mobileTabs ? (
