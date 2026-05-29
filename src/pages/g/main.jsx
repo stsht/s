@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import '../invcs/invcs.css';
@@ -131,11 +131,26 @@ function GalleryGate() {
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   const [isLogoLoaded, setIsLogoLoaded] = useState(false);
 
+  const markSplashLogoReady = useCallback(() => {
+    const logo = logoRef.current;
+    if (!logo || typeof logo.decode !== 'function') {
+      setIsLogoLoaded(true);
+      return;
+    }
+    logo.decode()
+      .catch(() => {})
+      .finally(() => setIsLogoLoaded(true));
+  }, []);
+
   useEffect(() => {
     if (logoRef.current && logoRef.current.complete) {
-      setIsLogoLoaded(true);
+      if (logoRef.current.naturalWidth > 0) {
+        markSplashLogoReady();
+      } else {
+        setIsLogoLoaded(true);
+      }
     }
-  }, []);
+  }, [markSplashLogoReady]);
 
   useEffect(() => {
     if (document.readyState === 'complete') {
@@ -305,7 +320,12 @@ function GalleryGate() {
             className={`gate-splash-logo ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`} 
             src="/logo-pre.png" 
             alt="StarShots" 
-            onLoad={() => setIsLogoLoaded(true)}
+            width="1280"
+            height="311"
+            decoding="async"
+            fetchPriority="high"
+            loading="eager"
+            onLoad={markSplashLogoReady}
             onError={() => setIsLogoLoaded(true)}
           />
         </picture>

@@ -278,6 +278,7 @@ button{cursor:pointer}
 .gate-splash-logo-wrapper{
   display:block;
   margin-bottom:24px;
+  line-height:0;
 }
 
 .gate-splash-logo{
@@ -288,20 +289,21 @@ button{cursor:pointer}
    * phones and pushed the brand too close to the viewport edges. */
   width:min(226px,68vw);
   height:auto;
-  opacity:0.85;
-  transform:scale(0.97);
-  -webkit-filter:blur(0px);
-  filter:blur(0px);
+  opacity:.86;
+  transform:scale(.985);
+  transform-origin:center;
+  backface-visibility:hidden;
+  contain:paint;
   /* GPU acceleration — promotes the element to its own compositor
-   * layer so the transform + opacity + filter breathing animation runs off
+   * layer so the transform + opacity breathing animation runs off
    * the main thread, paint-free after the first frame. */
-  will-change:transform,opacity,filter;
+  will-change:transform,opacity;
 }
 
 .gate-splash-logo.is-loaded{
-  /* 4.0s slow double-pulse heart-beat, starting only after the page
-   * is fully loaded. */
-  animation:ssElegantBreathe 4.0s cubic-bezier(.25,1,.5,1) infinite;
+  /* 4.0s slow double-pulse brand breath, starting only after the page
+   * and the decoded high-res logo are ready. */
+  animation:ssElegantBreathe 4.0s cubic-bezier(.22,1,.36,1) both infinite;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -332,37 +334,36 @@ button{cursor:pointer}
 
 /* Elegant breathing — fades the brand from a low rest opacity
  * up to full strength while scaling gently.
- * It follows a slow, double-pulse rhythm without blur:
+ * It follows a slow, double-pulse rhythm without blur or filter work:
  *   - 0% to 40%: Calm, clear rest phase (deep breath).
- *   - 48%: First expansion (lub).
+ *   - 50%: First expansion (lub).
  *   - 56%: Gentle recoil.
- *   - 64%: Second, slightly larger expansion (dub).
- *   - 72%: Gentle recoil back to rest state.
- *   - 72% to 100%: Quiet hold to complete the loop. */
+ *   - 66%: Second, slightly larger expansion (dub).
+ *   - 74% to 100%: Quiet hold before the reveal. */
 @keyframes ssElegantBreathe{
   0%, 100%{
-    transform:scale(0.97);
-    opacity:0.85;
+    transform:scale(.985);
+    opacity:.86;
   }
-  40%{
-    transform:scale(0.97);
-    opacity:0.85;
+  42%{
+    transform:scale(.985);
+    opacity:.86;
   }
-  48%{
-    transform:scale(1.05);
-    opacity:1;
+  50%{
+    transform:scale(1.025);
+    opacity:.98;
   }
   56%{
-    transform:scale(0.97);
-    opacity:0.85;
+    transform:scale(.992);
+    opacity:.9;
   }
-  64%{
-    transform:scale(1.08);
+  66%{
+    transform:scale(1.04);
     opacity:1;
   }
-  72%{
-    transform:scale(0.97);
-    opacity:0.85;
+  74%{
+    transform:scale(.985);
+    opacity:.86;
   }
 }
 
@@ -381,7 +382,7 @@ button{cursor:pointer}
     /* Freeze the breathing loop, clear the animated transform,
      * and completely strip filters so it sits at a steady, sharp rest opacity. */
     animation:none !important;
-    opacity:.85 !important;
+    opacity:.86 !important;
     transform:scale(1) !important;
     -webkit-filter:none !important;
     filter:none !important;
