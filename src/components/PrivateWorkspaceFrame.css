@@ -435,6 +435,8 @@
   }
   .pf-header {
     grid-template-columns: 116px minmax(0, 1fr);
+    top: 12px;
+    border-radius: 27px 27px 0 0;
   }
   .pf-logo img {
     width: 116px;
