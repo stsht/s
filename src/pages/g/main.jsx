@@ -139,6 +139,16 @@ function GalleryGate() {
     }
   }, []);
 
+  // Auto-continue to the password gate after 3 pulses (3 * 3.0s = 9.0s)
+  useEffect(() => {
+    if (isPageLoaded && !revealed) {
+      const timer = setTimeout(() => {
+        handleReveal();
+      }, 9000);
+      return () => clearTimeout(timer);
+    }
+  }, [isPageLoaded, revealed]);
+
   function handleReveal() {
     if (revealed) return;
     setRevealed(true);

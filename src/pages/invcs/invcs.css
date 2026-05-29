@@ -299,9 +299,9 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo.is-loaded{
-  /* 2.8 s breathing heart-beat pulse, starting only after the page
+  /* 3.0 s breathing heart-beat pulse, starting only after the page
    * is fully loaded. */
-  animation:ssElegantBreathe 2.8s cubic-bezier(.25,1,.5,1) infinite;
+  animation:ssElegantBreathe 3.0s cubic-bezier(.25,1,.5,1) infinite;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -332,48 +332,26 @@ button{cursor:pointer}
 
 /* Elegant breathing — fades the brand from a low rest opacity
  * up to full strength while scaling gently from .97 → 1.08.
- * It follows a heartbeat pulse rhythm:
- *   - 0% to 45%: Calm, clear, sharp rest phase (deep breath).
- *   - 52%: First sharp punch up, becoming blurred (blurry party!).
- *   - 58%: Fast recoil/dip.
- *   - 65%: Second, slightly larger punch and peak blur.
- *   - 74%: Settles back to sharp rest.
- *   - 74% to 100%: Quiet hold to complete the breathing loop. */
+ * It follows a single, clean pulse rhythm without blur:
+ *   - 0% to 60%: Calm, clear rest phase (deep breath).
+ *   - 75%: Smooth expansion to peak scale.
+ *   - 90%: Gentle recoil back to rest state.
+ *   - 90% to 100%: Quiet hold to complete the loop. */
 @keyframes ssElegantBreathe{
   0%, 100%{
     transform:scale(0.97);
-    -webkit-filter:blur(0px);
-    filter:blur(0px);
     opacity:0.85;
   }
-  45%{
+  60%{
     transform:scale(0.97);
-    -webkit-filter:blur(0px);
-    filter:blur(0px);
     opacity:0.85;
   }
-  52%{
-    transform:scale(1.06);
-    -webkit-filter:blur(3px);
-    filter:blur(3px);
-    opacity:0.45;
-  }
-  58%{
-    transform:scale(0.98);
-    -webkit-filter:blur(1px);
-    filter:blur(1px);
-    opacity:0.75;
-  }
-  65%{
+  75%{
     transform:scale(1.08);
-    -webkit-filter:blur(4px);
-    filter:blur(4px);
-    opacity:0.35;
+    opacity:1;
   }
-  74%{
+  90%{
     transform:scale(0.97);
-    -webkit-filter:blur(0px);
-    filter:blur(0px);
     opacity:0.85;
   }
 }
