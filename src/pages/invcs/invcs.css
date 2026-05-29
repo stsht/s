@@ -2133,6 +2133,12 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-extensions-head .eyebrow{
   margin:0;
+  display:flex;
+  align-items:center;
+  /* Match the Add Extension button height so the label and button
+   * share one vertical centre line, and the header height stays
+   * stable when the button is hidden (form open). */
+  min-height:38px;
 }
 .subs-extension-form{
   border:1px solid var(--line);
@@ -2168,13 +2174,116 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-extension-list > .subs-period-base{
   opacity:.85;
 }
-.subs-extension-list > .subs-period-base strong{
+.subs-extension-list > .subs-period-base .subs-extension-date-value{
   font-weight:700;
 }
 .subs-extensions-empty{
   margin:0;
   color:var(--muted);
   font-size:13px;
+}
+
+/* Extension/period timeline rows. Each row stacks a labelled
+ * Start / Expiry date pair over a single metadata line. The pair
+ * sits in two columns on desktop and stacks vertically on mobile,
+ * so the range never depends on a "->" arrow to read (complaint #1).
+ * The row itself centres its content against the icon-only actions
+ * so Edit / X and the text share one vertical centre (complaint #3). */
+.subs-extension-row{
+  align-items:center;
+  gap:12px;
+}
+.subs-extension-body{
+  flex:1 1 auto;
+  min-width:0;
+  display:grid;
+  gap:6px;
+}
+.subs-extension-dates{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:2px 18px;
+}
+.subs-extension-date{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  min-width:0;
+}
+.subs-extension-date-label{
+  flex:0 0 auto;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.subs-extension-date-value{
+  font-size:15px;
+  font-weight:750;
+  color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+.subs-extension-meta{
+  color:var(--muted);
+  font-size:12px;
+}
+@media (max-width:640px){
+  .subs-extension-dates{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Tone parity with the Subs list. An expired extension — including
+ * the Initial row when the whole subscription has lapsed — reads
+ * red, and a warning row amber, exactly like .db-list-row.sub-* on
+ * the Subs list (complaint #2). Scoped to the extension list so the
+ * neutral detail rows above are untouched. */
+.subs-extension-list .list-row.sub-expired .subs-extension-date-value{
+  color:var(--sub-expired);
+}
+.subs-extension-list .list-row.sub-expired .subs-extension-meta{
+  color:color-mix(in srgb,var(--sub-expired) 70%,var(--muted) 30%);
+}
+.subs-extension-list .list-row.sub-warning .subs-extension-date-value{
+  color:var(--sub-warning);
+}
+.subs-extension-list .list-row.sub-warning .subs-extension-meta{
+  color:color-mix(in srgb,var(--sub-warning) 70%,var(--muted) 30%);
+}
+.subs-extension-list .list-row.sub-active .subs-extension-date-value{
+  color:var(--sub-active);
+}
+
+/* Quiet icon-only action button for the per-row Edit control. Mirrors
+ * the .row-delete-x affordance so Edit + X read as one compact,
+ * vertically-centred icon group with no chunky pencil pill frame
+ * (complaint #3). */
+.row-icon-btn{
+  width:22px;
+  height:22px;
+  min-height:22px;
+  padding:0;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#8A8F98;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:background .12s ease,color .12s ease;
+}
+.row-icon-btn:hover,
+.row-icon-btn:focus-visible{
+  background:#F2F3F5;
+  color:#1F1A17;
+  outline:none;
+}
+.row-icon-btn .btn-icon{
+  width:13px;
+  height:13px;
 }
 
 /* Two-column grid wrapper used inside SubscriptionDetail to render
