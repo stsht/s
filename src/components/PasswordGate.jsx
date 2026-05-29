@@ -84,8 +84,16 @@ export function PasswordGate({ title, children }) {
   // input. None of the existing auth logic, lockout, session probe,
   // or fetch calls is touched — only the visual entry path.
   const inputRef = useRef(null);
+  const logoRef = useRef(null);
   const [revealed, setRevealed] = useState(false);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
+  const [isLogoLoaded, setIsLogoLoaded] = useState(false);
+
+  useEffect(() => {
+    if (logoRef.current && logoRef.current.complete) {
+      setIsLogoLoaded(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (document.readyState === 'complete') {
@@ -98,14 +106,15 @@ export function PasswordGate({ title, children }) {
   }, []);
 
   // Auto-continue to the password gate exactly after 1 double-pulse cycle (4.0s)
+  // only after both the page layout is ready AND the high-res logo has downloaded.
   useEffect(() => {
-    if (isPageLoaded && !revealed) {
+    if (isPageLoaded && isLogoLoaded && !revealed) {
       const timer = setTimeout(() => {
         handleReveal();
       }, 4000);
       return () => clearTimeout(timer);
     }
-  }, [isPageLoaded, revealed]);
+  }, [isPageLoaded, isLogoLoaded, revealed]);
 
   function handleReveal() {
     if (revealed) return;
@@ -250,8 +259,14 @@ export function PasswordGate({ title, children }) {
         * (and slides up subtly) when .gate-page.is-revealed flips on. */}
       <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
         <picture className="gate-splash-logo-wrapper">
-          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
-          <img className={`gate-splash-logo ${isPageLoaded ? 'is-loaded' : ''}`} src="/logo-hero.png" alt="StarShots" />
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-pre-white.png" />
+          <img 
+            ref={logoRef}
+            className={`gate-splash-logo ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`} 
+            src="/logo-pre.png" 
+            alt="StarShots" 
+            onLoad={() => setIsLogoLoaded(true)}
+          />
         </picture>
       </div>
 
