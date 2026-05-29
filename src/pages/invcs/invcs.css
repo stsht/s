@@ -299,9 +299,9 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo.is-loaded{
-  /* 3.0 s breathing heart-beat pulse, starting only after the page
+  /* 4.0s slow double-pulse heart-beat, starting only after the page
    * is fully loaded. */
-  animation:ssElegantBreathe 3.0s cubic-bezier(.25,1,.5,1) infinite;
+  animation:ssElegantBreathe 4.0s cubic-bezier(.25,1,.5,1) infinite;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -331,26 +331,36 @@ button{cursor:pointer}
 }
 
 /* Elegant breathing — fades the brand from a low rest opacity
- * up to full strength while scaling gently from .97 → 1.08.
- * It follows a single, clean pulse rhythm without blur:
- *   - 0% to 60%: Calm, clear rest phase (deep breath).
- *   - 75%: Smooth expansion to peak scale.
- *   - 90%: Gentle recoil back to rest state.
- *   - 90% to 100%: Quiet hold to complete the loop. */
+ * up to full strength while scaling gently.
+ * It follows a slow, double-pulse rhythm without blur:
+ *   - 0% to 40%: Calm, clear rest phase (deep breath).
+ *   - 48%: First expansion (lub).
+ *   - 56%: Gentle recoil.
+ *   - 64%: Second, slightly larger expansion (dub).
+ *   - 72%: Gentle recoil back to rest state.
+ *   - 72% to 100%: Quiet hold to complete the loop. */
 @keyframes ssElegantBreathe{
   0%, 100%{
     transform:scale(0.97);
     opacity:0.85;
   }
-  60%{
+  40%{
     transform:scale(0.97);
     opacity:0.85;
   }
-  75%{
+  48%{
+    transform:scale(1.05);
+    opacity:1;
+  }
+  56%{
+    transform:scale(0.97);
+    opacity:0.85;
+  }
+  64%{
     transform:scale(1.08);
     opacity:1;
   }
-  90%{
+  72%{
     transform:scale(0.97);
     opacity:0.85;
   }
