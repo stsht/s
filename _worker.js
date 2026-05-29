@@ -3332,7 +3332,7 @@ async function handlePackageDelete(request, env) {
 
 function rootHomepage() {
   return `<!DOCTYPE html>
-<html lang="en">
+<html class="ss-force-motion" lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -3386,7 +3386,7 @@ function rootHomepage() {
   <script>
     (function(){
       var card=document.querySelector('.home-card');
-      var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('ss-force-motion');
       function show(){
         if(card) card.classList.add('is-visible');
         document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('is-visible');});
@@ -3427,7 +3427,7 @@ function rootHomepage() {
 function notFoundPage(path = '') {
   const safePath = escapeHtml(path || '/');
   return `<!DOCTYPE html>
-<html lang="en">
+<html class="ss-force-motion" lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -3472,7 +3472,7 @@ function notFoundPage(path = '') {
   <script>
     (function(){
       var card=document.querySelector('.home-card');
-      var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches && !document.documentElement.classList.contains('ss-force-motion');
       function show(){
         if(card) card.classList.add('is-visible');
         document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('is-visible');});
