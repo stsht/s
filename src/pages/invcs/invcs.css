@@ -380,9 +380,16 @@ button{cursor:pointer}
 
 /* Reduced-motion: freeze every idle loop and skip the reveal
  * transition. The card and splash still toggle visibility via
- * the .is-revealed class — they just snap instead of fading. */
+ * the .is-revealed class — they just snap instead of fading.
+ *
+ * Scoped behind html:not(.ss-force-motion) so an explicit
+ * <html class="ss-force-motion"> opt-in (read by animate.js as
+ * forceMotion, and already honored by animate.css / gate.css)
+ * cleanly bypasses the freeze — a forced-motion layout keeps its
+ * breathing logo + reveal even when the OS requests reduced motion.
+ * Without the opt-in, the system preference is fully respected. */
 @media (prefers-reduced-motion:reduce){
-  .gate-splash-logo{
+  html:not(.ss-force-motion) .gate-splash-logo{
     /* Freeze the breathing loop, clear the animated transform,
      * and completely strip filters so it sits at a steady, sharp rest opacity. */
     animation:none !important;
@@ -391,8 +398,8 @@ button{cursor:pointer}
     -webkit-filter:none !important;
     filter:none !important;
   }
-  .gate-splash,
-  .gate-card{
+  html:not(.ss-force-motion) .gate-splash,
+  html:not(.ss-force-motion) .gate-card{
     transition:none !important;
   }
 }

@@ -388,6 +388,19 @@
   .pf-page {
     padding: 12px 12px 82px;
   }
+  /* Mobile scroll fix (Android: Chrome / Firefox / Focus / DuckDuckGo).
+   *
+   * On desktop the panel uses an isolated-scroll model: .pf-panel is
+   * overflow:hidden and the inner .pf-panel-scroll owns overflow-y:auto
+   * + overscroll-behavior:contain. On mobile the layout stacks and the
+   * native document/body is the scroll canvas, so that clipped wrapper
+   * + a contained child scroller (whose height is auto, so it never
+   * actually scrolls) captures and swallows touch gestures, freezing
+   * the page. Drop the panel back to normal document flow so swipes
+   * reach the body. Desktop rules outside this query are untouched. */
+  .pf-panel {
+    overflow: visible !important;
+  }
   .pf-shell {
     height: auto;
     min-height: calc(100dvh - 94px);
@@ -401,6 +414,14 @@
   .pf-panel-scroll {
     height: auto;
     min-height: calc(100dvh - 94px);
+    /* Undo the desktop isolated-scroll gutter trick and let content
+     * flow into the native page scroll. overscroll-behavior:auto
+     * restores normal touch-scroll propagation to the body. */
+    width: 100% !important;
+    margin-right: 0 !important;
+    padding-right: 18px !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
   }
   .pf-panel--right {
     display: none;
