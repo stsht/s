@@ -1884,7 +1884,9 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // the <h2> name (rendered separately above).
   const headingPills = [
     effective?.service ? String(effective.service).trim() : '',
-    statusLabel,
+    // statusLabel intentionally omitted — the colored status badge
+    // beside the <h2> name already conveys Paid/Unpaid, so repeating
+    // it as a colorless pill in the meta bar below is redundant.
     periodLabel,
   ].filter(Boolean);
 
