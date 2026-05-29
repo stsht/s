@@ -306,6 +306,7 @@ function GalleryGate() {
             src="/logo-pre.png" 
             alt="StarShots" 
             onLoad={() => setIsLogoLoaded(true)}
+            onError={() => setIsLogoLoaded(true)}
           />
         </picture>
       </div>

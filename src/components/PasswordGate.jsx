@@ -266,6 +266,7 @@ export function PasswordGate({ title, children }) {
             src="/logo-pre.png" 
             alt="StarShots" 
             onLoad={() => setIsLogoLoaded(true)}
+            onError={() => setIsLogoLoaded(true)}
           />
         </picture>
       </div>
