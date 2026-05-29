@@ -14,6 +14,8 @@ const files = [
   'gate.js',
   'logo-hero.png',
   'logo-hero-white.png',
+  'logo-pre.png',
+  'logo-pre-white.png',
   'logo.png',
   'logo.svg',
   'payment-qr.png',
