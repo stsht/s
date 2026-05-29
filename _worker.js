@@ -2517,12 +2517,15 @@ function normalizeSubscriptionPayload(raw = {}) {
     : 'normal';
 
   const accessPeriod = cleanInt(raw.access_period ?? raw.accessPeriod, 30) || 30;
+  const bonusDays = cleanInt(raw.bonus ?? raw.bonusDays ?? raw.bonus_days, 0);
   const startDate = cleanIsoDate(raw.start_date ?? raw.startDate);
   const startTime = cleanIsoTime(raw.start_time ?? raw.startTime);
   // Persist an explicit expiry pair when status === 'paid' and we have a
   // start date — saves the dashboard from recomputing it on every render.
+  // expiry = start + access_period + bonus, so a row with bonus 1 day
+  // visibly extends the expiry by exactly one extra day.
   let expiryDate = cleanIsoDate(raw.expiry_date ?? raw.expiryDate);
-  if (!expiryDate && status === 'paid' && startDate) expiryDate = addDaysIso(startDate, accessPeriod);
+  if (!expiryDate && status === 'paid' && startDate) expiryDate = addDaysIso(startDate, accessPeriod + bonusDays);
   const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
 
   return {
@@ -2532,6 +2535,7 @@ function normalizeSubscriptionPayload(raw = {}) {
     service: String(raw.service || '').trim().slice(0, 60),
     storage_slot: String(raw.storage_slot || raw.storageSlot || '').trim().slice(0, 40) || null,
     access_period: accessPeriod,
+    bonus: bonusDays,
     rate_mode: rateMode,
     price: cleanInt(raw.price, 0),
     manual_override: !!(raw.manual_override ?? raw.manualOverride ?? false),
@@ -2577,41 +2581,44 @@ async function handleSubscriptionSave(request, env) {
     : { ...subscription };
   const fallback = { ...subscription };
 
-  if (id) {
-    let rows;
-    try {
-      rows = await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(linked)
-      });
-    } catch (error) {
-      if (!linked.client_id || !isSchemaError(error)) throw error;
-      rows = await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(fallback)
-      });
+  // Defensive payload variants for environments where the DB
+  // schema is older than this code (e.g. before db-migration-part-4
+  // added the `bonus` column or before client_id existed). Each
+  // variant strips one optional field; we try them in declining
+  // order of richness and fall through to the next on schema-cache
+  // errors. The contract is: every variant still contains the
+  // required client_name + service so a successful insert always
+  // produces a valid row, just possibly without bonus/client_id.
+  const stripBonus = (obj) => { const { bonus: _ignored, ...rest } = obj; return rest; };
+  const linkedNoBonus = stripBonus(linked);
+  const fallbackNoBonus = stripBonus(fallback);
+  const writeVariants = [linked, linkedNoBonus, fallback, fallbackNoBonus];
+
+  async function writeSubscription(url, method) {
+    let lastError = null;
+    for (const variant of writeVariants) {
+      try {
+        const result = await supabaseFetch(env, url, {
+          method,
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(variant)
+        });
+        return result;
+      } catch (error) {
+        if (!isSchemaError(error)) throw error;
+        lastError = error;
+      }
     }
+    throw lastError || new Error('Subscription write failed for all schema variants.');
+  }
+
+  if (id) {
+    const rows = await writeSubscription(`/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, 'PATCH');
     const saved = Array.isArray(rows) ? rows[0] : rows;
     return json({ ok: true, subscription: saved });
   }
 
-  let rows;
-  try {
-    rows = await supabaseFetch(env, '/rest/v1/subscriptions', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(linked)
-    });
-  } catch (error) {
-    if (!linked.client_id || !isSchemaError(error)) throw error;
-    rows = await supabaseFetch(env, '/rest/v1/subscriptions', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(fallback)
-    });
-  }
+  const rows = await writeSubscription('/rest/v1/subscriptions', 'POST');
   const saved = Array.isArray(rows) ? rows[0] : rows;
   return json({ ok: true, subscription: saved });
 }
@@ -2721,15 +2728,17 @@ function normalizeSubscriptionExtensionPayload(raw = {}) {
     ? String(raw.status).toLowerCase()
     : 'paid';
   const accessPeriod = cleanInt(raw.access_period ?? raw.accessPeriod, 30) || 30;
+  const bonusDays = cleanInt(raw.bonus ?? raw.bonusDays ?? raw.bonus_days, 0);
   const startDate = cleanIsoDate(raw.start_date ?? raw.startDate);
   const startTime = cleanIsoTime(raw.start_time ?? raw.startTime);
   let expiryDate = cleanIsoDate(raw.expiry_date ?? raw.expiryDate);
-  if (!expiryDate && startDate) expiryDate = addDaysIso(startDate, accessPeriod);
+  if (!expiryDate && startDate) expiryDate = addDaysIso(startDate, accessPeriod + bonusDays);
   const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
   return {
     service: String(raw.service || '').trim().slice(0, 60) || null,
     status,
     access_period: accessPeriod,
+    bonus: bonusDays,
     price: cleanInt(raw.price, 0),
     start_date: startDate,
     start_time: startTime,
@@ -2779,22 +2788,37 @@ async function handleSubscriptionExtensionSave(request, env) {
 
   const fields = normalizeSubscriptionExtensionPayload(raw);
   const payload = { ...fields, subscription_id: subscriptionId };
+  // Defensive: older DB schemas may not have the `bonus` column on
+  // public.subscription_extensions yet (added in db-migration-part-7).
+  // If the first write fails with a schema error, retry once with
+  // bonus stripped so an unmigrated environment still saves the row.
+  const stripBonus = (obj) => { const { bonus: _ignored, ...rest } = obj; return rest; };
+  const payloadNoBonus = stripBonus(payload);
 
-  try {
-    if (id) {
-      const rows = await supabaseFetch(env, `/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, {
-        method: 'PATCH',
+  async function writeExtension(url, method) {
+    try {
+      return await supabaseFetch(env, url, {
+        method,
         headers: { Prefer: 'return=representation' },
         body: JSON.stringify(payload)
       });
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      return await supabaseFetch(env, url, {
+        method,
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(payloadNoBonus)
+      });
+    }
+  }
+
+  try {
+    if (id) {
+      const rows = await writeExtension(`/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, 'PATCH');
       const saved = Array.isArray(rows) ? rows[0] : rows;
       return json({ ok: true, extension: saved });
     }
-    const rows = await supabaseFetch(env, '/rest/v1/subscription_extensions', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(payload)
-    });
+    const rows = await writeExtension('/rest/v1/subscription_extensions', 'POST');
     const saved = Array.isArray(rows) ? rows[0] : rows;
     return json({ ok: true, extension: saved });
   } catch (error) {

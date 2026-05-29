@@ -395,6 +395,7 @@ function applySubscriptionExtension(sub, extension) {
     access_period: Number.isFinite(Number(extension.access_period)) && Number(extension.access_period) > 0
       ? Number(extension.access_period)
       : sub.access_period,
+    bonus: Number.isFinite(Number(extension.bonus)) ? Number(extension.bonus) : (Number(sub.bonus) || 0),
     price: Number.isFinite(Number(extension.price)) ? Number(extension.price) : sub.price,
     start_date: extension.start_date || sub.start_date,
     start_time: extension.start_time || sub.start_time,
@@ -443,15 +444,49 @@ function pickLatestSubscriptionExtension(list) {
 // Edit Extension" form. Defined at module scope so the form can
 // be re-seeded from the same source after a save / cancel /
 // subscription swap.
-function makeExtensionDraft(subscription, extension) {
+//
+// `latestExtension` is an optional 3rd parameter used purely for
+// the Price autofill cascade when opening a brand-new extension
+// (i.e. `extension` is null). The fallback chain is:
+//   1. The `price` of the extension being edited (if any)
+//   2. The `price` of the latest existing extension (if any)
+//   3. The base subscription's `price` / `paid_amount` /
+//      `amount` / `total` (whichever non-zero alias lands first)
+//   4. Default to 0
+// This keeps a fresh extension inheriting the most recent known
+// price so the operator doesn't have to re-type Rp 50.000 on every
+// renewal — manual overrides still win and propagate forward.
+function makeExtensionDraft(subscription, extension, latestExtension) {
   const sub = subscription || {};
   const ext = extension || {};
+  const latest = latestExtension || {};
   const period = Number(ext.access_period || sub.access_period || 30);
+  const bonusRaw = ext.bonus != null ? Number(ext.bonus) : Number(sub.bonus);
+  const bonus = Number.isFinite(bonusRaw) && bonusRaw >= 0 ? bonusRaw : 0;
+
+  // Price cascade — see header comment above. We treat 0 / NaN as
+  // "missing" so a real saved price always shows through.
+  const extPrice = Number(ext.price);
+  const latestPrice = Number(latest.price);
+  const subPrice = Number(sub.price)
+    || Number(sub.paid_amount)
+    || Number(sub.amount)
+    || Number(sub.total);
+  let resolvedPrice = 0;
+  if (Number.isFinite(extPrice) && extPrice > 0) {
+    resolvedPrice = extPrice;
+  } else if (Number.isFinite(latestPrice) && latestPrice > 0) {
+    resolvedPrice = latestPrice;
+  } else if (Number.isFinite(subPrice) && subPrice > 0) {
+    resolvedPrice = subPrice;
+  }
+
   return {
     service: String(ext.service || sub.service || '').trim(),
     status: String(ext.status || 'paid').toLowerCase(),
     access_period: Number.isFinite(period) && period > 0 ? period : 30,
-    price: Number.isFinite(Number(ext.price)) ? Number(ext.price) : 0,
+    bonus,
+    price: resolvedPrice,
     start_date: String(ext.start_date || ''),
     start_time: String(ext.start_time || ''),
     expiry_date: String(ext.expiry_date || ''),
@@ -1692,6 +1727,29 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   const effective = subscription ? applySubscriptionExtension(subscription, latestExtension) : null;
   const tone = effective ? subscriptionTone(effective) : '';
 
+  // Newest-first ordering for the rendered extension history list.
+  // Shares the same sort key as pickLatestSubscriptionExtension so
+  // the row pinned at the top is always the same row that drives
+  // the effective subscription. Falls back to created_at when both
+  // expiry_date and start_date are missing, so a freshly inserted
+  // row without dates still surfaces above older entries. Stays a
+  // memo so re-renders don't re-sort an already-stable array.
+  const sortedExtensions = useMemo(() => {
+    if (!Array.isArray(extensions) || extensions.length <= 1) return extensions || [];
+    return [...extensions].sort((a, b) => {
+      const aKey = subscriptionExtensionSortKey(a);
+      const bKey = subscriptionExtensionSortKey(b);
+      const cmp = bKey.localeCompare(aKey);
+      if (cmp !== 0) return cmp;
+      // Final tiebreak: created_at descending (newest first) so two
+      // rows with identical expiry/start still land in a stable
+      // newest-first order.
+      const aCreated = String(a?.created_at || '');
+      const bCreated = String(b?.created_at || '');
+      return bCreated.localeCompare(aCreated);
+    });
+  }, [extensions]);
+
   const statusRaw = String(subscription?.status || '').trim();
   const statusLabel = statusRaw ? toTitleCase(statusRaw) : '';
   // Friendly tone label for the status badge — "Active" / "Expiring
@@ -1706,6 +1764,13 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         : '';
   const period = Number(subscription?.access_period);
   const periodLabel = Number.isFinite(period) && period > 0 ? `${period} Days` : '';
+  // Bonus is an integer add-on day count layered on top of the
+  // access period (e.g. 30 + 1 → expiry stretches by one extra
+  // day). Always shows in the detail panel (even at 0) so the
+  // operator can see at a glance that no bonus was applied.
+  const bonusDays = Number(subscription?.bonus);
+  const bonusValue = Number.isFinite(bonusDays) && bonusDays >= 0 ? bonusDays : 0;
+  const bonusLabel = `${bonusValue} ${bonusValue === 1 ? 'Day' : 'Days'}`;
   // Resolve the saved price defensively. The Subs schema only has
   // a single `price` column, but historical rows or other parsers
   // may have stamped the amount onto an alias (paid_amount /
@@ -1721,7 +1786,6 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     || 0;
   const priceLabel = priceValue > 0 ? rupiah(priceValue) : '';
   const isPaid = String(subscription?.status || '').toLowerCase() === 'paid';
-  const priceField = isPaid ? 'Paid Amount' : 'Price';
 
   // Off-screen export card. We always render the appropriate card
   // for the saved subscription inside a .subs-export-host wrapper
@@ -1827,7 +1891,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // own Payment / Start / Expiry stay as the receipt of record.
   const [extensionFormOpen, setExtensionFormOpen] = useState(false);
   const [editingExtensionId, setEditingExtensionId] = useState('');
-  const [extensionDraft, setExtensionDraft] = useState(() => makeExtensionDraft(subscription, latestExtension));
+  const [extensionDraft, setExtensionDraft] = useState(() => makeExtensionDraft(subscription, latestExtension, latestExtension));
   const [extensionBusy, setExtensionBusy] = useState(false);
   const [extensionStatus, setExtensionStatus] = useState('');
   const [extensionStatusTone, setExtensionStatusTone] = useState('');
@@ -1838,7 +1902,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   useEffect(() => {
     setExtensionFormOpen(false);
     setEditingExtensionId('');
-    setExtensionDraft(makeExtensionDraft(subscription, latestExtension));
+    setExtensionDraft(makeExtensionDraft(subscription, latestExtension, latestExtension));
     setExtensionStatus('');
     setExtensionStatusTone('');
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1847,33 +1911,38 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   function setExtensionField(key, value) {
     setExtensionDraft((current) => {
       const next = { ...current, [key]: value };
-      // Auto-sync expiry off start + period when the operator
-      // hasn't manually overridden it. Mirrors the /subs composer's
-      // "expiry = start + N days" behaviour. We treat the expiry as
-      // "untouched" in two cases:
+      // Auto-sync expiry off start + period + bonus when the
+      // operator hasn't manually overridden it. Mirrors the /subs
+      // composer's "expiry = start + N days" behaviour but now
+      // includes a bonus-day layer (e.g. period 30 + bonus 1 →
+      // expiry stretches by one extra day). We treat the expiry
+      // as "untouched" in two cases:
       //   1. it is empty, or
       //   2. it equals what the formula would produce from the
-      //      CURRENT start + period values (i.e. it was last set by
-      //      this same effect, not by hand).
+      //      CURRENT start + period + bonus values (i.e. it was
+      //      last set by this same effect, not by hand).
       // Once the operator types a custom expiry that doesn't match
       // the formula, the guard goes false and we stop overwriting
-      // it on subsequent start/period edits, per the spec in
+      // it on subsequent start/period/bonus edits, per the spec in
       // .kiro/steering/subscription-extensions.md.
       const currentPeriod = Number(current.access_period) || 0;
+      const currentBonus = Number(current.bonus) || 0;
       const currentStart = current.start_date || '';
-      const currentExpected = currentStart && currentPeriod > 0
-        ? addDays(currentStart, currentPeriod)
+      const currentExpected = currentStart && (currentPeriod + currentBonus) > 0
+        ? addDays(currentStart, currentPeriod + currentBonus)
         : '';
       const expiryDateUntouched = !current.expiry_date
         || current.expiry_date === currentExpected;
       const expiryTimeUntouched = !current.expiry_time
         || current.expiry_time === current.start_time;
 
-      if (key === 'start_date' || key === 'access_period') {
+      if (key === 'start_date' || key === 'access_period' || key === 'bonus') {
         const nextPeriod = Number(next.access_period) || 0;
+        const nextBonus = Number(next.bonus) || 0;
         const nextStart = next.start_date || '';
-        if (nextStart && nextPeriod > 0 && expiryDateUntouched) {
-          const computed = addDays(nextStart, nextPeriod);
+        const totalDays = nextPeriod + nextBonus;
+        if (nextStart && totalDays > 0 && expiryDateUntouched) {
+          const computed = addDays(nextStart, totalDays);
           if (computed) next.expiry_date = computed;
         }
       }
@@ -1900,15 +1969,24 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     //   3. empty — and we fall back to today.
     // See .kiro/steering/subscription-extensions.md for the full
     // requirement. Operators can still override every field.
+    //
+    // Price is resolved through the same cascade makeExtensionDraft
+    // implements (latest extension price → base subscription price
+    // aliases → 0) so a fresh extension inherits the most recent
+    // known price without manual retyping. Bonus defaults to 0 for
+    // a new extension; the operator can layer extra days on top.
+    const seedDraft = makeExtensionDraft(subscription, null, latestExtension);
     const seedStart = effective?.expiry_date || todaySubs();
     const seedStartTime = effective?.expiry_date ? (effective?.expiry_time || '') : '';
     const period = Number(effective?.access_period) || 30;
-    const seedExpiry = addDays(seedStart, period) || '';
+    const bonus = 0;
+    const seedExpiry = addDays(seedStart, period + bonus) || '';
     setExtensionDraft({
-      service: effective?.service || '',
+      ...seedDraft,
+      service: effective?.service || seedDraft.service || '',
       status: 'paid',
       access_period: period,
-      price: 0,
+      bonus,
       start_date: seedStart,
       start_time: seedStartTime,
       expiry_date: seedExpiry,
@@ -1921,7 +1999,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   }
 
   function openEditExtension(ext) {
-    setExtensionDraft(makeExtensionDraft(subscription, ext));
+    setExtensionDraft(makeExtensionDraft(subscription, ext, latestExtension));
     setEditingExtensionId(String(ext?.id || ''));
     setExtensionStatus('');
     setExtensionStatusTone('');
@@ -1988,23 +2066,29 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     }
   }
 
-  // Build the field list. Empty fields are dropped so the panel
-  // never shows a wall of "—" placeholders for a thin record.
-  // Service / Status / Period now live in the heading pills above.
-  // Invoice Date was moved out of the detail surface (the saved
-  // invoice_date still feeds the printed invoice card's "Issued"
-  // line — only the dashboard read-out drops it). Date+time pairs
-  // collapse into a single readable row for Payment / Start /
-  // Expiry, in that order.
-  const fields = [
-    { label: 'Title', value: subscription?.client_title || '' },
-    { label: 'Storage', value: subscription?.storage_slot || subscription?.storage || '' },
-    { label: priceField, value: priceLabel },
-    { label: 'Payment', value: fmtDateTime(subscription?.payment_date, subscription?.payment_time) },
-    { label: 'Start', value: fmtDateTime(subscription?.start_date, subscription?.start_time) },
-    { label: 'Expiry', value: fmtDateTime(subscription?.expiry_date, subscription?.expiry_time) },
-    { label: 'Contact', value: contact },
-  ].filter((f) => String(f.value || '').trim());
+  // Build the per-field values needed by the explicit JSX layout
+  // below. Storage and Contact stay as standalone rows because they
+  // don't participate in the date/price grid groups. Title is no
+  // longer rendered as its own row — the prefix (Mr./Ms.) is woven
+  // directly into the <h2> heading instead, matching the "Ms. Linda"
+  // shape called out in the spec.
+  const storageValue = String(subscription?.storage_slot || subscription?.storage || '').trim();
+  const paymentValue = fmtDateTime(subscription?.payment_date, subscription?.payment_time);
+  const startValue = fmtDateTime(subscription?.start_date, subscription?.start_time);
+  const expiryValue = fmtDateTime(subscription?.expiry_date, subscription?.expiry_time);
+  // Composed h2 label: "<title> <client_name>" — e.g. "Ms. Linda" or
+  // "Mr. Fenny Sofian". Falls back to the client name alone when no
+  // title prefix is set, so a row missing a title prefix still reads
+  // cleanly without a leading space.
+  const titlePrefix = String(subscription?.client_title || '').trim();
+  const headingName = titlePrefix ? `${titlePrefix} ${name}` : name;
+  // Whether any of the row groups have at least one populated cell.
+  // If every grouped field is empty we fall through to the "No
+  // subscription details available." copy so the panel doesn't show
+  // a stack of blank label boxes.
+  const hasAnyDetailRow = Boolean(
+    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact
+  );
 
   return (
     <>
@@ -2012,7 +2096,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         <div>
           <p className="eyebrow">Subscription</p>
           <h2>
-            {name}
+            {headingName}
             {tone && toneLabel ? (
               <span className={`sub-badge sub-badge-${tone}`}>{toneLabel}</span>
             ) : null}
@@ -2075,15 +2159,81 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         <p className="empty-state">No subscription details available.</p>
       ) : (
         <div className={`list-stack${tone ? ` sub-${tone}` : ''}`}>
-          {fields.map((field) => (
-            <article className="list-row" key={field.label}>
+          {/* Storage stays as a standalone full-width row; it isn't
+              part of any natural pair and only renders when set. */}
+          {storageValue ? (
+            <article className="list-row" key="Storage">
               <div>
-                <strong>{field.label}</strong>
-                <span>{field.value}</span>
+                <strong>Storage</strong>
+                <span>{storageValue}</span>
               </div>
             </article>
-          ))}
-          {!fields.length ? <p className="empty-state">No subscription details available.</p> : null}
+          ) : null}
+          {/* Row 1 — Price + Payment Date. Renamed from "Paid Amount"
+              and "Payment" so the labels read consistently on both
+              invoice and paid-mode rows. */}
+          {(priceLabel || paymentValue) ? (
+            <div className="subs-detail-row-group" key="row-price-payment">
+              <article className="list-row">
+                <div>
+                  <strong>Price</strong>
+                  <span>{priceLabel || '—'}</span>
+                </div>
+              </article>
+              <article className="list-row">
+                <div>
+                  <strong>Payment Date</strong>
+                  <span>{paymentValue || '—'}</span>
+                </div>
+              </article>
+            </div>
+          ) : null}
+          {/* Row 2 — Start Date + Expiry Date. Both share the same
+              datetime format helper so the cells line up neatly on
+              desktop and stack as a single column on mobile. */}
+          {(startValue || expiryValue) ? (
+            <div className="subs-detail-row-group" key="row-start-expiry">
+              <article className="list-row">
+                <div>
+                  <strong>Start Date</strong>
+                  <span>{startValue || '—'}</span>
+                </div>
+              </article>
+              <article className="list-row">
+                <div>
+                  <strong>Expiry Date</strong>
+                  <span>{expiryValue || '—'}</span>
+                </div>
+              </article>
+            </div>
+          ) : null}
+          {/* Row 3 — Access Period + Bonus. Both are always shown
+              (even at 0 days) so the operator can see at a glance
+              that no bonus was applied and the renewal is using the
+              raw access period only. */}
+          <div className="subs-detail-row-group" key="row-period-bonus">
+            <article className="list-row">
+              <div>
+                <strong>Access Period</strong>
+                <span>{periodLabel || '0 Days'}</span>
+              </div>
+            </article>
+            <article className="list-row">
+              <div>
+                <strong>Bonus</strong>
+                <span>{bonusLabel}</span>
+              </div>
+            </article>
+          </div>
+          {contact ? (
+            <article className="list-row" key="Contact">
+              <div>
+                <strong>Contact</strong>
+                <span>{contact}</span>
+              </div>
+            </article>
+          ) : null}
+          {!hasAnyDetailRow ? <p className="empty-state">No subscription details available.</p> : null}
         </div>
       )}
       {subscription?.id ? (
@@ -2134,6 +2284,16 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   />
                 </label>
               </div>
+              <label>Bonus (Days)
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={extensionDraft.bonus}
+                  onChange={(e) => setExtensionField('bonus', Number(e.target.value) || 0)}
+                  aria-label="Extension bonus days"
+                />
+              </label>
               <div className="two-col">
                 <label>Start
                   <DateTimeField
@@ -2180,7 +2340,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           ) : null}
           {extensions.length ? (
             <div className="list-stack subs-extension-list">
-              {extensions.map((ext) => {
+              {sortedExtensions.map((ext) => {
                 const extEffective = applySubscriptionExtension(subscription, ext);
                 const extToneCls = subscriptionTone(extEffective);
                 const startLabel = ext.start_date ? `${dateLabel(ext.start_date)}${ext.start_time ? ` \u00b7 ${fmtSubsTime(ext.start_time)}` : ''}` : '';
@@ -2188,7 +2348,17 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                 const periodLabel = Number(ext.access_period) > 0 ? `${ext.access_period} Days` : '';
                 const priceLabelExt = Number(ext.price) > 0 ? rupiah(ext.price) : '';
                 const statusLabelExt = ext.status ? toTitleCase(ext.status) : '';
-                const meta = [ext.service, statusLabelExt, periodLabel, priceLabelExt].filter(Boolean).join(' \u00b7 ');
+                // Bonus segment: only render when > 0 so the row stays
+                // clean when no bonus was applied. Singular "Day" for
+                // 1, plural "Days" otherwise — matches the spec example
+                // "iCloud · Paid · 30 Days · Bonus 1 Day · Rp 50.000".
+                const bonusDaysExt = Number(ext.bonus);
+                const bonusLabelExt = Number.isFinite(bonusDaysExt) && bonusDaysExt > 0
+                  ? `Bonus ${bonusDaysExt} ${bonusDaysExt === 1 ? 'Day' : 'Days'}`
+                  : '';
+                const meta = [ext.service, statusLabelExt, periodLabel, bonusLabelExt, priceLabelExt]
+                  .filter(Boolean)
+                  .join(' \u00b7 ');
                 const headline = startLabel && expiryLabel
                   ? `${startLabel}  \u2192  ${expiryLabel}`
                   : (expiryLabel || startLabel || 'Extension');
@@ -2533,6 +2703,48 @@ async function extractSubscriptionReceiptInBrowser(file, setStatus) {
 // once and dropped on the server.
 // Initial draft for the JPG importer. Defined at module scope so
 // the post-save reset path can reuse the exact same shape that
+// Shared field-update helper for the subscription draft (used by
+// both SubscriptionEdit and SubscriptionImport). Mirrors the auto-
+// sync expiry behaviour of setExtensionField above so the two
+// surfaces respond identically when the operator types into the
+// Start / Access Period / Bonus inputs:
+//   • expiry = start + accessPeriodDays + bonusDays
+//   • only auto-overwrites the saved expiry when the current
+//     expiry is empty OR matches the formula's previous output
+//     (i.e. it was last set by this same effect, not by hand)
+//   • expiry_time tracks start_time on first edit, then frees up
+//     once the operator types a distinct expiry_time.
+// Pure function so the component-level setField wrappers stay tiny
+// and the rule lives in one place.
+function applySubscriptionDraftUpdate(current, key, value) {
+  const next = { ...current, [key]: value };
+  const currentPeriod = Number(current.access_period) || 0;
+  const currentBonus = Number(current.bonus) || 0;
+  const currentStart = current.start_date || '';
+  const currentExpected = currentStart && (currentPeriod + currentBonus) > 0
+    ? addDays(currentStart, currentPeriod + currentBonus)
+    : '';
+  const expiryDateUntouched = !current.expiry_date
+    || current.expiry_date === currentExpected;
+  const expiryTimeUntouched = !current.expiry_time
+    || current.expiry_time === current.start_time;
+
+  if (key === 'start_date' || key === 'access_period' || key === 'bonus') {
+    const nextPeriod = Number(next.access_period) || 0;
+    const nextBonus = Number(next.bonus) || 0;
+    const nextStart = next.start_date || '';
+    const totalDays = nextPeriod + nextBonus;
+    if (nextStart && totalDays > 0 && expiryDateUntouched) {
+      const computed = addDays(nextStart, totalDays);
+      if (computed) next.expiry_date = computed;
+    }
+  }
+  if (key === 'start_time' && expiryTimeUntouched) {
+    next.expiry_time = next.start_time;
+  }
+  return next;
+}
+
 // useState() seeds on mount — keeps "ready for next receipt" and
 // "first open" visually identical.
 const INITIAL_SUBS_IMPORT_DRAFT = {
@@ -2548,6 +2760,7 @@ const INITIAL_SUBS_IMPORT_DRAFT = {
   payment_date: '',
   payment_time: '',
   access_period: 30,
+  bonus: 0,
   start_date: '',
   start_time: '',
   expiry_date: '',
@@ -2568,7 +2781,7 @@ function SubscriptionImport({ onSaved, onCancel }) {
   const [draft, setDraft] = useState(INITIAL_SUBS_IMPORT_DRAFT);
 
   function setField(key, value) {
-    setDraft((current) => ({ ...current, [key]: value }));
+    setDraft((current) => applySubscriptionDraftUpdate(current, key, value));
   }
 
   // Merge server-parsed fields into the draft. Empty/null values
@@ -2611,6 +2824,9 @@ function SubscriptionImport({ onSaved, onCancel }) {
       access_period: Number.isFinite(Number(parsed.access_period)) && Number(parsed.access_period) > 0
         ? Number(parsed.access_period)
         : current.access_period,
+      bonus: Number.isFinite(Number(parsed.bonus)) && Number(parsed.bonus) >= 0
+        ? Number(parsed.bonus)
+        : current.bonus,
       start_date: parsed.start_date || current.start_date,
       start_time: parsed.start_time || current.start_time,
       expiry_date: parsed.expiry_date || current.expiry_date,
@@ -2880,6 +3096,16 @@ function SubscriptionImport({ onSaved, onCancel }) {
             />
           </label>
         </div>
+        <label>Bonus (Days)
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={draft.bonus}
+            onChange={(e) => setField('bonus', Number(e.target.value) || 0)}
+            aria-label="Subscription bonus days"
+          />
+        </label>
         <label>Payment
           <DateTimeField
             value={draft.payment_date}
@@ -2968,7 +3194,7 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
   }, [subscription?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function setField(key, value) {
-    setDraft((current) => ({ ...current, [key]: value }));
+    setDraft((current) => applySubscriptionDraftUpdate(current, key, value));
   }
 
   async function handleSave(event) {
@@ -3083,6 +3309,16 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
             />
           </label>
         </div>
+        <label>Bonus (Days)
+          <input
+            type="number"
+            min="0"
+            step="1"
+            value={draft.bonus}
+            onChange={(e) => setField('bonus', Number(e.target.value) || 0)}
+            aria-label="Subscription bonus days"
+          />
+        </label>
         <label>Payment
           <DateTimeField
             value={draft.payment_date}
@@ -5053,6 +5289,9 @@ function subscriptionToDraft(sub = {}) {
     access_period: Number.isFinite(Number(sub.access_period)) && Number(sub.access_period) > 0
       ? Number(sub.access_period)
       : 30,
+    bonus: Number.isFinite(Number(sub.bonus)) && Number(sub.bonus) >= 0
+      ? Number(sub.bonus)
+      : 0,
     start_date: String(sub.start_date || ''),
     start_time: padTime(sub.start_time),
     expiry_date: String(sub.expiry_date || ''),

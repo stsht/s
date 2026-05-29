@@ -223,6 +223,7 @@ create table if not exists public.subscription_extensions (
   service         text,
   status          text not null default 'paid',
   access_period   integer not null default 30,
+  bonus           integer not null default 0,
   price           integer not null default 0,
   start_date      date,
   start_time      time,
@@ -236,6 +237,7 @@ alter table public.subscription_extensions add column if not exists subscription
 alter table public.subscription_extensions add column if not exists service       text;
 alter table public.subscription_extensions add column if not exists status        text not null default 'paid';
 alter table public.subscription_extensions add column if not exists access_period integer not null default 30;
+alter table public.subscription_extensions add column if not exists bonus         integer not null default 0;
 alter table public.subscription_extensions add column if not exists price         integer not null default 0;
 alter table public.subscription_extensions add column if not exists start_date    date;
 alter table public.subscription_extensions add column if not exists start_time    time;
