@@ -2133,6 +2133,20 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:center;
   gap:6px;
 }
+/* Base subscription row pinned at the bottom of the unified
+ * transaction history (allPeriods). It carries no row-level
+ * edit/delete actions — the operator edits the base via the main
+ * "Edit" button at the top of the panel — so it gets a slightly
+ * recessed, italic-tagged treatment to read as the original
+ * "Initial" purchase rather than a renewal. The trailing "·
+ * Initial" segment in its meta line does the labelling; this just
+ * softens the row so it sits quietly at the bottom of the list. */
+.subs-extension-list > .subs-period-base{
+  opacity:.85;
+}
+.subs-extension-list > .subs-period-base strong{
+  font-weight:700;
+}
 .subs-extensions-empty{
   margin:0;
   color:var(--muted);
