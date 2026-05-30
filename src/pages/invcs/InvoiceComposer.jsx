@@ -1084,17 +1084,18 @@ export function InvoiceComposer() {
 
 function EditorPanel(props) {
   return (
-    <aside className="editor-panel panel scroll-surface-y">
-      <header className="panel-header">
-        <img src="/logo-hero.png" alt="StarShots" />
-        <div className="mode-switch">
-          {['invoice', 'deposit', 'paid'].map((value) => (
-            <button key={value} className={props.mode === value ? 'active' : ''} type="button" onClick={() => props.setMode(value)}>
-              {value}
-            </button>
-          ))}
-        </div>
-      </header>
+    <aside className="editor-panel panel">
+      <div className="editor-panel-scroll scroll-surface-y">
+        <header className="panel-header">
+          <img src="/logo-hero.png" alt="StarShots" />
+          <div className="mode-switch">
+            {['invoice', 'deposit', 'paid'].map((value) => (
+              <button key={value} className={props.mode === value ? 'active' : ''} type="button" onClick={() => props.setMode(value)}>
+                {value}
+              </button>
+            ))}
+          </div>
+        </header>
 
       {props.mode === 'invoice' ? (
         <>
@@ -1274,6 +1275,7 @@ function EditorPanel(props) {
           )}
         </>
       )}
+      </div>
     </aside>
   );
 }

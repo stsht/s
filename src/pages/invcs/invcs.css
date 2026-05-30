@@ -611,16 +611,18 @@ button{cursor:pointer}
 }
 /* Shared scroll mechanics now come from the utility classes applied
  * in InvoiceComposer.jsx:
- *   - .editor-panel  also carries `scroll-surface-y`,
+ *   - .editor-panel-scroll carries `scroll-surface-y`,
  *   - .preview-canvas also carries `scroll-surface`.
  * This combined rule keeps only the layout + smooth-scroll bits.
  * .preview-panel is clipped (overflow:hidden, set below) — its inner
  * .preview-canvas is the actual scroller. */
 .editor-panel,.preview-panel{height:100%;min-height:0;scroll-behavior:smooth}
-.editor-panel{padding:18px}
-.editor-panel.scroll-surface-y{
-  overflow-x:hidden;
-  overflow-y:auto;
+.editor-panel{padding:0}
+.editor-panel-scroll{
+  height:100%;
+  min-height:0;
+  padding:18px;
+  scroll-behavior:smooth;
 }
 /* The /inv preview-panel is a clip frame, not a scroller — the
  * .preview-canvas inside it owns the scroll. Scrollbar chrome on the
