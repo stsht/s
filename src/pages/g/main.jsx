@@ -48,6 +48,17 @@ function GalleryLinks({ payload }) {
     : 'Your files are ready';
   const folderLabel = String(delivery.folderName || '').trim();
 
+  // Resolve each service to its stored link and keep ONLY the ones
+  // that actually have a usable URL. Services without a link are not
+  // rendered at all — no greyed-out "Unavailable" dead rows. This is
+  // the single source of what the delivery list shows.
+  const activeServices = services
+    .map((service) => ({
+      ...service,
+      link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
+    }))
+    .filter((service) => !!service.link?.url);
+
   return (
     <main className="public-delivery-page">
       <GlobalBackground />
@@ -55,7 +66,7 @@ function GalleryLinks({ payload }) {
         {/* Brand header: logo + folder name share a centered column
             above the divider line. The divider replaces the older
             kicker's border-top so the visual hierarchy reads as
-            (logo → folder → line → greeting → CTA copy → links). */}
+            (logo → folder → line → greeting → invoice → links). */}
         <header className="public-delivery-header">
           <picture>
             <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
@@ -65,36 +76,47 @@ function GalleryLinks({ payload }) {
         </header>
         <div className="public-delivery-divider" role="presentation" />
         <h1 className="public-delivery-greeting">{heading}</h1>
-        <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
-        <div className="public-delivery-list">
-          {services.map(({ key, aliases, fallback, icon }) => {
-            const link = aliases.map((alias) => linkMap.get(alias)).find(Boolean);
-            const available = !!link?.url;
-            const content = (
-              <>
-                <span className="public-delivery-icon">{icon}</span>
-                <span className="public-delivery-name">{link?.label || fallback}</span>
-                <span className="public-delivery-state">{available ? 'Click' : 'Unavailable'}</span>
-              </>
-            );
-            return available ? (
-              <a
-                key={fallback}
-                className="public-delivery-row is-active"
-                href={link.url}
-                onClick={() => track(link.service || key)}
-                rel="noopener"
-                target="_blank"
-              >
-                {content}
-              </a>
-            ) : (
-              <div key={fallback} className="public-delivery-row is-muted">
-                {content}
-              </div>
-            );
-          })}
-        </div>
+
+        {/* Primary action — the invoice. Sits above the delivery
+            options as the page's lead call-to-action (filled accent
+            vs the outlined delivery rows). It links to /inv, which is
+            already wrapped in the shared StarShots PasswordGate, so
+            access reuses the existing password workflow — no separate
+            auth model or new password logic is introduced here. Opens
+            in a new tab so the client keeps this delivery page open. */}
+        <a
+          className="public-delivery-invoice"
+          href="/inv"
+          rel="noopener"
+          target="_blank"
+        >
+          <span className="public-delivery-invoice-icon" aria-hidden="true">INV</span>
+          <span className="public-delivery-invoice-label">Invoice</span>
+          <span className="public-delivery-invoice-cta">View</span>
+        </a>
+
+        {activeServices.length > 0 ? (
+          <>
+            <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
+            <div className="public-delivery-list">
+              {activeServices.map(({ key, fallback, icon, link }) => (
+                <a
+                  key={fallback}
+                  className="public-delivery-row is-active"
+                  href={link.url}
+                  onClick={() => track(link.service || key)}
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{link.label || fallback}</span>
+                  <span className="public-delivery-state">Click</span>
+                </a>
+              ))}
+            </div>
+          </>
+        ) : null}
+
         <p className="public-delivery-signoff">With love, StarShots</p>
       </section>
     </main>
