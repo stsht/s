@@ -70,6 +70,15 @@ const PAYMENT_METHODS = [
 // in favour of `toTitleCase` from the shared utility.
 
 const today = new Date().toISOString().slice(0, 10);
+const INVOICE_PREVIEW_WIDTH = 1000;
+const INVOICE_PREVIEW_MIN_HEIGHT = 707;
+const PREVIEW_ZOOM_MIN = 0.15;
+const PREVIEW_ZOOM_MAX = 1.75;
+
+function clampPreviewScale(value) {
+  const scale = Number(value) || 1;
+  return Math.min(PREVIEW_ZOOM_MAX, Math.max(PREVIEW_ZOOM_MIN, scale));
+}
 
 // Deposit defaults: 20% of grand total, but never less than IDR
 // 200,000. The 200K floor is the operator's invoicing minimum;
@@ -1400,6 +1409,89 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
   const paidDeposits = mode === 'deposit'
     ? (depositPayments || []).filter((payment) => payment.paid)
     : [];
+  const previewCanvasRef = useRef(null);
+  const [previewMetrics, setPreviewMetrics] = useState({
+    fitScale: 1,
+    width: INVOICE_PREVIEW_WIDTH,
+    height: INVOICE_PREVIEW_MIN_HEIGHT,
+  });
+  const [zoomMode, setZoomMode] = useState('fit');
+  const [manualScale, setManualScale] = useState(1);
+  const previewScale = zoomMode === 'fit' ? previewMetrics.fitScale : manualScale;
+  const previewPercent = Math.round(previewScale * 100);
+
+  useEffect(() => {
+    const canvas = previewCanvasRef.current;
+    const sheet = documentRef.current;
+    if (!canvas || !sheet) return undefined;
+
+    let frame = 0;
+    const readPx = (value, fallback) => {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    };
+    const updatePreviewScale = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const canvasStyle = window.getComputedStyle(canvas);
+        const sheetStyle = window.getComputedStyle(sheet);
+        const horizontalPadding =
+          readPx(canvasStyle.paddingLeft, 0) + readPx(canvasStyle.paddingRight, 0);
+        const availableWidth = Math.max(1, canvas.clientWidth - horizontalPadding);
+        const sheetWidth = readPx(sheetStyle.getPropertyValue('--invoice-page-width'), INVOICE_PREVIEW_WIDTH);
+        const sheetHeight = Math.max(
+          readPx(sheetStyle.getPropertyValue('--invoice-page-min-height'), INVOICE_PREVIEW_MIN_HEIGHT),
+          sheet.scrollHeight,
+          sheet.offsetHeight,
+        );
+        const scale = Math.min(1, availableWidth / sheetWidth);
+        const nextMetrics = {
+          fitScale: Number(scale.toFixed(4)),
+          width: Math.ceil(sheetWidth),
+          height: Math.ceil(sheetHeight),
+        };
+        setPreviewMetrics((current) => (
+          current.fitScale === nextMetrics.fitScale &&
+          current.width === nextMetrics.width &&
+          current.height === nextMetrics.height
+            ? current
+            : nextMetrics
+        ));
+      });
+    };
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updatePreviewScale)
+      : null;
+    resizeObserver?.observe(canvas);
+    resizeObserver?.observe(sheet);
+    window.addEventListener('resize', updatePreviewScale, { passive: true });
+    updatePreviewScale();
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updatePreviewScale);
+    };
+  }, [documentRef]);
+
+  const previewStageStyle = {
+    '--invoice-preview-scale': previewScale,
+    '--invoice-preview-width': `${previewMetrics.width}px`,
+    width: `${Math.ceil(previewMetrics.width * previewScale)}px`,
+    height: `${Math.ceil(previewMetrics.height * previewScale)}px`,
+  };
+  const adjustPreviewZoom = (factor) => {
+    const baseScale = zoomMode === 'fit' ? previewMetrics.fitScale : manualScale;
+    setManualScale(clampPreviewScale(baseScale * factor));
+    setZoomMode('manual');
+  };
+  const handlePreviewWheel = (event) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    adjustPreviewZoom(event.deltaY > 0 ? 0.92 : 1.08);
+  };
+
   return (
     <section className="preview-panel panel">
       <header className="preview-toolbar">
@@ -1417,88 +1509,96 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
             {saving ? 'Saving\u2026' : (savedId ? 'Update Status' : 'Save Status')}
           </button>
           <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
+          <div className="preview-zoom-controls" role="group" aria-label="Preview zoom controls">
+            <button type="button" onClick={() => setZoomMode('fit')} disabled={zoomMode === 'fit'}>Fit</button>
+            <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => adjustPreviewZoom(0.9)}>-</button>
+            <span>{previewPercent}%</span>
+            <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => adjustPreviewZoom(1.1)}>+</button>
+          </div>
         </div>
       </header>
-      <div className="preview-canvas">
-        <article className="invoice-sheet" ref={documentRef}>
-          <header className="sheet-top"><img src="/logo-hero.png" alt="StarShots" /></header>
-          <section className="sheet-grid">
-            <div className="sheet-box">
-              <p className="eyebrow">Bill To</p>
-              <dl className="meta-list">
-                <div className="meta-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
-                <div className="meta-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
-              </dl>
-            </div>
-            <div className="sheet-box">
-              <p className="eyebrow">Details</p>
-              <dl className="meta-list">
-                <div className="meta-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
-                <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
-                <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
-              </dl>
-            </div>
-          </section>
-          <section className="sheet-box line-table">
-            <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
-            {items.map((item) => (
-              <div key={item.id} className="line-row">
-                <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
-                <span>{item.qty || 1}</span>
-                <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
+      <div className="preview-canvas" ref={previewCanvasRef} onWheel={handlePreviewWheel}>
+        <div className="invoice-preview-stage" style={previewStageStyle}>
+          <article className="invoice-sheet" ref={documentRef}>
+            <header className="sheet-top"><img src="/logo-hero.png" alt="StarShots" /></header>
+            <section className="sheet-grid">
+              <div className="sheet-box">
+                <p className="eyebrow">Bill To</p>
+                <dl className="meta-list">
+                  <div className="meta-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
+                  <div className="meta-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
+                </dl>
               </div>
-            ))}
-          </section>
-          <section className="summary-box">
-            <p><span>Subtotal</span><strong>{rupiah(totals.subtotal)}</strong></p>
-            <p><span>Discount</span><strong>{rupiah(Number(totals.subtotal) - Number(totals.grandTotal))}</strong></p>
-            {paidDeposits.map((payment) => (
-              <p className="deposit-paid" key={payment.id}>
-                <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
-                <strong>{rupiah(payment.amount)}</strong>
-              </p>
-            ))}
-            <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
-            {mode === 'deposit' && requestBalanceDue ? (
-              <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>
-            ) : null}
-          </section>
-          <section className="bottom-grid">
-            <div className="sheet-box payment-box">
-              <p className="eyebrow">Payment</p>
-              {mode === 'paid' ? (
-                <div className="paid-stamp">
-                  <span className="paid-stamp-badge">PAID</span>
-                  <p className="paid-stamp-note">Thank you. Your invoice has been paid in full.</p>
+              <div className="sheet-box">
+                <p className="eyebrow">Details</p>
+                <dl className="meta-list">
+                  <div className="meta-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
+                  <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
+                  <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
+                </dl>
+              </div>
+            </section>
+            <section className="sheet-box line-table">
+              <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
+              {items.map((item) => (
+                <div key={item.id} className="line-row">
+                  <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
+                  <span>{item.qty || 1}</span>
+                  <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
                 </div>
-              ) : (
-                <>
-                  {paymentMethod === 'bank' ? (
-                    <div className="bank-details">
-                      <p className="bank-details-heading">Bank Transfer</p>
-                      <dl className="bank-details-list">
-                        <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                        <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                        <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                      </dl>
-                    </div>
-                  ) : (
-                    <img src={qrSrc} alt="Payment QR" />
-                  )}
-                  <div className="deposit-due"><span>{dueLabel}</span><strong>{rupiah(totals.depositDue)}</strong></div>
-                </>
-              )}
-            </div>
-            <div className="sheet-box terms-box">
-              <p className="eyebrow">Terms & Conditions</p>
-              <p>All final edited files will be uploaded to <strong>Google Drive</strong> or <strong>Dropbox</strong> and shared via a secure link within 2 to 5 working days after session.</p>
-              <p>Physical deliverables such as <strong>albums</strong> or <strong>USB</strong> flash drives are optional and available upon request at an additional cost.</p>
-              <p>For rescheduling, notice must be given <strong>at least 7 days (H-7)</strong> prior to the original session date. Rescheduled sessions must take place <strong>within 30 days</strong>.</p>
-              <p>In the event of <strong>late arrival</strong>, the session may only be extended by a maximum of 10 minutes.</p>
-            </div>
-          </section>
-          <footer>This invoice is automatically generated and valid without signature. <strong>@starshots.id</strong></footer>
-        </article>
+              ))}
+            </section>
+            <section className="summary-box">
+              <p><span>Subtotal</span><strong>{rupiah(totals.subtotal)}</strong></p>
+              <p><span>Discount</span><strong>{rupiah(Number(totals.subtotal) - Number(totals.grandTotal))}</strong></p>
+              {paidDeposits.map((payment) => (
+                <p className="deposit-paid" key={payment.id}>
+                  <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+                  <strong>{rupiah(payment.amount)}</strong>
+                </p>
+              ))}
+              <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
+              {mode === 'deposit' && requestBalanceDue ? (
+                <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>
+              ) : null}
+            </section>
+            <section className="bottom-grid">
+              <div className="sheet-box payment-box">
+                <p className="eyebrow">Payment</p>
+                {mode === 'paid' ? (
+                  <div className="paid-stamp">
+                    <span className="paid-stamp-badge">PAID</span>
+                    <p className="paid-stamp-note">Thank you. Your invoice has been paid in full.</p>
+                  </div>
+                ) : (
+                  <>
+                    {paymentMethod === 'bank' ? (
+                      <div className="bank-details">
+                        <p className="bank-details-heading">Bank Transfer</p>
+                        <dl className="bank-details-list">
+                          <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                          <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                          <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                        </dl>
+                      </div>
+                    ) : (
+                      <img src={qrSrc} alt="Payment QR" />
+                    )}
+                    <div className="deposit-due"><span>{dueLabel}</span><strong>{rupiah(totals.depositDue)}</strong></div>
+                  </>
+                )}
+              </div>
+              <div className="sheet-box terms-box">
+                <p className="eyebrow">Terms & Conditions</p>
+                <p>All final edited files will be uploaded to <strong>Google Drive</strong> or <strong>Dropbox</strong> and shared via a secure link within 2 to 5 working days after session.</p>
+                <p>Physical deliverables such as <strong>albums</strong> or <strong>USB</strong> flash drives are optional and available upon request at an additional cost.</p>
+                <p>For rescheduling, notice must be given <strong>at least 7 days (H-7)</strong> prior to the original session date. Rescheduled sessions must take place <strong>within 30 days</strong>.</p>
+                <p>In the event of <strong>late arrival</strong>, the session may only be extended by a maximum of 10 minutes.</p>
+              </div>
+            </section>
+            <footer>This invoice is automatically generated and valid without signature. <strong>@starshots.id</strong></footer>
+          </article>
+        </div>
       </div>
       <p className="download-status">{status}</p>
     </section>
