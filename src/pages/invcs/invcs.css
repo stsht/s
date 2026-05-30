@@ -1484,6 +1484,20 @@ dd{margin:0;text-align:right;font-weight:800}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .deposit-due strong{font-size:18px;font-weight:900;color:#1f1a17;line-height:1.2}
+/* Method-aware instruction line above the due caption ("Scan the QR
+ * above to pay" / "Transfer to the account above"). Plain sentence
+ * case so it reads as guidance, not a label — distinct from the
+ * uppercase .deposit-due span beneath it. Rides the export-host
+ * scaling via the dedicated rule in the .invoice-export-host block. */
+.deposit-due .payment-hint{
+  max-width:200px;
+  color:#8a8f98;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.01em;
+  line-height:1.4;
+  text-transform:none;
+}
 /* Bank Transfer block — drop-in replacement for the QR image inside
  * .payment-box when the operator picks "Bank Transfer". Width is
  * 100% of the slim payment column so account numbers don't wrap;
@@ -2615,6 +2629,29 @@ dd{margin:0;text-align:right;font-weight:800}
   width:18px;
   height:18px;
 }
+/* Disabled (e.g. Save/Update while a save is in flight or the
+ * composer is still hydrating) — dim and non-interactive. */
+.toolbar-icon-btn:disabled{
+  cursor:default;
+  opacity:.45;
+}
+.toolbar-icon-btn:disabled:hover{
+  background:transparent;
+  color:var(--muted);
+}
+/* Slow spin on the refresh glyph while a save is in flight. Gated
+ * behind prefers-reduced-motion so it holds still when the OS asks
+ * for reduced motion. */
+.btn-icon.is-spinning{
+  transform-origin:50% 50%;
+  animation:dpRefreshSpin 1s linear infinite;
+}
+@keyframes dpRefreshSpin{
+  to{transform:rotate(360deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .btn-icon.is-spinning{animation:none}
+}
 /* Delete stays red at rest (icon tint) and escalates to a filled
  * red armed state on the first click — same confirm-then-delete
  * behaviour as before, now without a text label. */
@@ -2940,6 +2977,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .payment-box img{width:504px;height:504px;border-width:3px;border-radius:54px;padding:27px}
 .invoice-export-host .payment-box .eyebrow{margin:0 0 12px;letter-spacing:.2em}
 .invoice-export-host .deposit-due{gap:12px}
+.invoice-export-host .deposit-due .payment-hint{max-width:660px;font-size:30px;line-height:1.4}
 .invoice-export-host .deposit-due span{font-size:33px}
 .invoice-export-host .deposit-due strong{font-size:54px}
 .invoice-export-host .bank-details{gap:48px}
@@ -4348,6 +4386,69 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .locked-row dt{flex:0 0 auto;margin:0;color:var(--muted);font-size:12px;font-weight:800}
 .locked-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:13px;font-weight:800;color:var(--ink);overflow-wrap:anywhere}
+
+/* Deposit workflow menu (Deposit tab). Two clearly separated actions:
+ * "Ask DP" toggles the Requested Deposit Due editor; "Add DP Paid"
+ * logs a recorded instalment. Pill-shaped to match the segmented
+ * controls used elsewhere in the editor; the primary action carries
+ * the dark anchor fill so the two read as distinct steps. */
+.dp-menu{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:8px;
+  margin:0 0 14px;
+}
+.dp-menu-btn{
+  min-height:42px;
+  padding:0 16px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--muted);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.02em;
+  white-space:nowrap;
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+}
+.dp-menu-btn:hover,
+.dp-menu-btn:focus-visible{
+  border-color:var(--accent);
+  color:var(--ink);
+  outline:none;
+}
+.dp-menu-btn.active{
+  background:#fff;
+  color:var(--ink);
+  border-color:var(--line-strong);
+  box-shadow:var(--shadow-soft);
+}
+.dp-menu-btn--primary{
+  background:#1f1a17;
+  color:#fff;
+  border-color:#1f1a17;
+}
+.dp-menu-btn--primary:hover,
+.dp-menu-btn--primary:focus-visible{
+  background:#302a25;
+  color:#fff;
+  border-color:#302a25;
+}
+
+/* Requested Deposit Due editor revealed by "Ask DP". Reuses the
+ * Invoice-tab .deposit-presets / .deposit-custom controls (shared
+ * depositMode / depositCustomAmount state) so the requested-deposit
+ * figure stays consistent across tabs. */
+.dp-ask{
+  display:grid;
+  gap:10px;
+  margin:0 0 14px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--field);
+}
+.dp-ask .dp-context{margin:0}
 
 /* Deposit ledger context strip — the requested deposit due carried
  * over from the Invoice tab, shown read-only above the instalments. */
