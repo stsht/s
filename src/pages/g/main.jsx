@@ -120,7 +120,7 @@ function PublicInvoiceDocument({ invoice }) {
         ))}
         <p className="grand"><span>Grand Total</span><strong>{rupiah(grandTotal)}</strong></p>
         {status === 'paid' && paidReceipt.paid !== false ? (
-          <p className="paid-in-full-row"><span>Fully Paid on {prettyDateTime(paidReceipt.paidAtDate || invoice?.invoice_date, paidReceipt.paidAtTime)}</span><strong>{rupiah(grandTotal)}</strong></p>
+          <p className="paid-in-full-row"><span>Fully Paid on {prettyDate(paidReceipt.paidAtDate || invoice?.invoice_date)}</span><strong>{rupiah(grandTotal)}</strong></p>
         ) : null}
         {status === 'deposit' ? (
           <p className="balance-due"><span>Balance Due</span><strong>{rupiah(invoice?.balance_due)}</strong></p>

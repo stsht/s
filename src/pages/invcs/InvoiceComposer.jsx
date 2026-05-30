@@ -1199,7 +1199,6 @@ export function InvoiceComposer() {
           balanceDue={balanceDue}
           paidConfirmed={paidConfirmed}
           paidAtDate={paidAtDate}
-          paidAtTime={paidAtTime}
           status={status}
           documentRef={documentRef}
           downloadJpg={downloadJpg}
@@ -1667,7 +1666,7 @@ function PaidSummary({ totals, paidConfirmed, setPaidConfirmed, paidAtDate, setP
         <div className="dp-total-row"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></div>
         {paidConfirmed ? (
           <div className="dp-total-row paid-in-full-row">
-            <span>Fully Paid on {prettyDateTime(paidAtDate, paidAtTime)}</span>
+            <span>Fully Paid on {prettyDate(paidAtDate)}</span>
             <strong>{rupiah(totals.grandTotal)}</strong>
           </div>
         ) : null}
@@ -1759,7 +1758,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, paidConfirmed, paidAtDate, paidAtTime, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = mode === 'deposit'
@@ -1918,7 +1917,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               ))}
               <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
               {mode === 'paid' && paidConfirmed ? (
-                <p className="paid-in-full-row"><span>Fully Paid on {prettyDateTime(paidAtDate, paidAtTime)}</span><strong>{rupiah(totals.grandTotal)}</strong></p>
+                <p className="paid-in-full-row"><span>Fully Paid on {prettyDate(paidAtDate)}</span><strong>{rupiah(totals.grandTotal)}</strong></p>
               ) : null}
               {mode === 'deposit' ? (
                 <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>
