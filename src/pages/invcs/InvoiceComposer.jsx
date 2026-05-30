@@ -70,15 +70,13 @@ const PAYMENT_METHODS = [
 // in favour of `toTitleCase` from the shared utility.
 
 const today = new Date().toISOString().slice(0, 10);
+// Live Preview is fit-to-width only — the sheet is scaled down so it
+// always fits the preview column, then the panel scrolls vertically.
+// There is intentionally no user-facing zoom (no Fit button, no
+// +/- controls, no ctrl-wheel handler); the preview is stable and
+// non-interactive beyond scrolling.
 const INVOICE_PREVIEW_WIDTH = 1000;
 const INVOICE_PREVIEW_MIN_HEIGHT = 707;
-const PREVIEW_ZOOM_MIN = 0.15;
-const PREVIEW_ZOOM_MAX = 1.75;
-
-function clampPreviewScale(value) {
-  const scale = Number(value) || 1;
-  return Math.min(PREVIEW_ZOOM_MAX, Math.max(PREVIEW_ZOOM_MIN, scale));
-}
 
 // Deposit defaults: 20% of grand total, but never less than IDR
 // 200,000. The 200K floor is the operator's invoicing minimum;
@@ -122,6 +120,28 @@ function inferDepositMode(grandTotal, depositAmount) {
     }
   }
   return { mode: 'custom', customAmount: String(amount) };
+}
+
+// Most recent paid deposit instalment amount. Drives the Deposit
+// tab's "Ask DP" auto-follow: when the operator opens Ask DP, the
+// requested deposit due snaps to whatever the client most recently
+// paid so the figure we ask for matches reality. "Latest" is by
+// paid date+time, falling back to recording order (the last row
+// added) when dates tie or are missing. Returns 0 when no paid
+// instalment carries a positive amount, in which case the caller
+// falls back to the 20% preset default.
+function latestPaidDepositAmount(payments) {
+  const paid = (payments || [])
+    .map((payment, index) => ({
+      index,
+      amount: Math.max(0, Math.round(Number(payment?.amount) || 0)),
+      paid: Boolean(payment?.paid),
+      key: `${payment?.paidAtDate || ''} ${payment?.paidAtTime || ''}`,
+    }))
+    .filter((payment) => payment.paid && payment.amount > 0);
+  if (!paid.length) return 0;
+  paid.sort((a, b) => (a.key === b.key ? a.index - b.index : (a.key < b.key ? -1 : 1)));
+  return paid[paid.length - 1].amount;
 }
 
 function rupiah(value) {
@@ -1304,6 +1324,25 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
   const [askOpen, setAskOpen] = useState(true);
   const fullPayment = isFullPayment(totals);
   const paidRows = payments.filter((payment) => payment.paid);
+  // Opening "Ask DP" auto-follows the requested deposit due to the
+  // latest recorded paid DP, so the amount we ask for matches what
+  // the client most recently paid. With no paid DP yet it falls back
+  // to the 20% preset default. Tied to the open action only —
+  // hydrating a saved invoice keeps the persisted requested deposit
+  // untouched until the operator explicitly reopens Ask DP.
+  const handleAskToggle = () => {
+    const willOpen = !askOpen;
+    setAskOpen(willOpen);
+    if (!willOpen) return;
+    const latest = latestPaidDepositAmount(payments);
+    if (latest > 0) {
+      setDepositMode('custom');
+      setDepositCustomAmount(String(latest));
+    } else {
+      setDepositMode('20');
+      setDepositCustomAmount('');
+    }
+  };
   return (
     <Fieldset title="Deposit Payments">
       {/* Workflow menu — "Ask DP" reveals the requested-deposit
@@ -1313,7 +1352,7 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
           type="button"
           className={`dp-menu-btn${askOpen ? ' active' : ''}`}
           aria-expanded={askOpen}
-          onClick={() => setAskOpen((open) => !open)}
+          onClick={handleAskToggle}
         >
           Ask DP
         </button>
@@ -1552,35 +1591,24 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
     ? (depositPayments || []).filter((payment) => payment.paid)
     : [];
   // Payment caption shown in the .payment-box beside Terms &
-  // Conditions. The label/amount track the workflow state:
-  //   • a deposit has been recorded and a balance remains -> "Balance
-  //     Due" with the outstanding amount (automatic — no toggle),
-  //   • the full grand total is requested (100% / custom >= total)
-  //     -> "Full Payment Due",
-  //   • otherwise a partial deposit is requested -> "Deposit Due".
-  const paidSoFar = paidDeposits.reduce(
-    (sum, payment) => sum + Math.max(0, Math.round(Number(payment.amount) || 0)),
-    0,
-  );
-  const balanceMode = mode === 'deposit' && paidSoFar > 0 && balanceDue > 0;
-  const dueLabel = balanceMode
-    ? 'Balance Due'
-    : (isFullPayment(totals) ? 'Full Payment Due' : 'Deposit Due');
-  const dueAmount = balanceMode ? balanceDue : totals.depositDue;
-  // Short, method-aware instruction so the payment canvas reads
-  // clearly for both QR and Bank Transfer.
-  const payHint = paymentMethod === 'bank'
-    ? 'Transfer to the account above'
-    : 'Scan the QR above to pay';
+  // Conditions. In every requesting mode (Draft Invoice / Deposit
+  // Invoice "Ask DP") the canvas advertises the REQUESTED deposit
+  // due — never the Balance Due — so the QR/Bank amount always
+  // matches exactly what we are currently asking the client to pay.
+  // When the requested amount is the full grand total (100% preset
+  // or a custom amount >= total) the wording switches to "Full
+  // Payment Due" instead of calling it a deposit.
+  const dueLabel = isFullPayment(totals) ? 'Full Payment Due' : 'Requested Deposit Due';
+  const dueAmount = totals.depositDue;
   const previewCanvasRef = useRef(null);
   const [previewMetrics, setPreviewMetrics] = useState({
     fitScale: 1,
     width: INVOICE_PREVIEW_WIDTH,
     height: INVOICE_PREVIEW_MIN_HEIGHT,
   });
-  const [zoomMode, setZoomMode] = useState('fit');
-  const [manualScale, setManualScale] = useState(1);
-  const previewScale = zoomMode === 'fit' ? previewMetrics.fitScale : manualScale;
+  // Fit-to-width only: scale the 1000px sheet down so it fits the
+  // preview column. No user zoom — see the note on INVOICE_PREVIEW_*.
+  const previewScale = previewMetrics.fitScale;
 
   useEffect(() => {
     const canvas = previewCanvasRef.current;
@@ -1643,16 +1671,6 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
     width: `${Math.ceil(previewMetrics.width * previewScale)}px`,
     height: `${Math.ceil(previewMetrics.height * previewScale)}px`,
   };
-  const adjustPreviewZoom = (factor) => {
-    const baseScale = zoomMode === 'fit' ? previewMetrics.fitScale : manualScale;
-    setManualScale(clampPreviewScale(baseScale * factor));
-    setZoomMode('manual');
-  };
-  const handlePreviewWheel = (event) => {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
-    adjustPreviewZoom(event.deltaY > 0 ? 0.92 : 1.08);
-  };
 
   return (
     <section className="preview-panel panel">
@@ -1681,12 +1699,9 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           >
             <PrinterIcon />
           </button>
-          <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
-            <button type="button" onClick={() => setZoomMode('fit')} disabled={zoomMode === 'fit'}>Fit</button>
-          </div>
         </div>
       </header>
-      <div className="preview-canvas" ref={previewCanvasRef} onWheel={handlePreviewWheel}>
+      <div className="preview-canvas" ref={previewCanvasRef}>
         <div className="invoice-preview-stage" style={previewStageStyle}>
           <article className="invoice-sheet" ref={documentRef}>
             <header className="sheet-top"><img src="/logo-hero.png" alt="StarShots" /></header>
@@ -1733,11 +1748,11 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
             </section>
             <section className="bottom-grid">
               <div className="sheet-box payment-box">
-                <p className="eyebrow">Payment</p>
+                {mode !== 'paid' ? <p className="eyebrow">Payment</p> : null}
                 {mode === 'paid' ? (
                   <div className="paid-stamp">
                     <span className="paid-stamp-badge">PAID</span>
-                    <p className="paid-stamp-note">Thank you. Your invoice has been paid in full.</p>
+                    <p className="paid-stamp-note">Thank You!<br />Your Invoice has been Paid in Full</p>
                   </div>
                 ) : (
                   <>
@@ -1754,7 +1769,6 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                       <img src={qrSrc} alt="Payment QR" />
                     )}
                     <div className="deposit-due">
-                      <small className="payment-hint">{payHint}</small>
                       <span>{dueLabel}</span>
                       <strong>{rupiah(dueAmount)}</strong>
                     </div>
@@ -1763,10 +1777,10 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               </div>
               <div className="sheet-box terms-box">
                 <p className="eyebrow">Terms & Conditions</p>
-                <p>All final edited files will be uploaded to <strong>Google Drive</strong> or <strong>Dropbox</strong> and shared via a secure link within 2 to 5 working days after session.</p>
-                <p>Physical deliverables such as <strong>albums</strong> or <strong>USB</strong> flash drives are optional and available upon request at an additional cost.</p>
-                <p>For rescheduling, notice must be given <strong>at least 7 days (H-7)</strong> prior to the original session date. Rescheduled sessions must take place <strong>within 30 days</strong>.</p>
-                <p>In the event of <strong>late arrival</strong>, the session may only be extended by a maximum of 10 minutes.</p>
+                <p>All final edited files will be uploaded to <strong>Google Drive</strong> or <strong>Dropbox</strong> and shared via a secure link within 2 to 5 working days after session</p>
+                <p>Physical deliverables such as <strong>albums</strong> or <strong>USB</strong> flash drives are optional and available upon request at an additional cost</p>
+                <p>For rescheduling, notice must be given <strong>at least 7 days (H-7)</strong> prior to the original session date, and rescheduled sessions must take place <strong>within 30 days</strong></p>
+                <p>In the event of <strong>late arrival</strong>, the session may only be extended by a maximum of 10 minutes</p>
               </div>
             </section>
             <footer>This invoice is automatically generated and valid without signature. <strong>@starshots.id</strong></footer>
