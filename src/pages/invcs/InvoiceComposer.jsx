@@ -522,6 +522,10 @@ export function InvoiceComposer() {
   const [depositMode, setDepositMode] = useState('20');
   const [depositCustomAmount, setDepositCustomAmount] = useState('');
   const [depositAskOpen, setDepositAskOpen] = useState(true);
+  const [paidConfirmed, setPaidConfirmed] = useState(true);
+  const [{ date: initialPaidDate, time: initialPaidTime }] = useState(() => nowDateParts());
+  const [paidAtDate, setPaidAtDate] = useState(initialPaidDate);
+  const [paidAtTime, setPaidAtTime] = useState(initialPaidTime);
   // Deposit-mode payment ledger. Lives ONLY inside invoice_data —
   // no new DB columns. Each entry is a recorded deposit instalment
   // { id, paid, paidAtDate, paidAtTime, amount }. The Deposit tab is
@@ -559,6 +563,21 @@ export function InvoiceComposer() {
   const [savedId, setSavedId] = useState(initial.invoiceId || '');
   const [saving, setSaving] = useState(false);
   const documentRef = useRef(null);
+  const previousModeRef = useRef(mode);
+
+  useEffect(() => {
+    if (hydrating) {
+      previousModeRef.current = mode;
+      return;
+    }
+    if (mode === 'paid' && previousModeRef.current !== 'paid') {
+      const { date, time } = nowDateParts();
+      setPaidConfirmed(true);
+      setPaidAtDate(date);
+      setPaidAtTime(time);
+    }
+    previousModeRef.current = mode;
+  }, [mode, hydrating]);
 
   // Load the package catalogue from Supabase on mount. If the API
   // returns at least one row we use it; otherwise we keep the
@@ -728,6 +747,16 @@ export function InvoiceComposer() {
 
         if (typeof data.qrSrc === 'string' && data.qrSrc) setQrSrc(data.qrSrc);
         if (typeof data.qrFileName === 'string' && data.qrFileName) setQrFileName(data.qrFileName);
+        if (data.paidReceipt && typeof data.paidReceipt === 'object') {
+          setPaidConfirmed(data.paidReceipt.paid !== false);
+          const rawPaidDate = String(data.paidReceipt.paidAtDate || '').trim();
+          const rawPaidTime = String(data.paidReceipt.paidAtTime || '').trim();
+          const paidTimeMatch = /^(\d{2}:\d{2})/.exec(rawPaidTime);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawPaidDate)) setPaidAtDate(rawPaidDate);
+          if (paidTimeMatch) setPaidAtTime(paidTimeMatch[1]);
+        } else if (row.status === 'paid' && row.invoice_date) {
+          setPaidAtDate(String(row.invoice_date || '').slice(0, 10));
+        }
         // Payment method: only adopt the saved value when it matches
         // a known option, otherwise stay on the default 'qr'. Older
         // rows pre-dating this field land here without a value and
@@ -889,6 +918,12 @@ export function InvoiceComposer() {
             paidAtTime: String(payment.paidAtTime || ''),
             amount: Math.max(0, Math.round(Number(payment.amount) || 0)),
           })),
+          paidReceipt: {
+            paid: !!paidConfirmed,
+            paidAtDate: String(paidAtDate || ''),
+            paidAtTime: String(paidAtTime || ''),
+            amount: grandTotal,
+          },
           requestBalanceDue: !!requestBalanceDue,
         },
       };
@@ -1047,6 +1082,12 @@ export function InvoiceComposer() {
           balanceDue={balanceDue}
           depositAskOpen={depositAskOpen}
           setDepositAskOpen={setDepositAskOpen}
+          paidConfirmed={paidConfirmed}
+          setPaidConfirmed={setPaidConfirmed}
+          paidAtDate={paidAtDate}
+          setPaidAtDate={setPaidAtDate}
+          paidAtTime={paidAtTime}
+          setPaidAtTime={setPaidAtTime}
           uploadQr={uploadQr}
           qrFileName={qrFileName}
           paymentMethod={paymentMethod}
@@ -1069,6 +1110,9 @@ export function InvoiceComposer() {
           depositPayments={depositPayments}
           depositAskOpen={depositAskOpen}
           balanceDue={balanceDue}
+          paidConfirmed={paidConfirmed}
+          paidAtDate={paidAtDate}
+          paidAtTime={paidAtTime}
           status={status}
           documentRef={documentRef}
           downloadJpg={downloadJpg}
@@ -1273,9 +1317,19 @@ function EditorPanel(props) {
               depositPaidTotal={props.depositPaidTotal}
               balanceDue={props.balanceDue}
               totals={props.totals}
+              depositAskOpen={props.depositAskOpen}
+              setDepositAskOpen={props.setDepositAskOpen}
             />
           ) : (
-            <PaidSummary totals={props.totals} payments={props.depositPayments} />
+            <PaidSummary
+              totals={props.totals}
+              paidConfirmed={props.paidConfirmed}
+              setPaidConfirmed={props.setPaidConfirmed}
+              paidAtDate={props.paidAtDate}
+              setPaidAtDate={props.setPaidAtDate}
+              paidAtTime={props.paidAtTime}
+              setPaidAtTime={props.setPaidAtTime}
+            />
           )}
         </>
       )}
@@ -1474,29 +1528,43 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
   );
 }
 
-// Paid-tab summary. Paid means settled in full after any deposits:
-// the save path forces paid_amount = grand total and balance_due = 0.
-// Any deposit instalments already recorded are shown read-only so the
-// operator can confirm them, but they are not edited here.
-function PaidSummary({ totals, payments }) {
-  const paidRows = (payments || []).filter((payment) => payment.paid);
+// Paid-tab summary. Paid means one final receipt state: the invoice
+// is settled in full, paid_amount = grand total, and balance_due = 0.
+// The single editable timestamp feeds both the operator recap and the
+// JPG summary line.
+function PaidSummary({ totals, paidConfirmed, setPaidConfirmed, paidAtDate, setPaidAtDate, paidAtTime, setPaidAtTime }) {
   return (
     <Fieldset title="Mark as Paid">
+      <div className="dp-row paid-row">
+        <label className="dp-paid-toggle">
+          <input
+            type="checkbox"
+            checked={!!paidConfirmed}
+            onChange={(event) => setPaidConfirmed(event.target.checked)}
+          />
+          <span>Fully Paid</span>
+        </label>
+        <label className="dp-field">Paid on
+          <DateTimeField
+            value={paidAtDate}
+            onChange={setPaidAtDate}
+            timeValue={paidAtTime}
+            onTimeChange={setPaidAtTime}
+            withTime
+            ariaLabel="Fully paid date and time"
+          />
+        </label>
+      </div>
       <div className="dp-totals">
         <div className="dp-total-row"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></div>
+        {paidConfirmed ? (
+          <div className="dp-total-row paid-in-full-row">
+            <span>Fully Paid on {prettyDateTime(paidAtDate, paidAtTime)}</span>
+            <strong>{rupiah(totals.grandTotal)}</strong>
+          </div>
+        ) : null}
         <div className="dp-total-row dp-total-balance"><span>Balance Due</span><strong>{rupiah(0)}</strong></div>
       </div>
-      {paidRows.length ? (
-        <div className="dp-list dp-list--readonly">
-          <p className="dp-context-label">Recorded deposit payments</p>
-          {paidRows.map((payment) => (
-            <div className="dp-readonly-row" key={payment.id}>
-              <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
-              <strong>{rupiah(payment.amount)}</strong>
-            </div>
-          ))}
-        </div>
-      ) : null}
     </Fieldset>
   );
 }
@@ -1583,7 +1651,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, paidConfirmed, paidAtDate, paidAtTime, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = mode === 'deposit'
@@ -1741,8 +1809,14 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                 </p>
               ))}
               <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
+              {mode === 'paid' && paidConfirmed ? (
+                <p className="paid-in-full-row"><span>Fully Paid on {prettyDateTime(paidAtDate, paidAtTime)}</span><strong>{rupiah(totals.grandTotal)}</strong></p>
+              ) : null}
               {mode === 'deposit' ? (
                 <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>
+              ) : null}
+              {mode === 'paid' ? (
+                <p className="balance-due"><span>Balance Due</span><strong>{rupiah(0)}</strong></p>
               ) : null}
             </section>
             <section className="bottom-grid">

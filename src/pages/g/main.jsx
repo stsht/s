@@ -74,6 +74,7 @@ function PublicInvoiceDocument({ invoice }) {
   const paidDeposits = status === 'deposit'
     ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
     : [];
+  const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
   const paymentMethod = String(data.paymentMethod || 'qr');
   const qrSrc = String(data.qrSrc || '/payment-qr.png');
   const dueLabel = isFullPayment(invoice) ? 'Full Payment Due' : 'Deposit Due';
@@ -118,8 +119,14 @@ function PublicInvoiceDocument({ invoice }) {
           </p>
         ))}
         <p className="grand"><span>Grand Total</span><strong>{rupiah(grandTotal)}</strong></p>
+        {status === 'paid' && paidReceipt.paid !== false ? (
+          <p className="paid-in-full-row"><span>Fully Paid on {prettyDateTime(paidReceipt.paidAtDate || invoice?.invoice_date, paidReceipt.paidAtTime)}</span><strong>{rupiah(grandTotal)}</strong></p>
+        ) : null}
         {status === 'deposit' ? (
           <p className="balance-due"><span>Balance Due</span><strong>{rupiah(invoice?.balance_due)}</strong></p>
+        ) : null}
+        {status === 'paid' ? (
+          <p className="balance-due"><span>Balance Due</span><strong>{rupiah(0)}</strong></p>
         ) : null}
       </section>
       <section className="bottom-grid">

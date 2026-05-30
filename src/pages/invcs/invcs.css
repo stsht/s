@@ -4667,8 +4667,29 @@ dd{margin:0;text-align:right;font-weight:800}
  * amount-right) layout and the export-host font scaling automatically. */
 .summary-box .deposit-paid span{color:#777}
 .summary-box .deposit-paid strong{color:#1f1a17}
+.summary-box .paid-in-full-row{
+  color:#1f1a17;
+  font-weight:800;
+}
+.summary-box .paid-in-full-row span{
+  max-width:58%;
+  color:#1f1a17;
+}
+.summary-box .paid-in-full-row strong{
+  color:#1f1a17;
+  font-weight:900;
+}
 .summary-box .balance-due{color:#1f1a17;font-weight:800}
 .summary-box .balance-due strong{font-weight:900}
+.paid-row{margin-bottom:14px}
+.dp-total-row.paid-in-full-row span{
+  max-width:58%;
+  color:#1f1a17;
+}
+.dp-total-row.paid-in-full-row strong{
+  color:#1f1a17;
+  font-weight:900;
+}
 
 /* ---- Generated JPG: Paid receipt stamp ----
  * Replaces the QR/bank block + deposit-due caption in the payment box
