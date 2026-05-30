@@ -43,32 +43,32 @@
   min-height: 0;
 }
 
-/* Whole-panel scrolling — matches /inv .editor-panel / .preview-panel.
+/* Whole-panel scrolling — matches /inv .editor-panel.
  *
- * Scroll behaviour is unified across both panels:
- *   - smooth scroll on programmatic jumps (Esc → back-up, anchor
- *     hops),
- *   - momentum scrolling on iOS via -webkit-overflow-scrolling,
+ * The actual scroll mechanics now come from the shared
+ * `scroll-surface-y` utility class applied to this element in
+ * PrivateWorkspaceFrame.jsx:
+ *   - overflow-x:hidden / overflow-y:auto,
+ *   - momentum scrolling on iOS (-webkit-overflow-scrolling:touch),
  *   - overscroll-behavior:contain so a vigorous flick inside a
- *     panel never escapes to the body / page background.
+ *     panel never escapes to the body / page background,
+ *   - hidden scrollbar chrome (cross-browser).
+ * See src/styles/scroll-surface.css.
  *
- * iPad Safari paints touch scroll indicators outside the normal
- * ::-webkit-scrollbar styling path. Keep the panel clipped and put
- * the real scroller in a small hidden right gutter, so that native
- * indicator is painted off-card while content keeps its original
- * 18px inset. */
+ * What stays here is layout-only: the gutter trick. iPad Safari
+ * paints touch scroll indicators outside the normal
+ * ::-webkit-scrollbar styling path, so we keep the panel clipped and
+ * push the real scroller into a small hidden right gutter (negative
+ * margin + extra right padding), so that native indicator is painted
+ * off-card while content keeps its original 18px inset. */
 .pf-panel-scroll {
   width: calc(100% + 18px);
   height: 100%;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
   padding: 18px;
   margin-right: -18px;
   padding-right: 36px;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
 }
 
 .pf-panel--right .pf-panel-scroll {
@@ -76,74 +76,16 @@
   flex-direction: column;
 }
 
-/* Hide both panel scrollbars while preserving scroll. The left
- * panel hosts list-rows + form/search content; the right panel
- * hosts a long detail surface (delivery detail, subscription
- * detail, invoice preview, ...). Operators flick/scroll-wheel both
- * — they don't need the OS scrollbar chrome stacked next to the
- * sticky header. Cross-browser:
- *   - scrollbar-width:none for Firefox/standards,
- *   - ::-webkit-scrollbar zero-size + display:none for
- *     Chromium/Safari where the scrollbar pseudo-element is honored,
- *   - -ms-overflow-style:none keeps legacy Edge consistent.
+/* Scrollbar chrome for the whole workspace frame is hidden by the
+ * shared pattern in scroll-surface.css:
+ *   - `.scroll-root` on .pf-page (set in PrivateWorkspaceFrame.jsx)
+ *     silences this panel AND every nested overflow surface (sticky
+ *     headers, list stacks, extension lists, pillsets) — even when
+ *     macOS System Settings → "Always" show scrollbars is on,
+ *   - `.scroll-surface-y` on each .pf-panel-scroll owns the scroll
+ *     mechanics + scrollbar hiding for the panel scrollers.
  * The scroll surface itself is preserved — wheel, drag, keyboard,
  * and touch all keep working. */
-/* Scrollbar hiding — all layers. scrollbar-width:none covers
- * Firefox + modern standards. -ms-overflow-style covers legacy
- * Edge. The ::-webkit-scrollbar rules cover every Safari/Chromium
- * surface. We target the panels explicitly AND use a scoped
- * wildcard under .pf-page so nested overflow containers (sticky
- * headers, extension lists, form stacks) are also silenced even
- * when macOS System Settings → "Always" show scrollbars is on. */
-.pf-panel,
-.pf-panel--left,
-.pf-panel--right,
-.pf-panel-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.pf-panel::-webkit-scrollbar,
-.pf-panel--left::-webkit-scrollbar,
-.pf-panel--right::-webkit-scrollbar,
-.pf-panel-scroll::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
-}
-.pf-panel::-webkit-scrollbar-thumb,
-.pf-panel--left::-webkit-scrollbar-thumb,
-.pf-panel--right::-webkit-scrollbar-thumb,
-.pf-panel-scroll::-webkit-scrollbar-thumb,
-.pf-panel::-webkit-scrollbar-track,
-.pf-panel--left::-webkit-scrollbar-track,
-.pf-panel--right::-webkit-scrollbar-track,
-.pf-panel-scroll::-webkit-scrollbar-track {
-  background: transparent !important;
-  display: none !important;
-}
-/* Wildcard catch-all: any nested overflow surface inside the
- * workspace frame — form stacks, extension lists, pillsets —
- * is also fully suppressed. */
-.pf-page,
-.pf-page * {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.pf-page::-webkit-scrollbar,
-.pf-page *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
-}
-.pf-page::-webkit-scrollbar-thumb,
-.pf-page *::-webkit-scrollbar-thumb,
-.pf-page::-webkit-scrollbar-track,
-.pf-page *::-webkit-scrollbar-track {
-  background: transparent !important;
-  display: none !important;
-}
 
 /* Header — matches /inv .panel-header.
  *
@@ -401,8 +343,9 @@
     height: 100%;
   }
   .pf-panel-scroll {
-    /* Inherit all desktop scrollbar-hiding, scroll, and gutter offset behaviors.
-     * Override min-height to 0 so flex container children size properly. */
+    /* Keep the desktop scroll mechanics (from `scroll-surface-y`) and
+     * gutter offset. Override min-height to 0 so flex container
+     * children size properly. */
     min-height: 0 !important;
   }
   .pf-panel--right {
