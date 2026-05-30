@@ -6103,7 +6103,7 @@ export function SubscriptionsPage() {
           <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
         </div>
       </header>
-      <div className="subs-canvas">
+      <div className="subs-canvas scroll-surface-y">
         {mode === 'paid' ? paidCard : invoiceCard}
       </div>
       <p className="download-status">{status}</p>
