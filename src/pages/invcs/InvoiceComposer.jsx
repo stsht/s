@@ -506,10 +506,15 @@ export function InvoiceComposer() {
   // { id, paid, paidAtDate, paidAtTime, amount }. The Deposit tab is
   // where these are added/edited; the Invoice tab stays the source
   // of truth for identity, packages, discount and the requested
-  // deposit due. `requestBalanceDue` toggles the "Balance Due" line
-  // on the generated Deposit Invoice JPG.
+  // deposit due. `requestBalanceDue` used to gate the "Balance Due"
+  // line on the Deposit Invoice JPG via an operator checkbox. The
+  // Balance Due line is now ALWAYS shown in deposit mode (placed
+  // right after Grand Total), so the flag is retained only for
+  // backward-compatible data shape — it is persisted/hydrated but
+  // no longer drives rendering. Defaults to true to reflect the
+  // always-on behaviour for fresh drafts.
   const [depositPayments, setDepositPayments] = useState([]);
-  const [requestBalanceDue, setRequestBalanceDue] = useState(false);
+  const [requestBalanceDue, setRequestBalanceDue] = useState(true);
   const [packages, setPackages] = useState(DEFAULT_PACKAGES);
   const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
@@ -1017,8 +1022,6 @@ export function InvoiceComposer() {
           addDepositPayment={addDepositPayment}
           updateDepositPayment={updateDepositPayment}
           removeDepositPayment={removeDepositPayment}
-          requestBalanceDue={requestBalanceDue}
-          setRequestBalanceDue={setRequestBalanceDue}
           depositPaidTotal={depositPaidTotal}
           balanceDue={balanceDue}
           uploadQr={uploadQr}
@@ -1041,7 +1044,6 @@ export function InvoiceComposer() {
           qrSrc={qrSrc}
           paymentMethod={paymentMethod}
           depositPayments={depositPayments}
-          requestBalanceDue={requestBalanceDue}
           balanceDue={balanceDue}
           status={status}
           documentRef={documentRef}
@@ -1217,7 +1219,7 @@ function EditorPanel(props) {
             </div>
           )}
           <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
-          <div className="total-card"><span>{isFullPayment(props.totals) ? 'Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
+          <div className="total-card"><span>{isFullPayment(props.totals) ? 'Full Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
       </Fieldset>
         </>
@@ -1239,8 +1241,10 @@ function EditorPanel(props) {
               addPayment={props.addDepositPayment}
               updatePayment={props.updateDepositPayment}
               removePayment={props.removeDepositPayment}
-              requestBalanceDue={props.requestBalanceDue}
-              setRequestBalanceDue={props.setRequestBalanceDue}
+              depositMode={props.depositMode}
+              setDepositMode={props.setDepositMode}
+              depositCustomAmount={props.depositCustomAmount}
+              setDepositCustomAmount={props.setDepositCustomAmount}
               depositPaidTotal={props.depositPaidTotal}
               balanceDue={props.balanceDue}
               totals={props.totals}
@@ -1280,21 +1284,97 @@ function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eve
   );
 }
 
-// Deposit-tab ledger. Lets the operator log one or more deposit
-// instalments (date/time + amount, each with a paid toggle), request
-// the Balance Due line on the JPG, and see the running Deposit Paid /
-// Balance Due figures. All of this is persisted inside invoice_data —
-// no new DB columns.
-function DepositLedger({ payments, addPayment, updatePayment, removePayment, requestBalanceDue, setRequestBalanceDue, depositPaidTotal, balanceDue, totals }) {
+// Deposit-tab ledger + workflow menu. Two clearly separated actions:
+//
+//   • "Ask DP"        — set the deposit you request from the client.
+//                       Toggles the Requested Deposit Due editor: the
+//                       20/30/50/100/Custom preset ladder plus a manual
+//                       IDR override field. Shares the Invoice tab's
+//                       depositMode / depositCustomAmount state so the
+//                       requested-deposit figure stays in sync.
+//   • "+ Add DP Paid" — record one paid deposit instalment.
+//
+// The running Deposit Paid / Balance Due totals and a per-deposit
+// "Deposit Paid on <date>" recap (same wording as the live preview /
+// JPG summary box) sit below. The old "Show Balance Due on invoice"
+// checkbox was removed — the Balance Due line is now always shown on
+// the invoice (see PreviewPanel). All state lives in invoice_data;
+// no new DB columns are introduced.
+function DepositLedger({ payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, totals }) {
+  const [askOpen, setAskOpen] = useState(true);
+  const fullPayment = isFullPayment(totals);
+  const paidRows = payments.filter((payment) => payment.paid);
   return (
     <Fieldset title="Deposit Payments">
-      <div className="dp-context">
-        <span>Requested Deposit Due</span>
-        <strong>{rupiah(totals.depositDue)}</strong>
+      {/* Workflow menu — "Ask DP" reveals the requested-deposit
+          editor; "Add DP Paid" logs a recorded instalment. */}
+      <div className="dp-menu" role="group" aria-label="Deposit workflow">
+        <button
+          type="button"
+          className={`dp-menu-btn${askOpen ? ' active' : ''}`}
+          aria-expanded={askOpen}
+          onClick={() => setAskOpen((open) => !open)}
+        >
+          Ask DP
+        </button>
+        <button type="button" className="dp-menu-btn dp-menu-btn--primary" onClick={addPayment}>
+          + Add DP Paid
+        </button>
       </div>
+
+      {askOpen ? (
+        <div className="dp-ask">
+          <div className="dp-context">
+            <span>{fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due'}</span>
+            <strong>{rupiah(totals.depositDue)}</strong>
+          </div>
+          <div className="deposit-presets" role="radiogroup" aria-label="Requested deposit preset">
+            {DEPOSIT_PRESETS.map((preset) => {
+              const value = String(preset);
+              const active = depositMode === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={active ? 'active' : ''}
+                  onClick={() => setDepositMode(value)}
+                >
+                  {preset}%
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={depositMode === 'custom'}
+              className={depositMode === 'custom' ? 'active' : ''}
+              onClick={() => setDepositMode('custom')}
+            >
+              Custom
+            </button>
+          </div>
+          <label className="deposit-custom">
+            Manual amount (IDR) — overrides preset
+            <input
+              type="number"
+              min="0"
+              value={depositMode === 'custom' ? depositCustomAmount : ''}
+              onFocus={selectAllIfZero}
+              onChange={(event) => {
+                setDepositCustomAmount(event.target.value);
+                setDepositMode('custom');
+              }}
+              placeholder="e.g. 500000"
+            />
+          </label>
+        </div>
+      ) : null}
+
       <div className="dp-list">
         {payments.length === 0 ? (
-          <p className="dp-empty">No deposit payments recorded yet. Use the Add DP Paid button to log one.</p>
+          <p className="dp-empty">No deposit payments recorded yet. Use the + Add DP Paid button to log one.</p>
         ) : payments.map((payment) => (
           <div className="dp-row" key={payment.id}>
             <label className="dp-paid-toggle">
@@ -1331,19 +1411,26 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, req
           </div>
         ))}
       </div>
-      <button className="ghost-button" type="button" onClick={addPayment}>+ Add DP Paid</button>
-      <label className="dp-balance-toggle">
-        <input
-          type="checkbox"
-          checked={!!requestBalanceDue}
-          onChange={(event) => setRequestBalanceDue(event.target.checked)}
-        />
-        <span>Show Balance Due on invoice</span>
-      </label>
+
       <div className="dp-totals">
         <div className="dp-total-row"><span>Deposit Paid</span><strong>{rupiah(depositPaidTotal)}</strong></div>
         <div className="dp-total-row dp-total-balance"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></div>
       </div>
+
+      {/* Per-deposit recap — each paid instalment listed separately
+          with the same "Deposit Paid on <date>" wording the live
+          preview / JPG summary box uses. */}
+      {paidRows.length ? (
+        <div className="dp-list dp-list--readonly">
+          <p className="dp-context-label">{paidRows.length > 1 ? 'Deposits paid' : 'Deposit paid'}</p>
+          {paidRows.map((payment) => (
+            <div className="dp-readonly-row" key={payment.id}>
+              <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+              <strong>{rupiah(payment.amount)}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </Fieldset>
   );
 }
@@ -1402,13 +1489,89 @@ function QrUploadField({ onChange, fileName }) {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, requestBalanceDue, balanceDue, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
-  const dueLabel = isFullPayment(totals) ? 'Payment Due' : 'Deposit Due';
+// Toolbar icons for the Live Preview header. Same minimalist 2D
+// stroke-only family as the /db Subs detail toolbar (viewBox 0 0 24
+// 24, fill:none, stroke:currentColor, round caps/joins, className
+// "btn-icon") so the two surfaces read as one icon system. They pick
+// up the parent .toolbar-icon-btn's currentColor for hover/disabled
+// palettes without per-icon overrides.
+
+// Circular-arrows refresh glyph for the Save / Update Status action
+// (icon-only). When `spinning` is true (a save is in flight) the
+// .is-spinning class drives a slow rotation via CSS.
+function RefreshIcon({ spinning = false }) {
+  return (
+    <svg
+      className={`btn-icon${spinning ? ' is-spinning' : ''}`}
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <polyline points="21 3 21 9 15 9" />
+    </svg>
+  );
+}
+
+// Printer glyph for the Generate JPG action (icon-only). Mirrors the
+// /db Subs PrintIcon so "print/export" reads identically across the
+// app.
+function PrinterIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+  );
+}
+
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, balanceDue, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = mode === 'deposit'
     ? (depositPayments || []).filter((payment) => payment.paid)
     : [];
+  // Payment caption shown in the .payment-box beside Terms &
+  // Conditions. The label/amount track the workflow state:
+  //   • a deposit has been recorded and a balance remains -> "Balance
+  //     Due" with the outstanding amount (automatic — no toggle),
+  //   • the full grand total is requested (100% / custom >= total)
+  //     -> "Full Payment Due",
+  //   • otherwise a partial deposit is requested -> "Deposit Due".
+  const paidSoFar = paidDeposits.reduce(
+    (sum, payment) => sum + Math.max(0, Math.round(Number(payment.amount) || 0)),
+    0,
+  );
+  const balanceMode = mode === 'deposit' && paidSoFar > 0 && balanceDue > 0;
+  const dueLabel = balanceMode
+    ? 'Balance Due'
+    : (isFullPayment(totals) ? 'Full Payment Due' : 'Deposit Due');
+  const dueAmount = balanceMode ? balanceDue : totals.depositDue;
+  // Short, method-aware instruction so the payment canvas reads
+  // clearly for both QR and Bank Transfer.
+  const payHint = paymentMethod === 'bank'
+    ? 'Transfer to the account above'
+    : 'Scan the QR above to pay';
   const previewCanvasRef = useRef(null);
   const [previewMetrics, setPreviewMetrics] = useState({
     fitScale: 1,
@@ -1418,7 +1581,6 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
   const [zoomMode, setZoomMode] = useState('fit');
   const [manualScale, setManualScale] = useState(1);
   const previewScale = zoomMode === 'fit' ? previewMetrics.fitScale : manualScale;
-  const previewPercent = Math.round(previewScale * 100);
 
   useEffect(() => {
     const canvas = previewCanvasRef.current;
@@ -1501,19 +1663,26 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
         </div>
         <div className="preview-toolbar-actions">
           <button
-            className="ghost-button compact"
+            className="toolbar-icon-btn"
             type="button"
             onClick={saveInvoice}
             disabled={saving || hydrating}
+            aria-label={saving ? 'Saving status' : (savedId ? 'Update status' : 'Save status')}
+            title={saving ? 'Saving\u2026' : (savedId ? 'Update status' : 'Save status')}
           >
-            {saving ? 'Saving\u2026' : (savedId ? 'Update Status' : 'Save Status')}
+            <RefreshIcon spinning={saving} />
           </button>
-          <button className="primary-button" type="button" onClick={downloadJpg}>Generate JPG</button>
-          <div className="preview-zoom-controls" role="group" aria-label="Preview zoom controls">
+          <button
+            className="toolbar-icon-btn"
+            type="button"
+            onClick={downloadJpg}
+            aria-label="Generate JPG"
+            title="Generate JPG"
+          >
+            <PrinterIcon />
+          </button>
+          <div className="preview-zoom-controls" role="group" aria-label="Preview zoom">
             <button type="button" onClick={() => setZoomMode('fit')} disabled={zoomMode === 'fit'}>Fit</button>
-            <button type="button" aria-label="Zoom out" title="Zoom out" onClick={() => adjustPreviewZoom(0.9)}>-</button>
-            <span>{previewPercent}%</span>
-            <button type="button" aria-label="Zoom in" title="Zoom in" onClick={() => adjustPreviewZoom(1.1)}>+</button>
           </div>
         </div>
       </header>
@@ -1558,7 +1727,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                 </p>
               ))}
               <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
-              {mode === 'deposit' && requestBalanceDue ? (
+              {mode === 'deposit' ? (
                 <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>
               ) : null}
             </section>
@@ -1584,7 +1753,11 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                     ) : (
                       <img src={qrSrc} alt="Payment QR" />
                     )}
-                    <div className="deposit-due"><span>{dueLabel}</span><strong>{rupiah(totals.depositDue)}</strong></div>
+                    <div className="deposit-due">
+                      <small className="payment-hint">{payHint}</small>
+                      <span>{dueLabel}</span>
+                      <strong>{rupiah(dueAmount)}</strong>
+                    </div>
                   </>
                 )}
               </div>
