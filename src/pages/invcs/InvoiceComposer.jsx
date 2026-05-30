@@ -1005,7 +1005,7 @@ export function InvoiceComposer() {
   }
 
   return (
-    <main className="composer-page">
+    <main className="composer-page scroll-root">
       <GlobalBackground />
       <section className={`composer-shell ${mobileView === 'preview' ? 'show-preview' : ''}`}>
         <EditorPanel
@@ -1084,7 +1084,7 @@ export function InvoiceComposer() {
 
 function EditorPanel(props) {
   return (
-    <aside className="editor-panel panel">
+    <aside className="editor-panel panel scroll-surface-y">
       <header className="panel-header">
         <img src="/logo-hero.png" alt="StarShots" />
         <div className="mode-switch">
@@ -1701,7 +1701,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           </button>
         </div>
       </header>
-      <div className="preview-canvas" ref={previewCanvasRef}>
+      <div className="preview-canvas scroll-surface" ref={previewCanvasRef}>
         <div className="invoice-preview-stage" style={previewStageStyle}>
           <article className="invoice-sheet" ref={documentRef}>
             <header className="sheet-top"><img src="/logo-hero.png" alt="StarShots" /></header>

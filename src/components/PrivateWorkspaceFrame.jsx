@@ -68,14 +68,14 @@ export function PrivateWorkspaceFrame({
 
   return (
     <main
-      className="pf-page"
+      className="pf-page scroll-root"
       data-show-detail={showDetail ? 'true' : undefined}
       data-single-panel={isSinglePanel ? 'true' : undefined}
     >
       <GlobalBackground />
       <section className="pf-shell">
         <aside className="pf-panel pf-panel--left">
-          <div className="pf-panel-scroll">
+          <div className="pf-panel-scroll scroll-surface-y">
             <header className="pf-header">
               <a className="pf-logo" href={logoHref} aria-label="StarShots Workspace">
                 {/* Picture/source swap to a real white asset in dark
@@ -116,7 +116,7 @@ export function PrivateWorkspaceFrame({
         </aside>
         {right !== null ? (
           <section className="pf-panel pf-panel--right">
-            <div className="pf-panel-scroll">{right}</div>
+            <div className="pf-panel-scroll scroll-surface-y">{right}</div>
           </section>
         ) : null}
       </section>

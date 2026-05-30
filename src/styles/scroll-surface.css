@@ -1,0 +1,158 @@
+/* ============================================================
+ * scroll-surface.css — the ONE shared scroll/scrollbar pattern
+ * ============================================================
+ *
+ * Single source of truth for "scroll works, scrollbar chrome is
+ * hidden" across the whole app. Every page loads this file (it is
+ * @imported at the top of invcs.css, which every entry imports).
+ *
+ * WHY THIS EXISTS
+ *   Scrollbar bugs kept coming back because each page/panel set its
+ *   own overflow + its own ::-webkit-scrollbar rules. Any nested
+ *   element that scrolled but wasn't targeted would let Safari /
+ *   Chrome paint a bar again. These utilities centralise the fix so
+ *   new pages don't have to reinvent (and re-break) it.
+ *
+ * WHICH CLASS DO I USE? (decision guide for future pages)
+ *   - .scroll-root        -> put on a PAGE-LEVEL wrapper. Catch-all:
+ *                            hides scrollbar chrome on the wrapper AND
+ *                            every descendant, while leaving each
+ *                            element's own overflow/scroll intact. Use
+ *                            this as the safety net so a future nested
+ *                            scroller can never reintroduce a bar.
+ *   - .scroll-surface-y   -> the common case: an element that should
+ *                            scroll VERTICALLY (panels, lists, canvases).
+ *                            Adds overflow-y:auto + iOS momentum +
+ *                            overscroll containment + hidden scrollbar.
+ *   - .scroll-surface-x   -> horizontal-only scroller (e.g. a wide
+ *                            toolbar / chip row).
+ *   - .scroll-surface     -> scrolls on BOTH axes (e.g. a zoomable
+ *                            preview canvas).
+ *   - .hide-scrollbar     -> ONLY hides the scrollbar chrome. Does NOT
+ *                            set overflow. Use when an element already
+ *                            declares its own overflow and you just
+ *                            want the bar gone.
+ *
+ * CROSS-BROWSER SCROLLBAR HIDING (all three are required):
+ *   - scrollbar-width:none        -> Firefox + the CSS standard.
+ *   - -ms-overflow-style:none     -> legacy Edge / IE.
+ *   - ::-webkit-scrollbar{...}    -> Safari / Chrome / Chromium.
+ *
+ * SCROLL IS NEVER REMOVED — only the visual bar is hidden. Wheel,
+ * drag, keyboard, and touch all keep working. iOS momentum is kept
+ * via -webkit-overflow-scrolling:touch; overscroll-behavior:contain
+ * stops a flick inside a panel from leaking to the page background.
+ * ============================================================ */
+
+/* ---- Page baseline -------------------------------------------------
+ * html / body are scroll ancestors (not descendants of any page
+ * wrapper), so .scroll-root's descendant selector can't reach them.
+ * Hide their native bars here. The in-panel scrollers stay the
+ * canonical scroll surface; page/body overflow itself is owned by
+ * the page CSS (e.g. invcs.css body{overflow:auto}). */
+html,
+body {
+  scrollbar-width: none;          /* Firefox / standard */
+  -ms-overflow-style: none;       /* legacy Edge */
+}
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0 !important;            /* Safari / Chrome */
+  height: 0 !important;
+  display: none;
+  background: transparent;
+}
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+/* ---- .hide-scrollbar ----------------------------------------------
+ * Scrollbar chrome removal only. No overflow is set here on purpose,
+ * so this composes onto elements that manage their own overflow. */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+.hide-scrollbar::-webkit-scrollbar-thumb,
+.hide-scrollbar::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+/* ---- .scroll-surface / -y / -x ------------------------------------
+ * Full scroll surfaces: overflow + iOS momentum + overscroll
+ * containment + hidden scrollbar chrome. Pick the axis variant that
+ * matches the content. Layout (size, padding, borders) stays on the
+ * element's own class — these utilities only own scroll behaviour. */
+.scroll-surface,
+.scroll-surface-y,
+.scroll-surface-x {
+  -webkit-overflow-scrolling: touch;  /* iOS momentum */
+  overscroll-behavior: contain;       /* no scroll leak to the page */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-surface::-webkit-scrollbar,
+.scroll-surface-y::-webkit-scrollbar,
+.scroll-surface-x::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+.scroll-surface::-webkit-scrollbar-thumb,
+.scroll-surface-y::-webkit-scrollbar-thumb,
+.scroll-surface-x::-webkit-scrollbar-thumb,
+.scroll-surface::-webkit-scrollbar-track,
+.scroll-surface-y::-webkit-scrollbar-track,
+.scroll-surface-x::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.scroll-surface {
+  overflow: auto;
+}
+.scroll-surface-y {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.scroll-surface-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* ---- .scroll-root -------------------------------------------------
+ * Page-level catch-all safety net. Add to a page's top-level wrapper
+ * so the wrapper AND every nested element hide scrollbar chrome while
+ * keeping their own scroll. This is what guarantees a future nested
+ * overflow:auto container can't quietly bring a bar back on
+ * Safari/Chrome (incl. macOS "Always show scrollbars"). It hides
+ * chrome only — it never sets overflow, so it can't change which
+ * element owns scrolling. */
+.scroll-root,
+.scroll-root * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-root::-webkit-scrollbar,
+.scroll-root *::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+.scroll-root::-webkit-scrollbar-thumb,
+.scroll-root *::-webkit-scrollbar-thumb,
+.scroll-root::-webkit-scrollbar-track,
+.scroll-root *::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: 0 !important;
+}
