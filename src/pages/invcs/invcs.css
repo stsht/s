@@ -522,6 +522,62 @@ button{cursor:pointer}
   letter-spacing:.01em;
   text-align:center;
 }
+/* Primary invoice action. Echoes the delivery-row geometry (same
+ * icon-chip / label / state three-column grid) so it sits in the
+ * card's vertical rhythm, but is filled with the accent colour to
+ * read as the lead call-to-action above the outlined delivery
+ * options. min-height keeps it a comfortable tap target on mobile;
+ * the grid + minmax(0,1fr) label column stops a long label from
+ * pushing the row past the card edge. */
+.public-delivery-invoice{
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  min-height:64px;
+  margin:clamp(22px,3.6vw,28px) 0 0;
+  padding:10px 16px;
+  border:1px solid transparent;
+  border-radius:18px;
+  background:var(--accent);
+  color:#fff;
+  text-decoration:none;
+  box-shadow:0 16px 32px rgba(95,149,245,.28);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.public-delivery-invoice:hover{
+  transform:translateY(-1px);
+  background:var(--accent-2);
+  box-shadow:0 20px 40px rgba(95,149,245,.34);
+}
+.public-delivery-invoice:active{
+  transform:translateY(0) scale(.995);
+}
+.public-delivery-invoice-icon{
+  display:inline-grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  border-radius:12px;
+  background:rgba(255,255,255,.2);
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.06em;
+}
+.public-delivery-invoice-label{
+  min-width:0;
+  font-size:16px;
+  font-weight:900;
+}
+.public-delivery-invoice-cta{
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  opacity:.85;
+}
 .public-delivery-list{
   display:grid;
   gap:12px;
@@ -543,10 +599,6 @@ button{cursor:pointer}
   border-color:var(--accent);
   transform:translateY(-1px);
   box-shadow:0 14px 28px rgba(31,26,23,.08);
-}
-.public-delivery-row.is-muted{
-  opacity:.46;
-  border-style:dashed;
 }
 .public-delivery-icon{
   display:inline-grid;
@@ -571,9 +623,6 @@ button{cursor:pointer}
   font-weight:900;
   letter-spacing:.18em;
   text-transform:uppercase;
-}
-.public-delivery-row.is-muted .public-delivery-state{
-  color:var(--muted);
 }
 .public-delivery-signoff{
   margin:auto 0 0;
