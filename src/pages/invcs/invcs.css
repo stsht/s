@@ -1326,45 +1326,6 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   padding:0 16px;
   min-height:38px;
 }
-.preview-zoom-controls{
-  min-height:38px;
-  display:inline-flex;
-  align-items:center;
-  gap:3px;
-  padding:3px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:var(--soft);
-}
-.preview-zoom-controls button{
-  min-width:32px;
-  height:30px;
-  padding:0 10px;
-  border:0;
-  border-radius:999px;
-  background:transparent;
-  color:var(--muted);
-  font-size:11px;
-  font-weight:900;
-}
-.preview-zoom-controls button:hover,
-.preview-zoom-controls button:focus-visible{
-  background:var(--panel);
-  color:var(--ink);
-  outline:none;
-}
-.preview-zoom-controls button:disabled{
-  cursor:default;
-  opacity:.45;
-}
-.preview-zoom-controls span{
-  min-width:42px;
-  color:var(--ink);
-  text-align:center;
-  font-size:11px;
-  font-weight:900;
-  font-variant-numeric:tabular-nums;
-}
 .eyebrow{margin:0;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .primary-button{background:#1f1a17;color:#fff;white-space:nowrap}
 .primary-button:hover{background:#302a25}
@@ -1471,33 +1432,26 @@ dd{margin:0;text-align:right;font-weight:800}
  * the rupiah string, which made the panel look wider on a 7-figure
  * invoice than on a 5-figure one. That border is intentionally
  * removed and stays removed. */
-.bottom-grid > .sheet-box.payment-box{padding:26px 18px}
+.bottom-grid > .sheet-box.payment-box{padding:20px 18px}
 .payment-box{
   display:grid;
-  grid-template-rows:auto auto 1fr auto;
-  gap:14px;
+  /* Three balanced zones: PAYMENT label (top), QR/Bank content
+   * (centred in the flexible middle row), then the amount caption
+   * (bottom). The 1fr middle row absorbs any extra height so the
+   * top label and bottom caption stay pinned to the frame edges —
+   * the column reads evenly whether it is shorter than or matched
+   * to the Terms & Conditions card beside it. */
+  grid-template-rows:auto 1fr auto;
+  gap:12px;
   justify-items:center;
+  align-items:center;
   text-align:center;
 }
-.payment-box img{display:block;width:168px;height:168px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
+.payment-box img{display:block;width:132px;height:132px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
 .payment-box .eyebrow{margin:0 0 4px;padding:0;border:0;background:transparent;letter-spacing:.2em}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .deposit-due strong{font-size:18px;font-weight:900;color:#1f1a17;line-height:1.2}
-/* Method-aware instruction line above the due caption ("Scan the QR
- * above to pay" / "Transfer to the account above"). Plain sentence
- * case so it reads as guidance, not a label — distinct from the
- * uppercase .deposit-due span beneath it. Rides the export-host
- * scaling via the dedicated rule in the .invoice-export-host block. */
-.deposit-due .payment-hint{
-  max-width:200px;
-  color:#8a8f98;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:.01em;
-  line-height:1.4;
-  text-transform:none;
-}
 /* Bank Transfer block — drop-in replacement for the QR image inside
  * .payment-box when the operator picks "Bank Transfer". Width is
  * 100% of the slim payment column so account numbers don't wrap;
@@ -2972,12 +2926,11 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .summary-box p strong{font-size:39px}
 .invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:54px}
 .invoice-export-host .summary-box .grand strong{font-size:54px;font-weight:900}
-.invoice-export-host .bottom-grid > .sheet-box.payment-box{padding:78px 54px}
-.invoice-export-host .payment-box{gap:42px}
-.invoice-export-host .payment-box img{width:504px;height:504px;border-width:3px;border-radius:54px;padding:27px}
+.invoice-export-host .bottom-grid > .sheet-box.payment-box{padding:60px 54px}
+.invoice-export-host .payment-box{gap:36px}
+.invoice-export-host .payment-box img{width:396px;height:396px;border-width:3px;border-radius:54px;padding:27px}
 .invoice-export-host .payment-box .eyebrow{margin:0 0 12px;letter-spacing:.2em}
 .invoice-export-host .deposit-due{gap:12px}
-.invoice-export-host .deposit-due .payment-hint{max-width:660px;font-size:30px;line-height:1.4}
 .invoice-export-host .deposit-due span{font-size:33px}
 .invoice-export-host .deposit-due strong{font-size:54px}
 .invoice-export-host .bank-details{gap:48px}
@@ -4561,7 +4514,9 @@ dd{margin:0;text-align:right;font-weight:800}
   width:100%;
   text-align:center;
 }
-.payment-box .paid-stamp{grid-row:2 / -1;align-self:center}
+/* The PAYMENT eyebrow is not rendered in paid mode, so the stamp
+ * spans the whole payment-box grid and centres in it. */
+.payment-box .paid-stamp{grid-row:1 / -1;align-self:center}
 .paid-stamp-badge{
   display:inline-flex;
   align-items:center;
