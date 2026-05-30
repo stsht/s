@@ -202,6 +202,28 @@ function PlusIcon() {
   );
 }
 
+function UploadIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M12 16V4" />
+      <path d="M7 9l5-5 5 5" />
+      <path d="M5 20h14" />
+    </svg>
+  );
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -4046,8 +4068,8 @@ export function DatabasePage() {
             <button className="add-client-button" type="button" onClick={openCreateSubscription}>
               New Subscription
             </button>
-            <button className="add-client-button add-client-button--ghost" type="button" onClick={openImportSubscription}>
-              Import JPG
+            <button className="subs-import-icon-button" type="button" onClick={openImportSubscription} aria-label="Import JPG" title="Import JPG">
+              <UploadIcon />
             </button>
           </div>
         ) : null}

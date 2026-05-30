@@ -619,9 +619,11 @@ button{cursor:pointer}
 .editor-panel,.preview-panel{height:100%;min-height:0;scroll-behavior:smooth}
 .editor-panel{padding:0}
 .editor-panel-scroll{
+  width:calc(100% + 18px);
   height:100%;
   min-height:0;
-  padding:18px;
+  margin-right:-18px;
+  padding:18px 36px 18px 18px;
   scroll-behavior:smooth;
 }
 /* The /inv preview-panel is a clip frame, not a scroller — the
@@ -1445,6 +1447,19 @@ dd{margin:0;text-align:right;font-weight:800}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .deposit-due strong{font-size:18px;font-weight:900;color:#1f1a17;line-height:1.2}
+.deposit-received-stamp{
+  grid-row:2 / -1;
+  align-self:center;
+  display:grid;
+  gap:4px;
+  color:#1f1a17;
+  text-align:center;
+  font-size:21px;
+  font-weight:900;
+  line-height:1.05;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
 /* Bank Transfer block — drop-in replacement for the QR image inside
  * .payment-box when the operator picks "Bank Transfer". Width is
  * 100% of the slim payment column so account numbers don't wrap;
@@ -1844,10 +1859,30 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-list-actions > .add-client-button{
   width:auto;
-  flex:1 1 0;
+  flex:1 1 auto;
   min-width:0;
   padding:0 14px;
 }
+.subs-import-icon-button{
+  flex:0 0 52px;
+  width:52px;
+  min-height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:16px;
+  background:transparent;
+  color:var(--muted);
+  box-shadow:none;
+}
+.subs-import-icon-button:hover,
+.subs-import-icon-button:focus-visible{
+  color:var(--ink);
+  background:var(--soft);
+  outline:none;
+}
+.subs-import-icon-button:active{transform:scale(.98)}
 .add-client-button--ghost{
   background:var(--soft);
   color:var(--ink);
@@ -2926,6 +2961,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .deposit-due{gap:12px}
 .invoice-export-host .deposit-due span{font-size:33px}
 .invoice-export-host .deposit-due strong{font-size:54px}
+.invoice-export-host .deposit-received-stamp{gap:12px;font-size:63px}
 .invoice-export-host .bank-details{gap:48px}
 .invoice-export-host .bank-details-heading{margin:0 0 6px;font-size:39px}
 .invoice-export-host .bank-details-list{gap:24px;padding:36px 42px;border-width:3px;border-radius:42px}

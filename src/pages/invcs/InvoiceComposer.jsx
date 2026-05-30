@@ -521,6 +521,7 @@ export function InvoiceComposer() {
   // small invoices never silently produce a 0 deposit.
   const [depositMode, setDepositMode] = useState('20');
   const [depositCustomAmount, setDepositCustomAmount] = useState('');
+  const [depositAskOpen, setDepositAskOpen] = useState(true);
   // Deposit-mode payment ledger. Lives ONLY inside invoice_data —
   // no new DB columns. Each entry is a recorded deposit instalment
   // { id, paid, paidAtDate, paidAtTime, amount }. The Deposit tab is
@@ -1044,6 +1045,8 @@ export function InvoiceComposer() {
           removeDepositPayment={removeDepositPayment}
           depositPaidTotal={depositPaidTotal}
           balanceDue={balanceDue}
+          depositAskOpen={depositAskOpen}
+          setDepositAskOpen={setDepositAskOpen}
           uploadQr={uploadQr}
           qrFileName={qrFileName}
           paymentMethod={paymentMethod}
@@ -1064,6 +1067,7 @@ export function InvoiceComposer() {
           qrSrc={qrSrc}
           paymentMethod={paymentMethod}
           depositPayments={depositPayments}
+          depositAskOpen={depositAskOpen}
           balanceDue={balanceDue}
           status={status}
           documentRef={documentRef}
@@ -1290,11 +1294,6 @@ function EditorPanel(props) {
 function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eventTime, totals }) {
   return (
     <Fieldset title="Invoice Details (locked)">
-      <p className="locked-hint">
-        {mode === 'deposit'
-          ? 'Identity and event details are set on the Invoice tab. Record deposit payments below.'
-          : 'Identity and event details are set on the Invoice tab. Saving here marks the invoice paid in full.'}
-      </p>
       <dl className="locked-list">
         <div className="locked-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
         <div className="locked-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
@@ -1322,8 +1321,7 @@ function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eve
 // checkbox was removed — the Balance Due line is now always shown on
 // the invoice (see PreviewPanel). All state lives in invoice_data;
 // no new DB columns are introduced.
-function DepositLedger({ payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, totals }) {
-  const [askOpen, setAskOpen] = useState(true);
+function DepositLedger({ payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, totals, depositAskOpen, setDepositAskOpen }) {
   const fullPayment = isFullPayment(totals);
   const paidRows = payments.filter((payment) => payment.paid);
   // Opening "Ask DP" auto-follows the requested deposit due to the
@@ -1333,8 +1331,8 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
   // hydrating a saved invoice keeps the persisted requested deposit
   // untouched until the operator explicitly reopens Ask DP.
   const handleAskToggle = () => {
-    const willOpen = !askOpen;
-    setAskOpen(willOpen);
+    const willOpen = !depositAskOpen;
+    setDepositAskOpen(willOpen);
     if (!willOpen) return;
     const latest = latestPaidDepositAmount(payments);
     if (latest > 0) {
@@ -1352,8 +1350,8 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
       <div className="dp-menu" role="group" aria-label="Deposit workflow">
         <button
           type="button"
-          className={`dp-menu-btn${askOpen ? ' active' : ''}`}
-          aria-expanded={askOpen}
+          className={`dp-menu-btn${depositAskOpen ? ' active' : ''}`}
+          aria-expanded={depositAskOpen}
           onClick={handleAskToggle}
         >
           Ask DP
@@ -1363,7 +1361,7 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
         </button>
       </div>
 
-      {askOpen ? (
+      {depositAskOpen ? (
         <div className="dp-ask">
           <div className="dp-context">
             <span>{fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due'}</span>
@@ -1484,7 +1482,6 @@ function PaidSummary({ totals, payments }) {
   const paidRows = (payments || []).filter((payment) => payment.paid);
   return (
     <Fieldset title="Mark as Paid">
-      <p className="locked-hint">Saving in Paid mode records this invoice as settled in full: paid amount equals the grand total and the balance due is cleared to zero.</p>
       <div className="dp-totals">
         <div className="dp-total-row"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></div>
         <div className="dp-total-row dp-total-balance"><span>Balance Due</span><strong>{rupiah(0)}</strong></div>
@@ -1586,7 +1583,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, balanceDue, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = mode === 'deposit'
@@ -1755,6 +1752,11 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                   <div className="paid-stamp">
                     <span className="paid-stamp-badge">PAID</span>
                     <p className="paid-stamp-note">Thank You!<br />Your Invoice has been Paid in Full</p>
+                  </div>
+                ) : mode === 'deposit' && !depositAskOpen ? (
+                  <div className="deposit-received-stamp">
+                    <span>Deposit</span>
+                    <span>Received</span>
                   </div>
                 ) : (
                   <>
