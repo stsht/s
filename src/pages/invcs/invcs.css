@@ -59,6 +59,25 @@ body::-webkit-scrollbar-thumb,
 .editor-panel::-webkit-scrollbar-thumb{
   background:transparent;
 }
+.composer-page,
+.composer-page *{
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.composer-page::-webkit-scrollbar,
+.composer-page *::-webkit-scrollbar{
+  width:0!important;
+  height:0!important;
+  display:none!important;
+  background:transparent!important;
+}
+.composer-page::-webkit-scrollbar-thumb,
+.composer-page *::-webkit-scrollbar-thumb,
+.composer-page::-webkit-scrollbar-track,
+.composer-page *::-webkit-scrollbar-track{
+  background:transparent!important;
+  border:0!important;
+}
 body{
   min-height:100dvh;
   background:var(--bg);
@@ -1442,12 +1461,12 @@ dd{margin:0;text-align:right;font-weight:800}
    * the column reads evenly whether it is shorter than or matched
    * to the Terms & Conditions card beside it. */
   grid-template-rows:auto 1fr auto;
-  gap:12px;
+  gap:8px;
   justify-items:center;
   align-items:center;
   text-align:center;
 }
-.payment-box img{display:block;width:132px;height:132px;max-width:100%;object-fit:contain;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
+.payment-box img{display:block;width:150px;height:150px;max-width:100%;object-fit:contain;align-self:start;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
 .payment-box .eyebrow{margin:0 0 4px;padding:0;border:0;background:transparent;letter-spacing:.2em}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
 .deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
@@ -2927,8 +2946,8 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:54px}
 .invoice-export-host .summary-box .grand strong{font-size:54px;font-weight:900}
 .invoice-export-host .bottom-grid > .sheet-box.payment-box{padding:60px 54px}
-.invoice-export-host .payment-box{gap:36px}
-.invoice-export-host .payment-box img{width:396px;height:396px;border-width:3px;border-radius:54px;padding:27px}
+.invoice-export-host .payment-box{gap:24px}
+.invoice-export-host .payment-box img{width:450px;height:450px;border-width:3px;border-radius:54px;padding:27px}
 .invoice-export-host .payment-box .eyebrow{margin:0 0 12px;letter-spacing:.2em}
 .invoice-export-host .deposit-due{gap:12px}
 .invoice-export-host .deposit-due span{font-size:33px}
@@ -3606,8 +3625,11 @@ dd{margin:0;text-align:right;font-weight:800}
   min-height:0;
 }
 .lg-preview-toolbar{
+  position:static;
+  margin:0;
   padding:0 0 4px;
   border-bottom:0;
+  background:transparent;
 }
 .lg-preview-toolbar h2{
   margin:2px 0 0;
