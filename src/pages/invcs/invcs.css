@@ -615,7 +615,7 @@ button{cursor:pointer}
   box-shadow:var(--shadow);
   overflow:hidden;
 }
-.editor-panel,.preview-panel{height:100%;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.editor-panel,.preview-panel{height:100%;min-height:0;overflow-x:hidden;overflow-y:auto;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .editor-panel{padding:18px}
 /* Hide the /inv preview-panel scrollbar too. The composer surface
  * is long (invoice sheet + toolbar) and operators flick/scroll-
@@ -624,6 +624,7 @@ button{cursor:pointer}
  * scrollbar-hiding rule above so the whole page reads as a single
  * unified scroll surface. */
 .preview-panel{
+  overflow:hidden;
   scrollbar-width:none;
   -ms-overflow-style:none;
 }
@@ -1305,7 +1306,7 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
 }
 
 .preview-panel{display:flex;flex-direction:column;padding:18px}
-.preview-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:2px 2px 14px}
+.preview-toolbar{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:-18px -18px 0;padding:18px 18px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
 .preview-toolbar h2{margin:2px 0 0;font-size:28px;line-height:1.1;font-weight:900;letter-spacing:0}
 /* Toolbar actions row (right side of the preview header) holds the
  * Save Status button and the Generate JPG button side-by-side. The
@@ -1325,20 +1326,81 @@ input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95
   padding:0 16px;
   min-height:38px;
 }
+.preview-zoom-controls{
+  min-height:38px;
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  padding:3px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+}
+.preview-zoom-controls button{
+  min-width:32px;
+  height:30px;
+  padding:0 10px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+}
+.preview-zoom-controls button:hover,
+.preview-zoom-controls button:focus-visible{
+  background:var(--panel);
+  color:var(--ink);
+  outline:none;
+}
+.preview-zoom-controls button:disabled{
+  cursor:default;
+  opacity:.45;
+}
+.preview-zoom-controls span{
+  min-width:42px;
+  color:var(--ink);
+  text-align:center;
+  font-size:11px;
+  font-weight:900;
+  font-variant-numeric:tabular-nums;
+}
 .eyebrow{margin:0;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .primary-button{background:#1f1a17;color:#fff;white-space:nowrap}
 .primary-button:hover{background:#302a25}
 .preview-canvas{
   flex:1;
   min-height:0;
-  display:grid;
-  place-items:start center;
-  overflow-x:hidden;
-  overflow-y:auto;
+  display:block;
+  overflow:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  touch-action:pan-x pan-y;
   padding:18px 22px;
   border:1px solid var(--line);
   border-radius:24px;
   background:var(--soft);
+  scrollbar-width:none;
+  -ms-overflow-style:none;
+}
+.preview-canvas::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;
+}
+.invoice-preview-stage{
+  position:relative;
+  flex:0 0 auto;
+  margin:0 auto;
+}
+.invoice-preview-stage .invoice-sheet{
+  position:absolute;
+  top:0;
+  left:0;
+  width:var(--invoice-preview-width);
+  max-width:none;
+  transform:scale(var(--invoice-preview-scale));
+  transform-origin:top left;
 }
 .invoice-sheet{
   --invoice-page-width:1000px;
@@ -2892,10 +2954,10 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .invoice-sheet footer{gap:36px;margin:54px var(--invoice-page-margin) 0;padding:42px 6px 60px;border-top-width:3px;font-size:36px}
 
 @media(max-width:1023px){
-  body{overflow:auto}
+  body{overflow:hidden}
   .composer-page{padding:12px 12px 82px}
-  .composer-shell{height:auto;min-height:calc(100dvh - 94px);display:block}
-  .editor-panel,.preview-panel{height:auto;min-height:calc(100dvh - 94px)}
+  .composer-shell{height:calc(100dvh - 94px);min-height:0;display:block}
+  .editor-panel,.preview-panel{height:100%;min-height:0}
   .preview-panel{display:none;margin-top:0}
   .composer-shell.show-preview .editor-panel{display:none}
   .composer-shell.show-preview .preview-panel{display:flex}
@@ -3009,9 +3071,7 @@ dd{margin:0;text-align:right;font-weight:800}
   .panel-header img{width:116px}
   .mode-switch{width:100%}
   .two-col,.three-col{grid-template-columns:1fr}
-  .line-head,.line-row{grid-template-columns:minmax(0,1fr) 44px 104px}
-  .invoice-sheet{width:1000px;max-width:none;transform:scale(.45);transform-origin:top left}
-  .preview-canvas{place-items:start start;min-height:calc(100dvh - 230px)}
+  .preview-canvas{min-height:calc(100dvh - 230px)}
   .composer-shell.show-preview .preview-canvas{height:calc(100dvh - 230px)}
 }
 
