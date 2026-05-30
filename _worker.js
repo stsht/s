@@ -28,6 +28,8 @@ const PUBLIC_SITE = 'https://sshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
 const ADMIN_SESSION_COOKIE = 'ss_admin_session';
 const ADMIN_SESSION_MS = 15 * 60 * 1000;
+const GALLERY_SESSION_COOKIE = 'ss_gallery_session';
+const GALLERY_SESSION_MS = 2 * 60 * 60 * 1000;
 const GALLERY_HASH_ALGO = 'pbkdf2_sha256';
 const GALLERY_HASH_ITERATIONS = 100000;
 const IP_INFO_CACHE = new Map();
@@ -228,6 +230,15 @@ async function createAdminSessionCookie(env) {
   return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; HttpOnly; Secure; SameSite=Lax`;
 }
 
+async function createGallerySessionCookie(env, deliveryId) {
+  const cleanId = String(deliveryId || '').trim();
+  const expiresAt = Date.now() + GALLERY_SESSION_MS;
+  const nonce = randomToken(12);
+  const payload = `${cleanId}.${expiresAt}.${nonce}`;
+  const signature = await hmacSha256(getAdminPassword(env), payload);
+  return `${GALLERY_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(GALLERY_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
+}
+
 async function verifyAdminSessionCookie(request, env) {
   const token = getCookie(request, ADMIN_SESSION_COOKIE);
   const parts = token.split('.');
@@ -236,6 +247,19 @@ async function verifyAdminSessionCookie(request, env) {
   const expiresAt = Number(expiresAtRaw);
   if (!Number.isFinite(expiresAt) || expiresAt < Date.now() || !nonce || !signature) return false;
   const payload = `${expiresAtRaw}.${nonce}`;
+  const expected = await hmacSha256(getAdminPassword(env), payload);
+  return safeEqual(signature, expected);
+}
+
+async function verifyGallerySessionCookie(request, env, deliveryId) {
+  const expectedId = String(deliveryId || '').trim();
+  const token = getCookie(request, GALLERY_SESSION_COOKIE);
+  const parts = token.split('.');
+  if (!expectedId || parts.length !== 4) return false;
+  const [sessionDeliveryId, expiresAtRaw, nonce, signature] = parts;
+  const expiresAt = Number(expiresAtRaw);
+  if (sessionDeliveryId !== expectedId || !Number.isFinite(expiresAt) || expiresAt < Date.now() || !nonce || !signature) return false;
+  const payload = `${sessionDeliveryId}.${expiresAtRaw}.${nonce}`;
   const expected = await hmacSha256(getAdminPassword(env), payload);
   return safeEqual(signature, expected);
 }
@@ -850,6 +874,94 @@ async function getLinksByDeliveryId(env, deliveryId) {
     `/rest/v1/delivery_links?select=*&delivery_id=eq.${encodeURIComponent(deliveryId)}&order=created_at.asc`
   );
   return Array.isArray(rows) ? rows : [];
+}
+
+async function publicDeliveryPayload(env, delivery) {
+  const rows = await getLinksByDeliveryId(env, delivery.id);
+  const links = SERVICES.map((service) => {
+    const row = rows.find((item) => item.service === service.key);
+    return { service: service.key, label: service.label, url: row?.original_url || '' };
+  });
+
+  return {
+    delivery: {
+      id: delivery.id,
+      title: delivery.title,
+      clientName: delivery.client_name,
+      folderName: delivery.folder_name,
+      baseSlug: delivery.base_slug
+    },
+    links
+  };
+}
+
+function invoiceDeliveryScore(invoice = {}, delivery = {}) {
+  const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const deliveryId = String(delivery.id || '');
+  const deliveryEventKey = String(delivery.event_key || '');
+  const invoiceEventKey = String(invoice.event_key || data.event_key || '');
+  const deliveryClientId = String(delivery.client_id || '');
+  const invoiceClientId = String(invoice.client_id || '');
+  const deliveryName = normalizeClientName(delivery.client_name || '');
+  const invoiceName = normalizeClientName(invoice.client_name || '');
+  const deliveryDate = String(delivery.event_date || '');
+  const invoiceDate = String(invoice.event_date || '');
+
+  if (deliveryId && String(data.delivery_id || '') === deliveryId) return 100;
+  if (deliveryEventKey && invoiceEventKey && deliveryEventKey === invoiceEventKey) return 90;
+  if (deliveryClientId && invoiceClientId && deliveryClientId === invoiceClientId && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 80;
+  if (deliveryName && invoiceName && deliveryName === invoiceName && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 70;
+  if (deliveryClientId && invoiceClientId && deliveryClientId === invoiceClientId) return 40;
+  return 0;
+}
+
+async function findInvoiceForDelivery(env, delivery = {}) {
+  const deliveryId = String(delivery.id || '').trim();
+  if (!deliveryId) return null;
+
+  try {
+    const exactRows = await supabaseFetch(
+      env,
+      `/rest/v1/invoices?select=*&invoice_data->>delivery_id=eq.${encodeURIComponent(deliveryId)}&order=updated_at.desc&limit=1`
+    );
+    const exact = Array.isArray(exactRows) ? exactRows[0] : exactRows;
+    if (exact) return exact;
+  } catch (error) {
+    if (!isSchemaError(error)) console.warn('[public-invoice] jsonb delivery lookup failed:', error?.message || error);
+  }
+
+  const candidates = [];
+  const seen = new Set();
+  const addRows = (rows) => {
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      const id = String(row?.id || '');
+      if (!id || seen.has(id)) return;
+      seen.add(id);
+      candidates.push(row);
+    });
+  };
+
+  const clientId = String(delivery.client_id || '').trim();
+  if (clientId) {
+    addRows(await supabaseFetch(
+      env,
+      `/rest/v1/invoices?select=*&client_id=eq.${encodeURIComponent(clientId)}&order=updated_at.desc&limit=50`
+    ).catch(() => []));
+  }
+
+  const clientName = String(delivery.client_name || '').trim();
+  if (clientName) {
+    addRows(await supabaseFetch(
+      env,
+      `/rest/v1/invoices?select=*&client_name=eq.${encodeURIComponent(clientName)}&order=updated_at.desc&limit=50`
+    ).catch(() => []));
+  }
+
+  if (!candidates.length) return null;
+  return candidates
+    .map((invoice) => ({ invoice, score: invoiceDeliveryScore(invoice, delivery) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)[0]?.invoice || null;
 }
 
 function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], subscriptions = [], q = '') {
@@ -1499,6 +1611,12 @@ async function handleUnlock(request, env) {
     // password_success / opens stats with operator-side traffic.
     await insertLog(env, request, delivery.id, 'admin_unlock');
   } else {
+    const galleryBypass = await verifyGallerySessionCookie(request, env, delivery.id);
+    if (galleryBypass && !password) {
+      const payload = await publicDeliveryPayload(env, delivery);
+      return json({ ok: true, ...payload });
+    }
+
     // Empty-password probe by a non-admin visitor.
     //
     // The public gate calls /api/unlock once on mount with an empty
@@ -1528,23 +1646,9 @@ async function handleUnlock(request, env) {
     await insertLog(env, request, delivery.id, 'password_success');
   }
 
-  const rows = await getLinksByDeliveryId(env, delivery.id);
-  const links = SERVICES.map((service) => {
-    const row = rows.find((item) => item.service === service.key);
-    return { service: service.key, label: service.label, url: row?.original_url || '' };
-  });
-
-  return json({
-    ok: true,
-    delivery: {
-      id: delivery.id,
-      title: delivery.title,
-      clientName: delivery.client_name,
-      folderName: delivery.folder_name,
-      baseSlug: delivery.base_slug
-    },
-    links
-  });
+  const payload = await publicDeliveryPayload(env, delivery);
+  const headers = adminBypass ? {} : { 'Set-Cookie': await createGallerySessionCookie(env, delivery.id) };
+  return json({ ok: true, ...payload }, 200, headers);
 }
 
 async function handleClick(request, env) {
@@ -2445,6 +2549,23 @@ async function handleInvoiceGet(request, env) {
   const rows = await supabaseFetch(env, `/rest/v1/invoices?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
   const invoice = Array.isArray(rows) ? rows[0] : rows;
   if (!invoice) return json({ error: 'Invoice not found.' }, 404);
+  return json({ ok: true, invoice });
+}
+
+async function handlePublicInvoiceGet(request, env) {
+  const url = new URL(request.url);
+  const lookup = String(url.searchParams.get('slug') || url.searchParams.get('shortCode') || '').trim();
+  if (!lookup) return json({ error: 'Missing delivery code.' }, 400);
+
+  const delivery = await getDeliveryByLookup(env, lookup);
+  if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+  const allowed = await verifyAdminSessionCookie(request, env)
+    || await verifyGallerySessionCookie(request, env, delivery.id);
+  if (!allowed) return json({ error: 'Unlock the delivery first.' }, 401);
+
+  const invoice = await findInvoiceForDelivery(env, delivery);
+  if (!invoice?.id) return json({ error: 'Invoice not found for this delivery.' }, 404);
   return json({ ok: true, invoice });
 }
 
@@ -3592,6 +3713,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/admin-check') return await handleAdminCheck(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-save') return await handleInvoiceSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/invoices-get') return await handleInvoiceGet(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/public-invoice') return await handlePublicInvoiceGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-delete') return await handleInvoiceDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/subscriptions-save') return await handleSubscriptionSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/subscriptions-get') return await handleSubscriptionGet(request, env);

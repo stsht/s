@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
+import { toTitleCase } from '../../utils/titleCase.js';
 import '../invcs/invcs.css';
 
 /**
@@ -17,8 +19,159 @@ function deliverySlug() {
   return parts[0] || '';
 }
 
+const BANK_DETAILS = {
+  bank: 'Mandiri',
+  accountNumber: '1050023197043',
+  accountHolderLabel: 'BELLY',
+};
+
+function rupiah(value) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0)).replace(/\s/g, ' ');
+}
+
+function prettyDate(value) {
+  if (!value) return '-';
+  const date = new Date(`${String(value).slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
+
+function prettyDateTime(date, time) {
+  const base = prettyDate(date);
+  const cleanTime = String(time || '').trim();
+  return cleanTime ? `${base} ${cleanTime}` : base;
+}
+
+function isFullPayment(invoice) {
+  const due = Math.max(0, Math.round(Number(invoice?.deposit_amount) || 0));
+  const grand = Math.max(0, Math.round(Number(invoice?.grand_total) || 0));
+  return grand > 0 && due >= grand;
+}
+
+function invoiceItems(invoice) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const items = Array.isArray(data.items) ? data.items : [];
+  return items.length ? items : [{
+    id: 'invoice-line',
+    name: 'Package',
+    note: '',
+    qty: 1,
+    price: Number(invoice?.grand_total) || 0,
+  }];
+}
+
+function PublicInvoiceDocument({ invoice }) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const items = invoiceItems(invoice);
+  const status = String(invoice?.status || 'invoice').toLowerCase();
+  const subtotal = items.reduce((sum, item) => sum + ((Number(item.qty) || 0) * (Number(item.price) || 0)), 0);
+  const grandTotal = Math.max(0, Math.round(Number(invoice?.grand_total) || 0));
+  const discount = Math.max(0, Math.round(Number(data.discount) || (subtotal - grandTotal) || 0));
+  const paidDeposits = status === 'deposit'
+    ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
+    : [];
+  const paymentMethod = String(data.paymentMethod || 'qr');
+  const qrSrc = String(data.qrSrc || '/payment-qr.png');
+  const dueLabel = isFullPayment(invoice) ? 'Full Payment Due' : 'Deposit Due';
+
+  return (
+    <article className="invoice-sheet">
+      <header className="sheet-top"><img src="/logo-hero.png" alt="StarShots" /></header>
+      <section className="sheet-grid">
+        <div className="sheet-box">
+          <p className="eyebrow">Bill To</p>
+          <dl className="meta-list">
+            <div className="meta-row"><dt>Client</dt><dd>{invoice?.client_title || 'Ms.'} {invoice?.client_name ? toTitleCase(invoice.client_name) : 'Client'}</dd></div>
+            <div className="meta-row"><dt>Contact</dt><dd>{invoice?.client_contact || '-'}</dd></div>
+          </dl>
+        </div>
+        <div className="sheet-box">
+          <p className="eyebrow">Details</p>
+          <dl className="meta-list">
+            <div className="meta-row"><dt>Venue</dt><dd>{invoice?.venue ? toTitleCase(invoice.venue) : 'TBA'}</dd></div>
+            <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(invoice?.event_date, invoice?.event_time || data.eventTime)}</dd></div>
+            <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(invoice?.invoice_date)}</dd></div>
+          </dl>
+        </div>
+      </section>
+      <section className="sheet-box line-table">
+        <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
+        {items.map((item, index) => (
+          <div key={item.id || index} className="line-row">
+            <div><strong>{toTitleCase(item.name || 'Package')}</strong><small>{toTitleCase(item.note || '')}</small></div>
+            <span>{item.qty || 1}</span>
+            <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
+          </div>
+        ))}
+      </section>
+      <section className="summary-box">
+        <p><span>Subtotal</span><strong>{rupiah(subtotal)}</strong></p>
+        <p><span>Discount</span><strong>{rupiah(discount)}</strong></p>
+        {paidDeposits.map((payment, index) => (
+          <p className="deposit-paid" key={payment.id || index}>
+            <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+            <strong>{rupiah(payment.amount)}</strong>
+          </p>
+        ))}
+        <p className="grand"><span>Grand Total</span><strong>{rupiah(grandTotal)}</strong></p>
+        {status === 'deposit' ? (
+          <p className="balance-due"><span>Balance Due</span><strong>{rupiah(invoice?.balance_due)}</strong></p>
+        ) : null}
+      </section>
+      <section className="bottom-grid">
+        <div className="sheet-box payment-box">
+          {status !== 'paid' ? <p className="eyebrow">Payment</p> : null}
+          {status === 'paid' ? (
+            <div className="paid-stamp">
+              <span className="paid-stamp-badge">PAID</span>
+              <p className="paid-stamp-note">Thank You!<br />Your Invoice has been Paid in Full</p>
+            </div>
+          ) : (
+            <>
+              {paymentMethod === 'bank' ? (
+                <div className="bank-details">
+                  <p className="bank-details-heading">Bank Transfer</p>
+                  <dl className="bank-details-list">
+                    <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                    <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                    <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                  </dl>
+                </div>
+              ) : (
+                <img src={qrSrc} alt="Payment QR" />
+              )}
+              <div className="deposit-due">
+                <span>{dueLabel}</span>
+                <strong>{rupiah(invoice?.deposit_amount)}</strong>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="sheet-box terms-box">
+          <p className="eyebrow">Terms & Conditions</p>
+          <p>All final edited files will be uploaded to <strong>Google Drive</strong> or <strong>Dropbox</strong> and shared via a secure link within 2 to 5 working days after session</p>
+          <p>Physical deliverables such as <strong>albums</strong> or <strong>USB</strong> flash drives are optional and available upon request at an additional cost</p>
+          <p>For rescheduling, notice must be given <strong>at least 7 days (H-7)</strong> prior to the original session date, and rescheduled sessions must take place <strong>within 30 days</strong></p>
+          <p>In the event of <strong>late arrival</strong>, the session may only be extended by a maximum of 10 minutes</p>
+        </div>
+      </section>
+      <footer>This invoice is automatically generated and valid without signature. <strong>@starshots.id</strong></footer>
+    </article>
+  );
+}
+
 function GalleryLinks({ payload }) {
+  const slug = useMemo(() => deliverySlug(), []);
   const delivery = payload?.delivery || {};
+  const invoiceRenderRef = useRef(null);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoice, setInvoice] = useState(null);
+  const [invoiceImage, setInvoiceImage] = useState('');
+  const [invoiceStatus, setInvoiceStatus] = useState('');
   const links = (payload?.links || []).filter((item) => item?.url);
   const linkMap = new Map(links.map((link) => [String(link.service || '').toLowerCase(), link]));
   const services = [
@@ -36,6 +189,56 @@ function GalleryLinks({ payload }) {
       body: JSON.stringify({ deliveryId: delivery.id, service }),
     }).catch(() => {});
   }
+
+  async function openInvoice(event) {
+    event.preventDefault();
+    setInvoiceOpen(true);
+    setInvoiceImage('');
+    setInvoiceStatus('Opening invoice...');
+    try {
+      const response = await fetch(`/api/public-invoice?slug=${encodeURIComponent(slug)}`, {
+        credentials: 'same-origin',
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Invoice not found.');
+      setInvoice(data.invoice);
+      setInvoiceStatus('Rendering invoice...');
+    } catch (error) {
+      setInvoice(null);
+      setInvoiceStatus(error.message || 'Invoice unavailable.');
+    }
+  }
+
+  useEffect(() => {
+    let alive = true;
+    if (!invoiceOpen || !invoice || !invoiceRenderRef.current) return undefined;
+
+    async function renderInvoiceImage() {
+      if (document.fonts?.ready) {
+        try { await document.fonts.ready; } catch {}
+      }
+      try {
+        const canvas = await html2canvas(invoiceRenderRef.current, {
+          backgroundColor: '#ffffff',
+          scale: 1,
+          useCORS: true,
+          allowTaint: true,
+          imageTimeout: 0,
+          logging: false,
+          windowWidth: 3000,
+          windowHeight: 9000,
+        });
+        if (!alive) return;
+        setInvoiceImage(canvas.toDataURL('image/jpeg', 0.95));
+        setInvoiceStatus('');
+      } catch (error) {
+        if (alive) setInvoiceStatus(error.message || 'Could not render invoice.');
+      }
+    }
+
+    renderInvoiceImage();
+    return () => { alive = false; };
+  }, [invoiceOpen, invoice]);
 
   const honorific = String(delivery.title || '').trim();
   // Greeting always includes the honorific when present so the
@@ -77,18 +280,10 @@ function GalleryLinks({ payload }) {
         <div className="public-delivery-divider" role="presentation" />
         <h1 className="public-delivery-greeting">{heading}</h1>
 
-        {/* Primary action — the invoice. Sits above the delivery
-            options as the page's lead call-to-action (filled accent
-            vs the outlined delivery rows). It links to /inv, which is
-            already wrapped in the shared StarShots PasswordGate, so
-            access reuses the existing password workflow — no separate
-            auth model or new password logic is introduced here. Opens
-            in a new tab so the client keeps this delivery page open. */}
         <a
           className="public-delivery-invoice"
-          href="/inv"
-          rel="noopener"
-          target="_blank"
+          href="#invoice"
+          onClick={openInvoice}
         >
           <span className="public-delivery-invoice-icon" aria-hidden="true">INV</span>
           <span className="public-delivery-invoice-label">Invoice</span>
@@ -119,6 +314,42 @@ function GalleryLinks({ payload }) {
 
         <p className="public-delivery-signoff">With love, StarShots</p>
       </section>
+
+      {invoiceOpen ? (
+        <div className="public-invoice-viewer" role="dialog" aria-modal="true" aria-label="Invoice preview">
+          <div className="public-invoice-viewer-card">
+            <header className="public-invoice-viewer-toolbar">
+              <strong>Invoice</strong>
+              <div>
+                {invoiceImage ? (
+                  <a
+                    className="public-invoice-download"
+                    href={invoiceImage}
+                    download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+                  >
+                    Download
+                  </a>
+                ) : null}
+                <button type="button" onClick={() => setInvoiceOpen(false)}>Close</button>
+              </div>
+            </header>
+            <div className="public-invoice-frame">
+              {invoiceImage ? (
+                <img src={invoiceImage} alt="Invoice JPG" />
+              ) : (
+                <p>{invoiceStatus || 'Rendering invoice...'}</p>
+              )}
+            </div>
+          </div>
+          {invoice ? (
+            <div className="invoice-export-host public-invoice-render-host" aria-hidden="true">
+              <div ref={invoiceRenderRef}>
+                <PublicInvoiceDocument invoice={invoice} />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </main>
   );
 }
