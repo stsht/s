@@ -1084,7 +1084,13 @@ export function InvoiceComposer() {
 
 function EditorPanel(props) {
   return (
-    <aside className="editor-panel panel scroll-surface-y">
+    // Outer = visual shell (.panel owns border/radius/background/shadow +
+    // overflow:hidden). Inner = the scroll surface (.scroll-surface-y owns
+    // overflow + scrollbar hiding). They must stay separate elements so the
+    // shell's overflow:hidden can't clip away the scroller. See
+    // src/styles/scroll-surface.css.
+    <aside className="editor-panel panel">
+      <div className="editor-panel-scroll scroll-surface-y">
       <header className="panel-header">
         <img src="/logo-hero.png" alt="StarShots" />
         <div className="mode-switch">
@@ -1274,6 +1280,7 @@ function EditorPanel(props) {
           )}
         </>
       )}
+      </div>
     </aside>
   );
 }

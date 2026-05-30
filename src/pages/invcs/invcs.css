@@ -50,7 +50,8 @@ html,body,#root{min-height:100%;margin:0}
  *   - the whole /inv page    -> `.scroll-root` on .composer-page
  *                               (set in InvoiceComposer.jsx), which
  *                               silences every nested scroller,
- *   - the editor scroller    -> `.scroll-surface-y` on .editor-panel,
+ *   - the editor scroller    -> `.scroll-surface-y` on the inner
+ *                               .editor-panel-scroll (shell is .panel),
  *   - the preview canvas      -> `.scroll-surface` on .preview-canvas.
  * The in-panel scrollers remain the canonical scroll surface. */
 body{
@@ -609,15 +610,21 @@ button{cursor:pointer}
   box-shadow:var(--shadow);
   overflow:hidden;
 }
-/* Shared scroll mechanics now come from the utility classes applied
- * in InvoiceComposer.jsx:
- *   - .editor-panel  also carries `scroll-surface-y`,
- *   - .preview-canvas also carries `scroll-surface`.
- * This combined rule keeps only the layout + smooth-scroll bits.
- * .preview-panel is clipped (overflow:hidden, set below) — its inner
- * .preview-canvas is the actual scroller. */
-.editor-panel,.preview-panel{height:100%;min-height:0;scroll-behavior:smooth}
-.editor-panel{padding:18px}
+/* Panel architecture (shared rule, see src/styles/scroll-surface.css):
+ * the visual SHELL (.panel) owns border/radius/background/shadow +
+ * overflow:hidden; a dedicated INNER element owns scrolling +
+ * scrollbar hiding via a scroll-surface utility. The shell and the
+ * scroll surface are never the same element, so overflow:hidden (clip)
+ * never fights overflow:auto (scroll):
+ *   - .editor-panel  (shell) > .editor-panel-scroll (.scroll-surface-y)
+ *   - .preview-panel (shell) > .preview-canvas      (.scroll-surface)
+ * These rules keep only the shell layout; height fills the grid cell
+ * so the inner scroller can size against it. */
+.editor-panel,.preview-panel{height:100%;min-height:0}
+/* Inner scroll surface of the editor (left) panel. Padding lives here,
+ * not on the shell, so the sticky .panel-header negative-margin math is
+ * measured against this scroller exactly as before the split. */
+.editor-panel-scroll{height:100%;min-height:0;padding:18px;scroll-behavior:smooth}
 /* The /inv preview-panel is a clip frame, not a scroller — the
  * .preview-canvas inside it owns the scroll. Scrollbar chrome on the
  * whole page (this panel included) is hidden via `.scroll-root` on
