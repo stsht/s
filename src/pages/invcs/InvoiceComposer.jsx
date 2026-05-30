@@ -1298,9 +1298,11 @@ function EditorPanel(props) {
               <div className="invoice-item-controls">
                 <div className="qty-control" aria-label="Quantity">
                   <span>Qty</span>
-                  <button type="button" aria-label="Decrease quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) - 1) })}>-</button>
-                  <strong>{Math.max(1, Math.round(Number(item.qty) || 1))}</strong>
-                  <button type="button" aria-label="Increase quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) + 1) })}>+</button>
+                  <span className="qty-stepper">
+                    <button type="button" aria-label="Decrease quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) - 1) })}>-</button>
+                    <strong>{Math.max(1, Math.round(Number(item.qty) || 1))}</strong>
+                    <button type="button" aria-label="Increase quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) + 1) })}>+</button>
+                  </span>
                 </div>
                 <div className="package-price-readonly" aria-label="Package price">
                   <span>Price</span>

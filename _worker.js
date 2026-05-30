@@ -446,14 +446,14 @@ async function generateGalleryPassword(context = {}, shortCode = '') {
 }
 
 function buildDeliveryMessage(title, clientName, shortCode, password) {
-  return `Dear ${String(title || 'Ms.').trim()} ${String(clientName || '').trim()},
+  return `Dear *${String(title || 'Ms.').trim()} ${String(clientName || '').trim()}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
 
 You may access them through the details below:
 
-• Link: ${PUBLIC_SITE}/${shortCode}
-• Password: ${String(password || '').trim()}
+*Link:* ${PUBLIC_SITE}/${shortCode}
+*Password:* ${String(password || '').trim()}
 
 Kindly download the files within the stated availability period.
 

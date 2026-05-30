@@ -1343,8 +1343,8 @@ input.no-spinner::-webkit-inner-spin-button{
 .package-catalog-add{width:100%}
 .invoice-item-controls{
   display:grid;
-  grid-template-columns:minmax(0,132px) minmax(0,1fr) 38px;
-  align-items:end;
+  grid-template-columns:minmax(0,142px) minmax(0,1fr) 34px;
+  align-items:center;
   gap:12px;
 }
 .qty-control,
@@ -1352,13 +1352,15 @@ input.no-spinner::-webkit-inner-spin-button{
   min-height:48px;
   display:flex;
   align-items:center;
-  gap:8px;
   padding:0 10px;
   border:1px solid var(--line);
   border-radius:16px;
   background:var(--field);
 }
-.qty-control span,
+.qty-control{
+  justify-content:space-between;
+}
+.qty-control > span:not(.qty-stepper),
 .package-price-readonly span{
   color:var(--muted);
   font-size:11px;
@@ -1369,6 +1371,13 @@ input.no-spinner::-webkit-inner-spin-button{
   color:var(--ink);
   font-weight:900;
   font-variant-numeric:tabular-nums;
+}
+.qty-stepper{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  color:var(--ink);
+  font-size:16px;
 }
 .qty-control button{
   width:28px;
@@ -1389,6 +1398,7 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .package-price-readonly{
   justify-content:space-between;
+  gap:12px;
 }
 .icon-soft-button,
 .icon-danger-button{
@@ -1400,6 +1410,10 @@ input.no-spinner::-webkit-inner-spin-button{
   border-radius:12px;
   background:transparent;
   color:var(--muted);
+}
+.invoice-item-controls > .icon-danger-button{
+  align-self:center;
+  justify-self:center;
 }
 .icon-soft-button:hover{background:var(--soft);color:var(--ink)}
 .icon-danger-button{color:var(--danger)}

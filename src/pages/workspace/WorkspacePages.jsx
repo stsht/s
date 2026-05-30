@@ -1261,15 +1261,15 @@ function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, fold
   const n = String(clientName || '').trim();
   const link = shortUrl || '(link unavailable)';
   const pass = String(password || '').trim() || '(no password)';
-  const folderLine = folder ? `\n• Folder: ${folder}` : '';
-  return `Dear ${t} ${n},
+  const folderLine = folder ? `\n*Folder:* ${folder}` : '';
+  return `Dear *${t} ${n}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
 
 You may access them through the details below:
 
-• Link: ${link}
-• Password: ${pass}${folderLine}
+*Link:* ${link}
+*Password:* ${pass}${folderLine}
 
 Kindly download the files within the stated availability period.
 
@@ -1390,19 +1390,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     setLinkDraft(next);
   }, [currentDelivery]);
 
-  // Prefer the worker's stored WA/IG templates when present so the
-  // operator copies the exact text saved with the delivery. Fall
-  // back to channel-specific synthesised messages — WA keeps the
-  // bulleted multi-line body, IG ships a single-paragraph DM-
-  // friendly variant. We intentionally do NOT cross-fall (e.g. WA
-  // text into an empty IG slot) because that would re-introduce
-  // bullet glyphs into the IG copy which is the bug the channel
-  // split fixes.
-  const storedWa = String(currentDelivery?.generated_text_whatsapp || '').trim();
+  // WA is formatted at display/copy time so older saved deliveries
+  // also get WhatsApp markdown. IG remains plain and readable.
   const storedIg = String(currentDelivery?.generated_text_instagram || '').trim();
   const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, folder);
   const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password);
-  const messageWa = storedWa || synthWa;
+  const messageWa = synthWa;
   const messageIg = storedIg || synthIg;
 
   const flashTarget = (target) => {
