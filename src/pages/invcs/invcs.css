@@ -618,6 +618,10 @@ button{cursor:pointer}
  * .preview-canvas is the actual scroller. */
 .editor-panel,.preview-panel{height:100%;min-height:0;scroll-behavior:smooth}
 .editor-panel{padding:18px}
+.editor-panel.scroll-surface-y{
+  overflow-x:hidden;
+  overflow-y:auto;
+}
 /* The /inv preview-panel is a clip frame, not a scroller — the
  * .preview-canvas inside it owns the scroll. Scrollbar chrome on the
  * whole page (this panel included) is hidden via `.scroll-root` on
