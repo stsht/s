@@ -1336,6 +1336,10 @@ input.no-spinner::-webkit-inner-spin-button{
   color:var(--ink);
   font-weight:900;
 }
+.package-catalog-edit-actions .package-catalog-save{
+  background:var(--ink);
+  color:white;
+}
 .package-catalog-add{width:100%}
 .invoice-item-controls{
   display:grid;

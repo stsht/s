@@ -2037,6 +2037,17 @@ function PackageCatalogEditor({ packages, savePackage, deletePackage }) {
     if (saved) cancelEdit();
   }
 
+  function handleEditKeyDown(event) {
+    if (event.nativeEvent?.isComposing) return;
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitEdit();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelEdit();
+    }
+  }
+
   return (
     <div className={`package-catalog${open ? ' is-open' : ''}`}>
       <button className="package-catalog-toggle" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
@@ -2050,12 +2061,12 @@ function PackageCatalogEditor({ packages, savePackage, deletePackage }) {
             return (
               <div className="package-catalog-row" key={pkg.id || pkg.name}>
                 {editing ? (
-                  <div className="package-catalog-edit">
+                  <div className="package-catalog-edit" onKeyDown={handleEditKeyDown}>
                     <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
                     <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
                     <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
                     <div className="package-catalog-edit-actions">
-                      <button type="button" onClick={commitEdit}>Save</button>
+                      <button className="package-catalog-save" type="button" onClick={commitEdit}>Save</button>
                       <button type="button" onClick={cancelEdit}>Cancel</button>
                     </div>
                   </div>
@@ -2079,12 +2090,12 @@ function PackageCatalogEditor({ packages, savePackage, deletePackage }) {
           })}
           {editingId === '__new__' ? (
             <div className="package-catalog-row">
-              <div className="package-catalog-edit">
+              <div className="package-catalog-edit" onKeyDown={handleEditKeyDown}>
                 <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
                 <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
                 <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
                 <div className="package-catalog-edit-actions">
-                  <button type="button" onClick={commitEdit}>Save</button>
+                  <button className="package-catalog-save" type="button" onClick={commitEdit}>Save</button>
                   <button type="button" onClick={cancelEdit}>Cancel</button>
                 </div>
               </div>

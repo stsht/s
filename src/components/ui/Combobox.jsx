@@ -133,6 +133,10 @@ export function Combobox({
                 aria-selected={chosen}
                 className={`combobox-option${active ? ' is-active' : ''}${chosen ? ' is-selected' : ''}`}
                 onMouseEnter={() => setActiveIndex(index)}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  choose(option);
+                }}
                 onClick={() => choose(option)}
               >
                 {option.label}
