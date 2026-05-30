@@ -4,7 +4,7 @@
 --
 -- Stores both the 5 hardcoded defaults (is_default = true) and any
 -- custom packages a user creates from the invoice generator. Defaults
--- cannot be deleted via the API.
+-- start as seeded rows but remain editable/deletable in the app.
 
 create extension if not exists pgcrypto;
 

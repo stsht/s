@@ -3,7 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 /**
  * DateTimeField
  *
- * Unified DD/MM/YYYY (+ optional HH:mm) input used everywhere we
+ * Unified DD/MM/YY (+ optional HH:mm) input used everywhere we
  * edit a date/time across /db, /inv, and /subs. Replaces the trio
  * of native <input type="date">, <input type="time">, and the
  * earlier DateField that overlaid an OS-native picker — every
@@ -24,8 +24,9 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
  *   - Three numeric date segments wrapped in a single bordered
  *     field. With `withTime`, two extra HH/mm segments are appended
  *     after a thin separator.
- *   - Typing 2 digits in day auto-advances to month, 2 in month to
- *     year (and year accepts 4). For time, 2 digits in hour
+ *   - Typing only a 2-digit day auto-fills the current month/year.
+ *     Otherwise day advances to month, month to year, and year
+ *     displays 2 digits while storing as 20YY. For time, 2 digits in hour
  *     auto-advance to minute. '/', '-', '.' or ':' typed mid-segment
  *     also advances focus.
  *   - Backspace on an empty segment hops focus to the previous
@@ -85,7 +86,7 @@ export function DateTimeField({
     if ((value || '') === lastEmittedDateRef.current) return;
     if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) {
       const [yy, mm, dd] = value.split('-');
-      setYear(yy);
+      setYear(yy.slice(-2));
       setMonth(mm);
       setDay(dd);
     } else if (!value) {
@@ -126,7 +127,8 @@ export function DateTimeField({
   function emitDate(nextDay, nextMonth, nextYear) {
     const dd = String(nextDay || '').padStart(2, '0');
     const mm = String(nextMonth || '').padStart(2, '0');
-    const yyyy = String(nextYear || '');
+    const rawYear = String(nextYear || '');
+    const yyyy = rawYear.length === 2 ? `20${rawYear}` : rawYear;
     if (/^\d{2}$/.test(dd) && /^\d{2}$/.test(mm) && /^\d{4}$/.test(yyyy)) {
       const dNum = Number(dd);
       const mNum = Number(mm);
@@ -178,14 +180,27 @@ export function DateTimeField({
 
   // ── Segment change handler ────────────────────────────────────
   function handleSegmentChange(segment, raw, advanceTo) {
-    const maxLen = segment === 'year' ? 4 : 2;
+    const maxLen = 2;
     const cleaned = String(raw || '').replace(/\D/g, '').slice(0, maxLen);
+    let nextAdvance = advanceTo;
     let nextDay = day;
     let nextMonth = month;
     let nextYear = year;
     let nextHour = hour;
     let nextMinute = minute;
-    if (segment === 'day') { setDay(cleaned); nextDay = cleaned; }
+    if (segment === 'day') {
+      setDay(cleaned);
+      nextDay = cleaned;
+      if (cleaned.length === 2 && !month && !year) {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        nextMonth = pad(now.getMonth() + 1);
+        nextYear = String(now.getFullYear()).slice(-2);
+        setMonth(nextMonth);
+        setYear(nextYear);
+        nextAdvance = withTime ? hourRef : null;
+      }
+    }
     else if (segment === 'month') { setMonth(cleaned); nextMonth = cleaned; }
     else if (segment === 'year') { setYear(cleaned); nextYear = cleaned; }
     else if (segment === 'hour') { setHour(cleaned); nextHour = cleaned; }
@@ -196,9 +211,9 @@ export function DateTimeField({
     } else {
       emitTime(nextHour, nextMinute);
     }
-    if (advanceTo && cleaned.length === maxLen) {
-      advanceTo.current?.focus();
-      advanceTo.current?.select?.();
+    if (nextAdvance && cleaned.length === maxLen) {
+      nextAdvance.current?.focus();
+      nextAdvance.current?.select?.();
     }
   }
 
@@ -233,7 +248,7 @@ export function DateTimeField({
     event.preventDefault();
     setDay(parsed.day);
     setMonth(parsed.month);
-    setYear(parsed.year);
+    setYear(parsed.year.slice(-2));
     emitDate(parsed.day, parsed.month, parsed.year);
     if (withTime && parsed.hour && parsed.minute) {
       setHour(parsed.hour);
@@ -255,7 +270,7 @@ export function DateTimeField({
   function handleCalendarPick(iso) {
     if (iso) {
       const [yy, mm, dd] = iso.split('-');
-      setYear(yy); setMonth(mm); setDay(dd);
+      setYear(yy.slice(-2)); setMonth(mm); setDay(dd);
       lastEmittedDateRef.current = iso;
       onChange?.(iso);
     } else {
@@ -326,9 +341,9 @@ export function DateTimeField({
         ref={yearRef}
         className="dtf-segment dtf-year"
         inputMode="numeric"
-        maxLength={4}
+        maxLength={2}
         autoComplete="off"
-        placeholder="YYYY"
+        placeholder="YY"
         aria-label="Year"
         value={year}
         onChange={(e) => handleSegmentChange('year', e.target.value, withTime ? hourRef : null)}

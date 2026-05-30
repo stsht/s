@@ -191,11 +191,24 @@ function emptyItem(packages) {
   const option = (packages && packages[0]) || DEFAULT_PACKAGES[0];
   return {
     id: crypto.randomUUID(),
+    packageId: String(option.id || ''),
     name: option.name,
     note: option.note || '',
     qty: 1,
     price: Number(option.price) || 0,
   };
+}
+
+function cleanPackageRows(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      id: String(row.id || ''),
+      name: String(row.name || '').trim(),
+      note: String(row.note || '').trim(),
+      price: Math.max(0, Math.round(Number(row.price) || 0)),
+      is_default: !!row.is_default,
+    }))
+    .filter((row) => row.name);
 }
 
 function clamp(value, min, max) {
@@ -592,15 +605,7 @@ export function InvoiceComposer() {
         const json = await response.json().catch(() => null);
         const rows = Array.isArray(json?.packages) ? json.packages : [];
         if (cancelled) return;
-        const cleaned = rows
-          .map((row) => ({
-            id: String(row.id || ''),
-            name: String(row.name || '').trim(),
-            note: String(row.note || '').trim(),
-            price: Math.max(0, Math.round(Number(row.price) || 0)),
-            is_default: !!row.is_default,
-          }))
-          .filter((row) => row.name);
+        const cleaned = cleanPackageRows(rows);
         if (cleaned.length) setPackages(cleaned);
       } catch {
         // Keep DEFAULT_PACKAGES already in state.
@@ -672,6 +677,7 @@ export function InvoiceComposer() {
         if (blobItems && blobItems.length) {
           setItems(blobItems.map((item) => ({
             id: String(item.id || crypto.randomUUID()),
+            packageId: String(item.packageId || item.package_id || ''),
             name: String(item.name || ''),
             note: String(item.note || ''),
             qty: Number(item.qty) || 1,
@@ -797,7 +803,85 @@ export function InvoiceComposer() {
 
   function applyPackage(id, packageName) {
     const option = packages.find((pkg) => pkg.name === packageName);
-    updateItem(id, option ? { name: option.name, note: option.note || '', price: Number(option.price) || 0 } : { name: packageName });
+    updateItem(id, option ? { packageId: String(option.id || ''), name: option.name, note: option.note || '', price: Number(option.price) || 0 } : { packageId: '', name: packageName });
+  }
+
+  async function savePackage(packageDraft, previousName = '') {
+    const payload = {
+      id: String(packageDraft?.id || ''),
+      name: maybeTitleCase(String(packageDraft?.name || '').trim()),
+      note: maybeTitleCase(String(packageDraft?.note || '').trim()),
+      price: Math.max(0, Math.round(Number(packageDraft?.price) || 0)),
+    };
+    if (!payload.name) {
+      setStatus('Package name is required.');
+      return null;
+    }
+    if (!payload.price) {
+      setStatus('Package price is required.');
+      return null;
+    }
+
+    setStatus(payload.id ? 'Updating package...' : 'Adding package...');
+    try {
+      const response = await fetch('/api/packages-save', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package: payload }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || 'Package save failed.');
+      const saved = cleanPackageRows([json.package])[0];
+      if (!saved) throw new Error('Package save failed.');
+      setPackages((current) => {
+        const exists = current.some((pkg) => pkg.id && saved.id && pkg.id === saved.id);
+        const next = exists
+          ? current.map((pkg) => (pkg.id === saved.id ? saved : pkg))
+          : [...current.filter((pkg) => pkg.name !== saved.name), saved];
+        return next.sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setItems((current) => current.map((item) => {
+        const sameRow = saved.id && item.packageId === saved.id;
+        const sameName = item.name === previousName || item.name === saved.name;
+        return sameRow || sameName
+          ? { ...item, packageId: saved.id, name: saved.name, note: saved.note || '', price: saved.price }
+          : item;
+      }));
+      setStatus('Package saved.');
+      return saved;
+    } catch (error) {
+      setStatus(error.message || 'Package save failed.');
+      return null;
+    }
+  }
+
+  async function deletePackage(packageId) {
+    const id = String(packageId || '').trim();
+    if (!id) return;
+    const target = packages.find((pkg) => pkg.id === id);
+    setStatus('Deleting package...');
+    try {
+      const response = await fetch('/api/packages-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || 'Package delete failed.');
+      const nextPackages = packages.filter((pkg) => pkg.id !== id);
+      const fallbackPackage = emptyItem(nextPackages.length ? nextPackages : DEFAULT_PACKAGES);
+      setPackages(nextPackages);
+      setItems((rows) => rows.map((item) => (
+        item.packageId === id || item.name === target?.name
+          ? { ...item, ...fallbackPackage, id: item.id }
+          : item
+      )));
+      setStatus('Package deleted.');
+    } catch (error) {
+      setStatus(error.message || 'Package delete failed.');
+    }
   }
 
   function addItem() {
@@ -895,6 +979,7 @@ export function InvoiceComposer() {
           discount: Math.max(0, Math.round(Number(discount) || 0)),
           items: items.map((item) => ({
             id: String(item.id || ''),
+            packageId: String(item.packageId || ''),
             name: String(item.name || ''),
             note: String(item.note || ''),
             qty: Number(item.qty) || 1,
@@ -1063,6 +1148,8 @@ export function InvoiceComposer() {
           setIssuedDate={setIssuedDate}
           items={items}
           packages={packages}
+          savePackage={savePackage}
+          deletePackage={deletePackage}
           applyPackage={applyPackage}
           updateItem={updateItem}
           addItem={addItem}
@@ -1183,30 +1270,51 @@ function EditorPanel(props) {
       </Fieldset>
 
       <Fieldset title="Packages">
+        <PackageCatalogEditor
+          packages={props.packages}
+          savePackage={props.savePackage}
+          deletePackage={props.deletePackage}
+        />
         <div className="item-list">
           {props.items.map((item) => (
             <div className="item-editor" key={item.id}>
-              <label>Package<select value={item.name} onChange={(event) => props.applyPackage(item.id, event.target.value)}>
-                {/* Allow custom package names loaded from saved invoices to remain visible
-                    in the dropdown even if the catalogue doesn't include them anymore. */}
-                {!props.packages.some((pkg) => pkg.name === item.name) && item.name ? (
-                  <option value={item.name}>{toTitleCase(item.name)}</option>
-                ) : null}
-                {props.packages.map((pkg) => <option key={pkg.id || pkg.name} value={pkg.name}>{toTitleCase(pkg.name)}</option>)}
-              </select></label>
+              <label>Package
+                <Combobox
+                  value={item.name}
+                  onChange={(value) => props.applyPackage(item.id, value)}
+                  options={[
+                    ...(!props.packages.some((pkg) => pkg.name === item.name) && item.name
+                      ? [{ value: item.name, label: toTitleCase(item.name) }]
+                      : []),
+                    ...props.packages.map((pkg) => ({ value: pkg.name, label: toTitleCase(pkg.name) })),
+                  ]}
+                  ariaLabel="Package"
+                  placeholder="Package"
+                />
+              </label>
               <label>Note<input value={item.note} onChange={(event) => props.updateItem(item.id, { note: event.target.value })} onBlur={(event) => {
                 const next = maybeTitleCase(event.target.value.trim());
                 if (next !== item.note) props.updateItem(item.id, { note: next });
               }} placeholder="Optional note" /></label>
-              <div className="three-col">
-                <label>Qty<input type="number" min="1" value={item.qty} onChange={(event) => props.updateItem(item.id, { qty: event.target.value })} /></label>
-                <label>Amount<input type="number" min="0" value={item.price} onFocus={selectAllIfZero} onChange={(event) => props.updateItem(item.id, { price: event.target.value })} /></label>
-                <button className="remove" type="button" onClick={() => props.removeItem(item.id)}>Remove</button>
+              <div className="invoice-item-controls">
+                <div className="qty-control" aria-label="Quantity">
+                  <span>Qty</span>
+                  <button type="button" aria-label="Decrease quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) - 1) })}>-</button>
+                  <strong>{Math.max(1, Math.round(Number(item.qty) || 1))}</strong>
+                  <button type="button" aria-label="Increase quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) + 1) })}>+</button>
+                </div>
+                <div className="package-price-readonly" aria-label="Package price">
+                  <span>Price</span>
+                  <strong>{rupiah(item.price)}</strong>
+                </div>
+                <button className="icon-danger-button" type="button" aria-label="Delete package row" title="Delete row" onClick={() => props.removeItem(item.id)}>
+                  <TrashIcon />
+                </button>
               </div>
             </div>
           ))}
         </div>
-        <button className="ghost-button" type="button" onClick={props.addItem}>Add package</button>
+        <button className="ghost-button add-package-button" type="button" onClick={props.addItem}><PlusIcon /> Add Package</button>
       </Fieldset>
 
       <Fieldset title="Payment">
@@ -1872,4 +1980,122 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
 
 function Fieldset({ title, children }) {
   return <section className="form-section"><h2>{title}</h2>{children}</section>;
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true" focusable="false">
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function PackageCatalogEditor({ packages, savePackage, deletePackage }) {
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState('');
+  const [draft, setDraft] = useState({ id: '', name: '', note: '', price: '' });
+
+  function beginEdit(pkg = null) {
+    setOpen(true);
+    setEditingId(pkg?.id || '__new__');
+    setDraft(pkg ? {
+      id: String(pkg.id || ''),
+      name: String(pkg.name || ''),
+      note: String(pkg.note || ''),
+      price: String(pkg.price || ''),
+    } : { id: '', name: '', note: '', price: '' });
+  }
+
+  function cancelEdit() {
+    setEditingId('');
+    setDraft({ id: '', name: '', note: '', price: '' });
+  }
+
+  async function commitEdit() {
+    const saved = await savePackage?.(draft, editingId === '__new__' ? '' : packages.find((pkg) => pkg.id === editingId)?.name || draft.name);
+    if (saved) cancelEdit();
+  }
+
+  return (
+    <div className={`package-catalog${open ? ' is-open' : ''}`}>
+      <button className="package-catalog-toggle" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <span>Package Catalogue</span>
+        <strong>{packages.length}</strong>
+      </button>
+      {open ? (
+        <div className="package-catalog-list">
+          {packages.map((pkg) => {
+            const editing = editingId === pkg.id;
+            return (
+              <div className="package-catalog-row" key={pkg.id || pkg.name}>
+                {editing ? (
+                  <div className="package-catalog-edit">
+                    <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
+                    <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
+                    <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+                    <div className="package-catalog-edit-actions">
+                      <button type="button" onClick={commitEdit}>Save</button>
+                      <button type="button" onClick={cancelEdit}>Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="package-catalog-main">
+                      <strong>{toTitleCase(pkg.name)}</strong>
+                      <span>{pkg.note ? toTitleCase(pkg.note) : 'No default note'}</span>
+                    </div>
+                    <span className="package-catalog-price">{rupiah(pkg.price)}</span>
+                    <button className="icon-soft-button" type="button" aria-label={`Edit ${pkg.name}`} title="Edit package" onClick={() => beginEdit(pkg)}>
+                      <PencilIcon />
+                    </button>
+                    <button className="icon-danger-button" type="button" aria-label={`Delete ${pkg.name}`} title="Delete package" onClick={() => deletePackage?.(pkg.id)}>
+                      <TrashIcon />
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {editingId === '__new__' ? (
+            <div className="package-catalog-row">
+              <div className="package-catalog-edit">
+                <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
+                <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
+                <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+                <div className="package-catalog-edit-actions">
+                  <button type="button" onClick={commitEdit}>Save</button>
+                  <button type="button" onClick={cancelEdit}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          <button className="package-catalog-add" type="button" onClick={() => beginEdit(null)}>
+            <PlusIcon /> New Package
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }

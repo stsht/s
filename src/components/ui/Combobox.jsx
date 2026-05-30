@@ -113,7 +113,11 @@ export function Combobox({
           }}
           onKeyDown={handleKeyDown}
         />
-        <span className="combobox-chevron" aria-hidden="true">⌄</span>
+        <span className="combobox-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
       </div>
       {open ? (
         <div className="combobox-menu" id={`${id}-listbox`} role="listbox">

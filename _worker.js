@@ -3447,7 +3447,6 @@ async function handlePackageDelete(request, env) {
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing package id.' }, 400);
 
-  // Look up the row first so we can refuse to delete a default.
   const existing = await supabaseFetch(
     env,
     `/rest/v1/invoice_packages?select=id,is_default&id=eq.${encodeURIComponent(id)}&limit=1`
@@ -3456,7 +3455,6 @@ async function handlePackageDelete(request, env) {
     .catch(() => null);
 
   if (!existing) return json({ error: 'Package not found.' }, 404);
-  if (existing.is_default) return json({ error: 'Default packages cannot be deleted.' }, 400);
 
   await supabaseFetch(env, `/rest/v1/invoice_packages?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE',
