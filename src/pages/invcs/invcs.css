@@ -3028,19 +3028,22 @@ dd{margin:0;text-align:right;font-weight:800}
   cursor:default;
 }
 
-/* Mark Done / Done toggle in the delivery detail header. At rest it
- * is a neutral compact ghost button ("Mark Done"); once the delivery
- * is complete it flips to the muted app blue ("Done"), matching the
- * blue "View Links" pill on the client event row. Same --evt-soon
- * token + color-mix layering as the row pill so the two surfaces read
- * as one blue. */
-.detail-actions .dd-done-button.is-complete,
-.detail-actions .dd-done-button.is-complete:hover{
-  background:color-mix(in srgb,var(--evt-soon) 16%,var(--panel));
-  border-color:color-mix(in srgb,var(--evt-soon) 52%,var(--line));
+/* Delivery "done" toggle in the detail header — an icon-only check
+ * button. Neutral/muted at rest ("Mark Done"); once complete it
+ * flips to the subtle app blue ("Done"), matching the blue
+ * "View Links" complete pill on the client event row. The blue ring
+ * is drawn with an inset box-shadow so toggling never shifts the
+ * 38px icon button's box, and it layers on the same --evt-soon token
+ * as the row pill so the two surfaces read as one blue (not a loud
+ * filled button). */
+.toolbar-icon-btn.delivery-done-button.is-complete,
+.toolbar-icon-btn.delivery-done-button.is-complete:hover,
+.toolbar-icon-btn.delivery-done-button.is-complete:focus-visible{
+  background:color-mix(in srgb,var(--evt-soon) 16%,transparent);
   color:var(--evt-soon);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--evt-soon) 52%,var(--line));
 }
-.detail-actions .dd-done-button:disabled{
+.toolbar-icon-btn.delivery-done-button:disabled{
   opacity:.55;
   cursor:default;
 }

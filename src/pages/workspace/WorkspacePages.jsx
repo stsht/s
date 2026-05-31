@@ -132,6 +132,30 @@ function EditIcon() {
   );
 }
 
+// Checkmark glyph for the delivery "done" toggle. Same 14x14
+// stroke-only family as EditIcon/TrashIcon so the header reads as
+// one icon group; picks up the parent button's currentColor so the
+// neutral (muted) and complete (blue) states flow through from CSS.
+function CheckIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 function PrintIcon() {
   return (
     <svg
@@ -1004,12 +1028,12 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
           </button>
           <button
             type="button"
-            className="ghost-button compact icon-button"
+            className="toolbar-icon-btn"
             onClick={() => onEditClient?.(client)}
             aria-label="Edit client"
+            title="Edit"
           >
             <EditIcon />
-            <span>Edit</span>
           </button>
           <button
             type="button"
@@ -1327,17 +1351,16 @@ function buildShortUrl(code) {
 // (e.g. older rows that pre-date the message-template change). Mirrors
 // buildDeliveryMessage() / buildDeliveryMessageIg() in _worker.js so
 // the operator-facing text is identical regardless of which path
-// produced it. The two variants intentionally diverge: WhatsApp
-// keeps the formatted multi-line body with bullet glyphs (renders
-// well in chat panes); Instagram collapses to a single short
-// paragraph with no bullets so the DM reads naturally without the
-// "•" characters appearing as plain text.
-function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, folder) {
+// produced it. WhatsApp keeps the *bold* markdown; the Instagram
+// variant is the exact same wording/order with the formatting
+// markers stripped (see stripMessageFormatting + synthesizeDelivery
+// MessageIg below). The folder name is intentionally NOT included —
+// it can be edited internally and must never be sent to the client.
+function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password) {
   const t = String(title || 'Ms.').trim() || 'Ms.';
   const n = String(clientName || '').trim();
   const link = shortUrl || '(link unavailable)';
   const pass = String(password || '').trim() || '(no password)';
-  const folderLine = folder ? `\n*Folder:* ${folder}` : '';
   return `Dear *${t} ${n}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
@@ -1345,22 +1368,27 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 You may access them through the details below:
 
 *Link:* ${link}
-*Password:* ${pass}${folderLine}
+*Password:* ${pass}
+
+Should you prefer a different password, please let us know and we will update it for you.
 
 Kindly download the files within the stated availability period.
 
 It has been our pleasure to serve you, and we look forward to welcoming you again.
 
-Warm regards,
-StarShots`;
+Warm Regards,
+StarShots ID`;
+}
+
+// Strip WhatsApp markdown markers (*bold*, _italic_, ~strike~,
+// `mono`) so the Instagram DM is plain text with identical wording
+// and order. Only the markers are removed, never the words.
+function stripMessageFormatting(text) {
+  return String(text || '').replace(/[*_~`]/g, '');
 }
 
 function synthesizeDeliveryMessageIg(title, clientName, shortUrl, password) {
-  const t = String(title || 'Ms.').trim() || 'Ms.';
-  const n = String(clientName || '').trim();
-  const link = shortUrl || '(link unavailable)';
-  const pass = String(password || '').trim() || '(no password)';
-  return `Hi ${t} ${n}! Your StarShots delivery files are ready — access them at ${link} using password ${pass}. Please download within the stated availability period. With love, StarShots.`;
+  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, shortUrl, password));
 }
 
 // Inline circular refresh icon for the password regeneration
@@ -1543,13 +1571,14 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     setLinkDraft(next);
   }, [currentDelivery]);
 
-  // WA is formatted at display/copy time so older saved deliveries
-  // also get WhatsApp markdown. IG remains plain and readable.
-  const storedIg = String(currentDelivery?.generated_text_instagram || '').trim();
-  const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, folder);
+  // Both WA and IG are synthesised from the CURRENT delivery fields
+  // at display/copy time, so older saved rows (which may carry a
+  // Folder line or stale formatting in generated_text_*) never leak
+  // to the client. WA keeps markdown; IG is the same text stripped.
+  const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password);
   const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password);
   const messageWa = synthWa;
-  const messageIg = storedIg || synthIg;
+  const messageIg = synthIg;
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -1788,21 +1817,22 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
             </button>
             <button
               type="button"
-              className={`ghost-button compact dd-done-button${deliveryDone ? ' is-complete' : ''}`}
+              className={`toolbar-icon-btn delivery-done-button${deliveryDone ? ' is-complete' : ''}`}
               onClick={handleToggleDone}
               disabled={markingDone || !currentDelivery?.id}
               aria-pressed={deliveryDone}
-              title={deliveryDone ? 'Delivered \u2014 click to reopen' : 'Mark this delivery as done'}
+              aria-label={deliveryDone ? 'Reopen delivery' : 'Mark delivery done'}
+              title={deliveryDone ? 'Done \u2014 click to reopen' : 'Mark Done'}
             >
-              <span>{markingDone ? 'Saving\u2026' : (deliveryDone ? 'Done' : 'Mark Done')}</span>
+              <CheckIcon />
             </button>
             <button
               type="button"
               className="toolbar-icon-btn"
               onClick={() => setEditingLinks((value) => !value)}
               aria-pressed={editingLinks}
-              aria-label={editingLinks ? 'Close link editor' : 'Edit links'}
-              title={editingLinks ? 'Close Edit' : 'Edit Links'}
+              aria-label="Edit links"
+              title="Edit Links"
             >
               <EditIcon />
             </button>
@@ -4930,12 +4960,14 @@ You may access them through the details below:
 \u2022 Link: ${link}
 \u2022 Password: ${info.pass}
 
+Should you prefer a different password, please let us know and we will update it for you.
+
 Kindly download the files within the stated availability period.
 
 It has been our pleasure to serve you, and we look forward to welcoming you again.
 
-Warm regards,
-StarShots`;
+Warm Regards,
+StarShots ID`;
 }
 
 async function copyToClipboard(text) {

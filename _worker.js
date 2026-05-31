@@ -455,26 +455,30 @@ You may access them through the details below:
 *Link:* ${PUBLIC_SITE}/${shortCode}
 *Password:* ${String(password || '').trim()}
 
+Should you prefer a different password, please let us know and we will update it for you.
+
 Kindly download the files within the stated availability period.
 
 It has been our pleasure to serve you, and we look forward to welcoming you again.
 
-Warm regards,
-StarShots`;
+Warm Regards,
+StarShots ID`;
 }
 
-// Instagram DM variant. Same information as the WhatsApp template
-// but reflowed into a single short paragraph: no bullet list, no
-// hard line breaks, friendly DM tone. WhatsApp is read in a chat
-// pane that wraps multi-line bodies cleanly; Instagram DM collapses
-// repeated newlines and looks broken with bullet glyphs, so the
-// IG variant ships as one continuous sentence chain instead.
+// Strip WhatsApp markdown markers (*bold*, _italic_, ~strike~,
+// `mono`) so the Instagram DM carries identical wording/order as
+// the WhatsApp template but as plain text. Only the markers are
+// removed, never the words.
+function stripMessageFormatting(text) {
+  return String(text || '').replace(/[*_~`]/g, '');
+}
+
+// Instagram DM variant: the exact same content/order as the
+// WhatsApp template with the formatting markers stripped, so the
+// two channels stay in lockstep (no Folder line, same password-
+// change notice, same "Warm Regards, / StarShots ID" closing).
 function buildDeliveryMessageIg(title, clientName, shortCode, password) {
-  const t = String(title || 'Ms.').trim() || 'Ms.';
-  const n = String(clientName || '').trim();
-  const link = `${PUBLIC_SITE}/${shortCode}`;
-  const p = String(password || '').trim();
-  return `Hi ${t} ${n}! Your StarShots delivery files are ready — access them at ${link} using password ${p}. Please download within the stated availability period. With love, StarShots.`;
+  return stripMessageFormatting(buildDeliveryMessage(title, clientName, shortCode, password));
 }
 
 async function getDeliveryByShortCode(env, code) {
