@@ -750,6 +750,9 @@ export function InvoiceComposer() {
         } else if (row.status === 'deposit' && Math.round(Number(row.balance_due) || 0) > 0) {
           setRequestBalanceDue(true);
         }
+        if (typeof data.depositAskOpen === 'boolean') {
+          setDepositAskOpen(data.depositAskOpen);
+        }
 
         if (typeof data.qrSrc === 'string' && data.qrSrc) setQrSrc(data.qrSrc);
         if (typeof data.qrFileName === 'string' && data.qrFileName) setQrFileName(data.qrFileName);
@@ -796,6 +799,9 @@ export function InvoiceComposer() {
     0,
   );
   const balanceDue = Math.max(0, Math.round(Number(totals.grandTotal) || 0) - depositPaidTotal);
+  const requestedDue = mode === 'deposit' && isFullPayment(totals)
+    ? balanceDue
+    : totals.depositDue;
 
   function updateItem(id, patch) {
     setItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
@@ -939,7 +945,7 @@ export function InvoiceComposer() {
     setStatus('Saving invoice\u2026');
     try {
       const grandTotal = Math.max(0, Math.round(Number(totals.grandTotal) || 0));
-      const depositDue = Math.max(0, Math.round(Number(totals.depositDue) || 0));
+      const depositDue = Math.max(0, Math.round(Number(requestedDue) || 0));
       // paid_amount / balance_due are mode-driven:
       //   • paid    — invoice settled in full: paid = grand, balance 0.
       //   • deposit — paid = sum of the recorded *paid* instalments
@@ -987,6 +993,7 @@ export function InvoiceComposer() {
           })),
           depositMode: String(depositMode || ''),
           depositCustomAmount: String(depositCustomAmount || ''),
+          depositAskOpen: !!depositAskOpen,
           venue: String(venue || ''),
           qrSrc: String(qrSrc || ''),
           qrFileName: String(qrFileName || ''),
@@ -1167,6 +1174,7 @@ export function InvoiceComposer() {
           removeDepositPayment={removeDepositPayment}
           depositPaidTotal={depositPaidTotal}
           balanceDue={balanceDue}
+          requestedDue={requestedDue}
           depositAskOpen={depositAskOpen}
           setDepositAskOpen={setDepositAskOpen}
           paidConfirmed={paidConfirmed}
@@ -1197,6 +1205,7 @@ export function InvoiceComposer() {
           depositPayments={depositPayments}
           depositAskOpen={depositAskOpen}
           balanceDue={balanceDue}
+          requestedDue={requestedDue}
           paidConfirmed={paidConfirmed}
           paidAtDate={paidAtDate}
           status={status}
@@ -1425,6 +1434,7 @@ function EditorPanel(props) {
               setDepositCustomAmount={props.setDepositCustomAmount}
               depositPaidTotal={props.depositPaidTotal}
               balanceDue={props.balanceDue}
+              requestedDue={props.requestedDue}
               totals={props.totals}
               depositAskOpen={props.depositAskOpen}
               setDepositAskOpen={props.setDepositAskOpen}
@@ -1484,7 +1494,7 @@ function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eve
 // checkbox was removed — the Balance Due line is now always shown on
 // the invoice (see PreviewPanel). All state lives in invoice_data;
 // no new DB columns are introduced.
-function DepositLedger({ payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, totals, depositAskOpen, setDepositAskOpen }) {
+function DepositLedger({ payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, requestedDue, totals, depositAskOpen, setDepositAskOpen }) {
   const fullPayment = isFullPayment(totals);
   const paidRows = payments.filter((payment) => payment.paid);
   // Opening "Ask DP" auto-follows the requested deposit due to the
@@ -1528,7 +1538,7 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
         <div className="dp-ask">
           <div className="dp-context">
             <span>{fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due'}</span>
-            <strong>{rupiah(totals.depositDue)}</strong>
+            <strong>{rupiah(requestedDue)}</strong>
           </div>
           <div className="deposit-presets" role="radiogroup" aria-label="Requested deposit preset">
             {DEPOSIT_PRESETS.map((preset) => {
@@ -1760,7 +1770,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = mode === 'deposit'
@@ -1775,7 +1785,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
   // or a custom amount >= total) the wording switches to "Full
   // Payment Due" instead of calling it a deposit.
   const dueLabel = isFullPayment(totals) ? 'Full Payment Due' : 'Deposit Due';
-  const dueAmount = totals.depositDue;
+  const dueAmount = Math.max(0, Math.round(Number(requestedDue) || 0));
   const previewCanvasRef = useRef(null);
   const [previewMetrics, setPreviewMetrics] = useState({
     fitScale: 1,

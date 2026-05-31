@@ -2005,47 +2005,21 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   function setExtensionField(key, value) {
     setExtensionDraft((current) => {
       const next = { ...current, [key]: value };
-      // Auto-sync expiry off start + period + bonus when the
-      // operator hasn't manually overridden it. Mirrors the /subs
-      // composer's "expiry = start + N days" behaviour but now
-      // includes a bonus-day layer (e.g. period 30 + bonus 1 →
-      // expiry stretches by one extra day). We treat the expiry
-      // as "untouched" in two cases:
-      //   1. it is empty, or
-      //   2. it equals what the formula would produce from the
-      //      CURRENT start + period + bonus values (i.e. it was
-      //      last set by this same effect, not by hand).
-      // Once the operator types a custom expiry that doesn't match
-      // the formula, the guard goes false and we stop overwriting
-      // it on subsequent start/period/bonus edits, per the spec in
-      // .kiro/steering/subscription-extensions.md.
-      const currentPeriod = Number(current.access_period) || 0;
-      const currentBonus = Number(current.bonus) || 0;
-      const currentStart = current.start_date || '';
-      const currentExpected = currentStart && (currentPeriod + currentBonus) > 0
-        ? addDays(currentStart, currentPeriod + currentBonus)
-        : '';
-      const expiryDateUntouched = !current.expiry_date
-        || current.expiry_date === currentExpected;
-      const expiryTimeUntouched = !current.expiry_time
-        || current.expiry_time === current.start_time;
-
+      // Period/bonus/start edits are authoritative: recompute expiry
+      // from start + access period + bonus immediately. Manual expiry
+      // edits still work, but the next period/bonus/start edit resets
+      // it to the formula the operator is asking for.
       if (key === 'start_date' || key === 'access_period' || key === 'bonus') {
         const nextPeriod = Number(next.access_period) || 0;
         const nextBonus = Number(next.bonus) || 0;
         const nextStart = next.start_date || '';
         const totalDays = nextPeriod + nextBonus;
-        if (nextStart && totalDays > 0 && expiryDateUntouched) {
+        if (nextStart && totalDays > 0) {
           const computed = addDays(nextStart, totalDays);
           if (computed) next.expiry_date = computed;
         }
       }
-      // Keep expiry time in lockstep with start time when the
-      // operator hasn't typed a custom expiry time. Adding 30 days
-      // doesn't shift the clock, so a fresh draft naturally has
-      // expiry_time === start_time; we keep that invariant alive
-      // through subsequent edits unless the operator breaks it.
-      if (key === 'start_time' && expiryTimeUntouched) {
+      if (key === 'start_time') {
         next.expiry_time = next.start_time;
       }
       return next;
@@ -2878,40 +2852,27 @@ async function extractSubscriptionReceiptInBrowser(file, setStatus) {
 // Shared field-update helper for the subscription draft (used by
 // both SubscriptionEdit and SubscriptionImport). Mirrors the auto-
 // sync expiry behaviour of setExtensionField above so the two
-// surfaces respond identically when the operator types into the
-// Start / Access Period / Bonus inputs:
+// surfaces respond identically when the operator types into Start /
+// Access Period / Bonus:
 //   • expiry = start + accessPeriodDays + bonusDays
-//   • only auto-overwrites the saved expiry when the current
-//     expiry is empty OR matches the formula's previous output
-//     (i.e. it was last set by this same effect, not by hand)
-//   • expiry_time tracks start_time on first edit, then frees up
-//     once the operator types a distinct expiry_time.
+//   • the next period/bonus/start edit intentionally overwrites any
+//     previous expiry value
+//   • expiry_time tracks start_time when start_time changes.
 // Pure function so the component-level setField wrappers stay tiny
 // and the rule lives in one place.
 function applySubscriptionDraftUpdate(current, key, value) {
   const next = { ...current, [key]: value };
-  const currentPeriod = Number(current.access_period) || 0;
-  const currentBonus = Number(current.bonus) || 0;
-  const currentStart = current.start_date || '';
-  const currentExpected = currentStart && (currentPeriod + currentBonus) > 0
-    ? addDays(currentStart, currentPeriod + currentBonus)
-    : '';
-  const expiryDateUntouched = !current.expiry_date
-    || current.expiry_date === currentExpected;
-  const expiryTimeUntouched = !current.expiry_time
-    || current.expiry_time === current.start_time;
-
   if (key === 'start_date' || key === 'access_period' || key === 'bonus') {
     const nextPeriod = Number(next.access_period) || 0;
     const nextBonus = Number(next.bonus) || 0;
     const nextStart = next.start_date || '';
     const totalDays = nextPeriod + nextBonus;
-    if (nextStart && totalDays > 0 && expiryDateUntouched) {
+    if (nextStart && totalDays > 0) {
       const computed = addDays(nextStart, totalDays);
       if (computed) next.expiry_date = computed;
     }
   }
-  if (key === 'start_time' && expiryTimeUntouched) {
+  if (key === 'start_time') {
     next.expiry_time = next.start_time;
   }
   return next;

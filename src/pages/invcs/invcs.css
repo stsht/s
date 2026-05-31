@@ -3213,6 +3213,25 @@ dd{margin:0;text-align:right;font-weight:800}
    * on the dark soft surface. */
   .mode-switch button{color:#cdd6e4}
   .mode-switch button.active{background:#f6f8ff;color:#090b10}
+  .composer-page .deposit-presets button,
+  .composer-page .payment-method-switch button,
+  .composer-page .dp-menu-btn{
+    color:#cdd6e4;
+  }
+  .composer-page .deposit-presets button.active,
+  .composer-page .payment-method-switch button.active,
+  .composer-page .dp-menu-btn.active{
+    background:#f6f8ff;
+    color:#090b10;
+    border-color:#f6f8ff;
+  }
+  .composer-page .dp-menu-btn--primary,
+  .composer-page .dp-menu-btn--primary:hover,
+  .composer-page .dp-menu-btn--primary:focus-visible{
+    background:#f6f8ff;
+    color:#090b10;
+    border-color:#f6f8ff;
+  }
   .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   .invoice-sheet,.invoice-sheet *{color-scheme:light}

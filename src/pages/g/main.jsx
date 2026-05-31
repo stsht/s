@@ -77,7 +77,11 @@ function PublicInvoiceDocument({ invoice }) {
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
   const paymentMethod = String(data.paymentMethod || 'qr');
   const qrSrc = String(data.qrSrc || '/payment-qr.png');
-  const dueLabel = isFullPayment(invoice) ? 'Full Payment Due' : 'Deposit Due';
+  const requestedFullPayment = String(data.depositMode || '') === '100'
+    || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
+    || isFullPayment(invoice);
+  const dueLabel = requestedFullPayment ? 'Full Payment Due' : 'Deposit Due';
+  const depositAskOpen = data.depositAskOpen !== false;
 
   return (
     <article className="invoice-sheet">
@@ -136,6 +140,11 @@ function PublicInvoiceDocument({ invoice }) {
             <div className="paid-stamp">
               <span className="paid-stamp-badge">PAID</span>
               <p className="paid-stamp-note">Thank You!<br />Your Invoice has been Paid in Full</p>
+            </div>
+          ) : status === 'deposit' && !depositAskOpen ? (
+            <div className="deposit-received-stamp">
+              <span>Deposit</span>
+              <span>Received</span>
             </div>
           ) : (
             <>

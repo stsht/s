@@ -57,13 +57,12 @@ function readSession(key) {
 
 export function PasswordGate({ title, children }) {
   const key = useMemo(() => sessionKey(), []);
-  const [unlocked, setUnlocked] = useState(() => readSession(key));
-  // When there is no cached session, probe the HttpOnly cookie once
-  // before showing the gate. If the worker says the cookie is valid,
-  // we unlock immediately — that's how a new tab inherits the shared
-  // session without re-prompting. While probing we render nothing
-  // (a brief blank) instead of flashing the gate then content.
-  const [checking, setChecking] = useState(() => !readSession(key));
+  const [unlocked, setUnlocked] = useState(false);
+  // Probe the HttpOnly cookie on every private-page mount, even when
+  // localStorage still has time left. That prevents an expired server
+  // session from leaving /db, /l, /subs, or /inv visibly "open" while
+  // every API call only reports Unauthorized.
+  const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [status, setStatus] = useState('');
@@ -152,6 +151,7 @@ export function PasswordGate({ title, children }) {
   useEffect(() => {
     if (!checking) return undefined;
     if (import.meta.env.DEV) {
+      setUnlocked(readSession(key));
       setChecking(false);
       return undefined;
     }
@@ -164,14 +164,23 @@ export function PasswordGate({ title, children }) {
     })
       .then((response) => {
         if (!alive) return;
-        if (response.ok) setUnlocked(true);
+        if (response.ok) {
+          setUnlocked(true);
+        } else {
+          safeLocalRemove(key);
+          setUnlocked(false);
+        }
         setChecking(false);
       })
       .catch(() => {
-        if (alive) setChecking(false);
+        if (alive) {
+          safeLocalRemove(key);
+          setUnlocked(false);
+          setChecking(false);
+        }
       });
     return () => { alive = false; };
-  }, [checking]);
+  }, [checking, key]);
 
   // Refresh the local cache whenever we're in an unlocked state so
   // other tabs see the same SESSION_MS expiry window.
