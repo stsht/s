@@ -267,16 +267,16 @@ function GalleryLinks({ payload }) {
     : 'Your files are ready';
   const folderLabel = String(delivery.folderName || '').trim();
 
-  // Resolve each service to its stored link and keep ONLY the ones
-  // that actually have a usable URL. Services without a link are not
-  // rendered at all — no greyed-out "Unavailable" dead rows. This is
-  // the single source of what the delivery list shows.
-  const activeServices = services
-    .map((service) => ({
-      ...service,
-      link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
-    }))
-    .filter((service) => !!service.link?.url);
+  // Resolve EVERY service to its stored link. All four services are
+  // rendered so the card layout stays consistent (Invoice + GD/DB/WT/
+  // TN) regardless of how many links a delivery actually has: an
+  // active service renders as a clickable anchor, an unavailable one
+  // as a disabled greyed-out row. This avoids the page looking
+  // half-empty when only an invoice or only some links exist.
+  const resolvedServices = services.map((service) => ({
+    ...service,
+    link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
+  }));
 
   return (
     <main className="public-delivery-page">
@@ -306,27 +306,39 @@ function GalleryLinks({ payload }) {
           <span className="public-delivery-invoice-cta">View</span>
         </a>
 
-        {activeServices.length > 0 ? (
-          <>
-            <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
-            <div className="public-delivery-list">
-              {activeServices.map(({ key, fallback, icon, link }) => (
-                <a
-                  key={fallback}
-                  className="public-delivery-row is-active"
-                  href={link.url}
-                  onClick={() => track(link.service || key)}
-                  rel="noopener"
-                  target="_blank"
-                >
-                  <span className="public-delivery-icon">{icon}</span>
-                  <span className="public-delivery-name">{link.label || fallback}</span>
-                  <span className="public-delivery-state">Click</span>
-                </a>
-              ))}
-            </div>
-          </>
-        ) : null}
+        <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
+        <div className="public-delivery-list">
+          {resolvedServices.map(({ key, fallback, icon, link }) => {
+            const url = link?.url || '';
+            const name = link?.label || fallback;
+            return url ? (
+              <a
+                key={fallback}
+                className="public-delivery-row is-active"
+                href={url}
+                onClick={() => track(link.service || key)}
+                rel="noopener"
+                target="_blank"
+              >
+                <span className="public-delivery-icon">{icon}</span>
+                <span className="public-delivery-name">{name}</span>
+                <span className="public-delivery-state">Click</span>
+              </a>
+            ) : (
+              <button
+                key={fallback}
+                type="button"
+                className="public-delivery-row is-disabled"
+                disabled
+                aria-disabled="true"
+              >
+                <span className="public-delivery-icon">{icon}</span>
+                <span className="public-delivery-name">{name}</span>
+                <span className="public-delivery-state">Unavailable</span>
+              </button>
+            );
+          })}
+        </div>
 
         <p className="public-delivery-signoff">With love, StarShots</p>
       </section>

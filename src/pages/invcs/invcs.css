@@ -436,6 +436,12 @@ button{cursor:pointer}
   display:grid;
   place-items:center;
   padding:clamp(18px,4vw,54px);
+  /* Client-facing surface: disable accidental text selection so the
+   * card reads as a polished app screen, not selectable copy. Taps,
+   * buttons and links are unaffected (user-select only governs text
+   * selection). No copyable text fields live on this page. */
+  -webkit-user-select:none;
+  user-select:none;
   /* No overflow:hidden here. The aurora/.ss-bg layers are
    * position:fixed and unaffected by the page wrapper, so clipping
    * here only ever cropped the card on tall content — and it was
@@ -683,6 +689,29 @@ button{cursor:pointer}
   border-color:var(--accent);
   transform:translateY(-1px);
   box-shadow:0 14px 28px rgba(31,26,23,.08);
+}
+/* Inactive delivery option. Rendered (as a disabled <button>) for
+ * every missing service so the row set stays consistent, but greyed
+ * out, dashed, and non-interactive — never a dead link. */
+button.public-delivery-row{
+  appearance:none;
+  width:100%;
+  font:inherit;
+  background:transparent;
+}
+.public-delivery-row.is-active{
+  cursor:pointer;
+}
+.public-delivery-row.is-disabled{
+  cursor:default;
+  opacity:.55;
+  background:var(--soft);
+  border-style:dashed;
+}
+.public-delivery-row.is-disabled .public-delivery-icon,
+.public-delivery-row.is-disabled .public-delivery-name,
+.public-delivery-row.is-disabled .public-delivery-state{
+  color:var(--muted);
 }
 .public-delivery-icon{
   display:inline-grid;
@@ -4363,6 +4392,15 @@ dd{margin:0;text-align:right;font-weight:800}
   cursor:default;
   background:var(--field);
 }
+/* Short link card shares the password card's wrapper layout: a
+ * full-width tap-to-copy button with a right-edge icon action
+ * (Open in New Tab) reserved by .dd-card-tap's padding-right. */
+.dd-card--shortlink{
+  position:relative;
+  padding:0;
+  cursor:default;
+  background:var(--field);
+}
 .dd-card-tap{
   appearance:none;
   border:0;
@@ -4414,6 +4452,36 @@ dd{margin:0;text-align:right;font-weight:800}
 .dd-refresh-button:disabled{
   opacity:.5;
   cursor:not-allowed;
+}
+/* Open-in-new-tab anchor on the short link card. Reuses the refresh
+ * button's right-edge geometry so the two card actions look like one
+ * icon family. Rendered as an <a target="_blank"> (no disabled
+ * state needed). */
+.dd-open-button{
+  position:absolute;
+  top:50%;
+  right:10px;
+  transform:translateY(-50%);
+  display:inline-grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  padding:0;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--panel);
+  color:var(--muted);
+  cursor:pointer;
+  text-decoration:none;
+  transition:border-color .15s ease,color .15s ease,transform .15s ease,background .15s ease;
+}
+.dd-open-button:hover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:var(--field);
+}
+.dd-open-button:active{
+  transform:translateY(-50%) scale(.96);
 }
 .dd-inline-actions{
   display:flex;
