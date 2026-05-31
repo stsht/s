@@ -7,8 +7,7 @@ const corsHeaders = {
 const SERVICES = [
   { key: 'gd', label: 'Google Drive' },
   { key: 'db', label: 'Dropbox' },
-  { key: 'wt', label: 'WeTransfer' },
-  { key: 'tn', label: 'TransferNow' }
+  { key: 'wt', label: 'WeTransfer' }
 ];
 
 // Generated short codes/passwords intentionally exclude lowercase l.

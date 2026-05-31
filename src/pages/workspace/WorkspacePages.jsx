@@ -1409,9 +1409,8 @@ function RefreshIcon() {
       aria-hidden="true"
       focusable="false"
     >
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
     </svg>
   );
 }
@@ -1471,7 +1470,7 @@ function SaveIcon({ saving = false }) {
 // hopping to the public /{shortcode} page or digging through the
 // database: client greeting, folder/gallery name, plain password,
 // the full short link, any original Google Drive / Dropbox /
-// WeTransfer / TransferNow URLs that were stored when the
+// WeTransfer URLs that were stored when the
 // delivery was composed, plus tap-to-copy/share controls and the
 // stored WhatsApp/Instagram message templates.
 //
@@ -1580,7 +1579,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     { key: 'gd', label: 'Google Drive' },
     { key: 'db', label: 'Dropbox' },
     { key: 'wt', label: 'WeTransfer' },
-    { key: 'tn', label: 'TransferNow' },
   ];
   const services = SERVICE_LABELS
     .filter(({ key }) => byService.has(key))
@@ -4854,7 +4852,6 @@ const LINK_SERVICES = [
   { key: 'gd', label: 'Google Drive', placeholder: 'https://drive.google.com/...' },
   { key: 'db', label: 'Dropbox', placeholder: 'https://dropbox.com/...' },
   { key: 'wt', label: 'WeTransfer', placeholder: 'https://we.tl/...' },
-  { key: 'tn', label: 'TransferNow', placeholder: 'https://transfernow.net/...' },
 ];
 
 // Small string helpers used by /l so the client preview matches the

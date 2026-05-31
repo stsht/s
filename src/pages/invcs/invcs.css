@@ -464,6 +464,24 @@ button{cursor:pointer}
     linear-gradient(180deg,color-mix(in srgb,var(--panel) 98%,white 2%),var(--panel));
   box-shadow:0 28px 70px rgba(31,26,23,.14);
 }
+/* Desktop: adapt the card to the viewport height. It keeps a tall,
+ * elegant panel but is capped to the visible area (minus page
+ * padding) and tightens its vertical padding as the window shrinks,
+ * so resizing keeps the card centered and fully visible instead of
+ * forcing an awkward page scroll when the content already fits. If a
+ * very short desktop window can't fit the content, the card scrolls
+ * internally rather than the whole page. Mobile keeps its natural
+ * full-height, top-to-bottom flow (the base rule above is untouched
+ * on small screens). */
+@media (min-width:768px){
+  .public-delivery-card{
+    min-height:min(660px,calc(100svh - clamp(48px,12vh,140px)));
+    max-height:calc(100svh - clamp(36px,8vh,108px));
+    overflow-y:auto;
+    padding-top:clamp(26px,3.4vh,46px);
+    padding-bottom:clamp(26px,3.4vh,46px);
+  }
+}
 .public-delivery-logo{
   width:min(224px,62vw);
   height:auto;

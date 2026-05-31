@@ -194,7 +194,6 @@ function GalleryLinks({ payload }) {
     { key: 'gd', aliases: ['gd', 'drive', 'google drive'], fallback: 'Google Drive', icon: 'GD' },
     { key: 'db', aliases: ['db', 'dropbox'], fallback: 'Dropbox', icon: 'DB' },
     { key: 'wt', aliases: ['wt', 'wetransfer', 'we transfer'], fallback: 'WeTransfer', icon: 'WT' },
-    { key: 'tn', aliases: ['tn', 'transfernow', 'transfer now'], fallback: 'TransferNow', icon: 'TN' },
   ];
 
   async function track(service) {
@@ -267,9 +266,9 @@ function GalleryLinks({ payload }) {
     : 'Your files are ready';
   const folderLabel = String(delivery.folderName || '').trim();
 
-  // Resolve EVERY service to its stored link. All four services are
-  // rendered so the card layout stays consistent (Invoice + GD/DB/WT/
-  // TN) regardless of how many links a delivery actually has: an
+  // Resolve EVERY service to its stored link. All three services are
+  // rendered so the card layout stays consistent (Invoice + GD/DB/WT)
+  // regardless of how many links a delivery actually has: an
   // active service renders as a clickable anchor, an unavailable one
   // as a disabled greyed-out row. This avoids the page looking
   // half-empty when only an invoice or only some links exist.
