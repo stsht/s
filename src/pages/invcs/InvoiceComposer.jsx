@@ -575,8 +575,29 @@ export function InvoiceComposer() {
   // here so further presses become updates.
   const [savedId, setSavedId] = useState(initial.invoiceId || '');
   const [saving, setSaving] = useState(false);
+  // Delete-invoice confirm/in-flight state. The Delete control only
+  // appears once the invoice is persisted (savedId set). First click
+  // arms the button, a second click within ~4s issues the delete of
+  // ONLY this invoice via /api/invoices-delete — the paired delivery
+  // links and the client row are never touched. Auto-disarms after
+  // the timeout so an accidental press doesn't sit hot.
+  const [confirmDeleteInvoice, setConfirmDeleteInvoice] = useState(false);
+  const [deletingInvoice, setDeletingInvoice] = useState(false);
   const documentRef = useRef(null);
   const previousModeRef = useRef(mode);
+
+  useEffect(() => {
+    if (!confirmDeleteInvoice) return undefined;
+    const timer = setTimeout(() => setConfirmDeleteInvoice(false), 4000);
+    return () => clearTimeout(timer);
+  }, [confirmDeleteInvoice]);
+
+  // Disarm the delete confirm if the persisted id changes out from
+  // under us (e.g. a fresh save assigns a new id, or hydration loads
+  // a different invoice).
+  useEffect(() => {
+    setConfirmDeleteInvoice(false);
+  }, [savedId]);
 
   useEffect(() => {
     if (hydrating) {
@@ -1079,6 +1100,42 @@ export function InvoiceComposer() {
     }
   }
 
+  // Delete ONLY the currently saved invoice via /api/invoices-delete
+  // (keyed on the invoice id). The paired delivery links and the
+  // client row are intentionally left untouched — this is not an
+  // event-level delete. First click arms the button; a second click
+  // within ~4s performs the delete. On success we clear savedId so
+  // the toolbar reverts to "Save Status" and the Delete button
+  // hides, and surface a confirmation in the status line.
+  async function deleteInvoice() {
+    if (!savedId || deletingInvoice) return;
+    if (!confirmDeleteInvoice) {
+      setConfirmDeleteInvoice(true);
+      return;
+    }
+    setConfirmDeleteInvoice(false);
+    setDeletingInvoice(true);
+    setStatus('Deleting invoice\u2026');
+    try {
+      const response = await fetch('/api/invoices-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: savedId }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Delete failed (${response.status}).`);
+      }
+      setSavedId('');
+      setStatus('Invoice deleted.');
+    } catch (error) {
+      setStatus(error?.message || 'Delete failed.');
+    } finally {
+      setDeletingInvoice(false);
+    }
+  }
+
   async function downloadJpg() {
     if (!documentRef.current) return;
     setStatus('Rendering JPG...');
@@ -1212,6 +1269,9 @@ export function InvoiceComposer() {
           documentRef={documentRef}
           downloadJpg={downloadJpg}
           saveInvoice={saveInvoice}
+          deleteInvoice={deleteInvoice}
+          deletingInvoice={deletingInvoice}
+          confirmDeleteInvoice={confirmDeleteInvoice}
           saving={saving}
           savedId={savedId}
           hydrating={hydrating}
@@ -1772,7 +1832,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = mode === 'deposit'
@@ -1887,6 +1947,20 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
           >
             <PrinterIcon />
           </button>
+          {savedId ? (
+            <button
+              className={`ghost-button compact db-delete-button icon-button${confirmDeleteInvoice ? ' armed' : ''}`}
+              type="button"
+              onClick={deleteInvoice}
+              disabled={deletingInvoice}
+              aria-pressed={confirmDeleteInvoice}
+              aria-label={confirmDeleteInvoice ? 'Confirm delete invoice' : 'Delete invoice'}
+              title={confirmDeleteInvoice ? 'Confirm Delete' : 'Delete'}
+            >
+              <TrashIcon />
+              <span>{deletingInvoice ? 'Deleting\u2026' : (confirmDeleteInvoice ? 'Confirm' : 'Delete')}</span>
+            </button>
+          ) : null}
         </div>
       </header>
       <div className="preview-canvas scroll-surface" ref={previewCanvasRef}>

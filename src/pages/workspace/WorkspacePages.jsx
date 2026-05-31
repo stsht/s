@@ -1364,7 +1364,7 @@ function SaveIcon({ saving = false }) {
 // (handleDbSearch in _worker.js). When the row is too old to
 // carry a 12-char short_code, the panel offers an admin repair
 // action instead of showing a broken root URL.
-function DeliveryDetail({ delivery, onClose, onRepaired }) {
+function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
   const [variant, setVariant] = useState('whatsapp');
   const [flash, setFlash] = useState('');
@@ -1374,11 +1374,32 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
   const [linkDraft, setLinkDraft] = useState({});
   const [savingLinks, setSavingLinks] = useState(false);
   const [repairStatus, setRepairStatus] = useState('');
+  // Delete confirmation lives inside the detail panel only — the
+  // left-panel client row and event-row X stay their existing
+  // one-/two-tap controls. First click arms the Delete button (red
+  // fill), a second click within ~4s issues the actual delete of
+  // ONLY this delivery (links + access logs) via /api/db-delete —
+  // the paired invoice on the same event row is untouched. Auto-
+  // disarms on timeout or when the panel swaps to another delivery.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setCurrentDelivery(delivery || {});
     setRepairStatus('');
   }, [delivery]);
+
+  useEffect(() => {
+    if (!confirmDelete) return undefined;
+    const id = setTimeout(() => setConfirmDelete(false), 4000);
+    return () => clearTimeout(id);
+  }, [confirmDelete]);
+
+  // Reset the armed state if the parent swaps to a different
+  // delivery while this component stays mounted.
+  useEffect(() => {
+    setConfirmDelete(false);
+  }, [delivery?.id]);
 
   const title = String(currentDelivery?.title || 'Ms.').trim() || 'Ms.';
   const clientName = String(currentDelivery?.client_name || 'Client').trim() || 'Client';
@@ -1538,6 +1559,39 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
     }
   }
 
+  // Delete ONLY this delivery row (links + access logs) via the
+  // existing /api/db-delete endpoint, which is keyed on the
+  // delivery id and never touches the paired invoice. First click
+  // arms the button; the second click within ~4s performs the
+  // delete. On success we hand back to the parent client detail
+  // (onDeleted -> back() + refetch) so the event row stays put when
+  // an invoice still exists, now showing "Create Links" again.
+  async function handleDeleteLinks() {
+    if (!currentDelivery?.id || deleting) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setConfirmDelete(false);
+    setDeleting(true);
+    setRepairStatus('');
+    try {
+      const response = await fetch('/api/db-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentDelivery.id }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || `Delete failed (${response.status}).`);
+      // Parent pops back to the client detail and refetches /api/db.
+      onDeleted?.(currentDelivery);
+    } catch (error) {
+      setRepairStatus(error?.message || 'Delete failed.');
+      setDeleting(false);
+    }
+  }
+
   return (
     <>
       <div className="detail-heading">
@@ -1565,9 +1619,28 @@ function DeliveryDetail({ delivery, onClose, onRepaired }) {
           )}
         </div>
         <div className="dd-heading-side">
-          <div className="detail-actions">
-            <button type="button" className="ghost-button compact" onClick={() => setEditingLinks((value) => !value)}>
-              {editingLinks ? 'Close Edit' : 'Edit Links'}
+          <div className="detail-actions subs-detail-actions">
+            <button
+              type="button"
+              className="toolbar-icon-btn"
+              onClick={() => setEditingLinks((value) => !value)}
+              aria-pressed={editingLinks}
+              aria-label={editingLinks ? 'Close link editor' : 'Edit links'}
+              title={editingLinks ? 'Close Edit' : 'Edit Links'}
+            >
+              <EditIcon />
+            </button>
+            <button
+              type="button"
+              className={`ghost-button compact db-delete-button icon-button${confirmDelete ? ' armed' : ''}`}
+              onClick={handleDeleteLinks}
+              disabled={deleting || !currentDelivery?.id}
+              aria-pressed={confirmDelete}
+              aria-label={confirmDelete ? 'Confirm delete links' : 'Delete links'}
+              title={confirmDelete ? 'Confirm Delete' : 'Delete'}
+            >
+              <TrashIcon />
+              <span>{deleting ? 'Deleting\u2026' : (confirmDelete ? 'Confirm' : 'Delete')}</span>
             </button>
             <button
               type="button"
@@ -4320,6 +4393,15 @@ export function DatabasePage() {
             setSelected((cur) => cur?.type === 'delivery'
               ? { ...cur, data: repaired }
               : cur);
+            refetch();
+          }}
+          onDeleted={() => {
+            // The delivery row (links only) was deleted. Pop back to
+            // the parent client detail and refetch /api/db so the
+            // event row reflects the change immediately — if a paired
+            // invoice still exists the row stays put and now offers
+            // "Create Links" again; if not, the row drops out.
+            back();
             refetch();
           }}
           onClose={back}

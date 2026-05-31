@@ -1658,6 +1658,22 @@ input.no-spinner::-webkit-inner-spin-button{
   padding:0 16px;
   min-height:38px;
 }
+/* Delete Invoice control in the preview toolbar. Reuses the red
+ * ghost db-delete-button look (with the .icon-button gap for the
+ * bin glyph + label) and arms to a filled-red confirm state on the
+ * first click — the same two-tap delete pattern used on the /db
+ * detail panels. Only rendered once the invoice is saved, so it
+ * never shows on an unsaved draft. */
+.preview-toolbar-actions .db-delete-button.armed,
+.preview-toolbar-actions .db-delete-button.armed:hover{
+  background:var(--danger);
+  color:#fff;
+  border-color:var(--danger);
+}
+.preview-toolbar-actions .db-delete-button:disabled{
+  opacity:.55;
+  cursor:default;
+}
 .eyebrow{margin:0;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .primary-button{background:#1f1a17;color:#fff;white-space:nowrap}
 .primary-button:hover{background:#302a25}
@@ -3003,6 +3019,13 @@ dd{margin:0;text-align:right;font-weight:800}
 .detail-actions .db-delete-button.armed:hover{
   background:var(--danger);
   color:#fff;
+}
+/* Brief in-flight state while the delivery delete request resolves
+ * (button label switches to "Deleting…"). Dim + non-interactive so
+ * the operator can't double-fire the request. */
+.detail-actions .db-delete-button:disabled{
+  opacity:.55;
+  cursor:default;
 }
 .record-stack{
   display:grid;
