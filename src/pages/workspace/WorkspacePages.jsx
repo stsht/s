@@ -867,7 +867,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
   );
 }
 
-function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClient, onDeleteRecord, onViewLinks, onClose }) {
+function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClient, onDeleteRecord, onViewLinks, onRefresh, onClose }) {
   const todayIso = useMemo(() => jakartaTodayISO(), []);
   const records = buildClientRecords(client, invoices, deliveries, todayIso);
   const title = client?.title || 'Ms.';
@@ -934,6 +934,15 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions">
+          <button
+            type="button"
+            className="toolbar-icon-btn"
+            onClick={onRefresh}
+            aria-label="Refresh client detail"
+            title="Refresh"
+          >
+            <RefreshIcon />
+          </button>
           <button
             type="button"
             className="ghost-button compact icon-button"
@@ -1293,6 +1302,7 @@ function synthesizeDeliveryMessageIg(title, clientName, shortUrl, password) {
 function RefreshIcon() {
   return (
     <svg
+      className="btn-icon"
       viewBox="0 0 24 24"
       width="14"
       height="14"
@@ -1307,6 +1317,29 @@ function RefreshIcon() {
       <polyline points="23 4 23 10 17 10" />
       <polyline points="1 20 1 14 7 14" />
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+function SaveIcon({ saving = false }) {
+  return (
+    <svg
+      className={`btn-icon${saving ? ' is-saving' : ''}`}
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M5 3h12l2 2v16H5z" />
+      <path d="M8 3v6h8V3" />
+      <path d="M8 21v-7h8v7" />
+      <path d="M14 6h1" />
     </svg>
   );
 }
@@ -2199,6 +2232,15 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           {contact ? <span>{contact}</span> : null}
         </div>
         <div className="detail-actions subs-detail-actions">
+          <button
+            type="button"
+            className="toolbar-icon-btn"
+            onClick={onChanged}
+            aria-label="Refresh subscription detail"
+            title="Refresh"
+          >
+            <RefreshIcon />
+          </button>
           {subscription?.id && !extensionFormOpen ? (
             <button
               type="button"
@@ -4267,6 +4309,7 @@ export function DatabasePage() {
               parent,
             });
           }}
+          onRefresh={refetch}
           onClose={back}
         />
       ) : null}
@@ -4406,9 +4449,12 @@ export function DatabasePage() {
         <Segmented
           value={tab}
           onChange={(next) => {
-            setTab(next);
-            setSelected(null);
-            setMobileView('left');
+            refetch();
+            if (next !== tab) {
+              setTab(next);
+              setSelected(null);
+              setMobileView('left');
+            }
           }}
           options={tabs}
           ariaLabel="Database section"
@@ -4816,7 +4862,7 @@ export function LinkGeneratorPage() {
   }
 
   async function submit(event) {
-    event.preventDefault();
+    event?.preventDefault?.();
     const name = cleanLinkText(clientName);
     if (!name) {
       setStatus({ text: 'Please fill client name.', tone: 'error' });
@@ -5133,9 +5179,21 @@ export function LinkGeneratorPage() {
             {compactEventDateLabel(eventDateHandoff)}
           </span>
         </div>
-        <button type="button" className="ghost-button compact" onClick={copyMessage}>
-          Copy
-        </button>
+        <div className="preview-toolbar-actions">
+          <button type="button" className="ghost-button compact" onClick={copyMessage}>
+            Copy
+          </button>
+          <button
+            type="button"
+            className="toolbar-icon-btn"
+            onClick={() => submit()}
+            disabled={busy}
+            aria-label={busy ? 'Saving delivery' : 'Save delivery'}
+            title={busy ? 'Saving...' : 'Save'}
+          >
+            <SaveIcon saving={busy} />
+          </button>
+        </div>
       </header>
       <div className="lg-stats">
         <button

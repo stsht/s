@@ -1721,13 +1721,13 @@ function QrUploadField({ onChange, fileName }) {
 // up the parent .toolbar-icon-btn's currentColor for hover/disabled
 // palettes without per-icon overrides.
 
-// Circular-arrows refresh glyph for the Save / Update Status action
-// (icon-only). When `spinning` is true (a save is in flight) the
-// .is-spinning class drives a slow rotation via CSS.
-function RefreshIcon({ spinning = false }) {
+// Diskette glyph for the Save / Update Status action (icon-only).
+// It pulses while a save is in flight, keeping the action
+// semantically "save" instead of looking like refresh.
+function SaveIcon({ saving = false }) {
   return (
     <svg
-      className={`btn-icon${spinning ? ' is-spinning' : ''}`}
+      className={`btn-icon${saving ? ' is-saving' : ''}`}
       viewBox="0 0 24 24"
       width="18"
       height="18"
@@ -1739,8 +1739,10 @@ function RefreshIcon({ spinning = false }) {
       aria-hidden="true"
       focusable="false"
     >
-      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-      <polyline points="21 3 21 9 15 9" />
+      <path d="M5 3h12l2 2v16H5z" />
+      <path d="M8 3v6h8V3" />
+      <path d="M8 21v-7h8v7" />
+      <path d="M14 6h1" />
     </svg>
   );
 }
@@ -1874,7 +1876,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
             aria-label={saving ? 'Saving status' : (savedId ? 'Update status' : 'Save status')}
             title={saving ? 'Saving\u2026' : (savedId ? 'Update status' : 'Save status')}
           >
-            <RefreshIcon spinning={saving} />
+            <SaveIcon saving={saving} />
           </button>
           <button
             className="toolbar-icon-btn"

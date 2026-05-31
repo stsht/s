@@ -2953,18 +2953,18 @@ dd{margin:0;text-align:right;font-weight:800}
   background:transparent;
   color:var(--muted);
 }
-/* Slow spin on the refresh glyph while a save is in flight. Gated
+/* Gentle pulse on the save glyph while a save is in flight. Gated
  * behind prefers-reduced-motion so it holds still when the OS asks
  * for reduced motion. */
-.btn-icon.is-spinning{
+.btn-icon.is-saving{
   transform-origin:50% 50%;
-  animation:dpRefreshSpin 1s linear infinite;
+  animation:dpSavePulse .85s ease-in-out infinite;
 }
-@keyframes dpRefreshSpin{
-  to{transform:rotate(360deg)}
+@keyframes dpSavePulse{
+  50%{transform:scale(.9);opacity:.55}
 }
 @media (prefers-reduced-motion:reduce){
-  .btn-icon.is-spinning{animation:none}
+  .btn-icon.is-saving{animation:none}
 }
 /* Delete stays red at rest (icon tint) and escalates to a filled
  * red armed state on the first click — same confirm-then-delete
