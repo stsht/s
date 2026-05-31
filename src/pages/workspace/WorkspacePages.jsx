@@ -5049,9 +5049,16 @@ export function LinkGeneratorPage() {
   useEffect(() => {
     const handoff = readInvoiceHandoff();
     dbg('/l readInvoiceHandoff', handoff);
-    if (!handoff) return;
-    const handoffName = cleanLinkText(handoff.name);
-    if (!handoffName) return;
+    const handoffName = handoff ? cleanLinkText(handoff.name) : '';
+    // Standalone open (no /db or /inv handoff): default Event Date to
+    // today in Asia/Jakarta so a fresh link starts dated rather than
+    // TBA. A real /db handoff path falls through below and only sets
+    // the date when it carries a valid eventDate, so an explicit
+    // handoff (including a deliberate TBA / empty date) always wins.
+    if (!handoff || !handoffName) {
+      setEventDateHandoff((current) => current || jakartaTodayISO());
+      return;
+    }
     const handoffTitle = normalizeInvoiceTitleValue(handoff.title);
     setTitle(handoffTitle);
     setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
@@ -5115,7 +5122,11 @@ export function LinkGeneratorPage() {
       galleryCode,
       directUrl,
       shortLink: matchesSaved ? saved.shortLink : '',
-      displayPass: matchesSaved ? saved.password : pass,
+      // Never surface the folder-derived `pass` as if it were final
+      // — the worker generates the real secure password on save.
+      // Stay empty pre-save so the preview card shows a neutral
+      // "Generated on save" hint instead of a misleading value.
+      displayPass: matchesSaved ? saved.password : '',
       generatedText: matchesSaved ? saved.generatedText : '',
     };
   }, [folderName, clientName, saved]);
@@ -5329,7 +5340,7 @@ export function LinkGeneratorPage() {
   async function copyPassword() {
     const value = info.displayPass;
     if (!value) {
-      setStatus({ text: 'Fill folder name first.', tone: 'error' });
+      setStatus({ text: 'Save first to copy the password.', tone: 'error' });
       return;
     }
     const ok = await copyToClipboard(value);
@@ -5401,7 +5412,7 @@ export function LinkGeneratorPage() {
           value={folderName}
           onChange={handleFolderNameChange}
           onBlur={handleFolderNameBlur}
-          placeholder="260427 Anson M Luis ( 6th Birthday )"
+          placeholder="260606 StarShots ( Events )"
           autoComplete="off"
         />
       </label>
@@ -5423,28 +5434,6 @@ export function LinkGeneratorPage() {
           ariaLabel="Event date"
         />
       </label>
-      <div className="two-col">
-        <label>
-          Gallery Code
-          <input
-            className="lg-readonly"
-            value={info.slug}
-            readOnly
-            tabIndex={-1}
-            placeholder="260427-anson"
-          />
-        </label>
-        <label>
-          Password
-          <input
-            className="lg-readonly"
-            value={info.pass}
-            readOnly
-            tabIndex={-1}
-            placeholder="2704267"
-          />
-        </label>
-      </div>
       <p className="eyebrow lg-services-heading">Delivery Links</p>
       <div className="lg-services">
         {LINK_SERVICES.map((service) => (
@@ -5518,7 +5507,7 @@ export function LinkGeneratorPage() {
           aria-label="Copy password"
         >
           <span>Password</span>
-          <strong>{info.displayPass || '\u2014'}</strong>
+          <strong>{info.displayPass || 'Generated on save'}</strong>
         </button>
       </div>
       <textarea
