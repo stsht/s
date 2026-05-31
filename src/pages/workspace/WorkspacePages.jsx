@@ -450,6 +450,46 @@ function applySubscriptionExtension(sub, extension) {
   };
 }
 
+// Reconstruct a subscription's bonus days from its persisted dates:
+//   bonus = (expiry_date - start_date) - access_period   (clamped >= 0)
+// Used only as a fallback for rows that come back WITHOUT a stored
+// bonus value — e.g. rows written before the `bonus` column existed,
+// or on backends where a schema-cache fallback stripped the column on
+// write (in which case the recomputed expiry_date still persists, so
+// the bonus is recoverable from it). Because the edit form derives
+// expiry = start + access_period + bonus, this inference is exact and
+// idempotent: re-saving an inferred row reproduces the same expiry
+// without stacking another day. access_period falls back to 30 to
+// mirror the draft default so the arithmetic stays consistent.
+function inferBonusDaysFromDates(sub = {}) {
+  const start = plainEventDate(sub?.start_date);
+  const expiry = plainEventDate(sub?.expiry_date);
+  if (!start || !expiry) return 0;
+  const periodRaw = Number(sub?.access_period);
+  const period = Number.isFinite(periodRaw) && periodRaw > 0 ? periodRaw : 30;
+  const span = daysBetweenIso(start, expiry);
+  if (!Number.isFinite(span)) return 0;
+  const bonus = span - period;
+  return bonus > 0 ? bonus : 0;
+}
+
+// Resolve the bonus-days value for a subscription (or effective
+// subscription / extension) row. The stored `bonus` field is the
+// source of truth whenever it is present — an explicit value,
+// including a deliberate 0, is always honoured and never overridden.
+// Only when `bonus` is genuinely missing (null/undefined/'') do we
+// fall back to inferring it from the persisted dates. This keeps the
+// detail view and the edit draft showing the same persisted bonus and
+// fixes the case where a saved bonus of 1 read back as 0.
+function resolveBonusDays(sub = {}) {
+  const raw = sub?.bonus;
+  if (raw !== null && raw !== undefined && raw !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) return n;
+  }
+  return inferBonusDaysFromDates(sub);
+}
+
 // Build a sortable "YYYY-MM-DDTHH:MM:SS" key for an extension so
 // ties on the same expiry_date are broken by expiry_time. Falls
 // back to start_date/time when the extension has no expiry yet,
@@ -1906,7 +1946,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         || Number(subscription?.total)
         || 0,
       access_period: Number(subscription?.access_period) || 0,
-      bonus: Number(subscription?.bonus) || 0,
+      bonus: resolveBonusDays(subscription),
       start_date: subscription?.start_date || '',
       start_time: subscription?.start_time || '',
       expiry_date: subscription?.expiry_date || '',
@@ -1966,7 +2006,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // operator can see at a glance that no bonus was applied. Reads
   // from the effective subscription so a bonus carried by the
   // latest extension surfaces in the top card.
-  const bonusDays = Number(effective?.bonus);
+  const bonusDays = resolveBonusDays(effective);
   const bonusValue = Number.isFinite(bonusDays) && bonusDays >= 0 ? bonusDays : 0;
   const bonusLabel = `${bonusValue} ${bonusValue === 1 ? 'Day' : 'Days'}`;
   // Resolve the saved price defensively. The Subs schema only has
@@ -5558,9 +5598,7 @@ function subscriptionToDraft(sub = {}) {
     access_period: Number.isFinite(Number(sub.access_period)) && Number(sub.access_period) > 0
       ? Number(sub.access_period)
       : 30,
-    bonus: Number.isFinite(Number(sub.bonus)) && Number(sub.bonus) >= 0
-      ? Number(sub.bonus)
-      : 0,
+    bonus: resolveBonusDays(sub),
     start_date: String(sub.start_date || ''),
     start_time: padTime(sub.start_time),
     expiry_date: String(sub.expiry_date || ''),
