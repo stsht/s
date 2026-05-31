@@ -1178,15 +1178,23 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
     : '';
   const priceNumber = Number(rawPrice) || 0;
   const priceText = priceNumber > 0 ? rupiah(priceNumber) : '';
-  // Green ("already created") state for the right-side action
-  // buttons. Driven directly by hasDelivery / hasInvoice so the
-  // visual state always matches reality — a row whose linked
-  // delivery exists shows a green "View Links", a row whose
-  // invoice exists shows a green "View Invoice", and rows missing
-  // either fall back to the neutral "Create …" pill.
-  const linkClassName = `record-row-link${hasDelivery ? ' is-created' : ''}`;
-  const invoiceClassName = `record-row-link-anchor${hasInvoice ? ' is-created' : ''}`;
-  const linkAnchorClass = `record-row-link-anchor${hasDelivery ? ' is-created' : ''}`;
+  // Green ("already created") vs blue ("complete") state for the
+  // right-side action buttons.
+  //   - delivery exists + not done  -> green  View Links  (is-created)
+  //   - delivery exists + done      -> blue   View Links  (is-complete)
+  //   - invoice  exists + not paid  -> green  View Invoice(is-created)
+  //   - invoice  exists + paid      -> blue   View Invoice(is-complete)
+  //   - missing record              -> neutral Create … pill (unchanged)
+  // "done" comes from deliveries.delivery_done (db-migration-part-8);
+  // "paid" from the invoice's own status. The two states are mutually
+  // exclusive on a button so the CSS never has to fight specificity.
+  const deliveryDone = !!row.delivery?.delivery_done;
+  const invoicePaid = String(row.invoice?.status || '').toLowerCase() === 'paid';
+  const linkStateClass = hasDelivery ? (deliveryDone ? ' is-complete' : ' is-created') : '';
+  const invoiceStateClass = hasInvoice ? (invoicePaid ? ' is-complete' : ' is-created') : '';
+  const linkClassName = `record-row-link${linkStateClass}`;
+  const invoiceClassName = `record-row-link-anchor${invoiceStateClass}`;
+  const linkAnchorClass = `record-row-link-anchor${linkStateClass}`;
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
       <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
@@ -1423,6 +1431,11 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
   // disarms on timeout or when the panel swaps to another delivery.
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Mark-done toggle in-flight flag. The done state itself lives on
+  // currentDelivery.delivery_done so it tracks the saved row and the
+  // parent refetch; markingDone only gates the button while the
+  // PATCH is resolving.
+  const [markingDone, setMarkingDone] = useState(false);
 
   useEffect(() => {
     setCurrentDelivery(delivery || {});
@@ -1632,6 +1645,44 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
     }
   }
 
+  // Toggle ONLY this delivery's completion flag via
+  // /api/db-update-delivery's deliveryDone path. Saves immediately
+  // (no arm/confirm — it's a reversible status flip, not a destructive
+  // action), then updates local state and asks the parent to refetch
+  // /api/db so the client event row's "View Links" pill flips to its
+  // blue complete state. Never touches links or the paired invoice.
+  async function handleToggleDone() {
+    if (!currentDelivery?.id || markingDone) return;
+    const nextDone = !currentDelivery.delivery_done;
+    setMarkingDone(true);
+    setRepairStatus('');
+    try {
+      const response = await fetch('/api/db-update-delivery', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentDelivery.id, deliveryDone: nextDone }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || `Update failed (${response.status}).`);
+      const updated = {
+        ...currentDelivery,
+        ...(json.delivery || {}),
+        delivery_done: json.delivery?.delivery_done ?? nextDone,
+      };
+      setCurrentDelivery(updated);
+      setRepairStatus(updated.delivery_done ? 'Delivery marked done.' : 'Delivery reopened.');
+      // Refresh /db so the client event row reflects the new state.
+      onRepaired?.(updated);
+    } catch (error) {
+      setRepairStatus(error?.message || 'Update failed.');
+    } finally {
+      setMarkingDone(false);
+    }
+  }
+
+  const deliveryDone = !!currentDelivery?.delivery_done;
+
   return (
     <>
       <div className="detail-heading">
@@ -1660,6 +1711,16 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
         </div>
         <div className="dd-heading-side">
           <div className="detail-actions subs-detail-actions">
+            <button
+              type="button"
+              className={`ghost-button compact dd-done-button${deliveryDone ? ' is-complete' : ''}`}
+              onClick={handleToggleDone}
+              disabled={markingDone || !currentDelivery?.id}
+              aria-pressed={deliveryDone}
+              title={deliveryDone ? 'Delivered \u2014 click to reopen' : 'Mark this delivery as done'}
+            >
+              <span>{markingDone ? 'Saving\u2026' : (deliveryDone ? 'Done' : 'Mark Done')}</span>
+            </button>
             <button
               type="button"
               className="toolbar-icon-btn"

@@ -267,3 +267,17 @@ create trigger subscription_extensions_updated_at
   execute function public.set_current_timestamp_updated_at();
 
 notify pgrst, 'reload schema';
+
+
+-- ── Delivery "done" flag (mirrors db-migration-part-8.sql) ─────────
+-- Marks a delivery row as completed/handed-off independently of its
+-- links or paired invoice. Defaults to false; the index keeps
+-- filtering/counting by done-state cheap.
+
+alter table public.deliveries
+  add column if not exists delivery_done boolean not null default false;
+
+create index if not exists deliveries_delivery_done_idx
+  on public.deliveries (delivery_done);
+
+notify pgrst, 'reload schema';

@@ -3027,6 +3027,23 @@ dd{margin:0;text-align:right;font-weight:800}
   opacity:.55;
   cursor:default;
 }
+
+/* Mark Done / Done toggle in the delivery detail header. At rest it
+ * is a neutral compact ghost button ("Mark Done"); once the delivery
+ * is complete it flips to the muted app blue ("Done"), matching the
+ * blue "View Links" pill on the client event row. Same --evt-soon
+ * token + color-mix layering as the row pill so the two surfaces read
+ * as one blue. */
+.detail-actions .dd-done-button.is-complete,
+.detail-actions .dd-done-button.is-complete:hover{
+  background:color-mix(in srgb,var(--evt-soon) 16%,var(--panel));
+  border-color:color-mix(in srgb,var(--evt-soon) 52%,var(--line));
+  color:var(--evt-soon);
+}
+.detail-actions .dd-done-button:disabled{
+  opacity:.55;
+  cursor:default;
+}
 .record-stack{
   display:grid;
   gap:8px;
@@ -3148,6 +3165,24 @@ dd{margin:0;text-align:right;font-weight:800}
 .record-row button.record-row-link.is-created:hover{
   background:color-mix(in srgb,var(--sub-active) 22%,var(--panel));
   border-color:var(--sub-active);
+}
+
+/* "Complete" pill state — a delivered Links row (delivery_done) or a
+ * paid invoice flips the green is-created pill to the app's muted
+ * blue (--evt-soon, the same token the "soon" event tone uses), so a
+ * finished side of the row reads blue at a glance without a separate
+ * label. Layered through color-mix() so light/dark modes resolve the
+ * right shade automatically and it never reads as a neon blue. */
+.record-row a.is-complete,
+.record-row button.record-row-link.is-complete{
+  background:color-mix(in srgb,var(--evt-soon) 14%,var(--panel));
+  border-color:color-mix(in srgb,var(--evt-soon) 50%,var(--line));
+  color:var(--evt-soon);
+}
+.record-row a.is-complete:hover,
+.record-row button.record-row-link.is-complete:hover{
+  background:color-mix(in srgb,var(--evt-soon) 22%,var(--panel));
+  border-color:var(--evt-soon);
 }
 .db-back-button{
   display:none;

@@ -1842,6 +1842,10 @@ async function handleDbSearch(request, env) {
       generated_text_instagram: generatedTextIg,
       created_at: d.created_at,
       event_date: d.event_date || '',
+      // Completion flag (db-migration-part-8). Coerced to a real
+      // boolean so a missing column on a legacy schema reads as
+      // false rather than leaking null into the dashboard.
+      delivery_done: !!d.delivery_done,
       event_key: effectiveEventKey,
       delivery_url: shortPath,
       short_code: shortCode,
@@ -2204,6 +2208,38 @@ async function handleDbUpdateDelivery(request, env) {
   );
   const delivery = Array.isArray(rows) ? rows[0] : rows;
   if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+  // Done-toggle path. A request carrying `deliveryDone` flips ONLY
+  // the public.deliveries.delivery_done flag and returns
+  // immediately. It deliberately does NOT rebuild delivery_links
+  // (so it never requires editing links and can't wipe them), never
+  // touches invoices, and never alters base_slug / short_code /
+  // password or the event grouping (event_key/event_date). The link
+  // editor takes the folder/links rebuild path below; it never sends
+  // `deliveryDone`, so the two flows stay isolated.
+  if (body.deliveryDone !== undefined) {
+    const nextDone = body.deliveryDone === true
+      || body.deliveryDone === 'true'
+      || body.deliveryDone === 1
+      || body.deliveryDone === '1';
+    try {
+      const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({ delivery_done: nextDone })
+      });
+      const patchedRow = Array.isArray(patched) ? patched[0] : patched;
+      return json({
+        ok: true,
+        delivery: { ...delivery, ...(patchedRow || {}), delivery_done: nextDone }
+      });
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      // The column is missing on this (un-migrated) schema. Surface
+      // a clear, actionable error rather than silently no-op'ing.
+      return json({ error: 'delivery_done column missing. Apply db-migration-part-8.sql.' }, 400);
+    }
+  }
 
   // Optional delivery metadata PATCH. Folder and event date edits
   // do not regenerate base_slug, short_code, or password — those are
