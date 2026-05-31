@@ -652,6 +652,25 @@ function useRemoteList(endpoint) {
   const [version, setVersion] = useState(0);
   const refetch = useCallback(() => setVersion((v) => v + 1), []);
 
+  // Awaitable refresh. Performs the same /api/db fetch as the
+  // mount/version effect below but returns a promise so callers
+  // (e.g. the Delivery detail Refresh button) can surface
+  // success/failure and know exactly when fresh data has landed.
+  // It updates the shared `data`, so every panel derived from it
+  // (selectedDelivery, the Clients/Subs lists) self-heals in place.
+  const refresh = useCallback(async () => {
+    const response = await fetch(endpoint, { credentials: 'same-origin' });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || json?.ok === false) {
+      const message = friendlyDbError(json.error || `Unable to load (${response.status}).`);
+      setStatus(message);
+      throw new Error(message);
+    }
+    setData(json);
+    setStatus('');
+    return json;
+  }, [endpoint]);
+
   useEffect(() => {
     let alive = true;
     fetch(endpoint, { credentials: 'same-origin' })
@@ -684,7 +703,7 @@ function useRemoteList(endpoint) {
     return () => { alive = false; };
   }, [endpoint, version]);
 
-  return { data, status, refetch };
+  return { data, status, refetch, refresh };
 }
 
 function ListRow({ title, meta, amount }) {
@@ -1412,7 +1431,7 @@ function SaveIcon({ saving = false }) {
 // (handleDbSearch in _worker.js). When the row is too old to
 // carry a 12-char short_code, the panel offers an admin repair
 // action instead of showing a broken root URL.
-function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
+function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
   const [variant, setVariant] = useState('whatsapp');
   const [flash, setFlash] = useState('');
@@ -1422,6 +1441,11 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
   const [linkDraft, setLinkDraft] = useState({});
   const [savingLinks, setSavingLinks] = useState(false);
   const [repairStatus, setRepairStatus] = useState('');
+  // Refresh-in-flight flag for the detail-header Refresh button.
+  // Refresh only re-pulls /api/db data (via onRefresh) and lets the
+  // derived selectedDelivery rehydrate this panel — it never rotates
+  // or regenerates the password.
+  const [refreshing, setRefreshing] = useState(false);
   // Delete confirmation lives inside the detail panel only — the
   // left-panel client row and event-row X stay their existing
   // one-/two-tap controls. First click arms the Delete button (red
@@ -1437,22 +1461,44 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
   // PATCH is resolving.
   const [markingDone, setMarkingDone] = useState(false);
 
+  // Hydrate the editable copy from the freshest delivery row the
+  // parent hands down (selectedDelivery, derived from /api/db
+  // data.items). Runs whenever that row changes — including after a
+  // Refresh or a password regenerate refetch — so the open panel
+  // never holds stale data and never needs a close/reopen. Guard:
+  // a blank incoming password never overwrites a non-empty password
+  // we already hold, so a transient empty row from /api/db (or a
+  // refetch landing a tick before the repair write is visible) can't
+  // blank a known-good password.
   useEffect(() => {
-    setCurrentDelivery(delivery || {});
-    setRepairStatus('');
+    const incoming = delivery || {};
+    setCurrentDelivery((prev) => {
+      const sameRow = String(prev?.id || '') === String(incoming.id || '');
+      const incomingPwd = String(incoming.password || '').trim();
+      const prevPwd = String(prev?.password || '').trim();
+      if (sameRow && !incomingPwd && prevPwd) {
+        return { ...incoming, password: prev.password };
+      }
+      return incoming;
+    });
   }, [delivery]);
 
+  // Reset transient panel UI only when the parent swaps to a
+  // DIFFERENT delivery, so a same-row Refresh/regenerate keeps the
+  // current status line (e.g. "Delivery refreshed.") and any open
+  // editor instead of flickering them away on every data update.
+  useEffect(() => {
+    setRepairStatus('');
+    setConfirmDelete(false);
+  }, [delivery?.id]);
+
+  // Auto-disarm the Delete confirm after ~4s so an accidental first
+  // click never sits in a hot state.
   useEffect(() => {
     if (!confirmDelete) return undefined;
     const id = setTimeout(() => setConfirmDelete(false), 4000);
     return () => clearTimeout(id);
   }, [confirmDelete]);
-
-  // Reset the armed state if the parent swaps to a different
-  // delivery while this component stays mounted.
-  useEffect(() => {
-    setConfirmDelete(false);
-  }, [delivery?.id]);
 
   const title = String(currentDelivery?.title || 'Ms.').trim() || 'Ms.';
   const clientName = String(currentDelivery?.client_name || 'Client').trim() || 'Client';
@@ -1529,6 +1575,25 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
     await copyToClipboard(text);
     flashTarget(`msg-${which}`);
   }
+  // Refresh ONLY: re-pull fresh /api/db data via the parent and let
+  // the derived selectedDelivery rehydrate this open panel in place.
+  // It never rotates/regenerates the password and never edits links
+  // — if the password is still missing afterwards, the existing
+  // "Generate Secure Password" action remains the repair path.
+  async function handleRefresh() {
+    if (refreshing || !currentDelivery?.id) return;
+    setRefreshing(true);
+    setRepairStatus('Refreshing\u2026');
+    try {
+      await onRefresh?.();
+      setRepairStatus('Delivery refreshed.');
+    } catch (error) {
+      setRepairStatus(error?.message || 'Refresh failed.');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   async function handleRepairDelivery(options = {}) {
     if (!currentDelivery?.id) return;
     const rotatePassword = Boolean(options.rotatePassword);
@@ -1711,6 +1776,16 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted }) {
         </div>
         <div className="dd-heading-side">
           <div className="detail-actions subs-detail-actions">
+            <button
+              type="button"
+              className="toolbar-icon-btn"
+              onClick={handleRefresh}
+              disabled={refreshing || !currentDelivery?.id}
+              aria-label="Refresh delivery detail"
+              title="Refresh"
+            >
+              <RefreshIcon />
+            </button>
             <button
               type="button"
               className={`ghost-button compact dd-done-button${deliveryDone ? ' is-complete' : ''}`}
@@ -3729,7 +3804,7 @@ export function DatabasePage() {
   const [saveStatus, setSaveStatus] = useState('');
   const [mobileView, setMobileView] = useState('left');
   const endpoint = `/api/db${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
-  const { data, status, refetch } = useRemoteList(endpoint);
+  const { data, status, refetch, refresh } = useRemoteList(endpoint);
   const rawClients = data?.clients || [];
   const invoices = data?.invoices || [];
   const subscriptions = data?.subscriptions || [];
@@ -3983,6 +4058,21 @@ export function DatabasePage() {
   const selectedSubscription = (selected?.type === 'subscription' || selected?.type === 'subs-edit')
     ? (getSubscriptionById(selected.id) || selected.data?.subscription || null)
     : null;
+
+  // Fresh delivery row for the open Delivery detail panel. Prefer the
+  // latest /api/db row (data.items) matched by id so a Refresh or a
+  // password repair/regenerate rehydrates the panel in place without
+  // closing/reopening. Falls back to the captured selected.data only
+  // until the first fresh row for this id is available, so the panel
+  // never goes blank mid-transition. Memoised on data.items + the
+  // selection so its reference stays stable between renders (the
+  // detail panel keys its hydration effect off this reference).
+  const selectedDelivery = useMemo(() => {
+    if (selected?.type !== 'delivery') return null;
+    const id = String(selected.id || '');
+    const fresh = (data?.items || []).find((d) => String(d?.id || '') === id);
+    return fresh || selected.data || null;
+  }, [selected, data]);
 
   // Walk back one level through the selection's parent chain.
   // Used by both the global Esc handler and every X / Cancel
@@ -4489,13 +4579,14 @@ export function DatabasePage() {
       ) : null}
       {selected?.type === 'delivery' ? (
         <DeliveryDetail
-          delivery={selected.data || {}}
+          delivery={selectedDelivery || {}}
           onRepaired={(repaired) => {
             setSelected((cur) => cur?.type === 'delivery'
               ? { ...cur, data: repaired }
               : cur);
             refetch();
           }}
+          onRefresh={refresh}
           onDeleted={() => {
             // The delivery row (links only) was deleted. Pop back to
             // the parent client detail and refetch /api/db so the
