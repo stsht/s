@@ -3208,9 +3208,8 @@ dd{margin:0;text-align:right;font-weight:800}
   .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
   /* /inv pills in dark mode: previously the active pill kept color:var(--ink)
-   * (light) on a #fff background -> white text on white. Force readable
-   * dark-on-light, and brighten the inactive label so it stays legible
-   * on the dark soft surface. */
+   * (light) on a #fff background -> white text on white. Keep active
+   * editor pills dark-on-dark but visibly selected. */
   .mode-switch button{color:#cdd6e4}
   .mode-switch button.active{background:#f6f8ff;color:#090b10}
   .composer-page .deposit-presets button,
@@ -3221,16 +3220,17 @@ dd{margin:0;text-align:right;font-weight:800}
   .composer-page .deposit-presets button.active,
   .composer-page .payment-method-switch button.active,
   .composer-page .dp-menu-btn.active{
-    background:#f6f8ff;
-    color:#090b10;
-    border-color:#f6f8ff;
+    background:#2b3038;
+    color:#f6f8ff;
+    border-color:#4b5565;
+    box-shadow:none;
   }
   .composer-page .dp-menu-btn--primary,
   .composer-page .dp-menu-btn--primary:hover,
   .composer-page .dp-menu-btn--primary:focus-visible{
-    background:#f6f8ff;
+    background:#edeff5;
     color:#090b10;
-    border-color:#f6f8ff;
+    border-color:#edeff5;
   }
   .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}

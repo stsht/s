@@ -419,7 +419,7 @@ function deliveryPasswordForDisplay(delivery = {}) {
   if (plain) return plain;
   const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\n');
   const match = text.match(/password\s*:\s*([^\n\r]+)/i);
-  return match ? String(match[1] || '').trim() : '';
+  return match ? String(match[1] || '').trim().replace(/^\*+\s*/, '') : '';
 }
 
 function deliveryShortCode(delivery = {}) {
@@ -1391,7 +1391,7 @@ async function handleSave(request, env) {
     .filter((link) => link.service && link.originalUrl);
 
   const baseSlug = cleanSlug(body.baseSlug);
-  if (!body.clientName || !body.folderName || !baseSlug || !cleanLinks.length) {
+  if (!body.clientName || !body.folderName || !baseSlug) {
     return json({ error: 'Missing required delivery data.' }, 400);
   }
 
@@ -1515,11 +1515,13 @@ async function handleSave(request, env) {
     short_path: `/${shortCode}`
   }));
 
-  await supabaseFetch(env, '/rest/v1/delivery_links', {
-    method: 'POST',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify(rows)
-  });
+  if (rows.length) {
+    await supabaseFetch(env, '/rest/v1/delivery_links', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(rows)
+    });
+  }
 
   // Cross-ref fallback: when there is a linked invoice, stamp its
   // invoice_data jsonb blob with delivery_id + event_key so /db can

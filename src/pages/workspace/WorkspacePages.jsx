@@ -4834,10 +4834,6 @@ export function LinkGeneratorPage() {
         originalUrl: normalizeLinkUrl(serviceUrls[service.key]),
       }))
       .filter((link) => link.originalUrl);
-    if (!links.length) {
-      setStatus({ text: 'Please fill at least one delivery link.', tone: 'error' });
-      return;
-    }
 
     setBusy(true);
     setStatus({ text: 'Saving delivery...', tone: '' });
