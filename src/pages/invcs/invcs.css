@@ -43,6 +43,12 @@
 }
 
 *{box-sizing:border-box}
+@supports (font: -apple-system-body) {
+  html {
+    font: -apple-system-body;
+    font-family: var(--font);
+  }
+}
 html,body,#root{
   min-height:100%;
   margin:0;
@@ -191,7 +197,7 @@ button{cursor:pointer}
   box-shadow:var(--shadow);
 }
 .gate-logo{width:min(226px,68vw);height:auto;margin-bottom:28px}
-.gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:0.6875rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
 .gate-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.18)}
 .gate-eyebrow span{width:28px;height:1px;background:linear-gradient(90deg,transparent,var(--line-strong),transparent)}
 .gate-card h1{
@@ -222,7 +228,7 @@ button{cursor:pointer}
   word-break:normal;
   hyphens:auto;
 }
-.gate-card label{align-self:stretch;margin:0 0 8px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.gate-card label{align-self:stretch;margin:0 0 8px;color:#69645f;font-size:0.6875rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
 .gate-input{align-self:stretch;position:relative;margin-bottom:18px}
 .gate-input input{
   width:100%;
@@ -233,7 +239,7 @@ button{cursor:pointer}
   background:var(--field);
   color:var(--ink);
   outline:none;
-  font-size:16px;
+  font-size:1rem;
 }
 .gate-input input:focus{border-color:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.22)}
 .gate-input button{
@@ -245,7 +251,7 @@ button{cursor:pointer}
   border:0;
   background:transparent;
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:800;
 }
 .gate-submit{
@@ -255,12 +261,12 @@ button{cursor:pointer}
   border-radius:18px;
   background:var(--accent);
   color:#fff;
-  font-size:16px;
+  font-size:1rem;
   font-weight:800;
   box-shadow:0 12px 24px rgba(26,26,26,.12);
 }
 .gate-submit:hover{background:var(--accent-2)}
-.gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:12px;font-weight:800}
+.gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:0.75rem;font-weight:800}
 .gate-status.error{color:var(--danger)}
 
 /* ============================================================
@@ -517,7 +523,7 @@ button{cursor:pointer}
 .public-delivery-folder{
   margin:0;
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:900;
   letter-spacing:.16em;
   text-transform:uppercase;
@@ -537,7 +543,7 @@ button{cursor:pointer}
   padding-top:12px;
   border-top:1px solid var(--line);
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:900;
   letter-spacing:.16em;
   text-transform:uppercase;
@@ -556,7 +562,7 @@ button{cursor:pointer}
 .public-delivery-subcopy{
   margin:14px 0 22px;
   color:var(--muted);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:500;
   letter-spacing:.01em;
   text-align:center;
@@ -608,18 +614,18 @@ button{cursor:pointer}
   border-radius:12px;
   background:rgba(255,255,255,.2);
   color:#fff;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.06em;
 }
 .public-delivery-invoice-label{
   min-width:0;
-  font-size:16px;
+  font-size:1rem;
   font-weight:900;
 }
 .public-delivery-invoice-cta{
   color:#fff;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.18em;
   text-transform:uppercase;
@@ -655,7 +661,7 @@ button{cursor:pointer}
   border-bottom:1px solid var(--line);
 }
 .public-invoice-viewer-toolbar strong{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:900;
 }
 .public-invoice-viewer-toolbar div{
@@ -675,7 +681,7 @@ button{cursor:pointer}
   background:var(--soft);
   color:var(--ink);
   font:inherit;
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:900;
   text-decoration:none;
   cursor:pointer;
@@ -703,7 +709,7 @@ button{cursor:pointer}
 .public-invoice-frame p{
   margin:36px 0;
   color:var(--muted);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:800;
 }
 .public-invoice-render-host{
@@ -741,7 +747,7 @@ button{cursor:pointer}
 }
 .public-pay-title{
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.14em;
   text-transform:uppercase;
@@ -753,12 +759,12 @@ button{cursor:pointer}
 }
 .public-pay-due-label{
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
 }
 .public-pay-due-amount{
   color:var(--ink);
-  font-size:16px;
+  font-size:1rem;
   font-weight:900;
   font-variant-numeric:tabular-nums;
 }
@@ -780,7 +786,7 @@ button{cursor:pointer}
   background:transparent;
   color:var(--muted);
   font:inherit;
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:800;
   letter-spacing:.02em;
   transition:background .18s ease,color .18s ease,box-shadow .18s ease;
@@ -815,14 +821,14 @@ button{cursor:pointer}
 }
 .public-pay-bank-row dt{
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:700;
   letter-spacing:.03em;
 }
 .public-pay-bank-row dd{
   margin:0;
   color:var(--ink);
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:900;
   text-align:right;
   font-variant-numeric:tabular-nums;
@@ -870,7 +876,7 @@ button{cursor:pointer}
   background:var(--soft);
   color:var(--ink);
   font:inherit;
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:900;
   text-decoration:none;
   cursor:pointer;
@@ -909,7 +915,7 @@ button{cursor:pointer}
   border-radius:14px;
   background:color-mix(in srgb,var(--accent) 8%,var(--panel));
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:700;
   line-height:1.55;
 }
@@ -939,7 +945,7 @@ button{cursor:pointer}
 }
 .public-pay-card-kicker{
   margin:0;
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:900;
   letter-spacing:.24em;
   text-transform:uppercase;
@@ -959,25 +965,25 @@ button{cursor:pointer}
   gap:4px;
 }
 .public-pay-card-due span{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   color:#64748b;
 }
 .public-pay-card-due strong{
-  font-size:32px;
+  font-size:2rem;
   font-weight:900;
   color:#0f172a;
 }
 .public-pay-card-meta{
   margin:0;
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   color:#0f172a;
   text-align:center;
 }
 .public-pay-card-foot{
   margin:0;
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:700;
   letter-spacing:.04em;
   color:#94a3b8;
@@ -1037,18 +1043,18 @@ button.public-delivery-row{
   border-radius:12px;
   background:var(--field);
   color:var(--ink);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.06em;
 }
 .public-delivery-name{
   min-width:0;
-  font-size:16px;
+  font-size:1rem;
   font-weight:900;
 }
 .public-delivery-state{
   color:var(--accent);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.18em;
   text-transform:uppercase;
@@ -1057,7 +1063,7 @@ button.public-delivery-row{
   margin:auto 0 0;
   padding-top:34px;
   color:var(--muted);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:900;
   letter-spacing:.08em;
   text-align:center;
@@ -1068,7 +1074,7 @@ button.public-delivery-row{
   background:var(--soft);
   border:1px solid var(--line);
   color:var(--muted);
-  font-size:13px;
+  font-size:0.8125rem;
   line-height:1.6;
   text-align:left;
   -webkit-animation:ssFadeIn .22s cubic-bezier(.22,1,.36,1) forwards;
@@ -1146,15 +1152,15 @@ button.public-delivery-row{
 .editor-panel .panel-header{position:sticky;top:-18px;z-index:2;background:var(--panel);margin:-18px -18px 0;padding:18px 18px 16px}
 .panel-header img{width:132px;max-width:100%;height:auto;display:block}
 .mode-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;min-width:0;width:100%;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--soft)}
-.mode-switch button{min-width:0;height:36px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:10px;font-weight:800;text-transform:capitalize;white-space:nowrap}
+.mode-switch button{min-width:0;height:36px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:0.625rem;font-weight:800;text-transform:capitalize;white-space:nowrap}
 .mode-switch button.active{background:#fff;color:var(--ink);box-shadow:var(--shadow-soft)}
 .form-section{padding:18px 0;border-bottom:1px solid var(--line)}
 .form-section:last-child{border-bottom:0}
-.form-section h2{margin:0 0 12px;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.form-section h2{margin:0 0 12px;font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .two-col,.three-col{display:grid;gap:12px}
 .two-col{grid-template-columns:1fr 1fr}
 .three-col{grid-template-columns:.7fr 1fr auto;align-items:end}
-label{display:grid;gap:7px;color:var(--muted);font-size:12px;font-weight:800}
+label{display:grid;gap:7px;color:var(--muted);font-size:0.75rem;font-weight:800}
 input,select{
   width:100%;
   height:48px;
@@ -1256,7 +1262,7 @@ input.no-spinner::-webkit-inner-spin-button{
   align-items:center;
   padding:0 11px;
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:800;
 }
 
@@ -1519,7 +1525,7 @@ input.no-spinner::-webkit-inner-spin-button{
   margin-bottom:4px;
   padding:0 2px;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   text-align:center;
   text-transform:uppercase;
@@ -1642,7 +1648,7 @@ input.no-spinner::-webkit-inner-spin-button{
   border-radius:999px;
   background:#fff;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
 }
 .package-catalog-list{
   display:grid;
@@ -1673,11 +1679,11 @@ input.no-spinner::-webkit-inner-spin-button{
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.package-catalog-main strong{font-size:13px;font-weight:900;color:var(--ink)}
-.package-catalog-main span{font-size:11px;font-weight:750;color:var(--muted)}
+.package-catalog-main strong{font-size:0.8125rem;font-weight:900;color:var(--ink)}
+.package-catalog-main span{font-size:0.6875rem;font-weight:750;color:var(--muted)}
 .package-catalog-price{
   color:var(--ink);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:900;
   font-variant-numeric:tabular-nums;
 }
@@ -1732,7 +1738,7 @@ input.no-spinner::-webkit-inner-spin-button{
 .qty-control > span:not(.qty-stepper),
 .package-price-readonly span{
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
 }
 .qty-control strong,
@@ -1746,7 +1752,7 @@ input.no-spinner::-webkit-inner-spin-button{
   align-items:center;
   gap:6px;
   color:var(--ink);
-  font-size:16px;
+  font-size:1rem;
 }
 .qty-control button{
   width:28px;
@@ -1757,7 +1763,7 @@ input.no-spinner::-webkit-inner-spin-button{
   border-radius:10px;
   background:#fff;
   color:var(--ink);
-  font-size:18px;
+  font-size:1.125rem;
   font-weight:900;
   line-height:1;
 }
@@ -1803,8 +1809,8 @@ input.no-spinner::-webkit-inner-spin-button{
 .remove{background:transparent;color:var(--danger)}
 .ghost-button{width:100%;margin-top:12px;background:var(--soft);color:var(--ink)}
 .total-card{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:14px;border:1px solid var(--line);border-radius:18px;background:var(--field)}
-.total-card span{color:var(--muted);font-size:12px;font-weight:800}
-.total-card strong{font-size:18px}
+.total-card span{color:var(--muted);font-size:0.75rem;font-weight:800}
+.total-card strong{font-size:1.125rem}
 
 /* Deposit selector. Replaces the old "Deposit %" numeric input
  * which silently produced Rp 0 when blank. The preset row picks a
@@ -1819,7 +1825,7 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .deposit-label{
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:800;
 }
 .deposit-presets{
@@ -1838,7 +1844,7 @@ input.no-spinner::-webkit-inner-spin-button{
   border-radius:999px;
   background:transparent;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.04em;
   white-space:nowrap;
@@ -1862,7 +1868,7 @@ input.no-spinner::-webkit-inner-spin-button{
  * preview/JPG renders exactly the chosen mode; this control only
  * lives in the editor. */
 .payment-method-block{display:grid;gap:10px}
-.payment-method-label{color:var(--muted);font-size:12px;font-weight:800}
+.payment-method-label{color:var(--muted);font-size:0.75rem;font-weight:800}
 .payment-method-switch{
   display:grid;
   grid-auto-flow:column;
@@ -1880,7 +1886,7 @@ input.no-spinner::-webkit-inner-spin-button{
   border-radius:999px;
   background:transparent;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.04em;
   white-space:nowrap;
@@ -1918,14 +1924,14 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .bank-details-summary-list dt{
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:700;
   letter-spacing:.04em;
 }
 .bank-details-summary-list dd{
   margin:0;
   color:var(--ink);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:900;
   text-align:right;
   font-variant-numeric:tabular-nums;
@@ -1947,7 +1953,7 @@ input.no-spinner::-webkit-inner-spin-button{
  * pressed feedback. None of this affects the invoice JPG export —
  * only the QR image itself flows into the sheet. */
 .qr-upload{display:grid;gap:8px}
-.qr-upload-label{color:var(--muted);font-size:12px;font-weight:800}
+.qr-upload-label{color:var(--muted);font-size:0.75rem;font-weight:800}
 .qr-upload-control{display:block;position:relative;cursor:pointer}
 .qr-upload-control input[type="file"]{
   position:absolute;
@@ -1975,7 +1981,7 @@ input.no-spinner::-webkit-inner-spin-button{
   background:var(--field);
   color:var(--muted);
   font-weight:800;
-  font-size:13px;
+  font-size:0.8125rem;
   letter-spacing:.02em;
   transition:transform .08s ease, background .14s ease, border-color .14s ease, color .14s ease;
 }
@@ -1997,7 +2003,7 @@ input.no-spinner::-webkit-inner-spin-button{
 .qr-upload-filename{
   display:block;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:700;
   letter-spacing:.02em;
   text-align:center;
@@ -2008,7 +2014,7 @@ input.no-spinner::-webkit-inner-spin-button{
 
 .preview-panel{display:flex;flex-direction:column;padding:18px}
 .preview-toolbar{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:-18px -18px 0;padding:18px 18px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
-.preview-toolbar h2{margin:2px 0 0;font-size:28px;line-height:1.1;font-weight:900;letter-spacing:0}
+.preview-toolbar h2{margin:2px 0 0;font-size:1.75rem;line-height:1.1;font-weight:900;letter-spacing:0}
 /* Toolbar actions row (right side of the preview header) holds the
  * Save Status button and the Generate JPG button side-by-side. The
  * ghost Save Status button is sized down with .compact so the
@@ -2043,7 +2049,7 @@ input.no-spinner::-webkit-inner-spin-button{
   opacity:.55;
   cursor:default;
 }
-.eyebrow{margin:0;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.eyebrow{margin:0;color:var(--muted);font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .primary-button{background:#1f1a17;color:#fff;white-space:nowrap}
 .primary-button:hover{background:#302a25}
 /* .preview-canvas is the real scroller inside the clipped
@@ -2097,7 +2103,7 @@ input.no-spinner::-webkit-inner-spin-button{
 .sheet-box{border:1px solid #edf0f5;border-radius:22px;padding:18px;background:#fff}
 .sheet-grid .sheet-box{min-height:126px}
 dl{display:grid;gap:10px;margin:14px 0 0}
-dt{color:#777;font-size:13px}
+dt{color:#777;font-size:0.8125rem}
 dd{margin:0;text-align:right;font-weight:800}
 /* Compact one-line label/value rows used by the Bill To and Details
  * boxes on the white invoice sheet. The label sits left, the value
@@ -2109,22 +2115,22 @@ dd{margin:0;text-align:right;font-weight:800}
  * touching the dl/dt/dd defaults that other styles may rely on. */
 .meta-list{display:grid;gap:8px;margin:12px 0 0}
 .meta-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;min-height:20px}
-.meta-row dt{flex:0 0 auto;color:#777;font-size:13px;font-weight:600}
-.meta-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:15px;font-weight:800;color:#1f1a17;overflow-wrap:anywhere}
+.meta-row dt{flex:0 0 auto;color:#777;font-size:0.8125rem;font-weight:600}
+.meta-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:0.9375rem;font-weight:800;color:#1f1a17;overflow-wrap:anywhere}
 .line-table{margin:0 var(--invoice-page-margin) 0;overflow:hidden;padding:0}
 .line-head,.line-row{display:grid;grid-template-columns:minmax(0,1.55fr) .24fr minmax(124px,.92fr);gap:12px;align-items:center}
-.line-head{padding:14px 18px;border-bottom:1px solid #d8e2ee;color:#4f657c;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#f4f8fd}
-.line-row{padding:16px 18px;border-bottom:1px solid #edf0f5;font-size:13px}
+.line-head{padding:14px 18px;border-bottom:1px solid #d8e2ee;color:#4f657c;font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;background:#f4f8fd}
+.line-row{padding:16px 18px;border-bottom:1px solid #edf0f5;font-size:0.8125rem}
 .line-row:last-child{border-bottom:0}
-.line-row strong{font-size:15px;font-weight:850;color:#1f1a17}
+.line-row strong{font-size:0.9375rem;font-weight:850;color:#1f1a17}
 .line-row small{display:block;margin-top:5px;color:#777;line-height:1.45}
-.line-row span{text-align:right;font-size:15px;font-weight:800}
+.line-row span{text-align:right;font-size:0.9375rem;font-weight:800}
 .line-row span:nth-child(2),.line-head span:nth-child(2){text-align:center}
 .line-head span:nth-child(3){text-align:right}
 .summary-box{width:min(100%,380px);margin:14px var(--invoice-page-margin) 0 auto;border:1px solid #edf0f5;border-radius:20px;padding:13px 15px;background:#fff}
 .summary-box p{display:flex;justify-content:space-between;margin:0 0 12px;color:#777}
 .summary-box p:last-child{margin-bottom:0}
-.summary-box .grand{padding-top:12px;border-top:1px dashed #dbe3ee;color:#1f1a17;font-size:18px}
+.summary-box .grand{padding-top:12px;border-top:1px dashed #dbe3ee;color:#1f1a17;font-size:1.125rem}
 .summary-box .grand strong{font-weight:900}
 /* Payment box layout. The QR canvas (or Bank Transfer details
  * block) + caption live in a single column, centred. The card is
@@ -2162,8 +2168,8 @@ dd{margin:0;text-align:right;font-weight:800}
 .payment-box img{display:block;width:150px;height:150px;max-width:100%;object-fit:contain;align-self:start;margin:0 auto;border:1px solid #edf0f5;border-radius:18px;padding:9px;background:#fff;box-shadow:var(--shadow-soft);image-rendering:pixelated}
 .payment-box .eyebrow{margin:0 0 4px;padding:0;border:0;background:transparent;letter-spacing:.2em}
 .deposit-due{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;padding:0;margin:0;border:0;background:transparent}
-.deposit-due span{color:#777;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
-.deposit-due strong{font-size:18px;font-weight:900;color:#1f1a17;line-height:1.2}
+.deposit-due span{color:#777;font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.deposit-due strong{font-size:1.125rem;font-weight:900;color:#1f1a17;line-height:1.2}
 .deposit-received-stamp{
   grid-row:2 / -1;
   align-self:center;
@@ -2171,7 +2177,7 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:4px;
   color:#1f1a17;
   text-align:center;
-  font-size:21px;
+  font-size:1.3125rem;
   font-weight:900;
   line-height:1.05;
   letter-spacing:.14em;
@@ -2194,7 +2200,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .bank-details-heading{
   margin:0 0 2px;
   color:#1f1a17;
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:900;
   letter-spacing:.08em;
   text-transform:uppercase;
@@ -2218,7 +2224,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .bank-details-list dt{
   flex:0 0 auto;
   color:#777;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:700;
   letter-spacing:.04em;
 }
@@ -2226,18 +2232,18 @@ dd{margin:0;text-align:right;font-weight:800}
   flex:1 1 auto;
   margin:0;
   color:#1f1a17;
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:900;
   text-align:right;
   font-variant-numeric:tabular-nums;
   word-break:break-all;
 }
 .terms-box{padding:20px 24px}
-.terms-box .eyebrow{font-size:14px;letter-spacing:.15em;color:#66778b}
-.terms-box p{margin:14px 0 0;color:#708096;line-height:1.62;font-size:13px}
+.terms-box .eyebrow{font-size:0.875rem;letter-spacing:.15em;color:#66778b}
+.terms-box p{margin:14px 0 0;color:#708096;line-height:1.62;font-size:0.8125rem}
 .terms-box strong{font-weight:900;color:#5c6f86}
-.invoice-sheet footer{display:flex;justify-content:space-between;gap:12px;margin:18px var(--invoice-page-margin) 0;padding:14px 2px 20px;border-top:1px solid #edf0f5;color:#708096;font-size:12px}
-.download-status{min-height:18px;margin:10px 4px 0;text-align:right;color:var(--muted);font-size:12px;font-weight:800}
+.invoice-sheet footer{display:flex;justify-content:space-between;gap:12px;margin:18px var(--invoice-page-margin) 0;padding:14px 2px 20px;border-top:1px solid #edf0f5;color:#708096;font-size:0.75rem}
+.download-status{min-height:18px;margin:10px 4px 0;text-align:right;color:var(--muted);font-size:0.75rem;font-weight:800}
 .mobile-tabs{display:none}
 .workspace-page{
   min-height:100dvh;
@@ -2278,7 +2284,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:color-mix(in srgb,var(--panel) 82%,transparent);
   color:var(--muted);
   text-decoration:none;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.12em;
   text-transform:uppercase;
@@ -2295,7 +2301,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:color-mix(in srgb,var(--panel) 82%,transparent);
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.12em;
   text-transform:uppercase;
@@ -2356,13 +2362,13 @@ dd{margin:0;text-align:right;font-weight:800}
 .tool-card span{
   margin-bottom:20px;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.2em;
   text-transform:uppercase;
 }
-.tool-card strong{font-size:25px;line-height:1.08;font-weight:900}
-.tool-card p{margin:18px 0 24px;color:var(--muted);font-size:15px;line-height:1.55}
+.tool-card strong{font-size:1.5625rem;line-height:1.08;font-weight:900}
+.tool-card p{margin:18px 0 24px;color:var(--muted);font-size:0.9375rem;line-height:1.55}
 .tool-card em{
   margin-top:auto;
   min-height:36px;
@@ -2373,7 +2379,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   color:var(--ink);
   font-style:normal;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.18em;
   text-transform:uppercase;
@@ -2388,7 +2394,7 @@ dd{margin:0;text-align:right;font-weight:800}
   min-height:360px;
   padding:26px;
 }
-.workspace-panel h2{margin:0 0 16px;font-size:34px;line-height:1.05;font-weight:900}
+.workspace-panel h2{margin:0 0 16px;font-size:2.125rem;line-height:1.05;font-weight:900}
 .side-panel{display:grid;gap:16px;min-height:0}
 .segmented{
   display:grid;
@@ -2406,7 +2412,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:transparent;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   text-transform:uppercase;
 }
@@ -2421,8 +2427,8 @@ dd{margin:0;text-align:right;font-weight:800}
   border-bottom:1px solid var(--line);
 }
 .list-row strong,.list-row span{display:block}
-.list-row strong{font-size:15px;color:var(--ink)}
-.list-row span{margin-top:3px;color:var(--muted);font-size:12px}
+.list-row strong{font-size:0.9375rem;color:var(--ink)}
+.list-row span{margin-top:3px;color:var(--muted);font-size:0.75rem}
 .list-row b{color:var(--ink);white-space:nowrap}
 /* URL/anchor values inside list-row spans (e.g. /db DeliveryDetail's
  * short link + original GD/DB/WT/TN URLs) read as clickable text
@@ -2439,7 +2445,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .form-stack{display:grid;gap:16px}
 .preview-note-card{display:grid;align-content:center;gap:12px}
 .preview-note-card h2{margin:0}
-.preview-note-card p{margin:0;color:var(--muted);font-size:16px;line-height:1.6}
+.preview-note-card p{margin:0;color:var(--muted);font-size:1rem;line-height:1.6}
 .preview-note-card strong{font-size:clamp(28px,4vw,46px);line-height:1.05;color:var(--ink);overflow-wrap:anywhere}
 .preview-note-card small{color:var(--muted);font-weight:800}
 .workspace-panel .primary-button{width:max-content;padding:0 22px}
@@ -2470,7 +2476,7 @@ dd{margin:0;text-align:right;font-weight:800}
   font-weight:800;
 }
 .db-page .hero-eyebrow{
-  font-size:11px;
+  font-size:0.6875rem;
   letter-spacing:.24em;
 }
 .db-grid{
@@ -2519,7 +2525,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:var(--soft);
   color:var(--muted);
   text-decoration:none;
-  font-size:10px;
+  font-size:0.625rem;
   font-weight:800;
   letter-spacing:0;
 }
@@ -2653,7 +2659,7 @@ dd{margin:0;text-align:right;font-weight:800}
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:700;
 }
 .db-list-row span{
@@ -2662,7 +2668,7 @@ dd{margin:0;text-align:right;font-weight:800}
   text-overflow:ellipsis;
   white-space:nowrap;
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:650;
 }
 /* Scope the .db-list-row span rule above to the meta-line span
@@ -2678,7 +2684,7 @@ dd{margin:0;text-align:right;font-weight:800}
   max-width:none;
   overflow:visible;
   text-overflow:clip;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
 }
 
@@ -2753,7 +2759,7 @@ dd{margin:0;text-align:right;font-weight:800}
   margin-left:10px;
   padding:3px 10px;
   border-radius:999px;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.04em;
   text-transform:uppercase;
@@ -2791,7 +2797,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:var(--soft);
   color:var(--ink);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.03em;
   text-transform:uppercase;
@@ -2822,7 +2828,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:transparent;
   color:var(--muted);
   border:1px solid var(--line);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.04em;
   white-space:nowrap;
@@ -2924,7 +2930,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-extension-form-eyebrow{
   margin:0 0 4px;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.08em;
   text-transform:uppercase;
@@ -2966,7 +2972,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-extensions-empty{
   margin:0;
   color:var(--muted);
-  font-size:13px;
+  font-size:0.8125rem;
 }
 
 /* Extension/period timeline rows. Each row is a clean ledger entry:
@@ -3001,14 +3007,14 @@ dd{margin:0;text-align:right;font-weight:800}
   min-width:0;
 }
 .subs-extension-date-label{
-  font-size:10px;
+  font-size:0.625rem;
   font-weight:900;
   letter-spacing:.1em;
   text-transform:uppercase;
   color:var(--muted);
 }
 .subs-extension-date-value{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:750;
   color:var(--ink);
   font-variant-numeric:tabular-nums;
@@ -3016,7 +3022,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-extension-meta{
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
 }
 @media (max-width:640px){
   .subs-extension-dates{
@@ -3173,7 +3179,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .create-event-eyebrow{
   margin:0;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.16em;
   text-transform:uppercase;
@@ -3275,7 +3281,7 @@ dd{margin:0;text-align:right;font-weight:800}
   justify-content:center;
   padding:0 15px;
   text-decoration:none;
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:800;
 }
 
@@ -3446,7 +3452,7 @@ dd{margin:0;text-align:right;font-weight:800}
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:750;
 }
 .record-row a,
@@ -3461,7 +3467,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:var(--panel);
   color:var(--ink);
   text-decoration:none;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
 }
 .record-row button.record-row-link{
@@ -3510,7 +3516,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .record-row-price{
   flex:0 0 auto;
   color:var(--muted);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:700;
   font-variant-numeric:tabular-nums;
   white-space:nowrap;
@@ -3579,7 +3585,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .client-status{
   margin:0;
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:750;
 }
 .gallery-page .workspace-hero{
@@ -3618,7 +3624,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .gallery-link-card b{
   color:var(--accent);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.16em;
   text-transform:uppercase;
@@ -3715,44 +3721,44 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .bottom-grid{gap:54px;margin:60px var(--invoice-page-margin) 0;padding-top:54px;border-top-width:3px}
 .invoice-export-host .sheet-box{border-width:3px;border-radius:66px;padding:54px}
 .invoice-export-host .sheet-grid .sheet-box{min-height:378px}
-.invoice-export-host .eyebrow{font-size:33px;letter-spacing:.14em}
+.invoice-export-host .eyebrow{font-size:2.0625rem;letter-spacing:.14em}
 .invoice-export-host dl{gap:30px;margin:42px 0 0}
-.invoice-export-host dt{font-size:39px}
+.invoice-export-host dt{font-size:2.4375rem}
 .invoice-export-host .meta-list{gap:24px;margin:36px 0 0}
 .invoice-export-host .meta-row{gap:42px;min-height:60px}
-.invoice-export-host .meta-row dt{font-size:39px}
-.invoice-export-host .meta-row dd{font-size:45px}
+.invoice-export-host .meta-row dt{font-size:2.4375rem}
+.invoice-export-host .meta-row dd{font-size:2.8125rem}
 .invoice-export-host .line-table{border-width:3px;padding:0}
 .invoice-export-host .line-head,
 .invoice-export-host .line-row{gap:36px}
-.invoice-export-host .line-head{padding:42px 54px;border-bottom-width:3px;font-size:33px}
-.invoice-export-host .line-row{padding:48px 54px;border-bottom-width:3px;font-size:39px}
+.invoice-export-host .line-head{padding:42px 54px;border-bottom-width:3px;font-size:2.0625rem}
+.invoice-export-host .line-row{padding:48px 54px;border-bottom-width:3px;font-size:2.4375rem}
 .invoice-export-host .line-row strong,
-.invoice-export-host .line-row span{font-size:45px}
-.invoice-export-host .line-row small{margin-top:15px;font-size:33px}
+.invoice-export-host .line-row span{font-size:2.8125rem}
+.invoice-export-host .line-row small{margin-top:15px;font-size:2.0625rem}
 .invoice-export-host .summary-box{width:min(100%,1140px);margin:42px var(--invoice-page-margin) 0 auto;border-width:3px;border-radius:60px;padding:39px 45px}
-.invoice-export-host .summary-box p{margin:0 0 36px;font-size:39px}
-.invoice-export-host .summary-box p strong{font-size:39px}
-.invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:54px}
-.invoice-export-host .summary-box .grand strong{font-size:54px;font-weight:900}
+.invoice-export-host .summary-box p{margin:0 0 36px;font-size:2.4375rem}
+.invoice-export-host .summary-box p strong{font-size:2.4375rem}
+.invoice-export-host .summary-box .grand{padding-top:36px;border-top-width:3px;font-size:3.375rem}
+.invoice-export-host .summary-box .grand strong{font-size:3.375rem;font-weight:900}
 .invoice-export-host .bottom-grid > .sheet-box.payment-box{padding:60px 54px}
 .invoice-export-host .payment-box{gap:24px}
 .invoice-export-host .payment-box img{width:450px;height:450px;border-width:3px;border-radius:54px;padding:27px}
 .invoice-export-host .payment-box .eyebrow{margin:0 0 12px;letter-spacing:.2em}
 .invoice-export-host .deposit-due{gap:12px}
-.invoice-export-host .deposit-due span{font-size:33px}
-.invoice-export-host .deposit-due strong{font-size:54px}
-.invoice-export-host .deposit-received-stamp{gap:12px;font-size:63px}
+.invoice-export-host .deposit-due span{font-size:2.0625rem}
+.invoice-export-host .deposit-due strong{font-size:3.375rem}
+.invoice-export-host .deposit-received-stamp{gap:12px;font-size:3.9375rem}
 .invoice-export-host .bank-details{gap:48px}
-.invoice-export-host .bank-details-heading{margin:0 0 6px;font-size:39px}
+.invoice-export-host .bank-details-heading{margin:0 0 6px;font-size:2.4375rem}
 .invoice-export-host .bank-details-list{gap:24px;padding:36px 42px;border-width:3px;border-radius:42px}
 .invoice-export-host .bank-details-row{gap:30px}
-.invoice-export-host .bank-details-list dt{font-size:33px}
-.invoice-export-host .bank-details-list dd{font-size:39px}
+.invoice-export-host .bank-details-list dt{font-size:2.0625rem}
+.invoice-export-host .bank-details-list dd{font-size:2.4375rem}
 .invoice-export-host .terms-box{padding:60px 72px}
-.invoice-export-host .terms-box .eyebrow{font-size:42px}
-.invoice-export-host .terms-box p{margin:42px 0 0;font-size:39px}
-.invoice-export-host .invoice-sheet footer{gap:36px;margin:54px var(--invoice-page-margin) 0;padding:42px 6px 60px;border-top-width:3px;font-size:36px}
+.invoice-export-host .terms-box .eyebrow{font-size:2.625rem}
+.invoice-export-host .terms-box p{margin:42px 0 0;font-size:2.4375rem}
+.invoice-export-host .invoice-sheet footer{gap:36px;margin:54px var(--invoice-page-margin) 0;padding:42px 6px 60px;border-top-width:3px;font-size:2.25rem}
 
 @media(max-width:1023px){
   body:has(.composer-shell){overflow:hidden}
@@ -3789,7 +3795,7 @@ dd{margin:0;text-align:right;font-weight:800}
   .workspace-nav{justify-content:flex-start}
   .workspace-hero,.workspace-grid,.tool-grid{grid-template-columns:1fr}
   .gallery-link-grid{grid-template-columns:1fr}
-  .workspace-hero h1{font-size:44px}
+  .workspace-hero h1{font-size:2.75rem}
   .tool-card{min-height:190px}
   .db-page{
     padding:12px;
@@ -3804,7 +3810,7 @@ dd{margin:0;text-align:right;font-weight:800}
     margin-bottom:18px;
   }
   .db-page .workspace-hero h1{
-    font-size:42px;
+    font-size:2.625rem;
   }
   .db-grid{
     display:block;
@@ -3902,7 +3908,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-toolbar h2{
   margin:2px 0 0;
-  font-size:28px;
+  font-size:1.75rem;
   line-height:1.1;
   font-weight:900;
   letter-spacing:0;
@@ -3963,7 +3969,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-greeting{
   margin:0;
-  font-size:18px;
+  font-size:1.125rem;
   font-weight:600;
   color:#1f2a3f;
   letter-spacing:0;
@@ -3971,7 +3977,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-service-tag{
   margin:0;
   color:#7e94b3;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:700;
   letter-spacing:.2em;
   text-transform:uppercase;
@@ -3990,7 +3996,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-eyebrow{
   margin:6px 0 0;
   color:#7e94b3;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.22em;
   text-transform:uppercase;
@@ -4014,13 +4020,13 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-tile-label{
   color:#7e94b3;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:700;
   letter-spacing:.16em;
   text-transform:uppercase;
 }
 .subs-tile strong{
-  font-size:18px;
+  font-size:1.125rem;
   font-weight:800;
   color:#1f2a3f;
   letter-spacing:0;
@@ -4051,7 +4057,7 @@ dd{margin:0;text-align:right;font-weight:800}
   font-family:var(--font);
 }
 .subs-period-time{
-  font-size:24px;
+  font-size:1.5rem;
   font-weight:800;
   color:#1f2a3f;
   letter-spacing:.02em;
@@ -4069,13 +4075,13 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-foot-title{
   margin:6px 0 0;
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:800;
   color:#1f2a3f;
 }
 .subs-foot-sub{
   margin:0;
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:600;
   color:#7e94b3;
 }
@@ -4086,7 +4092,7 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  font-size:11px;
+  font-size:0.6875rem;
   color:#7e94b3;
   font-weight:600;
 }
@@ -4180,7 +4186,7 @@ dd{margin:0;text-align:right;font-weight:800}
   margin:0;
 }
 .subs-invoice-meta strong{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   color:#1f2a3f;
   letter-spacing:.04em;
@@ -4203,7 +4209,7 @@ dd{margin:0;text-align:right;font-weight:800}
   min-height:120px;
 }
 .subs-tile.subs-tile--list strong{
-  font-size:17px;
+  font-size:1.0625rem;
   font-weight:800;
   color:#1f2a3f;
   font-family:var(--font);
@@ -4211,7 +4217,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-tile.subs-tile--list p{
   margin:0;
   color:#1f2a3f;
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:600;
 }
 .subs-invoice-line{
@@ -4226,7 +4232,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-invoice-line strong{
   display:block;
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   color:#1f2a3f;
   font-family:var(--font);
@@ -4235,12 +4241,12 @@ dd{margin:0;text-align:right;font-weight:800}
   display:block;
   margin-top:4px;
   color:#7e94b3;
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:600;
   letter-spacing:.02em;
 }
 .subs-invoice-line span{
-  font-size:18px;
+  font-size:1.125rem;
   font-weight:800;
   color:#1f2a3f;
   white-space:nowrap;
@@ -4285,20 +4291,20 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-invoice-totals span{
   color:#7e94b3;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.14em;
   text-transform:uppercase;
 }
 .subs-invoice-totals strong{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   color:#1f2a3f;
   font-family:var(--font);
   white-space:nowrap;
 }
 .subs-invoice-totals p:first-child strong{
-  font-size:22px;
+  font-size:1.375rem;
 }
 
 @media(max-width:1023px){
@@ -4347,7 +4353,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .lg-services-heading{
   margin:6px 0 -2px;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
   letter-spacing:.14em;
   text-transform:uppercase;
@@ -4375,19 +4381,19 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:color-mix(in srgb,var(--ink) 6%,transparent);
   color:var(--muted);
-  font-size:10px;
+  font-size:0.625rem;
   font-weight:900;
   letter-spacing:.08em;
 }
 .lg-service-name{
   color:var(--ink);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:800;
 }
 .lg-service input{
   height:42px;
   border-radius:14px;
-  font-size:14px;
+  font-size:0.875rem;
   font-weight:600;
 }
 
@@ -4432,7 +4438,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .lg-preview-toolbar h2{
   margin:2px 0 0;
-  font-size:18px;
+  font-size:1.125rem;
   font-weight:800;
   color:var(--ink);
   letter-spacing:0;
@@ -4474,13 +4480,13 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .lg-stat-card span{
   color:var(--muted);
-  font-size:10px;
+  font-size:0.625rem;
   font-weight:900;
   letter-spacing:.12em;
   text-transform:uppercase;
 }
 .lg-stat-card strong{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   overflow-wrap:anywhere;
   line-height:1.3;
@@ -4500,7 +4506,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:var(--field);
   color:var(--ink);
   font:inherit;
-  font-size:13.5px;
+  font-size:0.8438rem;
   line-height:1.55;
   resize:none;
   outline:none;
@@ -4517,7 +4523,7 @@ dd{margin:0;text-align:right;font-weight:800}
 
 @media(max-width:1023px){
   input, select, textarea{
-    font-size:16px !important;
+    font-size:1rem !important;
   }
   .public-delivery-page{
     /* Top-aligned on mobile so a tall card never pushes its header
@@ -4573,13 +4579,13 @@ dd{margin:0;text-align:right;font-weight:800}
     width:32px;
     height:32px;
     border-radius:10px;
-    font-size:10px;
+    font-size:0.625rem;
   }
   .public-delivery-name{
-    font-size:15px;
+    font-size:0.9375rem;
   }
   .public-delivery-state{
-    font-size:10px;
+    font-size:0.625rem;
     letter-spacing:.14em;
   }
   .public-delivery-signoff{
@@ -4648,7 +4654,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:var(--soft);
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.03em;
   white-space:nowrap;
@@ -4699,13 +4705,13 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .dd-eyebrow{
   color:var(--muted);
-  font-size:10px;
+  font-size:0.625rem;
   font-weight:900;
   letter-spacing:.12em;
   text-transform:uppercase;
 }
 .dd-card-strong{
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   line-height:1.3;
   color:var(--ink);
@@ -4718,7 +4724,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .dd-card-hint{
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:700;
 }
 .dd-repair-button.ghost-button.compact{
@@ -4841,7 +4847,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:transparent;
   color:var(--muted);
   font:inherit;
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   cursor:pointer;
 }
@@ -4872,7 +4878,7 @@ dd{margin:0;text-align:right;font-weight:800}
   display:grid;
   gap:6px;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:900;
 }
 .dd-link-fields input{
@@ -4884,7 +4890,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:var(--panel);
   color:var(--ink);
   font:inherit;
-  font-size:13px;
+  font-size:0.8125rem;
   outline:none;
 }
 .dd-link-fields input:focus{
@@ -4913,18 +4919,18 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:var(--ink);
   color:var(--panel);
-  font-size:10px;
+  font-size:0.625rem;
   font-weight:900;
   letter-spacing:.06em;
 }
 .dd-service-label{
   color:var(--ink);
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:800;
 }
 .dd-service-url{
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:600;
   overflow-wrap:anywhere;
   word-break:break-all;
@@ -4973,7 +4979,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:transparent;
   color:var(--muted);
-  font-size:11px;
+  font-size:0.6875rem;
   font-weight:800;
   letter-spacing:.04em;
   white-space:nowrap;
@@ -4993,7 +4999,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:var(--panel);
   color:var(--ink);
   font:inherit;
-  font-size:13px;
+  font-size:0.8125rem;
   line-height:1.5;
   resize:vertical;
   outline:none;
@@ -5086,12 +5092,12 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-drop-title{
   color:var(--ink);
-  font-size:15px;
+  font-size:0.9375rem;
   font-weight:800;
   letter-spacing:.01em;
 }
 .subs-drop-hint{
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:700;
   color:var(--muted);
   letter-spacing:.02em;
@@ -5161,7 +5167,7 @@ dd{margin:0;text-align:right;font-weight:800}
   height:42px;
 }
 .subs-import-upload .subs-drop-title{
-  font-size:16px;
+  font-size:1rem;
 }
 .subs-import-upload .subs-drop-hint{
   max-width:42ch;
@@ -5177,7 +5183,7 @@ dd{margin:0;text-align:right;font-weight:800}
     height:48px;
   }
   .subs-import-upload .subs-drop-title{
-    font-size:18px;
+    font-size:1.125rem;
   }
 }
 
@@ -5197,7 +5203,7 @@ dd{margin:0;text-align:right;font-weight:800}
  * styles below are purely presentational. */
 
 /* Locked identity/event recap (Deposit + Paid tabs) */
-.locked-hint{margin:0 0 14px;color:var(--muted);font-size:12px;font-weight:700;line-height:1.55}
+.locked-hint{margin:0 0 14px;color:var(--muted);font-size:0.75rem;font-weight:700;line-height:1.55}
 .locked-list{display:grid;gap:8px;margin:0}
 .locked-row{
   display:flex;
@@ -5210,8 +5216,8 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:14px;
   background:var(--field);
 }
-.locked-row dt{flex:0 0 auto;margin:0;color:var(--muted);font-size:12px;font-weight:800}
-.locked-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:13px;font-weight:800;color:var(--ink);overflow-wrap:anywhere}
+.locked-row dt{flex:0 0 auto;margin:0;color:var(--muted);font-size:0.75rem;font-weight:800}
+.locked-row dd{flex:1 1 auto;margin:0;text-align:right;font-size:0.8125rem;font-weight:800;color:var(--ink);overflow-wrap:anywhere}
 
 /* Deposit workflow menu (Deposit tab). Two clearly separated actions:
  * "Ask DP" toggles the Requested Deposit Due editor; "Add DP Paid"
@@ -5231,7 +5237,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:999px;
   background:var(--soft);
   color:var(--muted);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:900;
   letter-spacing:.02em;
   white-space:nowrap;
@@ -5289,12 +5295,12 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:14px;
   background:var(--soft);
 }
-.dp-context span{color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
-.dp-context strong{font-size:15px;font-weight:900;color:var(--ink)}
+.dp-context span{color:var(--muted);font-size:0.6875rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.dp-context strong{font-size:0.9375rem;font-weight:900;color:var(--ink)}
 
 /* Instalment rows */
 .dp-list{display:grid;gap:12px;margin:0}
-.dp-empty{margin:0;color:var(--muted);font-size:12px;font-weight:700;line-height:1.55}
+.dp-empty{margin:0;color:var(--muted);font-size:0.75rem;font-weight:700;line-height:1.55}
 .dp-row{
   display:grid;
   gap:12px;
@@ -5303,7 +5309,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:18px;
   background:var(--field);
 }
-.dp-field{display:grid;gap:7px;color:var(--muted);font-size:12px;font-weight:800}
+.dp-field{display:grid;gap:7px;color:var(--muted);font-size:0.75rem;font-weight:800}
 .dp-amount-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
 
 /* Paid toggle + balance-due toggle. The global input{height:48px}
@@ -5315,7 +5321,7 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:center;
   gap:10px;
   color:var(--ink);
-  font-size:12px;
+  font-size:0.75rem;
   font-weight:800;
 }
 .dp-balance-toggle{margin:14px 0 0}
@@ -5342,14 +5348,14 @@ dd{margin:0;text-align:right;font-weight:800}
   background:var(--soft);
 }
 .dp-total-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-.dp-total-row span{color:var(--muted);font-size:12px;font-weight:800}
-.dp-total-row strong{font-size:15px;font-weight:900;color:var(--ink)}
+.dp-total-row span{color:var(--muted);font-size:0.75rem;font-weight:800}
+.dp-total-row strong{font-size:0.9375rem;font-weight:900;color:var(--ink)}
 .dp-total-balance{padding-top:8px;border-top:1px dashed var(--line-strong)}
 .dp-total-balance strong{color:var(--accent-2)}
 
 /* Read-only deposit list shown on the Paid tab */
 .dp-list--readonly{margin-top:14px}
-.dp-context-label{margin:0 0 4px;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.dp-context-label{margin:0 0 4px;color:var(--muted);font-size:0.6875rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
 .dp-readonly-row{
   display:flex;
   align-items:baseline;
@@ -5360,8 +5366,8 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:12px;
   background:var(--field);
 }
-.dp-readonly-row span{color:var(--muted);font-size:12px;font-weight:700}
-.dp-readonly-row strong{font-size:13px;font-weight:900;color:var(--ink)}
+.dp-readonly-row span{color:var(--muted);font-size:0.75rem;font-weight:700}
+.dp-readonly-row strong{font-size:0.8125rem;font-weight:900;color:var(--ink)}
 
 /* ---- Generated JPG: Deposit Invoice totals rows ----
  * The deposit-paid lines sit between Discount and Grand Total; the
@@ -5419,7 +5425,7 @@ dd{margin:0;text-align:right;font-weight:800}
   border:2px solid #1f9d57;
   border-radius:14px;
   color:#1f9d57;
-  font-size:30px;
+  font-size:1.875rem;
   font-weight:900;
   letter-spacing:.24em;
 }
@@ -5427,7 +5433,7 @@ dd{margin:0;text-align:right;font-weight:800}
   margin:0;
   max-width:240px;
   color:#5c6f86;
-  font-size:13px;
+  font-size:0.8125rem;
   font-weight:700;
   line-height:1.55;
 }
@@ -5438,8 +5444,8 @@ dd{margin:0;text-align:right;font-weight:800}
  * rules — they ride the existing .invoice-export-host .summary-box p
  * scaling. */
 .invoice-export-host .paid-stamp{gap:42px}
-.invoice-export-host .paid-stamp-badge{padding:30px 90px;border-width:6px;border-radius:42px;font-size:90px}
-.invoice-export-host .paid-stamp-note{max-width:720px;font-size:39px}
+.invoice-export-host .paid-stamp-badge{padding:30px 90px;border-width:6px;border-radius:42px;font-size:5.625rem}
+.invoice-export-host .paid-stamp-note{max-width:720px;font-size:2.4375rem}
 
 /* ============================================================
  * Mobile Invoice Modal UX Polish (safe-area + compact)
@@ -5486,7 +5492,7 @@ dd{margin:0;text-align:right;font-weight:800}
     flex-shrink: 0;
   }
   .public-invoice-viewer-header-mobile strong {
-    font-size: 17px;
+    font-size:1.0625rem;
     font-weight: 900;
     color: var(--ink);
   }
@@ -5582,7 +5588,7 @@ dd{margin:0;text-align:right;font-weight:800}
     object-fit: cover;
   }
   .thumbnail-placeholder {
-    font-size: 24px;
+    font-size:1.5rem;
   }
   .public-invoice-mobile-preview-info {
     flex: 1;
@@ -5592,12 +5598,12 @@ dd{margin:0;text-align:right;font-weight:800}
     min-width: 0;
   }
   .public-invoice-mobile-preview-info strong {
-    font-size: 14px;
+    font-size:0.875rem;
     font-weight: 800;
     color: var(--ink);
   }
   .public-invoice-mobile-preview-info span {
-    font-size: 11.5px;
+    font-size:0.7188rem;
     color: var(--muted);
   }
   .public-invoice-mobile-preview-arrow {
@@ -5632,7 +5638,7 @@ dd{margin:0;text-align:right;font-weight:800}
     padding: 0 14px;
     border: 1px solid transparent;
     border-radius: 14px;
-    font-size: 12px;
+    font-size:0.75rem;
     font-weight: 900;
     text-decoration: none;
     cursor: pointer;
@@ -5668,7 +5674,7 @@ dd{margin:0;text-align:right;font-weight:800}
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 11.5px;
+    font-size:0.7188rem;
     text-decoration: underline;
     font-weight: 800;
     display: inline-flex;
@@ -5719,7 +5725,7 @@ dd{margin:0;text-align:right;font-weight:800}
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.15);
     color: #fff;
-    font-size: 12px;
+    font-size:0.75rem;
     font-weight: 900;
     text-decoration: none;
     cursor: pointer;
@@ -5739,13 +5745,15 @@ dd{margin:0;text-align:right;font-weight:800}
   .public-invoice-fullscreen-body {
     flex: 1;
     overflow: auto;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     background: #000;
     -webkit-overflow-scrolling: touch;
     padding: 20px;
   }
   .public-invoice-fullscreen-img {
+    margin: auto;
     display: block;
     width: 100%;
     max-width: 100%;
@@ -5753,12 +5761,14 @@ dd{margin:0;text-align:right;font-weight:800}
     object-fit: contain;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    transform-origin: 0 0;
   }
   .public-invoice-fullscreen-img.is-zoomed {
     width: calc(var(--scale) * 100%) !important;
     max-width: none !important;
     object-fit: fill !important;
     border-radius: 0;
+    margin: 0;
   }
 
   /* Admin Invoice Package Controls mobile-safe grid layout */

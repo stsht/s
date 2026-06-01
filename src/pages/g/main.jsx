@@ -827,7 +827,13 @@ function GalleryLinks({ payload }) {
             <button className="public-invoice-fullscreen-btn" onClick={() => setFullScreenPreviewOpen(false)}>
               <IconClose />
             </button>
-            <button className="public-invoice-fullscreen-btn" onClick={() => setScale(1)}>
+            <button className="public-invoice-fullscreen-btn" onClick={() => {
+              setScale(1);
+              if (previewContainerRef.current) {
+                previewContainerRef.current.scrollTop = 0;
+                previewContainerRef.current.scrollLeft = 0;
+              }
+            }}>
               Fit
             </button>
             {invoiceImage ? (
