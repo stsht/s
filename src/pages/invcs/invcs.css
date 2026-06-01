@@ -335,7 +335,6 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo.is-loaded{
-  /* animate.js owns the actual logo bounce via WAAPI, matching main /. */
   opacity:1;
 }
 
@@ -370,10 +369,10 @@ button{cursor:pointer}
  * the .is-revealed class — they just snap instead of fading.
  *
  * Scoped behind html:not(.ss-force-motion) so an explicit
- * <html class="ss-force-motion"> opt-in (read by animate.js as
- * forceMotion, and already honored by animate.css / gate.css)
- * cleanly bypasses the freeze — a forced-motion layout keeps its
- * breathing logo + reveal even when the OS requests reduced motion.
+ * <html class="ss-force-motion"> opt-in (already honored by
+ * animate.css / gate.css) cleanly bypasses the freeze — a
+ * forced-motion layout keeps its breathing logo + reveal even
+ * when the OS requests reduced motion.
  * Without the opt-in, the system preference is fully respected. */
 @media (prefers-reduced-motion:reduce){
   html:not(.ss-force-motion) .gate-splash-logo{

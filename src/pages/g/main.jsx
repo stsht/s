@@ -4,7 +4,6 @@ import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
 import '../../../animate.css';
-import '../../../animate.js';
 import '../invcs/invcs.css';
 
 /**
@@ -681,14 +680,6 @@ function GalleryGate() {
   }, [markSplashLogoReady]);
 
   useEffect(() => {
-    if (!isLogoLoaded || !logoRef.current) return;
-    const api = window.StarShotsReveal;
-    if (!api?.bounceLogos) return;
-    const scope = logoRef.current.closest('.gate-splash') || document;
-    requestAnimationFrame(() => api.bounceLogos(scope, { restart: true }));
-  }, [isLogoLoaded]);
-
-  useEffect(() => {
     if (document.readyState === 'complete') {
       setIsPageLoaded(true);
     } else {
@@ -870,7 +861,7 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img
             ref={logoRef}
-            className={`gate-splash-logo ss-logo-hero ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`}
+            className={`gate-splash-logo ss-logo-hero ${(isPageLoaded && isLogoLoaded) ? 'is-loaded ss-bounce-in' : ''}`}
             src="/logo-hero.png"
             alt="StarShots"
             width="640"
