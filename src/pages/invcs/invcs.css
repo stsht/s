@@ -43,7 +43,12 @@
 }
 
 *{box-sizing:border-box}
-html,body,#root{min-height:100%;margin:0}
+html,body,#root{
+  min-height:100%;
+  margin:0;
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
 /* Scrollbar chrome is hidden by the shared pattern in
  * scroll-surface.css:
  *   - html/body bars        -> the page baseline rule there,
@@ -5618,14 +5623,8 @@ dd{margin:0;text-align:right;font-weight:800}
     gap: 10px;
     width: 100%;
   }
-  .public-invoice-mobile-actions-row-primary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 10px;
-    width: 100%;
-  }
   .public-invoice-mobile-actions .public-invoice-action {
-    min-height: 44px;
+    min-height: 46px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -5637,6 +5636,7 @@ dd{margin:0;text-align:right;font-weight:800}
     font-weight: 900;
     text-decoration: none;
     cursor: pointer;
+    width: 100%; /* full width comfort on mobile */
     transition: background 0.15s ease, filter 0.15s ease;
   }
   .public-invoice-mobile-actions .public-invoice-action svg {
@@ -5648,6 +5648,7 @@ dd{margin:0;text-align:right;font-weight:800}
     background: var(--accent);
     color: #fff;
     box-shadow: 0 8px 20px -8px rgba(95,149,245,.65);
+    width: 100%;
   }
   .public-invoice-mobile-actions .public-invoice-action--primary:active {
     filter: brightness(0.92);
@@ -5656,6 +5657,7 @@ dd{margin:0;text-align:right;font-weight:800}
     background: var(--soft);
     color: var(--ink);
     border: 1px solid var(--line);
+    width: 100%;
   }
   .public-invoice-mobile-actions .public-invoice-action--ghost:active {
     background: var(--line);

@@ -710,40 +710,29 @@ function GalleryLinks({ payload }) {
                   </div>
                 </button>
 
-                {/* Mobile actions (Copy Bank Account / Download QR, and View/Download Invoice) */}
+                {/* Mobile actions (Copy Bank Account / Download QR, and Download Invoice) */}
                 <div className="public-invoice-mobile-actions">
-                  <div className="public-invoice-mobile-actions-row-primary">
-                    {showPaymentPanel ? (
-                      payMethod === 'bank' ? (
-                        <button
-                          type="button"
-                          className="public-invoice-action public-invoice-action--primary"
-                          onClick={copyBankAccount}
-                        >
-                          <IconCopy />
-                          <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="public-invoice-action public-invoice-action--primary"
-                          onClick={downloadQrCard}
-                        >
-                          <IconDownload />
-                          <span>Download QR</span>
-                        </button>
-                      )
-                    ) : null}
-
-                    <button
-                      type="button"
-                      className={`public-invoice-action ${showPaymentPanel ? 'public-invoice-action--ghost' : 'public-invoice-action--primary'}`}
-                      onClick={() => setFullScreenPreviewOpen(true)}
-                    >
-                      <IconEye />
-                      <span>View Invoice</span>
-                    </button>
-                  </div>
+                  {showPaymentPanel ? (
+                    payMethod === 'bank' ? (
+                      <button
+                        type="button"
+                        className="public-invoice-action public-invoice-action--primary"
+                        onClick={copyBankAccount}
+                      >
+                        <IconCopy />
+                        <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="public-invoice-action public-invoice-action--primary"
+                        onClick={downloadQrCard}
+                      >
+                        <IconDownload />
+                        <span>Download QR</span>
+                      </button>
+                    )
+                  ) : null}
 
                   {invoiceImage ? (
                     <a
