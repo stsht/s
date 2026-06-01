@@ -737,28 +737,28 @@ function GalleryGate() {
     }
   }, []);
 
-  // Auto-continue to the password gate exactly after 1 logo bounce cycle (3.5s)
+  // Auto-continue to the password gate exactly after 1 logo bounce cycle (3.6s)
   // only after both the page layout is ready AND the high-res logo has downloaded.
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && !revealed) {
       const timer = setTimeout(() => {
         handleReveal();
-      }, 3500);
+      }, 3600);
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
 
   // Trigger canonical logo bounce animation as soon as the logo and page are ready.
-  // We use a very short initial delay (200ms) before the animation starts so there is
-  // a short initial gap/pause, and then reveal the password gate almost instantly
-  // after the active animation finishes (at 3500ms).
+  // We use a calm, Apple-like initial delay (300ms) before the animation starts,
+  // and then reveal the password gate almost instantly after the active animation
+  // finishes (at 3600ms total, i.e., 300ms delay + 3300ms active bounce).
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && logoRef.current) {
       const timer = setTimeout(() => {
         if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
           window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
         }
-      }, 200);
+      }, 300);
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded]);

@@ -120,25 +120,41 @@ export function PasswordGate({ title, children }) {
     }
   }, []);
 
-  // Auto-continue to the password gate exactly after 1 double-pulse cycle (4.0s)
+  // Auto-continue to the password gate exactly after 1 double-pulse cycle (3.6s)
   // only after both the page layout is ready AND the high-res logo has downloaded.
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && !revealed) {
       const timer = setTimeout(() => {
         handleReveal();
-      }, 4000);
+      }, 3600);
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
 
   // Trigger canonical logo bounce animation as soon as the logo and page are ready.
+  // We use a calm, Apple-like initial delay (300ms) before the animation starts,
+  // and then reveal the password gate almost instantly after the active animation
+  // finishes (at 3600ms total, i.e., 300ms delay + 3300ms active bounce).
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && logoRef.current) {
-      if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
-        window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
-      }
+      const timer = setTimeout(() => {
+        if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
+          window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded]);
+
+  // Keyboard skip for the intro splash. Pressing any key dismisses it straight to
+  // the password gate, then tears down the listener so it doesn't intercept keystrokes
+  // typed into the access-key input.
+  useEffect(() => {
+    if (revealed) return undefined;
+    const handleKeyDown = () => { handleReveal(); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [revealed]);
 
   function handleReveal() {
     if (revealed) return;
