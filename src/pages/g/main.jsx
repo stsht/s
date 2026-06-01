@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
+import '../../../animate.css';
+import '../../../animate.js';
 import '../invcs/invcs.css';
 
 /**
@@ -679,6 +681,14 @@ function GalleryGate() {
   }, [markSplashLogoReady]);
 
   useEffect(() => {
+    if (!isLogoLoaded || !logoRef.current) return;
+    const api = window.StarShotsReveal;
+    if (!api?.bounceLogos) return;
+    const scope = logoRef.current.closest('.gate-splash') || document;
+    requestAnimationFrame(() => api.bounceLogos(scope, { restart: true }));
+  }, [isLogoLoaded]);
+
+  useEffect(() => {
     if (document.readyState === 'complete') {
       setIsPageLoaded(true);
     } else {
@@ -857,14 +867,14 @@ function GalleryGate() {
       {/* Stage 1: Apple-style splash. */}
       <div className="gate-splash" aria-hidden={revealed ? 'true' : undefined}>
         <picture className="gate-splash-logo-wrapper">
-          <source media="(prefers-color-scheme: dark)" srcSet="/logo-pre-white.png" />
-          <img 
+          <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
+          <img
             ref={logoRef}
-            className={`gate-splash-logo ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`} 
-            src="/logo-pre.png" 
-            alt="StarShots" 
-            width="1280"
-            height="311"
+            className={`gate-splash-logo ss-logo-hero ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`}
+            src="/logo-hero.png"
+            alt="StarShots"
+            width="640"
+            height="156"
             decoding="async"
             fetchPriority="high"
             loading="eager"

@@ -314,6 +314,8 @@ button{cursor:pointer}
    * phones and pushed the brand too close to the viewport edges. */
   width:min(226px,68vw);
   height:auto;
+  display:block;
+  margin:0;
   opacity:.86;
   transform-origin:center;
   /* GPU promotion identical to the homepage .ss-logo-hero mark (in
@@ -333,24 +335,8 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo.is-loaded{
-  /* Homepage logo animation reuse.
-   *
-   * The StarShots root homepage (sshots.pages.dev/) animates its
-   * brand mark (.ss-logo-hero) with a squeeze / boom / jiggle /
-   * settle bounce on a ~4.2s loop with a rest tail. On the worker-
-   * rendered homepage that motion is driven by the Web Animations
-   * API in animate.js (CSS fallback: ssBounceIn in animate.css; the
-   * gate cards mirror it as ssGateLogoBounce in gate.css).
-   *
-   * This React page (and the rest of the Vite bundle) does not load
-   * animate.js / animate.css / gate.css, so we reuse the SAME
-   * choreography here as a transform-only CSS keyframe — ssSplashBounce
-   * is ported 1:1 from gate.css's ssGateLogoBounce. Transform + opacity
-   * only, so it stays GPU-cheap and mobile-safe. Starts only once the
-   * page layout AND the decoded high-res logo are ready (the .is-loaded
-   * gate), exactly like the previous breathe trigger. */
+  /* animate.js owns the actual logo bounce via WAAPI, matching main /. */
   opacity:1;
-  animation:ssSplashBounce 4.2s cubic-bezier(.22,1,.36,1) infinite both;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -377,43 +363,6 @@ button{cursor:pointer}
   opacity:1;
   transform:scale(1);
   pointer-events:auto;
-}
-
-/* Splash logo bounce — ported 1:1 from gate.css's ssGateLogoBounce,
- * which itself mirrors the Web Animations API load bounce that the
- * StarShots homepage (sshots.pages.dev/) runs on its .ss-logo-hero
- * mark. Deliberate draw-back / squeeze (peak ~36%), boom past 1.0
- * (~1.20 peak ~48%), two opposing rotation flicks, a softer counter-
- * tilt squeeze, then a long rest tail (78%–100% held at scale 1) so
- * the brand reads as a deliberate pulse rather than a perpetual
- * wobble. Composed as translate3d -> rotate -> skewY -> scale so every
- * engine can interpolate it without matrix decomposition. Transform-
- * only (no opacity/filter/layout properties) for a GPU-cheap loop. */
-@-webkit-keyframes ssSplashBounce{
-  0%   {-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
-  14%  {-webkit-transform:translate3d(0,0,0) rotate(-1deg) skewY(3.6deg) scale(1.02,.92)}
-  25%  {-webkit-transform:translate3d(0,0,0) rotate(-2.2deg) skewY(6.2deg) scale(1.04,.82)}
-  36%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(7deg) scale(1.05,.70)}
-  44%  {-webkit-transform:translate3d(0,0,0) rotate(-1deg) skewY(3deg) scale(1.06,.92)}
-  48%  {-webkit-transform:translate3d(0,0,0) rotate(1.6deg) skewY(-1deg) scale(1.20,1.16)}
-  55%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.16)}
-  60%  {-webkit-transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.10,1.13)}
-  67%  {-webkit-transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
-  73%  {-webkit-transform:translate3d(0,0,0) rotate(.2deg) skewY(0) scale(1.02,1.012)}
-  78%,100%{-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
-}
-@keyframes ssSplashBounce{
-  0%   {transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
-  14%  {transform:translate3d(0,0,0) rotate(-1deg) skewY(3.6deg) scale(1.02,.92)}
-  25%  {transform:translate3d(0,0,0) rotate(-2.2deg) skewY(6.2deg) scale(1.04,.82)}
-  36%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(7deg) scale(1.05,.70)}
-  44%  {transform:translate3d(0,0,0) rotate(-1deg) skewY(3deg) scale(1.06,.92)}
-  48%  {transform:translate3d(0,0,0) rotate(1.6deg) skewY(-1deg) scale(1.20,1.16)}
-  55%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.16)}
-  60%  {transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.10,1.13)}
-  67%  {transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
-  73%  {transform:translate3d(0,0,0) rotate(.2deg) skewY(0) scale(1.02,1.012)}
-  78%,100%{transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
 }
 
 /* Reduced-motion: freeze every idle loop and skip the reveal
