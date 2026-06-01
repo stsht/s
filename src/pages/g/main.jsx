@@ -64,6 +64,37 @@ function invoiceItems(invoice) {
   }];
 }
 
+// Resolve the payment method for the client-facing invoice. Existing
+// invoices that explicitly chose 'qr' keep QR; everything else
+// (missing / empty / 'bank' / unknown) falls back to Bank Transfer,
+// which is the default for unpaid invoices.
+function resolvePaymentMethod(invoice) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  return String(data.paymentMethod || '').trim().toLowerCase() === 'qr' ? 'qr' : 'bank';
+}
+
+// Static/custom QR source saved on the invoice; falls back to the
+// shared payment QR asset. Never generates a dynamic QR.
+function invoiceQrSrc(invoice) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  return String(data.qrSrc || '/payment-qr.png');
+}
+
+// Amount-due label + value for the payment area, mirroring the
+// PublicInvoiceDocument payment box (full payment vs deposit). Totals
+// logic is unchanged — this only reads the already-computed figures.
+function paymentDueInfo(invoice) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const grandTotal = Math.max(0, Math.round(Number(invoice?.grand_total) || 0));
+  const requestedFullPayment = String(data.depositMode || '') === '100'
+    || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
+    || isFullPayment(invoice);
+  return {
+    label: requestedFullPayment ? 'Full Payment Due' : 'Deposit Due',
+    amount: Math.max(0, Math.round(Number(invoice?.deposit_amount) || 0)),
+  };
+}
+
 function PublicInvoiceDocument({ invoice }) {
   const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const items = invoiceItems(invoice);
@@ -75,8 +106,8 @@ function PublicInvoiceDocument({ invoice }) {
     ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
     : [];
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
-  const paymentMethod = String(data.paymentMethod || 'qr');
-  const qrSrc = String(data.qrSrc || '/payment-qr.png');
+  const paymentMethod = resolvePaymentMethod(invoice);
+  const qrSrc = invoiceQrSrc(invoice);
   const requestedFullPayment = String(data.depositMode || '') === '100'
     || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
     || isFullPayment(invoice);
@@ -188,6 +219,12 @@ function GalleryLinks({ payload }) {
   const [invoice, setInvoice] = useState(null);
   const [invoiceImage, setInvoiceImage] = useState('');
   const [invoiceStatus, setInvoiceStatus] = useState('');
+  // Client-facing payment selector. Defaults to Bank Transfer for
+  // unpaid invoices; initialised from the invoice's resolved method
+  // when it loads so an invoice explicitly saved as QR still opens on
+  // QR. The client can freely switch between Bank and QR — this only
+  // toggles the on-screen payment helper, never the totals.
+  const [payMethod, setPayMethod] = useState('bank');
   const links = (payload?.links || []).filter((item) => item?.url);
   const linkMap = new Map(links.map((link) => [String(link.service || '').toLowerCase(), link]));
   const services = [
@@ -217,6 +254,7 @@ function GalleryLinks({ payload }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Invoice not found.');
       setInvoice(data.invoice);
+      setPayMethod(resolvePaymentMethod(data.invoice));
       setInvoiceStatus('Rendering invoice...');
     } catch (error) {
       setInvoice(null);
@@ -276,6 +314,18 @@ function GalleryLinks({ payload }) {
     ...service,
     link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
   }));
+
+  // Client-facing payment area (unpaid invoices only). The on-screen
+  // selector lets the client switch between Bank Transfer (default)
+  // and the saved/static QR image; the downloadable JPG document
+  // defaults to Bank Transfer too (see resolvePaymentMethod). Totals
+  // are unchanged — we only read the already-computed deposit / full
+  // payment due. A `paid` invoice never shows this panel (the JPG
+  // keeps its PAID stamp/receipt instead).
+  const invoiceStatusValue = String(invoice?.status || 'invoice').toLowerCase();
+  const showPaymentPanel = !!invoice && invoiceStatusValue !== 'paid';
+  const paymentDue = paymentDueInfo(invoice);
+  const payQrSrc = invoiceQrSrc(invoice);
 
   return (
     <main className="public-delivery-page">
@@ -367,6 +417,42 @@ function GalleryLinks({ payload }) {
                 <p>{invoiceStatus || 'Rendering invoice...'}</p>
               )}
             </div>
+            {showPaymentPanel ? (
+              <div className="public-pay" aria-label="Payment options">
+                <div className="public-pay-head">
+                  <span className="public-pay-title">Payment</span>
+                  <span className="public-pay-due">
+                    <span className="public-pay-due-label">{paymentDue.label}</span>
+                    <strong className="public-pay-due-amount">{rupiah(paymentDue.amount)}</strong>
+                  </span>
+                </div>
+                <div className="public-pay-switch" role="radiogroup" aria-label="Payment method">
+                  {[{ value: 'bank', label: 'Bank' }, { value: 'qr', label: 'QR' }].map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={payMethod === option.value}
+                      className={`public-pay-option${payMethod === option.value ? ' is-active' : ''}`}
+                      onClick={() => setPayMethod(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="public-pay-body">
+                  {payMethod === 'qr' ? (
+                    <img className="public-pay-qr" src={payQrSrc} alt="Payment QR" />
+                  ) : (
+                    <dl className="public-pay-bank">
+                      <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                      <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                      <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                    </dl>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
           {invoice ? (
             <div className="invoice-export-host public-invoice-render-host" aria-hidden="true">

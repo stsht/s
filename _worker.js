@@ -418,7 +418,10 @@ function deliveryPasswordForDisplay(delivery = {}) {
   if (plain) return plain;
   const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\n');
   const match = text.match(/password\s*:\s*([^\n\r]+)/i);
-  return match ? String(match[1] || '').trim().replace(/^\*+\s*/, '') : '';
+  // Strip any leading bold markers (`*`) and the monospace backticks
+  // we now wrap the WhatsApp password value in, so the extracted
+  // password is the bare value (e.g. `123456`, never `` `123456` ``).
+  return match ? String(match[1] || '').trim().replace(/^[*`\s]+/, '').replace(/[*`\s]+$/, '') : '';
 }
 
 function deliveryShortCode(delivery = {}) {
@@ -452,7 +455,7 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 You may access them through the details below:
 
 *Link:* ${PUBLIC_SITE}/${shortCode}
-*Password:* ${String(password || '').trim()}
+*Password:* \`${String(password || '').trim()}\`
 
 Should you prefer a different password, please let us know and we will update it for you.
 

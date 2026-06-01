@@ -557,12 +557,12 @@ export function InvoiceComposer() {
   const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
   const [qrFileName, setQrFileName] = useState('');
-  // Payment method shown inside the .payment-box. 'qr' renders the
-  // QR image (default, original behaviour); 'bank' replaces the QR
-  // with the BANK_DETAILS block above so the client can transfer
-  // directly to BCA. Persisted in invoice_data so reopening a saved
-  // invoice restores whatever the operator picked.
-  const [paymentMethod, setPaymentMethod] = useState('qr');
+  // Payment method shown inside the .payment-box. 'bank' renders the
+  // BANK_DETAILS block (default for unpaid invoices); 'qr' replaces it
+  // with the QR image. Persisted in invoice_data so reopening a saved
+  // invoice restores whatever the operator picked; new drafts default
+  // to Bank Transfer.
+  const [paymentMethod, setPaymentMethod] = useState('bank');
   const [status, setStatus] = useState('');
   const [hydrating, setHydrating] = useState(Boolean(initial.invoiceId));
   // Save Status: when /inv is opened with ?invoiceId= we treat that
@@ -1018,7 +1018,7 @@ export function InvoiceComposer() {
           venue: String(venue || ''),
           qrSrc: String(qrSrc || ''),
           qrFileName: String(qrFileName || ''),
-          paymentMethod: String(paymentMethod || 'qr'),
+          paymentMethod: String(paymentMethod || 'bank'),
           eventTime: String(eventTime || ''),
           // Deposit-mode workflow state — read back by the hydrate
           // effect. Persisted in every mode so switching invoice ↔

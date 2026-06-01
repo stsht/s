@@ -703,6 +703,140 @@ button{cursor:pointer}
 .public-invoice-render-host{
   color-scheme:light;
 }
+
+/* ============================================================
+ * Client-facing payment selector (public unpaid invoice)
+ * ============================================================
+ *
+ * Rendered inside .public-invoice-viewer-card, below the JPG
+ * preview, ONLY for unpaid invoices (invoice / deposit / any
+ * non-paid state). Lets the client choose how to pay — Bank
+ * Transfer (default) or the saved static QR image — without
+ * touching the downloadable JPG document or any totals. A `paid`
+ * invoice never renders this panel (the JPG keeps its PAID stamp).
+ *
+ * The segmented control mirrors the editor's .payment-method-switch
+ * pill shape, but the active segment uses a calm blue (var(--accent))
+ * fill instead of a white chip so it reads as a refined payment
+ * selector rather than a loud form control. Transform-free and
+ * mobile-safe. */
+.public-pay{
+  display:grid;
+  gap:12px;
+  padding:16px;
+  border-top:1px solid var(--line);
+  background:var(--panel);
+}
+.public-pay-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.public-pay-title{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.public-pay-due{
+  display:inline-flex;
+  align-items:baseline;
+  gap:8px;
+}
+.public-pay-due-label{
+  color:var(--muted);
+  font-size:11px;
+  font-weight:800;
+}
+.public-pay-due-amount{
+  color:var(--ink);
+  font-size:16px;
+  font-weight:900;
+  font-variant-numeric:tabular-nums;
+}
+.public-pay-switch{
+  display:grid;
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(0,1fr);
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+}
+.public-pay-option{
+  min-width:0;
+  min-height:40px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  font:inherit;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.02em;
+  transition:background .18s ease,color .18s ease,box-shadow .18s ease;
+}
+.public-pay-option.is-active{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 8px 20px -10px rgba(95,149,245,.7);
+}
+@media(hover:hover){
+  .public-pay-option:not(.is-active):hover{color:var(--ink)}
+}
+.public-pay-body{
+  display:grid;
+  justify-items:center;
+}
+.public-pay-bank{
+  display:grid;
+  gap:8px;
+  width:100%;
+  margin:0;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--field);
+}
+.public-pay-bank-row{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+}
+.public-pay-bank-row dt{
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.03em;
+}
+.public-pay-bank-row dd{
+  margin:0;
+  color:var(--ink);
+  font-size:14px;
+  font-weight:900;
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  word-break:break-all;
+}
+.public-pay-qr{
+  width:min(240px,60vw);
+  height:auto;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:var(--shadow-soft);
+}
+@media(max-width:560px){
+  .public-pay-head{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+  }
+  .public-pay-option{min-height:42px}
+}
 .public-delivery-list{
   display:grid;
   gap:12px;

@@ -1368,7 +1368,7 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 You may access them through the details below:
 
 *Link:* ${link}
-*Password:* ${pass}
+*Password:* \`${pass}\`
 
 Should you prefer a different password, please let us know and we will update it for you.
 
