@@ -1190,19 +1190,23 @@ input.no-spinner::-webkit-inner-spin-button{
   position:relative;
 }
 .combobox-input{
-  padding-right:42px;
+  padding-right:48px;
 }
 .combobox-chevron{
   position:absolute;
-  right:14px;
-  top:50%;
-  transform:translateY(-50%);
-  display:grid;
-  place-items:center;
-  width:18px;
-  height:18px;
+  right:0;
+  top:0;
+  bottom:0;
+  width:48px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   color:var(--muted);
-  pointer-events:none;
+  cursor:pointer;
+  background:transparent;
+  border:none;
+  padding:0;
+  outline:none;
 }
 .combobox-chevron svg{width:18px;height:18px;display:block}
 .combobox-menu{
@@ -3747,6 +3751,9 @@ dd{margin:0;text-align:right;font-weight:800}
 
 @media(max-width:1023px){
   body:has(.composer-shell){overflow:hidden}
+  .combobox{
+    scroll-margin-top:86px;
+  }
   .composer-page{padding:12px 12px 82px}
   .composer-shell{height:calc(100dvh - 94px);min-height:0;display:block}
   .editor-panel,.preview-panel{height:100%;min-height:0}

@@ -104,7 +104,14 @@ export function Combobox({
           value={displayValue}
           placeholder={placeholder}
           autoComplete="off"
-          onFocus={openMenu}
+          onFocus={(event) => {
+            openMenu();
+            if (window.innerWidth < 1024) {
+              setTimeout(() => {
+                rootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 150);
+            }
+          }}
           onClick={openMenu}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -113,11 +120,28 @@ export function Combobox({
           }}
           onKeyDown={handleKeyDown}
         />
-        <span className="combobox-chevron" aria-hidden="true">
+        <button
+          type="button"
+          tabIndex={-1}
+          className="combobox-chevron"
+          aria-label={open ? "Close menu" : "Open menu"}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (open) {
+              setOpen(false);
+              setQuery('');
+              inputRef.current?.blur();
+            } else {
+              openMenu();
+              inputRef.current?.blur();
+            }
+          }}
+        >
           <svg viewBox="0 0 24 24" focusable="false">
             <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </span>
+        </button>
       </div>
       {open ? (
         <div className="combobox-menu" id={`${id}-listbox`} role="listbox">
