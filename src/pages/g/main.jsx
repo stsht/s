@@ -700,6 +700,15 @@ function GalleryGate() {
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
 
+  // Trigger canonical logo bounce animation as soon as the logo and page are ready.
+  useEffect(() => {
+    if (isPageLoaded && isLogoLoaded && logoRef.current) {
+      if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
+        window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
+      }
+    }
+  }, [isPageLoaded, isLogoLoaded]);
+
   // Keyboard skip for the intro splash. While the intro is still
   // showing (!revealed), pressing ANY key (Enter, Space, Escape, a
   // letter, etc.) dismisses it straight to the password gate — the
@@ -861,7 +870,7 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img
             ref={logoRef}
-            className={`gate-splash-logo ss-logo-hero ${(isPageLoaded && isLogoLoaded) ? 'is-loaded ss-bounce-in' : ''}`}
+            className={`gate-splash-logo ss-logo-hero ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`}
             src="/logo-hero.png"
             alt="StarShots"
             width="640"
