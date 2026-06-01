@@ -982,9 +982,10 @@ button{cursor:pointer}
   gap:12px;
 }
 .public-delivery-row{
-  display:grid;
-  grid-template-columns:44px minmax(0,1fr) auto;
+  display:flex;
   align-items:center;
+  justify-content:space-between;
+  width:100%;
   gap:14px;
   min-height:64px;
   padding:10px 16px;
@@ -993,6 +994,18 @@ button{cursor:pointer}
   color:var(--ink);
   text-decoration:none;
   transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease;
+}
+.public-delivery-row-left{
+  display:flex;
+  align-items:center;
+  gap:inherit;
+  text-align:left;
+  min-width:0;
+  flex:1;
+}
+.public-delivery-row .public-delivery-state{
+  margin-left:auto;
+  flex-shrink:0;
 }
 .public-delivery-row.is-active:hover{
   border-color:var(--accent);
@@ -3744,7 +3757,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .invoice-sheet footer{gap:36px;margin:54px var(--invoice-page-margin) 0;padding:42px 6px 60px;border-top-width:3px;font-size:36px}
 
 @media(max-width:1023px){
-  body{overflow:hidden}
+  body:has(.composer-shell){overflow:hidden}
   .composer-page{padding:12px 12px 82px}
   .composer-shell{height:calc(100dvh - 94px);min-height:0;display:block}
   .editor-panel,.preview-panel{height:100%;min-height:0}
@@ -4502,6 +4515,9 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 
 @media(max-width:1023px){
+  input, select, textarea{
+    font-size:16px !important;
+  }
   .public-delivery-page{
     /* Top-aligned on mobile so a tall card never pushes its header
      * above the viewport. The body keeps its overflow:auto so the
@@ -4547,7 +4563,7 @@ dd{margin:0;text-align:right;font-weight:800}
    * The single-line modern row keeps mobile and desktop visually
    * unified — just with a slightly smaller icon and tighter gap. */
   .public-delivery-row{
-    grid-template-columns:40px minmax(0,1fr) auto;
+    display:flex;
     gap:12px;
     min-height:60px;
     padding:10px 14px;
@@ -4581,7 +4597,7 @@ dd{margin:0;text-align:right;font-weight:800}
  * 3-column row never wraps below ~340px wide. */
 @media(max-width:380px){
   .public-delivery-row{
-    grid-template-columns:36px minmax(0,1fr) auto;
+    display:flex;
     gap:10px;
     padding:10px 12px;
   }
