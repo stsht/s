@@ -271,6 +271,19 @@ function GalleryLinks({ payload }) {
   // QR. The client can freely switch between Bank and QR — this only
   // toggles the on-screen payment helper, never the totals.
   const [payMethod, setPayMethod] = useState('bank');
+
+  const [expandedService, setExpandedService] = useState(null);
+
+  useEffect(() => {
+    if (expandedService === null) return;
+    function handleDocumentClick() {
+      setExpandedService(null);
+    }
+    document.addEventListener('click', handleDocumentClick);
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, [expandedService]);
   const links = (payload?.links || []).filter((item) => item?.url);
   const linkMap = new Map(links.map((link) => [String(link.service || '').toLowerCase(), link]));
   const services = [
@@ -488,20 +501,32 @@ function GalleryLinks({ payload }) {
                 </a>
               );
             } else if (url && !isDone) {
+              const isExpanded = expandedService === fallback;
               return (
-                <button
-                  key={fallback}
-                  type="button"
-                  className="public-delivery-row is-disabled in-progress"
-                  disabled
-                  aria-disabled="true"
-                >
-                  <span className="public-delivery-icon">{icon}</span>
-                  <span className="public-delivery-name">{name}</span>
-                  <span className="public-delivery-state">
-                    {hasEventDate ? 'In progress · estimated +5 days' : 'In Progress'}
-                  </span>
-                </button>
+                <div key={fallback} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`public-delivery-row is-disabled in-progress${isExpanded ? ' is-expanded' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedService(isExpanded ? null : fallback);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                    aria-expanded={isExpanded}
+                  >
+                    <span className="public-delivery-icon">{icon}</span>
+                    <span className="public-delivery-name">{name}</span>
+                    <span className="public-delivery-state">IN PROGRESS</span>
+                  </button>
+                  {isExpanded && (
+                    <div
+                      className="public-delivery-eta-note"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Your files are currently being prepared and are estimated to be available within 5 days after the event.
+                    </div>
+                  )}
+                </div>
               );
             } else {
               return (
@@ -514,7 +539,7 @@ function GalleryLinks({ payload }) {
                 >
                   <span className="public-delivery-icon">{icon}</span>
                   <span className="public-delivery-name">{name}</span>
-                  <span className="public-delivery-state">Unavailable</span>
+                  <span className="public-delivery-state">UNAVAILABLE</span>
                 </button>
               );
             }
@@ -712,23 +737,29 @@ function GalleryGate() {
     }
   }, []);
 
-  // Auto-continue to the password gate exactly after 1 logo bounce cycle (4.0s)
+  // Auto-continue to the password gate exactly after 1 logo bounce cycle (3.5s)
   // only after both the page layout is ready AND the high-res logo has downloaded.
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && !revealed) {
       const timer = setTimeout(() => {
         handleReveal();
-      }, 4000);
+      }, 3500);
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
 
   // Trigger canonical logo bounce animation as soon as the logo and page are ready.
+  // We use a very short initial delay (200ms) before the animation starts so there is
+  // a short initial gap/pause, and then reveal the password gate almost instantly
+  // after the active animation finishes (at 3500ms).
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && logoRef.current) {
-      if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
-        window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
-      }
+      const timer = setTimeout(() => {
+        if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
+          window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
+        }
+      }, 200);
+      return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded]);
 
