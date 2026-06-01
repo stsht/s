@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GlobalBackground } from './GlobalBackground.jsx';
+import '../../animate.css';
 
 const SESSION_MS = 15 * 60 * 1000;
 
@@ -129,6 +130,15 @@ export function PasswordGate({ title, children }) {
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
+
+  // Trigger canonical logo bounce animation as soon as the logo and page are ready.
+  useEffect(() => {
+    if (isPageLoaded && isLogoLoaded && logoRef.current) {
+      if (window.StarShotsReveal && typeof window.StarShotsReveal.bounceLogos === 'function') {
+        window.StarShotsReveal.bounceLogos(logoRef.current.parentNode);
+      }
+    }
+  }, [isPageLoaded, isLogoLoaded]);
 
   function handleReveal() {
     if (revealed) return;
@@ -286,7 +296,7 @@ export function PasswordGate({ title, children }) {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-pre-white.png" />
           <img 
             ref={logoRef}
-            className={`gate-splash-logo ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`} 
+            className={`gate-splash-logo ss-logo-hero ${(isPageLoaded && isLogoLoaded) ? 'is-loaded' : ''}`}
             src="/logo-pre.png" 
             alt="StarShots" 
             width="1280"
