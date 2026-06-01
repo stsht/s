@@ -710,37 +710,49 @@ function GalleryLinks({ payload }) {
                   </div>
                 </button>
 
-                {/* Mobile actions (Copy Bank / Download QR and Download Invoice side-by-side) */}
+                {/* Mobile actions (Copy Bank Account / Download QR, and View/Download Invoice) */}
                 <div className="public-invoice-mobile-actions">
-                  {showPaymentPanel ? (
-                    payMethod === 'bank' ? (
-                      <button
-                        type="button"
-                        className="public-invoice-action public-invoice-action--primary"
-                        onClick={copyBankAccount}
-                      >
-                        <IconCopy />
-                        <span>{bankCopied ? 'Copied' : 'Copy Bank'}</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="public-invoice-action public-invoice-action--primary"
-                        onClick={downloadQrCard}
-                      >
-                        <IconDownload />
-                        <span>Download QR</span>
-                      </button>
-                    )
-                  ) : null}
+                  <div className="public-invoice-mobile-actions-row-primary">
+                    {showPaymentPanel ? (
+                      payMethod === 'bank' ? (
+                        <button
+                          type="button"
+                          className="public-invoice-action public-invoice-action--primary"
+                          onClick={copyBankAccount}
+                        >
+                          <IconCopy />
+                          <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="public-invoice-action public-invoice-action--primary"
+                          onClick={downloadQrCard}
+                        >
+                          <IconDownload />
+                          <span>Download QR</span>
+                        </button>
+                      )
+                    ) : null}
+
+                    <button
+                      type="button"
+                      className={`public-invoice-action ${showPaymentPanel ? 'public-invoice-action--ghost' : 'public-invoice-action--primary'}`}
+                      onClick={() => setFullScreenPreviewOpen(true)}
+                    >
+                      <IconEye />
+                      <span>View Invoice</span>
+                    </button>
+                  </div>
+
                   {invoiceImage ? (
                     <a
-                      className="public-invoice-action public-invoice-action--ghost"
+                      className="public-invoice-action public-invoice-action--small"
                       href={invoiceImage}
                       download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
                     >
                       <IconDownload />
-                      <span>Download</span>
+                      <span>Download Invoice</span>
                     </a>
                   ) : null}
                 </div>
@@ -836,6 +848,7 @@ function GalleryLinks({ payload }) {
                 download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
               >
                 <IconDownload />
+                <span>Download Invoice</span>
               </a>
             ) : null}
           </header>
