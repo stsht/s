@@ -120,13 +120,13 @@ export function PasswordGate({ title, children }) {
     }
   }, []);
 
-  // Auto-continue to the password gate exactly after 1 double-pulse cycle (3.6s)
+  // Auto-continue to the password gate exactly after 1 double-pulse cycle (2.2s)
   // only after both the page layout is ready AND the high-res logo has downloaded.
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && !revealed) {
       const timer = setTimeout(() => {
         handleReveal();
-      }, 3600);
+      }, 2200);
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
