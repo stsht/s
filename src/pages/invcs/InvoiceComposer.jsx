@@ -1482,7 +1482,7 @@ function EditorPanel(props) {
             eventTime={props.eventTime}
             totals={props.totals}
           />
-          {props.mode === 'deposit' ? (
+          {props.mode === 'deposit' || (props.mode === 'paid' && props.depositPayments && props.depositPayments.length > 0) ? (
             <DepositLedger
               payments={props.depositPayments}
               addPayment={props.addDepositPayment}
@@ -1835,7 +1835,7 @@ function PrinterIcon() {
 function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
-  const paidDeposits = mode === 'deposit'
+  const paidDeposits = (mode === 'deposit' || mode === 'paid')
     ? (depositPayments || []).filter((payment) => payment.paid)
     : [];
   // Payment caption shown in the .payment-box beside Terms &

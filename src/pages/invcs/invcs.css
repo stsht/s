@@ -587,6 +587,14 @@ button{cursor:pointer}
 .public-delivery-invoice:active{
   transform:translateY(0) scale(.995);
 }
+.public-delivery-invoice.is-paid{
+  background: var(--sub-active);
+  box-shadow: 0 16px 32px rgba(31,138,76,.28);
+}
+.public-delivery-invoice.is-paid:hover{
+  background: color-mix(in srgb, var(--sub-active) 88%, black);
+  box-shadow: 0 20px 40px rgba(31,138,76,.34);
+}
 .public-delivery-invoice-icon{
   display:inline-grid;
   place-items:center;

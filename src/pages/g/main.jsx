@@ -144,7 +144,7 @@ function PublicInvoiceDocument({ invoice }) {
   const subtotal = items.reduce((sum, item) => sum + ((Number(item.qty) || 0) * (Number(item.price) || 0)), 0);
   const grandTotal = Math.max(0, Math.round(Number(invoice?.grand_total) || 0));
   const discount = Math.max(0, Math.round(Number(data.discount) || (subtotal - grandTotal) || 0));
-  const paidDeposits = status === 'deposit'
+  const paidDeposits = (status === 'deposit' || status === 'paid')
     ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
     : [];
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
@@ -455,13 +455,13 @@ function GalleryLinks({ payload }) {
         <h1 className="public-delivery-greeting">{heading}</h1>
 
         <a
-          className="public-delivery-invoice"
+          className={`public-delivery-invoice${String(payload?.invoice?.status || '').toLowerCase() === 'paid' ? ' is-paid' : ''}`}
           href="#invoice"
           onClick={openInvoice}
         >
           <span className="public-delivery-invoice-icon" aria-hidden="true">INV</span>
           <span className="public-delivery-invoice-label">Invoice</span>
-          <span className="public-delivery-invoice-cta">View</span>
+          <span className="public-delivery-invoice-cta">{String(payload?.invoice?.status || '').toLowerCase() === 'paid' ? 'Paid' : 'View'}</span>
         </a>
 
         <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
@@ -469,32 +469,55 @@ function GalleryLinks({ payload }) {
           {resolvedServices.map(({ key, fallback, icon, link }) => {
             const url = link?.url || '';
             const name = link?.label || fallback;
-            return url ? (
-              <a
-                key={fallback}
-                className="public-delivery-row is-active"
-                href={url}
-                onClick={() => track(link.service || key)}
-                rel="noopener"
-                target="_blank"
-              >
-                <span className="public-delivery-icon">{icon}</span>
-                <span className="public-delivery-name">{name}</span>
-                <span className="public-delivery-state">Click</span>
-              </a>
-            ) : (
-              <button
-                key={fallback}
-                type="button"
-                className="public-delivery-row is-disabled"
-                disabled
-                aria-disabled="true"
-              >
-                <span className="public-delivery-icon">{icon}</span>
-                <span className="public-delivery-name">{name}</span>
-                <span className="public-delivery-state">Unavailable</span>
-              </button>
-            );
+            const isDone = link ? !!link.link_done : false;
+            const hasEventDate = !!payload?.delivery?.eventDate;
+
+            if (url && isDone) {
+              return (
+                <a
+                  key={fallback}
+                  className="public-delivery-row is-active"
+                  href={url}
+                  onClick={() => track(link.service || key)}
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{name}</span>
+                  <span className="public-delivery-state">Click</span>
+                </a>
+              );
+            } else if (url && !isDone) {
+              return (
+                <button
+                  key={fallback}
+                  type="button"
+                  className="public-delivery-row is-disabled in-progress"
+                  disabled
+                  aria-disabled="true"
+                >
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{name}</span>
+                  <span className="public-delivery-state">
+                    {hasEventDate ? 'In progress · estimated +5 days' : 'In Progress'}
+                  </span>
+                </button>
+              );
+            } else {
+              return (
+                <button
+                  key={fallback}
+                  type="button"
+                  className="public-delivery-row is-disabled"
+                  disabled
+                  aria-disabled="true"
+                >
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{name}</span>
+                  <span className="public-delivery-state">Unavailable</span>
+                </button>
+              );
+            }
           })}
         </div>
 

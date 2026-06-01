@@ -1569,10 +1569,16 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
 
   const linkRows = Array.isArray(currentDelivery?.links) ? currentDelivery.links : [];
   const byService = new Map();
+  const doneByService = new Map();
   for (const link of linkRows) {
     const service = String(link?.service || '').toLowerCase();
     const url = String(link?.original_url || '').trim();
-    if (service && url && !byService.has(service)) byService.set(service, url);
+    if (service && url && !byService.has(service)) {
+      byService.set(service, url);
+    }
+    if (service && !doneByService.has(service)) {
+      doneByService.set(service, !!link?.link_done);
+    }
   }
   // Display order matches the public delivery page service grid.
   const SERVICE_LABELS = [
@@ -1582,11 +1588,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   ];
   const services = SERVICE_LABELS
     .filter(({ key }) => byService.has(key))
-    .map((s) => ({ ...s, url: byService.get(s.key) }));
+    .map((s) => ({
+      ...s,
+      url: byService.get(s.key),
+      done: !!doneByService.get(s.key),
+    }));
 
   useEffect(() => {
     const next = {};
-    for (const { key } of SERVICE_LABELS) next[key] = byService.get(key) || '';
+    for (const { key } of SERVICE_LABELS) {
+      next[key] = byService.get(key) || '';
+      next[`${key}_done`] = !!doneByService.get(key);
+    }
     // Folder Name shares the same draft so a single Save Links
     // submission can ship both link rebuilds and a folder_name
     // PATCH in one request.
@@ -1709,6 +1722,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
           links: SERVICE_LABELS.map(({ key }) => ({
             service: key,
             originalUrl: linkDraft[key] || '',
+            link_done: !!linkDraft[`${key}_done`],
           })),
         }),
       });
@@ -2018,15 +2032,34 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   />
                 </label>
                 {SERVICE_LABELS.map(({ key, label }) => (
-                  <label key={key}>
-                    <span>{label}</span>
+                  <div key={key} className="dd-link-field-row" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 900 }}>{label}</span>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 900, color: 'var(--muted)', margin: 0, padding: 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!linkDraft[`${key}_done`]}
+                          onChange={(event) => setLinkDraft((draft) => ({ ...draft, [`${key}_done`]: event.target.checked }))}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            minHeight: '16px',
+                            padding: 0,
+                            margin: 0,
+                            cursor: 'pointer',
+                            accentColor: 'var(--accent)'
+                          }}
+                        />
+                        <span>Done</span>
+                      </label>
+                    </div>
                     <input
                       type="url"
                       value={linkDraft[key] || ''}
                       onChange={(event) => setLinkDraft((draft) => ({ ...draft, [key]: event.target.value }))}
                       placeholder="https://..."
                     />
-                  </label>
+                  </div>
                 ))}
               </div>
               <div className="dd-message-actions">
@@ -2041,7 +2074,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
             </form>
           ) : services.length ? (
             <div className="dd-services">
-              {services.map(({ key, label, url }) => (
+              {services.map(({ key, label, url, done }) => (
                 <a
                   key={key}
                   className="dd-card dd-card--action dd-service-card"
@@ -2051,7 +2084,14 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 >
                   <span className="dd-service-head">
                     <span className="dd-chip">{key.toUpperCase()}</span>
-                    <span className="dd-service-label">{label}</span>
+                    <span className="dd-service-label">
+                      {label}
+                      {!done && (
+                        <span style={{ marginLeft: 8, opacity: 0.6, fontSize: '0.85em', fontWeight: 'normal' }}>
+                          (In Progress)
+                        </span>
+                      )}
+                    </span>
                   </span>
                   <span className="dd-service-url">{url}</span>
                 </a>

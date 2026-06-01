@@ -886,8 +886,15 @@ async function publicDeliveryPayload(env, delivery) {
   const rows = await getLinksByDeliveryId(env, delivery.id);
   const links = SERVICES.map((service) => {
     const row = rows.find((item) => item.service === service.key);
-    return { service: service.key, label: service.label, url: row?.original_url || '' };
+    return {
+      service: service.key,
+      label: service.label,
+      url: row?.original_url || '',
+      link_done: row ? !!row.link_done : false
+    };
   });
+
+  const invoice = await findInvoiceForDelivery(env, delivery).catch(() => null);
 
   return {
     delivery: {
@@ -895,9 +902,11 @@ async function publicDeliveryPayload(env, delivery) {
       title: delivery.title,
       clientName: delivery.client_name,
       folderName: delivery.folder_name,
-      baseSlug: delivery.base_slug
+      baseSlug: delivery.base_slug,
+      eventDate: delivery.event_date || ''
     },
-    links
+    links,
+    invoice: invoiceSummary(invoice)
   };
 }
 
@@ -1393,7 +1402,18 @@ async function handleSave(request, env) {
   if (!(await verifyAdminRequest(request, env, adminPassword))) return json({ error: 'Unauthorized.' }, 401);
   const links = Array.isArray(body.links) ? body.links : [];
   const cleanLinks = links
-    .map((link) => ({ service: cleanService(link.service), originalUrl: normalizeUrl(link.originalUrl) }))
+    .map((link) => {
+      let isDone = false;
+      if (typeof link.link_done === 'boolean') isDone = link.link_done;
+      else if (typeof link.linkDone === 'boolean') isDone = link.linkDone;
+      else if (typeof link.done === 'boolean') isDone = link.done;
+      else if (link.link_done === 'true' || link.linkDone === 'true' || link.done === 'true') isDone = true;
+      return {
+        service: cleanService(link.service),
+        originalUrl: normalizeUrl(link.originalUrl || link.original_url || link.url),
+        link_done: isDone
+      };
+    })
     .filter((link) => link.service && link.originalUrl);
 
   const baseSlug = cleanSlug(body.baseSlug);
@@ -1518,7 +1538,8 @@ async function handleSave(request, env) {
     service: link.service,
     original_url: link.originalUrl,
     slug: baseSlug,
-    short_path: `/${shortCode}`
+    short_path: `/${shortCode}`,
+    link_done: link.link_done
   }));
 
   if (rows.length) {
@@ -2316,7 +2337,18 @@ async function handleDbUpdateDelivery(request, env) {
 
   const links = Array.isArray(body.links) ? body.links : [];
   const cleanLinks = links
-    .map((link) => ({ service: cleanService(link.service), originalUrl: normalizeUrl(link.originalUrl || link.original_url || link.url) }))
+    .map((link) => {
+      let isDone = false;
+      if (typeof link.link_done === 'boolean') isDone = link.link_done;
+      else if (typeof link.linkDone === 'boolean') isDone = link.linkDone;
+      else if (typeof link.done === 'boolean') isDone = link.done;
+      else if (link.link_done === 'true' || link.linkDone === 'true' || link.done === 'true') isDone = true;
+      return {
+        service: cleanService(link.service),
+        originalUrl: normalizeUrl(link.originalUrl || link.original_url || link.url),
+        link_done: isDone
+      };
+    })
     .filter((link) => link.service && link.originalUrl);
 
   await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(id)}`, {
@@ -2333,7 +2365,8 @@ async function handleDbUpdateDelivery(request, env) {
       service: link.service,
       original_url: link.originalUrl,
       slug: delivery.base_slug || '',
-      short_path: shortCode ? `/${shortCode}` : ''
+      short_path: shortCode ? `/${shortCode}` : '',
+      link_done: link.link_done
     })))
   }) : [];
 
