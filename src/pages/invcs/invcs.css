@@ -68,7 +68,7 @@ body{
   min-height:100dvh;
   background:var(--bg);
   color:var(--ink);
-  font:500 14px/1.45 var(--font);
+  font:500 0.875rem/1.45 var(--font);
   -webkit-font-smoothing:antialiased;
   overflow:auto;
 }
@@ -1160,7 +1160,7 @@ button.public-delivery-row{
 .two-col,.three-col{display:grid;gap:12px}
 .two-col{grid-template-columns:1fr 1fr}
 .three-col{grid-template-columns:.7fr 1fr auto;align-items:end}
-label{display:grid;gap:7px;color:var(--muted);font-size:0.75rem;font-weight:800}
+label{display:grid;gap:6px;color:var(--muted);font-size:0.8125rem;font-weight:700}
 input,select{
   width:100%;
   height:48px;
@@ -1589,7 +1589,7 @@ input.no-spinner::-webkit-inner-spin-button{
 .dtf-popover-foot-btn--ghost{background:transparent;color:var(--muted)}
 .dtf-popover-foot-btn--ghost:hover{background:var(--soft);color:var(--ink)}
 
-/* Event date+time / issued row inside the Details fieldset. The
+/* Event Date+time / issued row inside the Details fieldset. The
  * combined DateTimeField (date + HH:mm) is wider than the legacy
  * three-column grid, so the row collapses to two cells: the
  * date+time pair on the left and Issued on the right. Falls back
@@ -1679,8 +1679,8 @@ input.no-spinner::-webkit-inner-spin-button{
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-.package-catalog-main strong{font-size:0.8125rem;font-weight:900;color:var(--ink)}
-.package-catalog-main span{font-size:0.6875rem;font-weight:750;color:var(--muted)}
+.package-catalog-main strong{font-size:0.875rem;font-weight:700;color:var(--ink)}
+.package-catalog-main span{font-size:0.75rem;font-weight:600;color:var(--muted)}
 .package-catalog-price{
   color:var(--ink);
   font-size:0.75rem;
@@ -1859,7 +1859,7 @@ input.no-spinner::-webkit-inner-spin-button{
   gap:7px;
 }
 
-/* Payment method picker (editor side). Sits inside the Payment
+/* Payment Method picker (editor side). Sits inside the Payment
  * fieldset between the deposit selector and the QR upload pill,
  * mirroring the .deposit-presets pill shape so the controls read
  * as a family. Two segments today — "QR" and "Bank Transfer" —

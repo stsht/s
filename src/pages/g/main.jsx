@@ -757,7 +757,7 @@ function GalleryLinks({ payload }) {
                       <strong className="public-pay-due-amount">{rupiah(paymentDue.amount)}</strong>
                     </span>
                   </div>
-                  <div className="public-pay-switch" role="radiogroup" aria-label="Payment method">
+                  <div className="public-pay-switch" role="radiogroup" aria-label="Payment Method">
                     {[{ value: 'bank', label: 'Bank' }, { value: 'qr', label: 'QR' }].map((option) => (
                       <button
                         key={option.value}

@@ -557,7 +557,7 @@ export function InvoiceComposer() {
   const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
   const [qrSrc, setQrSrc] = useState('/payment-qr.png');
   const [qrFileName, setQrFileName] = useState('');
-  // Payment method shown inside the .payment-box. 'bank' renders the
+  // Payment Method shown inside the .payment-box. 'bank' renders the
   // BANK_DETAILS block (default for unpaid invoices); 'qr' replaces it
   // with the QR image. Persisted in invoice_data so reopening a saved
   // invoice restores whatever the operator picked; new drafts default
@@ -664,7 +664,7 @@ export function InvoiceComposer() {
         if (row.client_contact != null) setContact(String(row.client_contact || ''));
         if (data.venue != null || row.venue != null) setVenue(String(data.venue ?? row.venue ?? 'TBA'));
         if (row.event_date != null) setEventDate(String(row.event_date || ''));
-        // Event time hydration. Prefer the typed column; fall back
+        // Event Time hydration. Prefer the typed column; fall back
         // to invoice_data.eventTime for older rows where the
         // column was empty. Anything that doesn't look like the
         // canonical HH:MM (or HH:MM:SS) shape is dropped so the
@@ -787,7 +787,7 @@ export function InvoiceComposer() {
         } else if (row.status === 'paid' && row.invoice_date) {
           setPaidAtDate(String(row.invoice_date || '').slice(0, 10));
         }
-        // Payment method: only adopt the saved value when it matches
+        // Payment Method: only adopt the saved value when it matches
         // a known option, otherwise stay on the default 'qr'. Older
         // rows pre-dating this field land here without a value and
         // keep behaving exactly as before.
@@ -959,7 +959,7 @@ export function InvoiceComposer() {
   async function saveInvoice() {
     const trimmedName = String(clientName || '').trim();
     if (!trimmedName) {
-      setStatus('Client name is required to Save.');
+      setStatus('Client Name is required to Save.');
       return;
     }
     setSaving(true);
@@ -1306,7 +1306,7 @@ function EditorPanel(props) {
         <div className="field-stack">
           <div className="two-col">
             <label>Title<Combobox value={props.title} onChange={props.setTitle} options={TITLE_OPTIONS} ariaLabel="Title" placeholder="Title" /></label>
-            <label>Client name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} onBlur={onBlurTitleCase(props.setClientName)} placeholder="Client Name" /></label>
+            <label>Client Name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} onBlur={onBlurTitleCase(props.setClientName)} placeholder="Client Name" /></label>
           </div>
           <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} onBlur={onBlurTitleCase(props.setContact)} placeholder="Instagram / Phone / Email" /></label>
         </div>
@@ -1316,14 +1316,14 @@ function EditorPanel(props) {
         <div className="field-stack">
           <label>Venue<input value={props.venue} onChange={(event) => props.setVenue(event.target.value)} onBlur={onBlurTitleCase(props.setVenue)} placeholder="Venue" /></label>
           <div className="event-date-row">
-            <label>Event date
+            <label>Event Date
               <DateTimeField
                 value={props.eventDate}
                 onChange={props.setEventDate}
                 timeValue={props.eventTime}
                 onTimeChange={props.setEventTime}
                 withTime
-                ariaLabel="Event date and time"
+                ariaLabel="Event Date and time"
               />
             </label>
             <label>Issued
@@ -1421,7 +1421,7 @@ function EditorPanel(props) {
             </div>
             {props.depositMode === 'custom' ? (
               <label className="deposit-custom">
-                Custom amount (IDR)
+                Custom Amount (IDR)
                 <input
                   type="number"
                   min="0"
@@ -1433,7 +1433,7 @@ function EditorPanel(props) {
               </label>
             ) : null}
           </div>
-          <div className="payment-method-block" role="radiogroup" aria-label="Payment method">
+          <div className="payment-method-block" role="radiogroup" aria-label="Payment Method">
             <span className="payment-method-label">Payment Method</span>
             <div className="payment-method-switch">
               {PAYMENT_METHODS.map((method) => {
