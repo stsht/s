@@ -125,6 +125,37 @@ button{cursor:pointer}
   to{transform:translate3d(1.5%,2%,0) scale(1.04)}
 }
 
+/* ============================================================
+ * Aurora compositor relief on touch / coarse-pointer devices.
+ *
+ * This is the single biggest reason the pre-gate splash on
+ * /g/<slug> felt laggy while the StarShots homepage
+ * (sshots.pages.dev/) stays buttery smooth: the homepage loads
+ * animate.css, which kills its `.aurora` drift on touch devices
+ * (see the (hover:none),(pointer:coarse) rule there) precisely
+ * because an always-running 25s drift on a huge blur(78px) layer
+ * forces iOS Safari / Low Power Mode to re-rasterize the blur
+ * every frame and coalesce the whole page to 30fps — which
+ * stutters the logo bounce.
+ *
+ * The Vite bundle (/, /db, /g/<slug>, /inv, /l, /subs) renders the
+ * ambient layer as `.ss-aurora` and never loads animate.css, so
+ * that relief was missing here. Freeze the drift (and release the
+ * compositor hint) on touch/coarse-pointer devices so the splash
+ * logo bounce runs on the GPU undisturbed — same smooth result as
+ * main /. Desktop (fine-pointer) keeps the living drift.
+ *
+ * Transform/opacity only elsewhere; this rule animates nothing —
+ * it only stops an animation, so it cannot introduce layout work.
+ * ============================================================ */
+@media (hover:none),(pointer:coarse){
+  .ss-aurora{
+    -webkit-animation:none !important;
+    animation:none !important;
+    will-change:auto !important;
+  }
+}
+
 .gate-page{
   min-height:100dvh;
   display:grid;
@@ -284,13 +315,20 @@ button{cursor:pointer}
   width:min(226px,68vw);
   height:auto;
   opacity:.86;
-  transform:scale(.985);
   transform-origin:center;
+  /* GPU promotion identical to the homepage .ss-logo-hero mark (in
+   * animate.css): translateZ(0) + backface-visibility:hidden push
+   * the logo onto its own compositor layer so the bounce never
+   * coalesces with the surrounding card/aurora transforms on iOS
+   * WebKit. The base scale(.985) is carried inside the same
+   * transform so the pre-bounce rest pose is unchanged. */
+  -webkit-backface-visibility:hidden;
   backface-visibility:hidden;
+  -webkit-transform:translateZ(0) scale(.985);
+  transform:translateZ(0) scale(.985);
   contain:paint;
-  /* GPU acceleration — promotes the element to its own compositor
-   * layer so the transform + opacity breathing animation runs off
-   * the main thread, paint-free after the first frame. */
+  /* will-change only on this single, continuously-animated element
+   * (transform + opacity only) — the one place it actually helps. */
   will-change:transform,opacity;
 }
 
@@ -397,6 +435,13 @@ button{cursor:pointer}
     transform:scale(1) !important;
     -webkit-filter:none !important;
     filter:none !important;
+  }
+  /* Freeze the ambient aurora drift too, mirroring animate.css's
+   * reduced-motion handling on the homepage so the public pre-gate
+   * page honours the system preference consistently. */
+  html:not(.ss-force-motion) .ss-aurora{
+    -webkit-animation:none !important;
+    animation:none !important;
   }
   html:not(.ss-force-motion) .gate-splash,
   html:not(.ss-force-motion) .gate-card{
