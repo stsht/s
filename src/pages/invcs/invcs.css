@@ -295,9 +295,24 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo.is-loaded{
-  /* 4.0s slow double-pulse brand breath, starting only after the page
-   * and the decoded high-res logo are ready. */
-  animation:ssElegantBreathe 4.0s cubic-bezier(.22,1,.36,1) both infinite;
+  /* Homepage logo animation reuse.
+   *
+   * The StarShots root homepage (sshots.pages.dev/) animates its
+   * brand mark (.ss-logo-hero) with a squeeze / boom / jiggle /
+   * settle bounce on a ~4.2s loop with a rest tail. On the worker-
+   * rendered homepage that motion is driven by the Web Animations
+   * API in animate.js (CSS fallback: ssBounceIn in animate.css; the
+   * gate cards mirror it as ssGateLogoBounce in gate.css).
+   *
+   * This React page (and the rest of the Vite bundle) does not load
+   * animate.js / animate.css / gate.css, so we reuse the SAME
+   * choreography here as a transform-only CSS keyframe — ssSplashBounce
+   * is ported 1:1 from gate.css's ssGateLogoBounce. Transform + opacity
+   * only, so it stays GPU-cheap and mobile-safe. Starts only once the
+   * page layout AND the decoded high-res logo are ready (the .is-loaded
+   * gate), exactly like the previous breathe trigger. */
+  opacity:1;
+  animation:ssSplashBounce 4.2s cubic-bezier(.22,1,.36,1) infinite both;
 }
 
 /* ---- Card hidden-by-default + reveal transition ----
@@ -326,39 +341,41 @@ button{cursor:pointer}
   pointer-events:auto;
 }
 
-/* Elegant breathing — fades the brand from a low rest opacity
- * up to full strength while scaling gently.
- * It follows a slow, double-pulse rhythm without blur or filter work:
- *   - 0% to 40%: Calm, clear rest phase (deep breath).
- *   - 50%: First expansion (lub).
- *   - 56%: Gentle recoil.
- *   - 66%: Second, slightly larger expansion (dub).
- *   - 74% to 100%: Quiet hold before the reveal. */
-@keyframes ssElegantBreathe{
-  0%, 100%{
-    transform:scale(.985);
-    opacity:.86;
-  }
-  42%{
-    transform:scale(.985);
-    opacity:.86;
-  }
-  50%{
-    transform:scale(1.025);
-    opacity:.98;
-  }
-  56%{
-    transform:scale(.992);
-    opacity:.9;
-  }
-  66%{
-    transform:scale(1.04);
-    opacity:1;
-  }
-  74%{
-    transform:scale(.985);
-    opacity:.86;
-  }
+/* Splash logo bounce — ported 1:1 from gate.css's ssGateLogoBounce,
+ * which itself mirrors the Web Animations API load bounce that the
+ * StarShots homepage (sshots.pages.dev/) runs on its .ss-logo-hero
+ * mark. Deliberate draw-back / squeeze (peak ~36%), boom past 1.0
+ * (~1.20 peak ~48%), two opposing rotation flicks, a softer counter-
+ * tilt squeeze, then a long rest tail (78%–100% held at scale 1) so
+ * the brand reads as a deliberate pulse rather than a perpetual
+ * wobble. Composed as translate3d -> rotate -> skewY -> scale so every
+ * engine can interpolate it without matrix decomposition. Transform-
+ * only (no opacity/filter/layout properties) for a GPU-cheap loop. */
+@-webkit-keyframes ssSplashBounce{
+  0%   {-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+  14%  {-webkit-transform:translate3d(0,0,0) rotate(-1deg) skewY(3.6deg) scale(1.02,.92)}
+  25%  {-webkit-transform:translate3d(0,0,0) rotate(-2.2deg) skewY(6.2deg) scale(1.04,.82)}
+  36%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(7deg) scale(1.05,.70)}
+  44%  {-webkit-transform:translate3d(0,0,0) rotate(-1deg) skewY(3deg) scale(1.06,.92)}
+  48%  {-webkit-transform:translate3d(0,0,0) rotate(1.6deg) skewY(-1deg) scale(1.20,1.16)}
+  55%  {-webkit-transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.16)}
+  60%  {-webkit-transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.10,1.13)}
+  67%  {-webkit-transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
+  73%  {-webkit-transform:translate3d(0,0,0) rotate(.2deg) skewY(0) scale(1.02,1.012)}
+  78%,100%{-webkit-transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+}
+@keyframes ssSplashBounce{
+  0%   {transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
+  14%  {transform:translate3d(0,0,0) rotate(-1deg) skewY(3.6deg) scale(1.02,.92)}
+  25%  {transform:translate3d(0,0,0) rotate(-2.2deg) skewY(6.2deg) scale(1.04,.82)}
+  36%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(7deg) scale(1.05,.70)}
+  44%  {transform:translate3d(0,0,0) rotate(-1deg) skewY(3deg) scale(1.06,.92)}
+  48%  {transform:translate3d(0,0,0) rotate(1.6deg) skewY(-1deg) scale(1.20,1.16)}
+  55%  {transform:translate3d(0,0,0) rotate(-3deg) skewY(0) scale(1.13,1.16)}
+  60%  {transform:translate3d(0,0,0) rotate(2.2deg) skewY(0) scale(1.10,1.13)}
+  67%  {transform:translate3d(0,0,0) rotate(.8deg) skewY(-2.4deg) scale(1.04,.93)}
+  73%  {transform:translate3d(0,0,0) rotate(.2deg) skewY(0) scale(1.02,1.012)}
+  78%,100%{transform:translate3d(0,0,0) rotate(0) skewY(0) scale(1)}
 }
 
 /* Reduced-motion: freeze every idle loop and skip the reveal
@@ -4692,7 +4709,17 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 
 @media(max-width:1023px){
-  .dd-grid-2{grid-template-columns:1fr 1fr}
+  /* Mobile Delivery Detail (/db right panel): stack Short Link above
+   * Password. On mobile the workspace collapses to a single full-width
+   * panel (PrivateWorkspaceFrame.css @media max-width:1023px); keeping
+   * these two cards side-by-side (1fr 1fr) crowded the short-link URL
+   * and the password against their right-edge icon actions
+   * (.dd-open-button / .dd-refresh-button). One column gives each card
+   * the full panel width so the URL wraps cleanly within
+   * .dd-card-tap's reserved 60px right padding and never overlaps the
+   * icons. DOM order (Short Link first, Password second) stacks Short
+   * Link on top, Password below. Desktop (>=1024px) keeps two columns. */
+  .dd-grid-2{grid-template-columns:1fr}
   .dd-services{grid-template-columns:1fr}
   .dd-message-output{min-height:180px}
 }

@@ -442,7 +442,7 @@ function GalleryGate() {
     }
   }, []);
 
-  // Auto-continue to the password gate exactly after 1 double-pulse cycle (4.0s)
+  // Auto-continue to the password gate exactly after 1 logo bounce cycle (4.0s)
   // only after both the page layout is ready AND the high-res logo has downloaded.
   useEffect(() => {
     if (isPageLoaded && isLogoLoaded && !revealed) {
@@ -452,6 +452,23 @@ function GalleryGate() {
       return () => clearTimeout(timer);
     }
   }, [isPageLoaded, isLogoLoaded, revealed]);
+
+  // Keyboard skip for the intro splash. While the intro is still
+  // showing (!revealed), pressing ANY key (Enter, Space, Escape, a
+  // letter, etc.) dismisses it straight to the password gate — the
+  // keyboard equivalent of the click/tap-to-skip already wired on
+  // .gate-page. The listener is attached ONLY during the intro and
+  // is torn down the instant the gate is revealed, so it never
+  // intercepts keystrokes typed into the access-key input once the
+  // gate is visible. (The input is hidden + non-focusable behind the
+  // splash until reveal, so there is no input to type into while this
+  // listener is live.)
+  useEffect(() => {
+    if (revealed) return undefined;
+    const handleKeyDown = () => { handleReveal(); };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [revealed]);
 
   function handleReveal() {
     if (revealed) return;
