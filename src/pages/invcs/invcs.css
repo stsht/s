@@ -5435,3 +5435,296 @@ dd{margin:0;text-align:right;font-weight:800}
 .invoice-export-host .paid-stamp{gap:42px}
 .invoice-export-host .paid-stamp-badge{padding:30px 90px;border-width:6px;border-radius:42px;font-size:90px}
 .invoice-export-host .paid-stamp-note{max-width:720px;font-size:39px}
+
+/* ============================================================
+ * Mobile Invoice Modal UX Polish (safe-area + compact)
+ * ============================================================ */
+
+/* By default (desktop), hide mobile-only elements */
+.mobile-only-header,
+.mobile-only-preview,
+.public-invoice-viewer-header-mobile,
+.public-invoice-mobile-preview-container,
+.public-invoice-fullscreen {
+  display: none !important;
+}
+
+@media(max-width:1023px){
+  /* Hide desktop-only elements */
+  .desktop-only-header,
+  .desktop-only-frame,
+  .public-invoice-viewer-toolbar,
+  .public-invoice-frame {
+    display: none !important;
+  }
+
+  /* Show mobile-only elements */
+  .mobile-only-header,
+  .public-invoice-viewer-header-mobile {
+    display: flex !important;
+  }
+
+  .mobile-only-preview,
+  .public-invoice-mobile-preview-container {
+    display: flex !important;
+  }
+
+  /* Compact mobile header */
+  .public-invoice-viewer-header-mobile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .public-invoice-viewer-header-mobile strong {
+    font-size: 17px;
+    font-weight: 900;
+    color: var(--ink);
+  }
+  .public-invoice-close-btn {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--soft);
+    color: var(--ink);
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: background 0.15s ease;
+  }
+  .public-invoice-close-btn:active {
+    background: var(--line);
+  }
+  .public-invoice-close-btn svg {
+    width: 16px;
+    height: 16px;
+    margin: 0 !important;
+  }
+
+  /* Mobile scrollable body */
+  .public-invoice-viewer-card {
+    width: 100% !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel) !important;
+  }
+  .public-invoice-viewer {
+    padding: 0 !important;
+    background: var(--panel) !important;
+  }
+  .public-invoice-viewer-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Mobile preview trigger / row style */
+  .public-invoice-mobile-preview-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .public-invoice-mobile-preview-trigger {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--field);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    outline: none;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    text-decoration: none;
+  }
+  .public-invoice-mobile-preview-trigger:active {
+    background: var(--soft);
+    border-color: var(--line-strong);
+  }
+  .public-invoice-mobile-preview-thumbnail {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #fff;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .public-invoice-mobile-preview-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .thumbnail-placeholder {
+    font-size: 24px;
+  }
+  .public-invoice-mobile-preview-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .public-invoice-mobile-preview-info strong {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .public-invoice-mobile-preview-info span {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .public-invoice-mobile-preview-arrow {
+    display: grid;
+    place-items: center;
+    color: var(--ink);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--soft);
+    flex-shrink: 0;
+  }
+  .public-invoice-mobile-preview-arrow svg {
+    width: 14px;
+    height: 14px;
+    margin: 0 !important;
+  }
+
+  /* Compact mobile actions row (2 per row max) */
+  .public-invoice-mobile-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    width: 100%;
+  }
+  .public-invoice-mobile-actions .public-invoice-action {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease, filter 0.15s ease;
+  }
+  .public-invoice-mobile-actions .public-invoice-action svg {
+    width: 15px;
+    height: 15px;
+    margin: 0 !important;
+  }
+  .public-invoice-mobile-actions .public-invoice-action--primary {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 8px 20px -8px rgba(95,149,245,.65);
+  }
+  .public-invoice-mobile-actions .public-invoice-action--primary:active {
+    filter: brightness(0.92);
+  }
+  .public-invoice-mobile-actions .public-invoice-action--ghost {
+    background: var(--soft);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .public-invoice-mobile-actions .public-invoice-action--ghost:active {
+    background: var(--line);
+  }
+
+  /* Fullscreen Mobile Zoomable Preview Modal */
+  .public-invoice-fullscreen {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #000;
+    flex-direction: column;
+  }
+  .public-invoice-fullscreen-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 52;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .public-invoice-fullscreen-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 900;
+    text-decoration: none;
+    cursor: pointer;
+    outline: none;
+    transition: background 0.15s ease;
+  }
+  .public-invoice-fullscreen-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  .public-invoice-fullscreen-btn svg {
+    width: 16px;
+    height: 16px;
+    color: #fff;
+    margin: 0 !important;
+  }
+  .public-invoice-fullscreen-body {
+    flex: 1;
+    overflow: auto;
+    display: grid;
+    place-items: center;
+    background: #000;
+    -webkit-overflow-scrolling: touch;
+    padding: 20px;
+  }
+  .public-invoice-fullscreen-img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  }
+  .public-invoice-fullscreen-img.is-zoomed {
+    width: calc(var(--scale) * 100%) !important;
+    max-width: none !important;
+    object-fit: fill !important;
+    border-radius: 0;
+  }
+}

@@ -66,6 +66,21 @@ function IconDownload() {
     </svg>
   );
 }
+function IconClose() {
+  return (
+    <svg className="public-invoice-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function IconEye() {
+  return (
+    <svg className="public-invoice-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2.2" />
+    </svg>
+  );
+}
 
 function rupiah(value) {
   return new Intl.NumberFormat('id-ID', {
@@ -273,6 +288,57 @@ function GalleryLinks({ payload }) {
   const [payMethod, setPayMethod] = useState('bank');
 
   const [expandedService, setExpandedService] = useState(null);
+  const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
+  const [scale, setScale] = useState(1);
+  const touchStartDistRef = useRef(0);
+  const touchStartScaleRef = useRef(1);
+  const previewContainerRef = useRef(null);
+
+  // Reset scale when fullscreen preview closes
+  useEffect(() => {
+    if (!fullScreenPreviewOpen) {
+      setScale(1);
+    }
+  }, [fullScreenPreviewOpen]);
+
+  // Non-passive pinch-to-zoom event listeners
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        touchStartDistRef.current = dist;
+        touchStartScaleRef.current = scale;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        const factor = dist / touchStartDistRef.current;
+        const nextScale = Math.max(1, Math.min(4, touchStartScaleRef.current * factor));
+        setScale(nextScale);
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [fullScreenPreviewOpen, scale]);
 
   useEffect(() => {
     if (expandedService === null) return;
@@ -552,7 +618,8 @@ function GalleryLinks({ payload }) {
       {invoiceOpen ? (
         <div className="public-invoice-viewer" role="dialog" aria-modal="true" aria-label="Invoice preview">
           <div className="public-invoice-viewer-card">
-            <header className="public-invoice-viewer-toolbar">
+            {/* Desktop Toolbar (hidden on mobile) */}
+            <header className="public-invoice-viewer-toolbar desktop-only-header">
               <strong>Invoice</strong>
               <div className="public-invoice-viewer-actions">
                 {showPaymentPanel ? (
@@ -595,56 +662,135 @@ function GalleryLinks({ payload }) {
                 </button>
               </div>
             </header>
-            <div className="public-invoice-frame">
-              {invoiceImage ? (
-                <img src={invoiceImage} alt="Invoice JPG" />
-              ) : (
-                <p>{invoiceStatus || 'Rendering invoice...'}</p>
-              )}
-            </div>
-            {showPaymentPanel ? (
-              <div className="public-pay" aria-label="Payment options">
-                <div className="public-pay-head">
-                  <span className="public-pay-title">Payment</span>
-                  <span className="public-pay-due">
-                    <span className="public-pay-due-label">{paymentDue.label}</span>
-                    <strong className="public-pay-due-amount">{rupiah(paymentDue.amount)}</strong>
-                  </span>
-                </div>
-                <div className="public-pay-switch" role="radiogroup" aria-label="Payment method">
-                  {[{ value: 'bank', label: 'Bank' }, { value: 'qr', label: 'QR' }].map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={payMethod === option.value}
-                      className={`public-pay-option${payMethod === option.value ? ' is-active' : ''}`}
-                      onClick={() => setPayMethod(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="public-pay-body">
-                  {payMethod === 'qr' ? (
-                    <img className="public-pay-qr" src={payQrSrc} alt="Payment QR" />
-                  ) : (
-                    <dl className="public-pay-bank">
-                      <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                      <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                      <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                    </dl>
-                  )}
-                </div>
-                <p className="public-pay-note">
-                  Kindly send your payment confirmation to StarShots via{' '}
-                  <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
-                  {' '}or{' '}
-                  <a href={CONTACT.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
-                  {' '}once the transfer has been completed.
-                </p>
+
+            {/* Mobile Header (hidden on desktop) */}
+            <header className="public-invoice-viewer-header-mobile mobile-only-header">
+              <strong>Invoice</strong>
+              <button
+                type="button"
+                className="public-invoice-close-btn"
+                onClick={() => setInvoiceOpen(false)}
+                aria-label="Close"
+              >
+                <IconClose />
+              </button>
+            </header>
+
+            {/* Scrollable Body container for mobile, standard flow for desktop */}
+            <div className="public-invoice-viewer-body">
+              {/* Desktop Frame (hidden on mobile) */}
+              <div className="public-invoice-frame desktop-only-frame">
+                {invoiceImage ? (
+                  <img src={invoiceImage} alt="Invoice JPG" />
+                ) : (
+                  <p>{invoiceStatus || 'Rendering invoice...'}</p>
+                )}
               </div>
-            ) : null}
+
+              {/* Mobile View Invoice Row / Trigger (hidden on desktop) */}
+              <div className="public-invoice-mobile-preview-container mobile-only-preview">
+                <button
+                  type="button"
+                  className="public-invoice-mobile-preview-trigger"
+                  onClick={() => setFullScreenPreviewOpen(true)}
+                >
+                  <div className="public-invoice-mobile-preview-thumbnail">
+                    {invoiceImage ? (
+                      <img src={invoiceImage} alt="Invoice Thumbnail" />
+                    ) : (
+                      <div className="thumbnail-placeholder">📄</div>
+                    )}
+                  </div>
+                  <div className="public-invoice-mobile-preview-info">
+                    <strong>View Full Invoice</strong>
+                    <span>Pinch to zoom & pan the full sheet</span>
+                  </div>
+                  <div className="public-invoice-mobile-preview-arrow">
+                    <IconEye />
+                  </div>
+                </button>
+
+                {/* Mobile actions (Copy Bank / Download QR and Download Invoice side-by-side) */}
+                <div className="public-invoice-mobile-actions">
+                  {showPaymentPanel ? (
+                    payMethod === 'bank' ? (
+                      <button
+                        type="button"
+                        className="public-invoice-action public-invoice-action--primary"
+                        onClick={copyBankAccount}
+                      >
+                        <IconCopy />
+                        <span>{bankCopied ? 'Copied' : 'Copy Bank'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="public-invoice-action public-invoice-action--primary"
+                        onClick={downloadQrCard}
+                      >
+                        <IconDownload />
+                        <span>Download QR</span>
+                      </button>
+                    )
+                  ) : null}
+                  {invoiceImage ? (
+                    <a
+                      className="public-invoice-action public-invoice-action--ghost"
+                      href={invoiceImage}
+                      download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+                    >
+                      <IconDownload />
+                      <span>Download</span>
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Payment Details (visible on both, scrolls naturally on mobile) */}
+              {showPaymentPanel ? (
+                <div className="public-pay" aria-label="Payment options">
+                  <div className="public-pay-head">
+                    <span className="public-pay-title">Payment</span>
+                    <span className="public-pay-due">
+                      <span className="public-pay-due-label">{paymentDue.label}</span>
+                      <strong className="public-pay-due-amount">{rupiah(paymentDue.amount)}</strong>
+                    </span>
+                  </div>
+                  <div className="public-pay-switch" role="radiogroup" aria-label="Payment method">
+                    {[{ value: 'bank', label: 'Bank' }, { value: 'qr', label: 'QR' }].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={payMethod === option.value}
+                        className={`public-pay-option${payMethod === option.value ? ' is-active' : ''}`}
+                        onClick={() => setPayMethod(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="public-pay-body">
+                    {payMethod === 'qr' ? (
+                      <img className="public-pay-qr" src={payQrSrc} alt="Payment QR" />
+                    ) : (
+                      <dl className="public-pay-bank">
+                        <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                        <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                        <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                      </dl>
+                    )}
+                  </div>
+                  <p className="public-pay-note">
+                    Kindly send your payment confirmation to StarShots via{' '}
+                    <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                    {' '}or{' '}
+                    <a href={CONTACT.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+                    {' '}once the transfer has been completed.
+                  </p>
+                </div>
+              ) : null}
+            </div>
           </div>
           {invoice ? (
             <div className="invoice-export-host public-invoice-render-host" aria-hidden="true">
@@ -670,6 +816,43 @@ function GalleryLinks({ payload }) {
               </div>
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* Mobile Fullscreen Zoomable Invoice Preview Modal */}
+      {fullScreenPreviewOpen ? (
+        <div className="public-invoice-fullscreen" role="dialog" aria-modal="true" aria-label="Fullscreen invoice preview">
+          <header className="public-invoice-fullscreen-header">
+            <button className="public-invoice-fullscreen-btn" onClick={() => setFullScreenPreviewOpen(false)}>
+              <IconClose />
+            </button>
+            <button className="public-invoice-fullscreen-btn" onClick={() => setScale(1)}>
+              Fit
+            </button>
+            {invoiceImage ? (
+              <a
+                className="public-invoice-fullscreen-btn"
+                href={invoiceImage}
+                download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+              >
+                <IconDownload />
+              </a>
+            ) : null}
+          </header>
+          <div className="public-invoice-fullscreen-body" ref={previewContainerRef}>
+            {invoiceImage ? (
+              <img
+                src={invoiceImage}
+                alt="Invoice Preview"
+                className={`public-invoice-fullscreen-img${scale > 1 ? ' is-zoomed' : ''}`}
+                style={{
+                  '--scale': scale,
+                }}
+              />
+            ) : (
+              <p>{invoiceStatus || 'Rendering invoice...'}</p>
+            )}
+          </div>
         </div>
       ) : null}
     </main>
