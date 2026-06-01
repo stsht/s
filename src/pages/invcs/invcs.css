@@ -837,6 +837,145 @@ button{cursor:pointer}
   }
   .public-pay-option{min-height:42px}
 }
+
+/* ------------------------------------------------------------
+ * Public invoice toolbar actions (icon + text)
+ * ------------------------------------------------------------
+ * Three refined actions, left→right: an ADAPTIVE payment action
+ * (primary blue) that copies the bank account number when Bank is
+ * selected or downloads the QR payment card when QR is selected,
+ * then a neutral "Download Invoice", then a neutral "Close". Never
+ * shows separate Bank + QR buttons at once. Wraps gracefully on
+ * narrow screens. Higher specificity than the legacy toolbar button
+ * rule above so the icon+label layout always wins. */
+.public-invoice-viewer-actions{
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.public-invoice-viewer-toolbar .public-invoice-action{
+  min-height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:0 14px;
+  border:1px solid transparent;
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--ink);
+  font:inherit;
+  font-size:12px;
+  font-weight:900;
+  text-decoration:none;
+  cursor:pointer;
+  transition:background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease;
+}
+.public-invoice-viewer-toolbar .public-invoice-action--primary{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 10px 24px -12px rgba(95,149,245,.85);
+}
+.public-invoice-viewer-toolbar .public-invoice-action--ghost{
+  background:var(--soft);
+  color:var(--ink);
+}
+@media(hover:hover){
+  .public-invoice-viewer-toolbar .public-invoice-action--ghost:hover{border-color:var(--line)}
+  .public-invoice-viewer-toolbar .public-invoice-action--primary:hover{filter:brightness(1.04)}
+}
+.public-invoice-action-icon{
+  width:15px;
+  height:15px;
+  flex:none;
+}
+@media(max-width:560px){
+  .public-invoice-viewer-toolbar{flex-wrap:wrap}
+  .public-invoice-viewer-actions{width:100%}
+}
+
+/* Proof-of-payment guidance — a quiet, formal note under the Bank/QR
+ * content. Soft tinted info box, never a popup/alert. Subtle links to
+ * the official WhatsApp / Instagram channels. */
+.public-pay-note{
+  margin:0;
+  padding:11px 14px;
+  border:1px solid color-mix(in srgb,var(--accent) 24%,var(--line));
+  border-radius:14px;
+  background:color-mix(in srgb,var(--accent) 8%,var(--panel));
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.55;
+}
+.public-pay-note a{
+  color:var(--accent);
+  font-weight:900;
+  text-decoration:none;
+}
+.public-pay-note a:hover{text-decoration:underline}
+
+/* Off-screen QR payment card captured by html2canvas for the
+ * "Download QR" action. Hard-coded light palette (independent of the
+ * OS colour scheme) so the exported JPG always reads on white. */
+.public-pay-card{
+  width:560px;
+  box-sizing:border-box;
+  display:grid;
+  justify-items:center;
+  gap:18px;
+  padding:44px 40px;
+  background:#ffffff;
+  color:#0f172a;
+}
+.public-pay-card-logo{
+  width:190px;
+  height:auto;
+}
+.public-pay-card-kicker{
+  margin:0;
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  color:#64748b;
+}
+.public-pay-card-qr{
+  width:320px;
+  height:320px;
+  object-fit:contain;
+  border-radius:24px;
+  background:#ffffff;
+  box-shadow:0 14px 38px rgba(15,23,42,.14);
+}
+.public-pay-card-due{
+  display:grid;
+  justify-items:center;
+  gap:4px;
+}
+.public-pay-card-due span{
+  font-size:15px;
+  font-weight:800;
+  color:#64748b;
+}
+.public-pay-card-due strong{
+  font-size:32px;
+  font-weight:900;
+  color:#0f172a;
+}
+.public-pay-card-meta{
+  margin:0;
+  font-size:15px;
+  font-weight:800;
+  color:#0f172a;
+  text-align:center;
+}
+.public-pay-card-foot{
+  margin:0;
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:#94a3b8;
+}
 .public-delivery-list{
   display:grid;
   gap:12px;

@@ -25,6 +25,47 @@ const BANK_DETAILS = {
   accountHolderLabel: 'BELLY',
 };
 
+// Official StarShots contact channels surfaced in the public payment
+// area so clients can send proof of payment after transferring. Subtle
+// inline links only — never a popup/alert and never blocking.
+const CONTACT = {
+  whatsapp: '6282260882006',
+  instagram: 'https://www.instagram.com/starshots.id/',
+};
+
+// Trigger a client-side download for a data/asset URL without leaving
+// the page. Used by the QR payment-card export and the direct-QR
+// fallback.
+function triggerImageDownload(href, filename) {
+  const link = document.createElement('a');
+  link.href = href;
+  link.download = filename;
+  link.rel = 'noopener';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+// Small inline icons for the client-facing invoice toolbar. Kept as
+// currentColor strokes so they inherit the button's primary/neutral
+// colour. Icon + text labels (never icon-only) for client clarity.
+function IconCopy() {
+  return (
+    <svg className="public-invoice-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="9" y="9" width="11" height="11" rx="2.5" stroke="currentColor" strokeWidth="2" />
+      <path d="M5 15.5V6a2 2 0 0 1 2-2h8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconDownload() {
+  return (
+    <svg className="public-invoice-action-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4v10m0 0 3.5-3.5M12 14l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 19h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function rupiah(value) {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -215,10 +256,14 @@ function GalleryLinks({ payload }) {
   const slug = useMemo(() => deliverySlug(), []);
   const delivery = payload?.delivery || {};
   const invoiceRenderRef = useRef(null);
+  const qrCardRef = useRef(null);
+  const copyResetRef = useRef(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoice, setInvoice] = useState(null);
   const [invoiceImage, setInvoiceImage] = useState('');
   const [invoiceStatus, setInvoiceStatus] = useState('');
+  // Brief "Copied" confirmation shown on the adaptive Bank action.
+  const [bankCopied, setBankCopied] = useState(false);
   // Client-facing payment selector. Defaults to Bank Transfer for
   // unpaid invoices; initialised from the invoice's resolved method
   // when it loads so an invoice explicitly saved as QR still opens on
@@ -292,6 +337,69 @@ function GalleryLinks({ payload }) {
     renderInvoiceImage();
     return () => { alive = false; };
   }, [invoiceOpen, invoice]);
+
+  // Clear any pending "Copied" reset timer on unmount so we never set
+  // state on an unmounted component.
+  useEffect(() => () => {
+    if (copyResetRef.current) clearTimeout(copyResetRef.current);
+  }, []);
+
+  // Bank action: copy ONLY the account number (BANK_DETAILS.accountNumber),
+  // then flash a brief "Copied" confirmation on the button. Uses the
+  // async Clipboard API with a hidden-textarea fallback for older
+  // browsers. Never alerts — failures fail quietly.
+  async function copyBankAccount() {
+    const value = String(BANK_DETAILS.accountNumber || '');
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+      }
+      setBankCopied(true);
+      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+      copyResetRef.current = setTimeout(() => setBankCopied(false), 1800);
+    } catch {
+      // Clipboard may be blocked (insecure context / permissions).
+      // Stay silent per spec — no alert, payment flow is never blocked.
+    }
+  }
+
+  // QR action: export the off-screen payment card (brand + QR + amount
+  // due) to a JPG and download it. Reuses the html2canvas that already
+  // renders the invoice. Falls back to downloading the raw static QR
+  // asset if the card capture fails. Never generates a dynamic QR.
+  async function downloadQrCard() {
+    const node = qrCardRef.current;
+    if (!node) {
+      triggerImageDownload(payQrSrc, 'starshots-payment-qr.jpg');
+      return;
+    }
+    try {
+      if (document.fonts?.ready) {
+        try { await document.fonts.ready; } catch {}
+      }
+      const canvas = await html2canvas(node, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        imageTimeout: 0,
+        logging: false,
+      });
+      triggerImageDownload(canvas.toDataURL('image/jpeg', 0.95), 'starshots-payment-qr.jpg');
+    } catch {
+      triggerImageDownload(payQrSrc, 'starshots-payment-qr.jpg');
+    }
+  }
 
   const honorific = String(delivery.title || '').trim();
   // Greeting always includes the honorific when present so the
@@ -397,17 +505,45 @@ function GalleryLinks({ payload }) {
           <div className="public-invoice-viewer-card">
             <header className="public-invoice-viewer-toolbar">
               <strong>Invoice</strong>
-              <div>
+              <div className="public-invoice-viewer-actions">
+                {showPaymentPanel ? (
+                  payMethod === 'bank' ? (
+                    <button
+                      type="button"
+                      className="public-invoice-action public-invoice-action--primary"
+                      onClick={copyBankAccount}
+                    >
+                      <IconCopy />
+                      <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="public-invoice-action public-invoice-action--primary"
+                      onClick={downloadQrCard}
+                    >
+                      <IconDownload />
+                      <span>Download QR</span>
+                    </button>
+                  )
+                ) : null}
                 {invoiceImage ? (
                   <a
-                    className="public-invoice-download"
+                    className="public-invoice-action public-invoice-action--ghost"
                     href={invoiceImage}
                     download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
                   >
-                    Download
+                    <IconDownload />
+                    <span>Download Invoice</span>
                   </a>
                 ) : null}
-                <button type="button" onClick={() => setInvoiceOpen(false)}>Close</button>
+                <button
+                  type="button"
+                  className="public-invoice-action public-invoice-action--ghost"
+                  onClick={() => setInvoiceOpen(false)}
+                >
+                  Close
+                </button>
               </div>
             </header>
             <div className="public-invoice-frame">
@@ -451,6 +587,13 @@ function GalleryLinks({ payload }) {
                     </dl>
                   )}
                 </div>
+                <p className="public-pay-note">
+                  Kindly send your payment confirmation to StarShots via{' '}
+                  <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+                  {' '}or{' '}
+                  <a href={CONTACT.instagram} target="_blank" rel="noopener noreferrer">Instagram</a>
+                  {' '}once the transfer has been completed.
+                </p>
               </div>
             ) : null}
           </div>
@@ -458,6 +601,23 @@ function GalleryLinks({ payload }) {
             <div className="invoice-export-host public-invoice-render-host" aria-hidden="true">
               <div ref={invoiceRenderRef}>
                 <PublicInvoiceDocument invoice={invoice} />
+              </div>
+            </div>
+          ) : null}
+          {showPaymentPanel ? (
+            <div className="invoice-export-host public-pay-card-host" aria-hidden="true">
+              <div ref={qrCardRef} className="public-pay-card">
+                <img className="public-pay-card-logo" src="/logo-hero.png" alt="StarShots" />
+                <p className="public-pay-card-kicker">Payment QR</p>
+                <img className="public-pay-card-qr" src={payQrSrc} alt="Payment QR" />
+                <div className="public-pay-card-due">
+                  <span>{paymentDue.label}</span>
+                  <strong>{rupiah(paymentDue.amount)}</strong>
+                </div>
+                <p className="public-pay-card-meta">
+                  {BANK_DETAILS.bank} · {BANK_DETAILS.accountNumber} · {BANK_DETAILS.accountHolderLabel}
+                </p>
+                <p className="public-pay-card-foot">Scan to pay · StarShots ID</p>
               </div>
             </div>
           ) : null}
