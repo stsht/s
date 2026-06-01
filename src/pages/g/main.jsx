@@ -495,10 +495,8 @@ function GalleryLinks({ payload }) {
                   rel="noopener"
                   target="_blank"
                 >
-                  <div className="public-delivery-row-left">
-                    <span className="public-delivery-icon">{icon}</span>
-                    <span className="public-delivery-name">{name}</span>
-                  </div>
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{name}</span>
                   <span className="public-delivery-state">Click</span>
                 </a>
               );
@@ -516,10 +514,8 @@ function GalleryLinks({ payload }) {
                     style={{ cursor: 'pointer' }}
                     aria-expanded={isExpanded}
                   >
-                    <div className="public-delivery-row-left">
-                      <span className="public-delivery-icon">{icon}</span>
-                      <span className="public-delivery-name">{name}</span>
-                    </div>
+                    <span className="public-delivery-icon">{icon}</span>
+                    <span className="public-delivery-name">{name}</span>
                     <span className="public-delivery-state">IN PROGRESS</span>
                   </button>
                   {isExpanded && (
@@ -541,10 +537,8 @@ function GalleryLinks({ payload }) {
                   disabled
                   aria-disabled="true"
                 >
-                  <div className="public-delivery-row-left">
-                    <span className="public-delivery-icon">{icon}</span>
-                    <span className="public-delivery-name">{name}</span>
-                  </div>
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{name}</span>
                   <span className="public-delivery-state">UNAVAILABLE</span>
                 </button>
               );

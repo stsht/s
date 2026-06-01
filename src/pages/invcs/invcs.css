@@ -982,10 +982,9 @@ button{cursor:pointer}
   gap:12px;
 }
 .public-delivery-row{
-  display:flex;
+  display:grid;
+  grid-template-columns:44px minmax(0,1fr) auto;
   align-items:center;
-  justify-content:space-between;
-  width:100%;
   gap:14px;
   min-height:64px;
   padding:10px 16px;
@@ -995,18 +994,7 @@ button{cursor:pointer}
   text-decoration:none;
   transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease;
 }
-.public-delivery-row-left{
-  display:flex;
-  align-items:center;
-  gap:inherit;
-  text-align:left;
-  min-width:0;
-  flex:1;
-}
-.public-delivery-row .public-delivery-state{
-  margin-left:auto;
-  flex-shrink:0;
-}
+
 .public-delivery-row.is-active:hover{
   border-color:var(--accent);
   transform:translateY(-1px);
@@ -1020,6 +1008,7 @@ button.public-delivery-row{
   width:100%;
   font:inherit;
   background:transparent;
+  text-align:left;
 }
 .public-delivery-row.is-active{
   cursor:pointer;
@@ -4563,7 +4552,7 @@ dd{margin:0;text-align:right;font-weight:800}
    * The single-line modern row keeps mobile and desktop visually
    * unified — just with a slightly smaller icon and tighter gap. */
   .public-delivery-row{
-    display:flex;
+    grid-template-columns:40px minmax(0,1fr) auto;
     gap:12px;
     min-height:60px;
     padding:10px 14px;
@@ -4597,7 +4586,7 @@ dd{margin:0;text-align:right;font-weight:800}
  * 3-column row never wraps below ~340px wide. */
 @media(max-width:380px){
   .public-delivery-row{
-    display:flex;
+    grid-template-columns:36px minmax(0,1fr) auto;
     gap:10px;
     padding:10px 12px;
   }
