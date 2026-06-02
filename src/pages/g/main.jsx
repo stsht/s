@@ -647,7 +647,7 @@ function GalleryLinks({ payload }) {
                   </div>
                 </button>
 
-                {/* Mobile actions (Copy Bank Account / Download QR, and Download Invoice) */}
+                {/* Mobile actions (Copy Bank Account and Download Invoice) */}
                 <div className="public-invoice-mobile-actions">
                   {showPaymentPanel ? (
                     <button
@@ -683,29 +683,12 @@ function GalleryLinks({ payload }) {
                       <strong className="public-pay-due-amount">{rupiah(paymentDue.amount)}</strong>
                     </span>
                   </div>
-                  <div className="public-pay-switch" role="radiogroup" aria-label="Payment Method">
-                    {[{ value: 'bank', label: 'Bank' }, { value: 'qr', label: 'QR' }].map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="radio"
-                        aria-checked={payMethod === option.value}
-                        className={`public-pay-option${payMethod === option.value ? ' is-active' : ''}`}
-                        onClick={() => setPayMethod(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
                   <div className="public-pay-body">
-                    {payMethod === 'qr' ? (
-                      <img className="public-pay-qr" src={payQrSrc} alt="Payment QR" />
-                    ) : (
-                      <dl className="public-pay-bank">
-                        <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                        <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                        <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                      </dl>
+                    <dl className="public-pay-bank">
+                      <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                      <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                      <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                    </dl>
                   </div>
                   <p className="public-pay-note">
                     Kindly send your payment confirmation to StarShots via{' '}
