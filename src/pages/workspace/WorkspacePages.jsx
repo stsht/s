@@ -1125,6 +1125,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 // the worker name/contact-match its way to a
                 // duplicate sibling.
                 clientId: parentClientId,
+                folderName: row.delivery?.folder_name,
               });
           const eventInvoiceHref = row.invoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.invoice.id })
@@ -1135,6 +1136,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
                 clientId: parentClientId,
+                folderName: row.delivery?.folder_name,
               });
           const eventVendorInvoiceHref = row.vendorInvoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.vendorInvoice.id, type: 'vendor' })
@@ -1146,6 +1148,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 eventKey: rowEventKey,
                 clientId: parentClientId,
                 type: 'vendor',
+                folderName: row.delivery?.folder_name,
                 items: (() => {
                   try {
                     const data = row.invoice?.invoice_data && typeof row.invoice.invoice_data === 'object' ? row.invoice.invoice_data : {};
@@ -1168,6 +1171,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 eventKey: rowEventKey,
                 clientId: parentClientId,
                 type: 'vendor',
+                folderName: row.delivery?.folder_name,
               });
           dbg('ClientDetail row', {
             recordKey: row.delivery?.id || row.invoice?.id || `${row.date}-${index}`,
@@ -5244,6 +5248,7 @@ function readInvoiceHandoff() {
     // bucket — the worker still has its name+contact fallback.
     clientId: params.get('clientId') || '',
     type: params.get('type') || '',
+    folderName: params.get('folderName') || '',
   };
   if (cleanLinkText(fromUrl.name)) return fromUrl;
   try {
@@ -5401,6 +5406,7 @@ export function LinkGeneratorPage() {
     setClientName((current) => (current.trim() ? current : handoffName));
     setFolderName((current) => {
       if (current.trim()) return current;
+      if (handoff.folderName) return normalizeFolderName(handoff.folderName);
       const code = folderCodeFromEventDate(handoff.eventDate);
       return code ? normalizeFolderName(`${code} ${handoffName}`) : current;
     });

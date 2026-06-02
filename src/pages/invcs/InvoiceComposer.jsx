@@ -485,6 +485,7 @@ function readInitialQuery() {
           return undefined;
         }
       })(),
+      folderName: (params.get('folderName') || '').trim(),
     };
   } catch {
     return {};
@@ -572,6 +573,7 @@ export function InvoiceComposer() {
     }
     return [emptyItem(DEFAULT_PACKAGES)];
   });
+  const [folderName, setFolderName] = useState(initial.folderName || '');
       // Payment Method shown inside the .payment-box. 'bank' renders the
   // BANK_DETAILS block (default for unpaid invoices); 'qr' replaces it
   // with the QR image. Persisted in invoice_data so reopening a saved
@@ -793,6 +795,9 @@ export function InvoiceComposer() {
         if (typeof data.depositAskOpen === 'boolean') {
           setDepositAskOpen(data.depositAskOpen);
         }
+        if (data.folderName != null) {
+          setFolderName(String(data.folderName || ''));
+        }
 
         if (data.paidReceipt && typeof data.paidReceipt === 'object') {
           setPaidConfirmed(data.paidReceipt.paid !== false);
@@ -1012,6 +1017,7 @@ export function InvoiceComposer() {
           depositAskOpen: !!depositAskOpen,
           venue: String(venue || ''),
                                         eventTime: String(eventTime || ''),
+          folderName: String(folderName || ''),
           // Deposit-mode workflow state — read back by the hydrate
           // effect. Persisted in every mode so switching invoice ↔
           // deposit ↔ paid never silently drops a recorded ledger
