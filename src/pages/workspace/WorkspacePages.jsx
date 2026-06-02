@@ -365,26 +365,6 @@ function eventDateTone(eventDate, todayIso) {
   return 'future';
 }
 
-// Tone classifier for the right-aligned expiry pill on /db Subs
-// rows. Three states only — green when the expiry is still valid,
-// red when it has passed, amber/TBA when no expiry was ever set.
-// Deliberately narrower than eventDateTone() (which has a fourth
-// "soon/+2 day" warning bucket) because the Subs row already
-// communicates the soon-to-expire / warning case through the row
-// tint via subscriptionTone(); the pill itself only needs to read
-// as a binary still-valid / expired stamp plus a TBA placeholder.
-// Returns one of the existing event-tone-* class suffixes so the
-// pill picks up the same palette and chrome as the Clients date
-// pill without introducing a parallel set of CSS variables.
-function subscriptionExpiryPillTone(expiryDate, todayIso) {
-  const date = plainEventDate(expiryDate);
-  if (!date) return 'tba';
-  const diff = daysBetweenIso(todayIso, date);
-  if (!Number.isFinite(diff)) return 'tba';
-  if (diff < 0) return 'past';
-  return 'future';
-}
-
 // Compact label for the date pill on /db client rows + event rows.
 // Examples: "1 Jun 2026", "29 May 2026", "TBA". Uses
 // day:'numeric' (no leading zero) so the single-digit days read
@@ -441,14 +421,19 @@ function subscriptionTone(sub = {}) {
   const expiryRaw = sub.expiry_date || '';
   if (!expiryRaw) return isSettled ? 'active' : 'warning';
 
-  const expiry = new Date(`${expiryRaw}T23:59:59Z`);
+  let expiryTimeRaw = String(sub.expiry_time || '23:59').trim() || '23:59';
+  if (expiryTimeRaw.length === 5) expiryTimeRaw += ':00';
+
+  const isoString = `${expiryRaw}T${expiryTimeRaw}+07:00`;
+  const expiry = new Date(isoString);
+
   if (Number.isNaN(expiry.getTime())) return isSettled ? 'active' : 'warning';
 
   const now = Date.now();
   const diffDays = (expiry.getTime() - now) / 86400000;
 
   if (diffDays < 0 || status === 'revoked') return 'expired';
-  
+
   if (!isSettled) return 'warning';
 
   return 'active';
@@ -2208,18 +2193,18 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       const target = isExt ? latestExtension : subscription;
       const endpoint = isExt ? '/api/subscription-extensions-save' : '/api/subscriptions-save';
       const payloadKey = isExt ? 'extension' : 'subscription';
-      
+
       const payload = {
         ...target,
         status: 'expired',
         expiry_date: expireDate,
         expiry_time: expireTime,
       };
-      
+
       if (isExt) {
         payload.subscription_id = subscription.id;
       }
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
         credentials: 'same-origin',
@@ -4574,7 +4559,9 @@ export function DatabasePage() {
           // either → 'tba'. The compact label produces "14 Jun 2026"
           // and "TBA" so the column reads identically to Clients.
           const subExpiry = isSub ? String(subEffective?.expiry_date || '') : '';
-          const subPillTone = isSub ? subscriptionExpiryPillTone(subExpiry, todayIso) : '';
+          const subPillTone = isSub
+            ? (subTone === 'expired' ? 'past' : subTone === 'active' ? 'future' : 'tba')
+            : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
           // The tone drives both the row text colour and the small
@@ -5900,7 +5887,7 @@ function parseOcrText(text) {
   if (datesFound.length >= 2) result.startDate = datesFound[1];
   else if (datesFound.length === 1) result.startDate = datesFound[0]; // fallback
   if (datesFound.length >= 3) result.expiryDate = datesFound[2];
-  
+
   if (timesFound.length >= 1) result.paymentTime = timesFound[0];
   if (timesFound.length >= 2) result.startTime = timesFound[1];
   else if (timesFound.length === 1) result.startTime = timesFound[0]; // fallback
@@ -6294,7 +6281,7 @@ export function SubscriptionsPage() {
       setMode('paid');
       setClient(parsedClient);
       setService(parsedService);
-      
+
       const suggestsMr = /mr/i.test(rawClient) || /mr/i.test(rawService);
       setTitlePrefix(suggestsMr ? 'Mr.' : '');
 
