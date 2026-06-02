@@ -636,21 +636,22 @@ button{cursor:pointer}
   inset:0;
   z-index:30;
   display:grid;
-  place-items:center;
-  padding:18px;
-  background:rgba(15,23,42,.36);
-  backdrop-filter:blur(10px);
+  place-items:stretch;
+  padding:0;
+  background:#071330;
+  backdrop-filter:none;
 }
 .public-invoice-viewer-card{
-  width:min(100%,980px);
-  max-height:min(92svh,980px);
+  width:100%;
+  height:100dvh;
+  max-height:none;
   display:flex;
   flex-direction:column;
   overflow:hidden;
-  border:1px solid color-mix(in srgb,var(--line) 78%,transparent);
-  border-radius:24px;
-  background:var(--panel);
-  box-shadow:0 28px 80px rgba(15,23,42,.24);
+  border:0;
+  border-radius:0;
+  background:#071330;
+  box-shadow:none;
 }
 .public-invoice-viewer-toolbar{
   display:flex;
@@ -690,21 +691,30 @@ button{cursor:pointer}
   background:var(--accent);
   color:#fff;
 }
+.public-invoice-viewer-body{
+  flex:1;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
 .public-invoice-frame{
   flex:1;
   min-height:0;
   overflow:auto;
-  display:grid;
-  place-items:start center;
-  padding:18px;
-  background:var(--soft);
+  display:block;
+  padding:0;
+  background:#071330;
+  text-align:center;
 }
 .public-invoice-frame img{
   display:block;
-  width:min(100%,840px);
+  width:auto;
+  max-width:none;
   height:auto;
-  border-radius:18px;
-  box-shadow:0 18px 42px rgba(15,23,42,.16);
+  margin:0 auto;
+  border-radius:0;
+  box-shadow:none;
 }
 .public-invoice-frame p{
   margin:36px 0;

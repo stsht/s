@@ -2240,14 +2240,11 @@ async function handleDbUpdateDelivery(request, env) {
   const delivery = Array.isArray(rows) ? rows[0] : rows;
   if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
 
-  // Done-toggle path. A request carrying `deliveryDone` flips ONLY
-  // the public.deliveries.delivery_done flag and returns
-  // immediately. It deliberately does NOT rebuild delivery_links
-  // (so it never requires editing links and can't wipe them), never
-  // touches invoices, and never alters base_slug / short_code /
-  // password or the event grouping (event_key/event_date). The link
-  // editor takes the folder/links rebuild path below; it never sends
-  // `deliveryDone`, so the two flows stay isolated.
+  // Done-toggle path. A request carrying `deliveryDone` flips the
+  // delivery-level completion flag and mirrors that state onto all
+  // existing delivery_links rows. This keeps public link readiness
+  // controlled by one top-level checkmark instead of per-service
+  // "Done" checkboxes.
   if (body.deliveryDone !== undefined) {
     const nextDone = body.deliveryDone === true
       || body.deliveryDone === 'true'
@@ -2260,9 +2257,24 @@ async function handleDbUpdateDelivery(request, env) {
         body: JSON.stringify({ delivery_done: nextDone })
       });
       const patchedRow = Array.isArray(patched) ? patched[0] : patched;
+      let patchedLinks = [];
+      try {
+        patchedLinks = await supabaseFetch(env, `/rest/v1/delivery_links?delivery_id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ link_done: nextDone })
+        });
+      } catch (linkError) {
+        if (!isSchemaError(linkError)) throw linkError;
+      }
       return json({
         ok: true,
-        delivery: { ...delivery, ...(patchedRow || {}), delivery_done: nextDone }
+        delivery: {
+          ...delivery,
+          ...(patchedRow || {}),
+          delivery_done: nextDone,
+          links: Array.isArray(patchedLinks) ? patchedLinks : []
+        }
       });
     } catch (error) {
       if (!isSchemaError(error)) throw error;
@@ -2342,7 +2354,7 @@ async function handleDbUpdateDelivery(request, env) {
   const links = Array.isArray(body.links) ? body.links : [];
   const cleanLinks = links
     .map((link) => {
-      let isDone = false;
+      let isDone = !!delivery.delivery_done;
       if (typeof link.link_done === 'boolean') isDone = link.link_done;
       else if (typeof link.linkDone === 'boolean') isDone = link.linkDone;
       else if (typeof link.done === 'boolean') isDone = link.done;

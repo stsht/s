@@ -1715,15 +1715,11 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
 
   const linkRows = Array.isArray(currentDelivery?.links) ? currentDelivery.links : [];
   const byService = new Map();
-  const doneByService = new Map();
   for (const link of linkRows) {
     const service = String(link?.service || '').toLowerCase();
     const url = String(link?.original_url || '').trim();
     if (service && url && !byService.has(service)) {
       byService.set(service, url);
-    }
-    if (service && !doneByService.has(service)) {
-      doneByService.set(service, !!link?.link_done);
     }
   }
   // Display order matches the public delivery page service grid.
@@ -1737,14 +1733,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     .map((s) => ({
       ...s,
       url: byService.get(s.key),
-      done: !!doneByService.get(s.key),
     }));
 
   useEffect(() => {
     const next = {};
     for (const { key } of SERVICE_LABELS) {
       next[key] = byService.get(key) || '';
-      next[`${key}_done`] = !!doneByService.get(key);
     }
     // Folder Name shares the same draft so a single Save Links
     // submission can ship both link rebuilds and a folder_name
@@ -1868,7 +1862,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
           links: SERVICE_LABELS.map(({ key }) => ({
             service: key,
             originalUrl: linkDraft[key] || '',
-            link_done: !!linkDraft[`${key}_done`],
+            link_done: !!currentDelivery?.delivery_done,
           })),
         }),
       });
@@ -1923,12 +1917,10 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     }
   }
 
-  // Toggle ONLY this delivery's completion flag via
-  // /api/db-update-delivery's deliveryDone path. Saves immediately
-  // (no arm/confirm — it's a reversible status flip, not a destructive
-  // action), then updates local state and asks the parent to refetch
-  // /api/db so the client event row's "View Links" pill flips to its
-  // blue complete state. Never touches links or the paired invoice.
+  // Toggle this delivery's completion flag via /api/db-update-delivery.
+  // The worker mirrors the same state onto every existing delivery
+  // link, so one top-level checkmark controls whether public links
+  // show as CLICK or IN PROGRESS.
   async function handleToggleDone() {
     if (!currentDelivery?.id || markingDone) return;
     const nextDone = !currentDelivery.delivery_done;
@@ -1947,6 +1939,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         ...currentDelivery,
         ...(json.delivery || {}),
         delivery_done: json.delivery?.delivery_done ?? nextDone,
+        links: Array.isArray(json.delivery?.links) ? json.delivery.links : currentDelivery.links,
       };
       setCurrentDelivery(updated);
       setRepairStatus(updated.delivery_done ? 'Delivery marked done.' : 'Delivery reopened.');
@@ -2179,26 +2172,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 </label>
                 {SERVICE_LABELS.map(({ key, label }) => (
                   <div key={key} className="dd-link-field-row" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 900 }}>{label}</span>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', fontWeight: 900, color: 'var(--muted)', margin: 0, padding: 0 }}>
-                        <input
-                          type="checkbox"
-                          checked={!!linkDraft[`${key}_done`]}
-                          onChange={(event) => setLinkDraft((draft) => ({ ...draft, [`${key}_done`]: event.target.checked }))}
-                          style={{
-                            width: '16px',
-                            height: '16px',
-                            minHeight: '16px',
-                            padding: 0,
-                            margin: 0,
-                            cursor: 'pointer',
-                            accentColor: 'var(--accent)'
-                          }}
-                        />
-                        <span>Done</span>
-                      </label>
-                    </div>
+                    <span style={{ color: 'var(--muted)', fontSize: '11px', fontWeight: 900 }}>{label}</span>
                     <input
                       type="url"
                       value={linkDraft[key] || ''}
