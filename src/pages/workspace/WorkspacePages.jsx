@@ -1278,7 +1278,8 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   const linkClassName = `record-row-link${linkStateClass}`;
   const invoiceClassName = `record-row-link-anchor${invoiceStateClass}`;
   const linkAnchorClass = `record-row-link-anchor${linkStateClass}`;
-  const vendorInvoiceStateClass = hasVendorInvoice ? ' is-complete' : ' is-neutral';
+  const vendorInvoicePaid = String(row.vendorInvoice?.status || '').toLowerCase() === 'paid';
+  const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : ' is-neutral';
   const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass}`;
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
