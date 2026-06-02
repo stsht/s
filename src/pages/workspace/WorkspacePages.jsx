@@ -1116,13 +1116,23 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
           const eventVendorInvoiceHref = row.vendorInvoice?.id
             ? createRecordUrl('/inv/', { invoiceId: row.vendorInvoice.id, type: 'vendor' })
             : createRecordUrl('/inv/', {
-                title: row.title || title,
-                name: row.name || name,
+                title: '',
+                name: String(row.name || name).replace(/^(Ms\.|Mr\.|Mrs\.|Family)\s+/i, '').trim(),
                 contact,
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
                 clientId: parentClientId,
                 type: 'vendor',
+                items: (() => {
+                  try {
+                    const data = row.invoice?.invoice_data && typeof row.invoice.invoice_data === 'object' ? row.invoice.invoice_data : {};
+                    const itemsArr = Array.isArray(data.items) ? data.items : null;
+                    if (itemsArr && itemsArr.length) {
+                      return JSON.stringify(itemsArr.map((i) => ({ name: i.name, note: i.note, qty: i.qty })));
+                    }
+                  } catch {}
+                  return undefined;
+                })(),
               });
           dbg('ClientDetail row', {
             recordKey: row.delivery?.id || row.invoice?.id || `${row.date}-${index}`,

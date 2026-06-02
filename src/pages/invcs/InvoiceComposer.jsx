@@ -477,6 +477,14 @@ function readInitialQuery() {
       // matching its way to a duplicate sibling.
       clientId: (params.get('clientId') || '').trim().slice(0, 80),
       type: (params.get('type') || '').trim().toLowerCase(),
+      items: (() => {
+        try {
+          const raw = params.get('items');
+          return raw ? JSON.parse(raw) : undefined;
+        } catch {
+          return undefined;
+        }
+      })(),
     };
   } catch {
     return {};
@@ -551,7 +559,19 @@ export function InvoiceComposer() {
   const [depositPayments, setDepositPayments] = useState([]);
   const [requestBalanceDue, setRequestBalanceDue] = useState(true);
   const [packages, setPackages] = useState(DEFAULT_PACKAGES);
-  const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
+  const [items, setItems] = useState(() => {
+    if (initial.items && initial.items.length) {
+      return initial.items.map((item) => ({
+        id: crypto.randomUUID(),
+        packageId: '',
+        name: String(item.name || ''),
+        note: String(item.note || ''),
+        qty: Number(item.qty) || 1,
+        price: 0,
+      }));
+    }
+    return [emptyItem(DEFAULT_PACKAGES)];
+  });
       // Payment Method shown inside the .payment-box. 'bank' renders the
   // BANK_DETAILS block (default for unpaid invoices); 'qr' replaces it
   // with the QR image. Persisted in invoice_data so reopening a saved
