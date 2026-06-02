@@ -473,6 +473,7 @@ function readInitialQuery() {
       // invoice to THIS exact clients row instead of name+contact-
       // matching its way to a duplicate sibling.
       clientId: (params.get('clientId') || '').trim().slice(0, 80),
+      type: (params.get('type') || '').trim().toLowerCase(),
     };
   } catch {
     return {};
@@ -515,6 +516,7 @@ export function InvoiceComposer() {
   // bucket, but the worker re-validates the id (fetchClientById)
   // and falls back to name+contact when it's stale or unknown.
   const [linkedClientId, setLinkedClientId] = useState(initial.clientId || '');
+  const [invoiceType, setInvoiceType] = useState(initial.type === INVOICE_TYPES.VENDOR ? INVOICE_TYPES.VENDOR : INVOICE_TYPES.CLIENT);
   const [issuedDate, setIssuedDate] = useState(today);
   // Discount defaults to 0 — never auto-prefill a value. If the
   // operator wants a discount they type it; loaded invoices restore
@@ -667,6 +669,7 @@ export function InvoiceComposer() {
         // delivery on subsequent saves, even after the URL no
         // longer carries the eventKey query param.
         if (row.event_key && !initial.eventKey) setEventKey(String(row.event_key));
+        if (row.invoice_type === INVOICE_TYPES.VENDOR || data.invoiceType === INVOICE_TYPES.VENDOR) setInvoiceType(INVOICE_TYPES.VENDOR);
         // Same idea for client_id: when reopening an existing
         // invoice without a URL-supplied clientId, adopt the row's
         // own client_id so subsequent saves stay attached to that
@@ -961,11 +964,13 @@ export function InvoiceComposer() {
         event_key: String(eventKey || ''),
         venue: String(venue || ''),
         status: mode,
+        invoice_type: invoiceType,
         grand_total: grandTotal,
         deposit_amount: depositDue,
         paid_amount: paidAmount,
         balance_due: balanceDueAmount,
         invoice_data: {
+          invoiceType,
           discount: Math.max(0, Math.round(Number(discount) || 0)),
           items: items.map((item) => ({
             id: String(item.id || ''),

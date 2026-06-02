@@ -863,6 +863,7 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     if (!group.contact) group.contact = String(record?.client_contact || record?.contact || '').trim();
 
     if (kind === 'delivery') group.delivery = record;
+    else if (record?.invoice_type === 'vendor' || record?.type === 'vendor') group.vendorInvoice = record;
     else group.invoice = record;
   }
 
@@ -1090,6 +1091,17 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 eventKey: rowEventKey,
                 clientId: parentClientId,
               });
+          const eventVendorInvoiceHref = row.vendorInvoice?.id
+            ? createRecordUrl('/inv/', { invoiceId: row.vendorInvoice.id, type: 'vendor' })
+            : createRecordUrl('/inv/', {
+                title: row.title || title,
+                name: row.name || name,
+                contact,
+                eventDate: row.eventDate,
+                eventKey: rowEventKey,
+                clientId: parentClientId,
+                type: 'vendor',
+              });
           dbg('ClientDetail row', {
             recordKey: row.delivery?.id || row.invoice?.id || `${row.date}-${index}`,
             rowEventKey,
@@ -1113,6 +1125,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
               tone={eventDateTone(row.eventDate, todayIso)}
               eventLinkHref={eventLinkHref}
               eventInvoiceHref={eventInvoiceHref}
+              eventVendorInvoiceHref={eventVendorInvoiceHref}
               onDelete={() => onDeleteRecord?.(row)}
               onViewLinks={onViewLinks}
             />
@@ -1186,14 +1199,16 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
 // and a subtle accent on the row border so a row's status reads at
 // a glance. The tone palette mirrors the four tones used on the
 // /db Clients left list so both surfaces stay visually consistent.
-function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, onDelete, onViewLinks }) {
+function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, onDelete, onViewLinks }) {
   const hasDelivery = !!row.delivery?.id;
   const hasInvoice = !!row.invoice?.id;
+  const hasVendorInvoice = !!row.vendorInvoice?.id;
   const linkLabel = hasDelivery ? 'View Links' : 'Create Links';
   // Client Invoice handles public-facing retail pricing for the client.
   // Vendor Invoice / Vendor PO (to be implemented) will handle internal
   // cost/vendor pricing separately and must never be exposed on /g.
   const invoiceLabel = hasInvoice ? 'View Client Invoice' : 'Create Client Invoice';
+  const vendorInvoiceLabel = 'Vendor Invoice';
   // Compact date pill on the row. row.eventDate is populated by
   // buildClientRecords from real event_date columns only
   // (plainEventDate strips ISO timestamps), so a created_at /
@@ -1232,6 +1247,8 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   const linkClassName = `record-row-link${linkStateClass}`;
   const invoiceClassName = `record-row-link-anchor${invoiceStateClass}`;
   const linkAnchorClass = `record-row-link-anchor${linkStateClass}`;
+  const vendorInvoiceStateClass = hasVendorInvoice ? ' is-complete' : ' is-neutral';
+  const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass}`;
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
       <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
@@ -1257,6 +1274,9 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
       )}
       <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
         {invoiceLabel}
+      </a>
+      <a className={vendorInvoiceClassName} href={eventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
+        {vendorInvoiceLabel}
       </a>
       <button
         type="button"
