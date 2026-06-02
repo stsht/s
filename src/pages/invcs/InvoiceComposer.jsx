@@ -1398,17 +1398,14 @@ function EditorPanel(props) {
             ) : null}
           </div>
           
-          {props.paymentMethod === 'qr' ? (
-            <QrUploadField onChange={props.uploadQr} fileName={props.qrFileName} />
-          ) : (
-            <div className="bank-details-summary" aria-label="Bank transfer destination">
-              <span className="payment-method-label">Payment Details</span>
-              <dl className="bank-details-summary-list">
-                <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-              </dl>
-            </div>
+          <div className="bank-details-summary" aria-label="Bank transfer destination">
+            <span className="payment-method-label">Payment Details</span>
+            <dl className="bank-details-summary-list">
+              <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+              <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+              <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+            </dl>
+          </div>
           <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
           <div className="total-card"><span>{isFullPayment(props.totals) ? 'Full Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
