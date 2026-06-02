@@ -1859,43 +1859,7 @@ input.no-spinner::-webkit-inner-spin-button{
   gap:7px;
 }
 
-/* Payment Method picker (editor side). Sits inside the Payment
- * fieldset between the deposit selector and the QR upload pill,
- * mirroring the .deposit-presets pill shape so the controls read
- * as a family. Two segments today — "QR" and "Bank Transfer" —
- * but the markup is data-driven from PAYMENT_METHODS so adding a
- * third option (e.g. "Wise") is a one-line code change. The
- * preview/JPG renders exactly the chosen mode; this control only
- * lives in the editor. */
-.payment-method-block{display:grid;gap:10px}
 .payment-method-label{color:var(--muted);font-size:0.75rem;font-weight:800}
-.payment-method-switch{
-  display:grid;
-  grid-auto-flow:column;
-  grid-auto-columns:minmax(0,1fr);
-  gap:4px;
-  padding:4px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:var(--soft);
-}
-.payment-method-switch button{
-  min-width:0;
-  height:36px;
-  border:0;
-  border-radius:999px;
-  background:transparent;
-  color:var(--muted);
-  font-size:0.6875rem;
-  font-weight:800;
-  letter-spacing:.04em;
-  white-space:nowrap;
-}
-.payment-method-switch button.active{
-  background:#fff;
-  color:var(--ink);
-  box-shadow:var(--shadow-soft);
-}
 
 /* Editor-side summary of the bank transfer destination shown when
  * "Bank Transfer" is the active payment method. Replaces the QR
@@ -2737,17 +2701,27 @@ dd{margin:0;text-align:right;font-weight:800}
 .db-list-row.sub-active strong{
   color:var(--sub-active);
 }
+.db-list-row.sub-active{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-active) 70%,transparent);
+}
 .db-list-row.sub-warning strong{
   color:var(--sub-warning);
 }
 .db-list-row.sub-warning span{
   color:color-mix(in srgb,var(--sub-warning) 70%,var(--muted) 30%);
 }
+.db-list-row.sub-warning{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-warning) 75%,transparent);
+}
 .db-list-row.sub-expired strong{
   color:var(--sub-expired);
 }
 .db-list-row.sub-expired span{
   color:color-mix(in srgb,var(--sub-expired) 70%,var(--muted) 30%);
+}
+.db-list-row.sub-expired{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-expired) 60%,transparent);
+  opacity:.86;
 }
 
 /* Status badge that sits next to the client name on the
@@ -2935,6 +2909,23 @@ dd{margin:0;text-align:right;font-weight:800}
   letter-spacing:.08em;
   text-transform:uppercase;
   color:var(--muted);
+}
+/* Inline confirmation form for "Expire Now" action in SubscriptionDetail. */
+.expire-confirm-form{
+  border:1px solid color-mix(in srgb,var(--sub-expired) 35%,var(--line));
+  border-radius:14px;
+  padding:14px;
+  background:var(--soft);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-bottom:8px;
+}
+.expire-confirm-title{
+  margin:0;
+  font-size:0.875rem;
+  font-weight:700;
+  color:var(--sub-expired);
 }
 .subs-extension-list{
   margin-top:0;

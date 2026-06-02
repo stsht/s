@@ -43,8 +43,7 @@ const DEFAULT_PACKAGES = [
   { id: 'birthday-celebration', name: 'Birthday Celebration',    price: 1650000, note: 'up to 3.5 hours, suitable for Birthday Celebration', is_default: true },
 ];
 
-// Bank transfer destination shown when the operator picks
-// "Bank Transfer" instead of "QR" in the payment block. Centralised
+// Bank transfer destination shown in the payment block. Centralised
 // here so a future switch is a single-line change with no JSX/CSS
 // edits.
 const BANK_DETAILS = {
@@ -54,14 +53,7 @@ const BANK_DETAILS = {
   accountHolderLabel: 'BELLY',
 };
 
-// Available payment methods rendered inside .payment-box. The
-// segmented control in the editor toggles between these; the
-// preview/JPG renders exactly one — never both — so the exported
-// invoice is always unambiguous about how the client should pay.
-const PAYMENT_METHODS = [
-  { value: 'qr',   label: 'QR' },
-  { value: 'bank', label: 'Bank Transfer' },
-];
+
 
 // Title-case rules (small-words set, preserve list, regex token
 // matcher) live in `src/utils/titleCase.js` so /subs and /inv share
@@ -772,8 +764,6 @@ export function InvoiceComposer() {
           setDepositAskOpen(data.depositAskOpen);
         }
 
-        if (typeof data.qrSrc === 'string' && data.qrSrc) setQrSrc(data.qrSrc);
-        if (typeof data.qrFileName === 'string' && data.qrFileName) setQrFileName(data.qrFileName);
         if (data.paidReceipt && typeof data.paidReceipt === 'object') {
           setPaidConfirmed(data.paidReceipt.paid !== false);
           const rawPaidDate = String(data.paidReceipt.paidAtDate || '').trim();
@@ -1763,7 +1753,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
   // Payment caption shown in the .payment-box beside Terms &
   // Conditions. In every requesting mode (Draft Invoice / Deposit
   // Invoice "Ask DP") the canvas advertises the REQUESTED deposit
-  // due — never the Balance Due — so the QR/Bank amount always
+  // due — never the Balance Due — so the Bank Transfer amount always
   // matches exactly what we are currently asking the client to pay.
   // When the requested amount is the full grand total (100% preset
   // or a custom amount >= total) the wording switches to "Full
@@ -1959,9 +1949,6 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                           <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
                         </dl>
                       </div>
-                    ) : (
-                      <img src={qrSrc} alt="Payment QR" />
-                    )}
                     <div className="deposit-due">
                       <span>{dueLabel}</span>
                       <strong>{rupiah(dueAmount)}</strong>

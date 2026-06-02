@@ -251,19 +251,14 @@ function GalleryLinks({ payload }) {
   const slug = useMemo(() => deliverySlug(), []);
   const delivery = payload?.delivery || {};
   const invoiceRenderRef = useRef(null);
-    const copyResetRef = useRef(null);
+  const copyResetRef = useRef(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoice, setInvoice] = useState(null);
   const [invoiceImage, setInvoiceImage] = useState('');
   const [invoiceStatus, setInvoiceStatus] = useState('');
   // Brief "Copied" confirmation shown on the adaptive Bank action.
   const [bankCopied, setBankCopied] = useState(false);
-  // Client-facing payment selector. Defaults to Bank Transfer for
-  // unpaid invoices; initialised from the invoice's resolved method
-  // when it loads so an invoice explicitly saved as QR still opens on
-  // QR. The client can freely switch between Bank and QR — this only
-  // toggles the on-screen payment helper, never the totals.
-  
+
   const [expandedService, setExpandedService] = useState(null);
   const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
   const [scale, setScale] = useState(1);
@@ -356,7 +351,7 @@ function GalleryLinks({ payload }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Invoice not found.');
       setInvoice(data.invoice);
-            setInvoiceStatus('Rendering invoice...');
+      setInvoiceStatus('Rendering invoice...');
     } catch (error) {
       setInvoice(null);
       setInvoiceStatus(error.message || 'Invoice unavailable.');
@@ -429,7 +424,7 @@ function GalleryLinks({ payload }) {
     }
   }
 
-    const honorific = String(delivery.title || '').trim();
+  const honorific = String(delivery.title || '').trim();
   // Greeting always includes the honorific when present so the
   // public copy reads as "Hello, Ms. Amanda" / "Hello, Mr. Billy
   // Regal". Older rows that were saved without a title fall back
@@ -451,17 +446,14 @@ function GalleryLinks({ payload }) {
     link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
   }));
 
-  // Client-facing payment area (unpaid invoices only). The on-screen
-  // selector lets the client switch between Bank Transfer (default)
-  // and the saved/static QR image; the downloadable JPG document
-  // defaults to Bank Transfer too (see resolvePaymentMethod). Totals
-  // are unchanged — we only read the already-computed deposit / full
-  // payment due. A `paid` invoice never shows this panel (the JPG
-  // keeps its PAID stamp/receipt instead).
+  // Client-facing payment area (unpaid invoices only). Shows Bank
+  // Transfer details for the client. Totals are unchanged — we only
+  // read the already-computed deposit / full payment due. A `paid`
+  // invoice never shows this panel (the JPG keeps its PAID
+  // stamp/receipt instead).
   const invoiceStatusValue = String(invoice?.status || 'invoice').toLowerCase();
   const showPaymentPanel = !!invoice && invoiceStatusValue !== 'paid';
   const paymentDue = paymentDueInfo(invoice);
-  const payQrSrc = invoiceQrSrc(invoice);
 
   return (
     <main className="public-delivery-page">

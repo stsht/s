@@ -2184,6 +2184,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   const [expireDate, setExpireDate] = useState('');
   const [expireTime, setExpireTime] = useState('');
   const [expireBusy, setExpireBusy] = useState(false);
+  const [expireStatus, setExpireStatus] = useState('');
 
   function openExpireConfirm() {
     const now = new Date();
@@ -2201,6 +2202,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     if (event) event.preventDefault();
     if (!subscription?.id) return;
     setExpireBusy(true);
+    setExpireStatus('');
     try {
       const isExt = !!latestExtension;
       const target = isExt ? latestExtension : subscription;
@@ -2232,7 +2234,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       onChanged?.();
     } catch (error) {
       console.warn('Expire failed:', error);
-      alert('Failed to expire: ' + error.message);
+      setExpireStatus(error?.message || 'Failed to expire.');
     } finally {
       setExpireBusy(false);
     }
@@ -2716,6 +2718,21 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               <TrashIcon />
             </button>
           ) : null}
+          {subscription?.id && tone !== 'expired' ? (
+            <button
+              type="button"
+              className="toolbar-icon-btn toolbar-icon-btn--danger"
+              onClick={openExpireConfirm}
+              aria-label="Expire subscription now"
+              title="Expire Now"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="6" x2="12" y2="12" />
+                <line x1="12" y1="12" x2="16" y2="14" />
+              </svg>
+            </button>
+          ) : null}
           <button
             type="button"
             className="db-close-button"
@@ -2729,6 +2746,26 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           </button>
         </div>
       </div>
+      {expireConfirmOpen ? (
+        <form className="expire-confirm-form" onSubmit={handleExpire}>
+          <p className="expire-confirm-title">Expire access now?</p>
+          <div className="two-col">
+            <label>Expiry Date
+              <input type="date" value={expireDate} onChange={(e) => setExpireDate(e.target.value)} required />
+            </label>
+            <label>Expiry Time
+              <input type="time" value={expireTime} onChange={(e) => setExpireTime(e.target.value)} required />
+            </label>
+          </div>
+          {expireStatus ? <p className="download-status lg-status-error">{expireStatus}</p> : null}
+          <div className="client-actions">
+            <button type="submit" className="primary-button" disabled={expireBusy} style={{ background: 'var(--sub-expired)', borderColor: 'var(--sub-expired)' }}>
+              {expireBusy ? 'Expiring\u2026' : 'Expire'}
+            </button>
+            <button type="button" className="ghost-button compact" onClick={() => { setExpireConfirmOpen(false); setExpireStatus(''); }} disabled={expireBusy}>Cancel</button>
+          </div>
+        </form>
+      ) : null}
       {!subscription ? (
         <p className="empty-state">No subscription details available.</p>
       ) : (
