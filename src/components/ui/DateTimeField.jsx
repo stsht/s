@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * DateTimeField
@@ -403,9 +404,9 @@ export function DateTimeField({
       ) : null}
       {popoverOpen ? (
         <CalendarPopover
+          anchorRef={wrapRef}
           anchorIso={value || ''}
           onPick={handleCalendarPick}
-          onClose={() => setPopoverOpen(false)}
         />
       ) : null}
     </div>
@@ -419,12 +420,13 @@ const MONTH_NAMES = [
 ];
 const DOW_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
-function CalendarPopover({ anchorIso, onPick }) {
+function CalendarPopover({ anchorRef, anchorIso, onPick }) {
   const today = todayIso();
   const initial = /^\d{4}-\d{2}-\d{2}$/.test(anchorIso) ? anchorIso : today;
   const [yy, mm] = initial.split('-').map(Number);
   const [viewYear, setViewYear] = useState(yy);
   const [viewMonth, setViewMonth] = useState(mm); // 1-12
+  const popoverRef = useRef(null);
 
   const cells = useMemo(
     () => buildMonthGrid(viewYear, viewMonth),
@@ -440,8 +442,39 @@ function CalendarPopover({ anchorIso, onPick }) {
     setViewYear(ny);
   }
 
-  return (
-    <div className="dtf-popover" role="dialog" aria-label="Pick date">
+  useEffect(() => {
+    if (!anchorRef?.current || !popoverRef.current) return;
+    function updatePosition() {
+      const anchor = anchorRef.current.getBoundingClientRect();
+      const popover = popoverRef.current.getBoundingClientRect();
+      let top = anchor.bottom + 8;
+      let left = anchor.left;
+
+      // Vertical flip if clipped by bottom of viewport
+      if (top + popover.height > window.innerHeight && anchor.top - popover.height - 8 > 0) {
+        top = anchor.top - popover.height - 8;
+      }
+      // Horizontal shift if clipped by right of viewport
+      if (left + popover.width > window.innerWidth) {
+        left = Math.max(8, window.innerWidth - popover.width - 8);
+      }
+
+      popoverRef.current.style.top = `${top}px`;
+      popoverRef.current.style.left = `${left}px`;
+    }
+
+    updatePosition();
+    // Update on scroll or resize to keep it anchored
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [anchorRef]);
+
+  const content = (
+    <div ref={popoverRef} className="dtf-popover" role="dialog" aria-label="Pick date" style={{ position: 'fixed', zIndex: 99999, top: '-999px', left: '-999px' }}>
       <header className="dtf-popover-head">
         <button
           type="button"
@@ -500,6 +533,8 @@ function CalendarPopover({ anchorIso, onPick }) {
       </footer>
     </div>
   );
+
+  return createPortal(content, document.body);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────

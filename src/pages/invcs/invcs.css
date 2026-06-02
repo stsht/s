@@ -1482,10 +1482,6 @@ input.no-spinner::-webkit-inner-spin-button{
  * dow strip, and day grid all share the same accent palette and
  * tokens so it picks up dark mode automatically. */
 .dtf-popover{
-  position:absolute;
-  z-index:50;
-  top:calc(100% + 8px);
-  left:0;
   width:min(320px,calc(100vw - 24px));
   padding:12px;
   border:1px solid var(--line);
