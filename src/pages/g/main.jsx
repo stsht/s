@@ -372,6 +372,23 @@ function GalleryLinks({ payload }) {
     };
   }, [fullScreenPreviewOpen, invoiceOpen, pan, scale]);
 
+  // Pressing Esc closes the invoice viewer
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        if (fullScreenPreviewOpen) {
+          setFullScreenPreviewOpen(false);
+        } else if (invoiceOpen) {
+          setInvoiceOpen(false);
+        }
+      }
+    }
+    if (invoiceOpen || fullScreenPreviewOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [invoiceOpen, fullScreenPreviewOpen]);
+
   useEffect(() => {
     if (expandedService === null) return;
     function handleDocumentClick() {
@@ -624,26 +641,6 @@ function GalleryLinks({ payload }) {
             <header className="public-invoice-viewer-toolbar desktop-only-header">
               <strong>Invoice</strong>
               <div className="public-invoice-viewer-actions">
-                {showPaymentPanel ? (
-                  <button
-                      type="button"
-                      className="public-invoice-action public-invoice-action--primary"
-                      onClick={copyBankAccount}
-                    >
-                      <IconCopy />
-                      <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
-                    </button>
-                ) : null}
-                {invoiceImage ? (
-                  <a
-                    className="public-invoice-action public-invoice-action--ghost"
-                    href={invoiceImage}
-                    download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
-                  >
-                    <IconDownload />
-                    <span>Download Invoice</span>
-                  </a>
-                ) : null}
                 <button
                   type="button"
                   className="public-invoice-action public-invoice-action--ghost"
@@ -654,12 +651,34 @@ function GalleryLinks({ payload }) {
                 >
                   Fit
                 </button>
+                {invoiceImage ? (
+                  <a
+                    className="public-invoice-action public-invoice-action--ghost"
+                    href={invoiceImage}
+                    download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+                  >
+                    <IconDownload />
+                    <span>Download Invoice</span>
+                  </a>
+                ) : null}
+                {showPaymentPanel ? (
+                  <button
+                      type="button"
+                      className="public-invoice-action public-invoice-action--primary"
+                      onClick={copyBankAccount}
+                    >
+                      <IconCopy />
+                      <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                    </button>
+                ) : null}
                 <button
                   type="button"
                   className="public-invoice-action public-invoice-action--ghost"
                   onClick={() => setInvoiceOpen(false)}
+                  aria-label="Close"
+                  style={{ padding: 0, width: '38px' }}
                 >
-                  Close
+                  <IconClose />
                 </button>
               </div>
             </header>
