@@ -5320,6 +5320,7 @@ function ServiceField({ chip, label, value, placeholder, onChange }) {
 
 export function LinkGeneratorPage() {
   const [title, setTitle] = useState('Ms.');
+  const [deliveryType, setDeliveryType] = useState('client');
   const [clientName, setClientName] = useState('');
   const [folderName, setFolderName] = useState('');
   // Service URLs are kept as a single object so markDirty / clear
@@ -5376,7 +5377,9 @@ export function LinkGeneratorPage() {
       setEventDateHandoff((current) => current || jakartaTodayISO());
       return;
     }
-    const handoffTitle = handoff.type === 'vendor' ? '' : normalizeInvoiceTitleValue(handoff.title);
+    const handoffType = String(handoff.type || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
+    const handoffTitle = handoffType === 'vendor' ? '' : normalizeInvoiceTitleValue(handoff.title);
+    setDeliveryType(handoffType);
     setTitle(handoffTitle);
     setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
     // Capture the stable parent client id when present. /db
@@ -5499,6 +5502,7 @@ export function LinkGeneratorPage() {
   async function submit(event) {
     event?.preventDefault?.();
     const name = cleanLinkText(clientName);
+    const effectiveTitle = deliveryType === 'vendor' ? '' : title;
     if (!name) {
       setStatus({ text: 'Please fill client name.', tone: 'error' });
       clientInputRef.current?.focus();
@@ -5535,7 +5539,8 @@ export function LinkGeneratorPage() {
           // current worker authoritatively regenerates `password`
           // and `shortCode` server-side and ignores ours; we still
           // include them so older worker versions keep working.
-          title,
+          title: effectiveTitle,
+          type: deliveryType,
           clientName: name,
           folderName: info.folder,
           baseSlug: info.slug,
@@ -5579,7 +5584,7 @@ export function LinkGeneratorPage() {
       const finalPassword = String(data.password || '').trim() || info.pass;
       const finalMessage =
         data.generatedText ||
-        buildPreviewMessage(title, name, {
+        buildPreviewMessage(effectiveTitle, name, {
           ...info,
           shortLink: finalShortLink,
           pass: finalPassword,
@@ -5626,7 +5631,7 @@ export function LinkGeneratorPage() {
   }
 
   function clearAll() {
-    setTitle('Ms.');
+    setTitle(deliveryType === 'vendor' ? '' : 'Ms.');
     setClientName('');
     setFolderName('');
     setServiceUrls({ gd: '', db: '', wt: '', tn: '' });
@@ -5698,20 +5703,22 @@ export function LinkGeneratorPage() {
 
   const left = (
     <form className="form-stack lg-form" onSubmit={submit} noValidate>
-      <div className="two-col">
-        <label>
-          Title
-          <select
-            value={title}
-            onChange={(event) => {
-              setTitle(event.target.value);
-              markDirty();
-            }}
-          >
-            <option>Ms.</option>
-            <option>Mr.</option>
-          </select>
-        </label>
+      <div className={`two-col${deliveryType === 'vendor' ? ' one-col' : ''}`}>
+        {deliveryType === 'vendor' ? null : (
+          <label>
+            Title
+            <select
+              value={title}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                markDirty();
+              }}
+            >
+              <option>Ms.</option>
+              <option>Mr.</option>
+            </select>
+          </label>
+        )}
         <label>
           Name
           <input
