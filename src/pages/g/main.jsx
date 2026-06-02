@@ -121,22 +121,6 @@ function invoiceItems(invoice) {
   }];
 }
 
-// Resolve the payment method for the client-facing invoice. Existing
-// invoices that explicitly chose 'qr' keep QR; everything else
-// (missing / empty / 'bank' / unknown) falls back to Bank Transfer,
-// which is the default for unpaid invoices.
-function resolvePaymentMethod(invoice) {
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  return String(data.paymentMethod || '').trim().toLowerCase() === 'qr' ? 'qr' : 'bank';
-}
-
-// Static/custom QR source saved on the invoice; falls back to the
-// shared payment QR asset. Never generates a dynamic QR.
-function invoiceQrSrc(invoice) {
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  return String(data.qrSrc || '/payment-qr.png');
-}
-
 // Amount-due label + value for the payment area, mirroring the
 // PublicInvoiceDocument payment box (full payment vs deposit). Totals
 // logic is unchanged — this only reads the already-computed figures.
@@ -163,8 +147,7 @@ function PublicInvoiceDocument({ invoice }) {
     ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
     : [];
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
-  const paymentMethod = resolvePaymentMethod(invoice);
-  const qrSrc = invoiceQrSrc(invoice);
+  const paymentMethod = 'bank';
   const requestedFullPayment = String(data.depositMode || '') === '100'
     || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
     || isFullPayment(invoice);
@@ -236,18 +219,14 @@ function PublicInvoiceDocument({ invoice }) {
             </div>
           ) : (
             <>
-              {paymentMethod === 'bank' ? (
-                <div className="bank-details">
-                  <p className="bank-details-heading">Bank Transfer</p>
-                  <dl className="bank-details-list">
-                    <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                    <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                    <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                  </dl>
-                </div>
-              ) : (
-                <img src={qrSrc} alt="Payment QR" />
-              )}
+              <div className="bank-details">
+                <p className="bank-details-heading">Bank Transfer</p>
+                <dl className="bank-details-list">
+                  <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                  <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                  <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                </dl>
+              </div>
               <div className="deposit-due">
                 <span>{dueLabel}</span>
                 <strong>{rupiah(invoice?.deposit_amount)}</strong>
@@ -272,8 +251,7 @@ function GalleryLinks({ payload }) {
   const slug = useMemo(() => deliverySlug(), []);
   const delivery = payload?.delivery || {};
   const invoiceRenderRef = useRef(null);
-  const qrCardRef = useRef(null);
-  const copyResetRef = useRef(null);
+    const copyResetRef = useRef(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoice, setInvoice] = useState(null);
   const [invoiceImage, setInvoiceImage] = useState('');
@@ -285,8 +263,7 @@ function GalleryLinks({ payload }) {
   // when it loads so an invoice explicitly saved as QR still opens on
   // QR. The client can freely switch between Bank and QR — this only
   // toggles the on-screen payment helper, never the totals.
-  const [payMethod, setPayMethod] = useState('bank');
-
+  
   const [expandedService, setExpandedService] = useState(null);
   const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
   const [scale, setScale] = useState(1);
@@ -379,8 +356,7 @@ function GalleryLinks({ payload }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Invoice not found.');
       setInvoice(data.invoice);
-      setPayMethod(resolvePaymentMethod(data.invoice));
-      setInvoiceStatus('Rendering invoice...');
+            setInvoiceStatus('Rendering invoice...');
     } catch (error) {
       setInvoice(null);
       setInvoiceStatus(error.message || 'Invoice unavailable.');
@@ -453,35 +429,7 @@ function GalleryLinks({ payload }) {
     }
   }
 
-  // QR action: export the off-screen payment card (brand + QR + amount
-  // due) to a JPG and download it. Reuses the html2canvas that already
-  // renders the invoice. Falls back to downloading the raw static QR
-  // asset if the card capture fails. Never generates a dynamic QR.
-  async function downloadQrCard() {
-    const node = qrCardRef.current;
-    if (!node) {
-      triggerImageDownload(payQrSrc, 'starshots-payment-qr.jpg');
-      return;
-    }
-    try {
-      if (document.fonts?.ready) {
-        try { await document.fonts.ready; } catch {}
-      }
-      const canvas = await html2canvas(node, {
-        backgroundColor: '#ffffff',
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        imageTimeout: 0,
-        logging: false,
-      });
-      triggerImageDownload(canvas.toDataURL('image/jpeg', 0.95), 'starshots-payment-qr.jpg');
-    } catch {
-      triggerImageDownload(payQrSrc, 'starshots-payment-qr.jpg');
-    }
-  }
-
-  const honorific = String(delivery.title || '').trim();
+    const honorific = String(delivery.title || '').trim();
   // Greeting always includes the honorific when present so the
   // public copy reads as "Hello, Ms. Amanda" / "Hello, Mr. Billy
   // Regal". Older rows that were saved without a title fall back
@@ -623,8 +571,7 @@ function GalleryLinks({ payload }) {
               <strong>Invoice</strong>
               <div className="public-invoice-viewer-actions">
                 {showPaymentPanel ? (
-                  payMethod === 'bank' ? (
-                    <button
+                  <button
                       type="button"
                       className="public-invoice-action public-invoice-action--primary"
                       onClick={copyBankAccount}
@@ -632,16 +579,6 @@ function GalleryLinks({ payload }) {
                       <IconCopy />
                       <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
                     </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="public-invoice-action public-invoice-action--primary"
-                      onClick={downloadQrCard}
-                    >
-                      <IconDownload />
-                      <span>Download QR</span>
-                    </button>
-                  )
                 ) : null}
                 {invoiceImage ? (
                   <a
@@ -713,25 +650,14 @@ function GalleryLinks({ payload }) {
                 {/* Mobile actions (Copy Bank Account / Download QR, and Download Invoice) */}
                 <div className="public-invoice-mobile-actions">
                   {showPaymentPanel ? (
-                    payMethod === 'bank' ? (
-                      <button
-                        type="button"
-                        className="public-invoice-action public-invoice-action--primary"
-                        onClick={copyBankAccount}
-                      >
-                        <IconCopy />
-                        <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="public-invoice-action public-invoice-action--primary"
-                        onClick={downloadQrCard}
-                      >
-                        <IconDownload />
-                        <span>Download QR</span>
-                      </button>
-                    )
+                    <button
+                      type="button"
+                      className="public-invoice-action public-invoice-action--primary"
+                      onClick={copyBankAccount}
+                    >
+                      <IconCopy />
+                      <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                    </button>
                   ) : null}
 
                   {invoiceImage ? (
@@ -780,7 +706,6 @@ function GalleryLinks({ payload }) {
                         <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
                         <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
                       </dl>
-                    )}
                   </div>
                   <p className="public-pay-note">
                     Kindly send your payment confirmation to StarShots via{' '}
@@ -800,23 +725,7 @@ function GalleryLinks({ payload }) {
               </div>
             </div>
           ) : null}
-          {showPaymentPanel ? (
-            <div className="invoice-export-host public-pay-card-host" aria-hidden="true">
-              <div ref={qrCardRef} className="public-pay-card">
-                <img className="public-pay-card-logo" src="/logo-hero.png" alt="StarShots" />
-                <p className="public-pay-card-kicker">Payment QR</p>
-                <img className="public-pay-card-qr" src={payQrSrc} alt="Payment QR" />
-                <div className="public-pay-card-due">
-                  <span>{paymentDue.label}</span>
-                  <strong>{rupiah(paymentDue.amount)}</strong>
-                </div>
-                <p className="public-pay-card-meta">
-                  {BANK_DETAILS.bank} · {BANK_DETAILS.accountNumber} · {BANK_DETAILS.accountHolderLabel}
-                </p>
-                <p className="public-pay-card-foot">Scan to pay · StarShots ID</p>
-              </div>
-            </div>
-          ) : null}
+          
         </div>
       ) : null}
 

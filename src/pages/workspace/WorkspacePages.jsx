@@ -435,16 +435,22 @@ function generateEventKey() {
 const SUBS_SETTLED_STATUS_PATTERN = /recurring|renew|active|paid|solved|closed/;
 
 function subscriptionTone(sub = {}) {
-  const expiryRaw = sub.expiry_date || '';
-  if (!expiryRaw) return 'active';
-  const expiry = new Date(`${expiryRaw}T23:59:59Z`);
-  if (Number.isNaN(expiry.getTime())) return 'active';
-  const now = Date.now();
-  const diffDays = (expiry.getTime() - now) / 86400000;
-  if (diffDays < 0) return 'expired';
   const status = String(sub.status || '').toLowerCase();
   const isSettled = SUBS_SETTLED_STATUS_PATTERN.test(status);
-  if (diffDays <= 3 && !isSettled) return 'warning';
+
+  const expiryRaw = sub.expiry_date || '';
+  if (!expiryRaw) return isSettled ? 'active' : 'warning';
+
+  const expiry = new Date(`${expiryRaw}T23:59:59Z`);
+  if (Number.isNaN(expiry.getTime())) return isSettled ? 'active' : 'warning';
+
+  const now = Date.now();
+  const diffDays = (expiry.getTime() - now) / 86400000;
+
+  if (diffDays < 0 || status === 'revoked') return 'expired';
+  
+  if (!isSettled) return 'warning';
+
   return 'active';
 }
 
@@ -2173,6 +2179,64 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   const latestExtension = subscription?.latest_extension || pickLatestSubscriptionExtension(extensions);
   const effective = subscription ? applySubscriptionExtension(subscription, latestExtension) : null;
   const tone = effective ? subscriptionTone(effective) : '';
+
+  const [expireConfirmOpen, setExpireConfirmOpen] = useState(false);
+  const [expireDate, setExpireDate] = useState('');
+  const [expireTime, setExpireTime] = useState('');
+  const [expireBusy, setExpireBusy] = useState(false);
+
+  function openExpireConfirm() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    setExpireDate(`${y}-${m}-${d}`);
+    const h = String(now.getHours()).padStart(2, '0');
+    const mn = String(now.getMinutes()).padStart(2, '0');
+    setExpireTime(`${h}:${mn}`);
+    setExpireConfirmOpen(true);
+  }
+
+  async function handleExpire(event) {
+    if (event) event.preventDefault();
+    if (!subscription?.id) return;
+    setExpireBusy(true);
+    try {
+      const isExt = !!latestExtension;
+      const target = isExt ? latestExtension : subscription;
+      const endpoint = isExt ? '/api/subscription-extensions-save' : '/api/subscriptions-save';
+      const payloadKey = isExt ? 'extension' : 'subscription';
+      
+      const payload = {
+        ...target,
+        status: 'expired',
+        expiry_date: expireDate,
+        expiry_time: expireTime,
+      };
+      
+      if (isExt) {
+        payload.subscription_id = subscription.id;
+      }
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [payloadKey]: payload }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error || `Save failed (${response.status}).`);
+      }
+      setExpireConfirmOpen(false);
+      onChanged?.();
+    } catch (error) {
+      console.warn('Expire failed:', error);
+      alert('Failed to expire: ' + error.message);
+    } finally {
+      setExpireBusy(false);
+    }
+  }
 
   // Unified, newest-first transaction history. The base subscription
   // is folded into the same list as an extension-like row (isBase:

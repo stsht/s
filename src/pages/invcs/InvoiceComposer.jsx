@@ -555,15 +555,12 @@ export function InvoiceComposer() {
   const [requestBalanceDue, setRequestBalanceDue] = useState(true);
   const [packages, setPackages] = useState(DEFAULT_PACKAGES);
   const [items, setItems] = useState(() => [emptyItem(DEFAULT_PACKAGES)]);
-  const [qrSrc, setQrSrc] = useState('/payment-qr.png');
-  const [qrFileName, setQrFileName] = useState('');
-  // Payment Method shown inside the .payment-box. 'bank' renders the
+      // Payment Method shown inside the .payment-box. 'bank' renders the
   // BANK_DETAILS block (default for unpaid invoices); 'qr' replaces it
   // with the QR image. Persisted in invoice_data so reopening a saved
   // invoice restores whatever the operator picked; new drafts default
   // to Bank Transfer.
-  const [paymentMethod, setPaymentMethod] = useState('bank');
-  const [status, setStatus] = useState('');
+    const [status, setStatus] = useState('');
   const [hydrating, setHydrating] = useState(Boolean(initial.invoiceId));
   // Save Status: when /inv is opened with ?invoiceId= we treat that
   // row as already-persisted so the toolbar button reads "Update
@@ -791,9 +788,7 @@ export function InvoiceComposer() {
         // a known option, otherwise stay on the default 'qr'. Older
         // rows pre-dating this field land here without a value and
         // keep behaving exactly as before.
-        if (PAYMENT_METHODS.some((m) => m.value === data.paymentMethod)) {
-          setPaymentMethod(String(data.paymentMethod));
-        }
+        
       } catch (error) {
         // Silently keep blank/defaults; the user can always re-fill.
         if (!cancelled) console.warn('[inv] hydrate failed:', error);
@@ -934,28 +929,6 @@ export function InvoiceComposer() {
     setDepositPayments((current) => current.filter((payment) => payment.id !== id));
   }
 
-  async function uploadQr(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setQrFileName(file.name);
-    setStatus('Cropping QR...');
-    try {
-      setQrSrc(await cropQrImage(file));
-      setStatus('QR ready.');
-    } catch (error) {
-      // cropQrImage already does both detection + center-square
-      // fallback, so the only reason we land here is a hard failure
-      // (e.g. unreadable file, decode error). Surface that instead
-      // of silently shipping the raw screenshot — using the file as
-      // the QR source would re-introduce the "whole payment page
-      // shows up inside the QR slot" bug. Keep the previous QR (or
-      // the default) and leave the operator to retry with a clearer
-      // image.
-      console.warn('[inv] QR crop failed:', error?.message || error);
-      setStatus('Could not read that image. Try another QR screenshot.');
-    }
-  }
-
   async function saveInvoice() {
     const trimmedName = String(clientName || '').trim();
     if (!trimmedName) {
@@ -1016,10 +989,7 @@ export function InvoiceComposer() {
           depositCustomAmount: String(depositCustomAmount || ''),
           depositAskOpen: !!depositAskOpen,
           venue: String(venue || ''),
-          qrSrc: String(qrSrc || ''),
-          qrFileName: String(qrFileName || ''),
-          paymentMethod: String(paymentMethod || 'bank'),
-          eventTime: String(eventTime || ''),
+                                        eventTime: String(eventTime || ''),
           // Deposit-mode workflow state — read back by the hydrate
           // effect. Persisted in every mode so switching invoice ↔
           // deposit ↔ paid never silently drops a recorded ledger
@@ -1240,11 +1210,7 @@ export function InvoiceComposer() {
           setPaidAtDate={setPaidAtDate}
           paidAtTime={paidAtTime}
           setPaidAtTime={setPaidAtTime}
-          uploadQr={uploadQr}
-          qrFileName={qrFileName}
-          paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
-          hydrating={hydrating}
+                                                  hydrating={hydrating}
         />
         <PreviewPanel
           mode={mode}
@@ -1257,9 +1223,7 @@ export function InvoiceComposer() {
           eventTime={eventTime}
           items={items}
           totals={totals}
-          qrSrc={qrSrc}
-          paymentMethod={paymentMethod}
-          depositPayments={depositPayments}
+                              depositPayments={depositPayments}
           depositAskOpen={depositAskOpen}
           balanceDue={balanceDue}
           requestedDue={requestedDue}
@@ -1433,38 +1397,18 @@ function EditorPanel(props) {
               </label>
             ) : null}
           </div>
-          <div className="payment-method-block" role="radiogroup" aria-label="Payment Method">
-            <span className="payment-method-label">Payment Method</span>
-            <div className="payment-method-switch">
-              {PAYMENT_METHODS.map((method) => {
-                const active = props.paymentMethod === method.value;
-                return (
-                  <button
-                    key={method.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    className={active ? 'active' : ''}
-                    onClick={() => props.setPaymentMethod(method.value)}
-                  >
-                    {method.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          
           {props.paymentMethod === 'qr' ? (
             <QrUploadField onChange={props.uploadQr} fileName={props.qrFileName} />
           ) : (
             <div className="bank-details-summary" aria-label="Bank transfer destination">
-              <span className="payment-method-label">Bank Transfer</span>
+              <span className="payment-method-label">Payment Details</span>
               <dl className="bank-details-summary-list">
                 <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
                 <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
                 <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
               </dl>
             </div>
-          )}
           <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
           <div className="total-card"><span>{isFullPayment(props.totals) ? 'Full Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
@@ -1755,25 +1699,6 @@ function PaidSummary({ totals, paidConfirmed, setPaidConfirmed, paidAtDate, setP
 // underneath so the operator has feedback without affecting the
 // invoice JPG layout (the QR image inside the sheet is the only
 // thing that visually changes on export).
-function QrUploadField({ onChange, fileName }) {
-  return (
-    <div className="qr-upload">
-      <span className="qr-upload-label">Custom QR</span>
-      <label className="qr-upload-control">
-        <input type="file" accept="image/*" onChange={onChange} />
-        <span className="qr-upload-pill">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M12 16V4M12 4l-4 4M12 4l4 4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className="qr-upload-text">Click to upload QR</span>
-        </span>
-      </label>
-      {fileName ? <span className="qr-upload-filename" title={fileName}>{fileName}</span> : null}
-    </div>
-  );
-}
-
 // Toolbar icons for the Live Preview header. Same minimalist 2D
 // stroke-only family as the /db Subs detail toolbar (viewBox 0 0 24
 // 24, fill:none, stroke:currentColor, round caps/joins, className
@@ -1832,7 +1757,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, qrSrc, paymentMethod, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = (mode === 'deposit' || mode === 'paid')
@@ -2029,8 +1954,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                   </div>
                 ) : (
                   <>
-                    {paymentMethod === 'bank' ? (
-                      <div className="bank-details">
+                    <div className="bank-details">
                         <p className="bank-details-heading">Bank Transfer</p>
                         <dl className="bank-details-list">
                           <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>

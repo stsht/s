@@ -2717,7 +2717,7 @@ dd{margin:0;text-align:right;font-weight:800}
 :root{
   --sub-active:#1f8a4c;
   --sub-warning:#d97706;
-  --sub-expired:#bc3b42;
+  --sub-expired:#b91c1c;
   --evt-past:#b04a51;
   --evt-tba:#b87420;
   --evt-soon:#3f6fb1;
@@ -2727,7 +2727,7 @@ dd{margin:0;text-align:right;font-weight:800}
   :root{
     --sub-active:#3ec27a;
     --sub-warning:#f5a14a;
-    --sub-expired:#e57078;
+    --sub-expired:#ef4444;
     --evt-past:#d77a82;
     --evt-tba:#e5a366;
     --evt-soon:#7aa6dd;
