@@ -269,13 +269,13 @@ function GalleryLinks({ payload }) {
   const touchLastPointRef = useRef(null);
   const previewContainerRef = useRef(null);
 
-  // Reset scale when fullscreen preview closes
+  // Reset scale when invoice preview surfaces close
   useEffect(() => {
-    if (!fullScreenPreviewOpen) {
+    if (!fullScreenPreviewOpen && !invoiceOpen) {
       setScale(1);
       setPan({ x: 0, y: 0 });
     }
-  }, [fullScreenPreviewOpen]);
+  }, [fullScreenPreviewOpen, invoiceOpen]);
 
   // Non-passive pinch-to-zoom event listeners
   useEffect(() => {
@@ -370,7 +370,7 @@ function GalleryLinks({ payload }) {
       el.removeEventListener('gesturestart', handleGestureStart);
       el.removeEventListener('gesturechange', handleGestureChange);
     };
-  }, [fullScreenPreviewOpen, pan, scale]);
+  }, [fullScreenPreviewOpen, invoiceOpen, pan, scale]);
 
   useEffect(() => {
     if (expandedService === null) return;
@@ -402,6 +402,8 @@ function GalleryLinks({ payload }) {
   async function openInvoice(event) {
     event.preventDefault();
     setInvoiceOpen(true);
+    setScale(1);
+    setPan({ x: 0, y: 0 });
     setInvoiceImage('');
     setInvoiceStatus('Opening invoice...');
     try {
@@ -645,6 +647,16 @@ function GalleryLinks({ payload }) {
                 <button
                   type="button"
                   className="public-invoice-action public-invoice-action--ghost"
+                  onClick={() => {
+                    setScale(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                >
+                  Fit
+                </button>
+                <button
+                  type="button"
+                  className="public-invoice-action public-invoice-action--ghost"
                   onClick={() => setInvoiceOpen(false)}
                 >
                   Close
@@ -668,9 +680,18 @@ function GalleryLinks({ payload }) {
             {/* Scrollable Body container for mobile, standard flow for desktop */}
             <div className="public-invoice-viewer-body">
               {/* Desktop Frame (hidden on mobile) */}
-              <div className="public-invoice-frame desktop-only-frame">
+              <div className="public-invoice-frame desktop-only-frame" ref={previewContainerRef}>
                 {invoiceImage ? (
-                  <img src={invoiceImage} alt="Invoice JPG" />
+                  <img
+                    src={invoiceImage}
+                    alt="Invoice JPG"
+                    className={scale > 1 ? 'is-zoomed' : ''}
+                    style={{
+                      '--scale': scale,
+                      '--pan-x': `${pan.x}px`,
+                      '--pan-y': `${pan.y}px`,
+                    }}
+                  />
                 ) : (
                   <p>{invoiceStatus || 'Rendering invoice...'}</p>
                 )}
