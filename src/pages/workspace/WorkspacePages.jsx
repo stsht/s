@@ -1291,7 +1291,6 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   // always literal "TBA", never today's date or the row's
   // bookkeeping timestamp.
   const dateText = compactEventDateLabel(row.eventDate);
-  const toneClass = tone ? `event-tone-${tone}` : '';
   // Plain-text price beside the event name. Pulled off the linked
   // invoice when there is one — invoices carry the priced columns
   // (total / grand_total / price), deliveries don't. Same column
@@ -1330,6 +1329,15 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   const vendorDeliveryDone = !!row.vendorDelivery?.delivery_done;
   const vendorDeliveryStateClass = hasVendorDelivery ? (vendorDeliveryDone ? ' is-complete' : ' is-created') : ' is-neutral';
   const vendorDeliveryClassName = `record-row-link-anchor${vendorDeliveryStateClass}`;
+
+  const isClientWorkflowComplete = deliveryDone && invoicePaid;
+  let rowTone = tone;
+  if (isClientWorkflowComplete) {
+    rowTone = '';
+  } else if (tone !== 'soon' && tone !== 'future') {
+    rowTone = 'past';
+  }
+  const toneClass = rowTone ? `event-tone-${rowTone}` : '';
 
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
