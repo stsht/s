@@ -4879,7 +4879,7 @@ export function DatabasePage() {
             if (!clientRow) return;
             const parent = selected;
             setDraft({
-              title: String(clientRow.title || clientRow.client_title ?? 'Ms.'),
+              title: String((clientRow.title || clientRow.client_title) ?? 'Ms.'),
               name: String(clientRow.name || clientRow.client_name || ''),
               contact: String(clientRow.contact || clientRow.client_contact || ''),
             });

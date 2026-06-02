@@ -186,7 +186,7 @@ function deliveryCodeContext(raw = {}) {
   return {
     yymmdd,
     firstName: firstName || clientName.split(' ')[0] || '',
-    title: normalizeCodePart(raw.title || raw.client_title ?? 'Ms.', 20),
+    title: normalizeCodePart((raw.title || raw.client_title) ?? 'Ms.', 20),
     clientName
   };
 }
@@ -1452,7 +1452,7 @@ async function handleSave(request, env) {
   const handoffClientId = String(body.clientId || '').trim().slice(0, 80);
   const preferredClientId = handoffClientId || String(linkedInvoice?.client_id || '').trim();
   const client = await findOrCreateClient(env, {
-    title: linkedInvoice?.client_title || body.title ?? 'Ms.',
+    title: (linkedInvoice?.client_title || body.title) ?? 'Ms.',
     name: linkedInvoice?.client_name || body.clientName,
     contact: linkedInvoice?.client_contact || ''
   }, preferredClientId);
@@ -2735,7 +2735,7 @@ function normalizeSubscriptionPayload(raw = {}) {
   const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
 
   return {
-    client_title: String(raw.client_title || raw.clientTitle ?? 'Ms.').slice(0, 20),
+    client_title: String((raw.client_title || raw.clientTitle) ?? 'Ms.').slice(0, 20),
     client_name: String(raw.client_name || raw.clientName || '').trim().slice(0, 160),
     client_contact: String(raw.client_contact || raw.clientContact || '').trim().slice(0, 240),
     service: String(raw.service || '').trim().slice(0, 60),
