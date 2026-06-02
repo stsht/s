@@ -1897,6 +1897,7 @@ async function handleDbSearch(request, env) {
     return {
       ...inv,
       event_key: effectiveEventKey,
+      invoice_type: String(inv.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client',
       related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
     };
   });
@@ -2489,6 +2490,10 @@ function normalizeInvoicePayload(raw = {}) {
   const status = ['invoice', 'deposit', 'paid'].includes(String(raw.status || '').toLowerCase()) ? String(raw.status).toLowerCase() : 'invoice';
   const cleanMoney = (v) => Math.max(0, Math.round(Number(v) || 0));
   const eventKeyRaw = String(raw.event_key || raw.eventKey || '').trim().slice(0, 80);
+  const invoiceType = String(raw.invoice_type || raw.invoiceType || data.invoiceType || '').trim().toLowerCase() === 'vendor'
+    ? 'vendor'
+    : 'client';
+  data.invoiceType = invoiceType;
   // Belt-and-suspenders: also mirror the event grouping key into the
   // invoice_data jsonb blob. The blob has always existed on the
   // invoices table, so it survives a stripped event_key column on

@@ -118,6 +118,7 @@ export function DateTimeField({
   useEffect(() => {
     if (!popoverOpen) return undefined;
     const handlePointerDown = (event) => {
+      if (event.target.closest?.('.dtf-popover')) return;
       if (!wrapRef.current?.contains(event.target)) setPopoverOpen(false);
     };
     document.addEventListener('pointerdown', handlePointerDown);

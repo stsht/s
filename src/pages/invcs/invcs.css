@@ -3415,7 +3415,7 @@ dd{margin:0;text-align:right;font-weight:800}
   margin-top:12px;
 }
 .record-row{
-  /* date pill / name / View Links / View Invoice / X
+  /* date pill / name / View Links / View Invoice / vendor icon / X
    * The date column is an inline .event-date-pill (content-
    * sized) so the grid uses `auto` to size to the pill rather
    * than reserving a fixed slot. The trailing 22px column is
@@ -3425,7 +3425,7 @@ dd{margin:0;text-align:right;font-weight:800}
    * size to their text and shift left as the X column reserves
    * its space — actions never overlap the delete affordance. */
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto auto 22px;
+  grid-template-columns:auto minmax(0,1fr) auto auto 34px 22px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -3548,6 +3548,18 @@ dd{margin:0;text-align:right;font-weight:800}
 .record-row button.record-row-link.is-complete:hover{
   background:color-mix(in srgb,var(--evt-soon) 22%,var(--panel));
   border-color:var(--evt-soon);
+}
+.record-row a.record-row-vendor-invoice{
+  width:34px;
+  min-width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  border-radius:999px;
+}
+.record-row a.record-row-vendor-invoice .btn-icon{
+  width:17px;
+  height:17px;
 }
 .db-back-button{
   display:none;
@@ -3849,8 +3861,13 @@ dd{margin:0;text-align:right;font-weight:800}
   .record-row strong{
     white-space:normal;
   }
-  .record-row a{
+  .record-row a:not(.record-row-vendor-invoice){
     width:100%;
+  }
+  .record-row a.record-row-vendor-invoice{
+    position:absolute;
+    top:42px;
+    right:10px;
   }
   .record-row .row-delete-x{
     position:absolute;

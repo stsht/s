@@ -53,7 +53,10 @@ const BANK_DETAILS = {
   accountHolderLabel: 'BELLY',
 };
 
-
+const INVOICE_TYPES = {
+  CLIENT: 'client',
+  VENDOR: 'vendor',
+};
 
 // Title-case rules (small-words set, preserve list, regex token
 // matcher) live in `src/utils/titleCase.js` so /subs and /inv share

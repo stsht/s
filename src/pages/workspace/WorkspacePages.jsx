@@ -248,6 +248,27 @@ function UploadIcon() {
   );
 }
 
+function PaperIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="17"
+      height="17"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5" />
+    </svg>
+  );
+}
+
 function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
@@ -795,15 +816,16 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
 
   function findGroup({ eventKey, eventDate, recordId }) {
     return groups.find((g) => {
+      const datesCompatible = !eventDate || !g.eventDates.size || g.eventDates.has(eventDate);
       // 1. Direct event_key match — the strongest signal.
-      if (eventKey && g.eventKeys.has(eventKey)) return true;
+      if (eventKey && g.eventKeys.has(eventKey)) return datesCompatible;
       // 2. Cross-ref: this record's event_key points at the
       //    sibling record's id (or vice versa). Used when one tool
       //    was launched from a row that did not yet carry an
       //    event_key, so the new save stamped the existing row's
       //    id as its event_key.
-      if (eventKey && g.recordIds.has(eventKey)) return true;
-      if (recordId && g.eventKeys.has(recordId)) return true;
+      if (eventKey && g.recordIds.has(eventKey)) return datesCompatible;
+      if (recordId && g.eventKeys.has(recordId)) return datesCompatible;
       // 3. Date fallback — but only when event_key cannot
       //    adjudicate. If both sides carry a (different) event_key
       //    they are explicitly different events, and a coincidental
@@ -863,7 +885,7 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     if (!group.contact) group.contact = String(record?.client_contact || record?.contact || '').trim();
 
     if (kind === 'delivery') group.delivery = record;
-    else if (record?.invoice_type === 'vendor' || record?.type === 'vendor') group.vendorInvoice = record;
+    else if (record?.invoice_type === 'vendor' || record?.type === 'vendor' || record?.invoice_data?.invoiceType === 'vendor') group.vendorInvoice = record;
     else group.invoice = record;
   }
 
@@ -1208,7 +1230,6 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   // Vendor Invoice / Vendor PO (to be implemented) will handle internal
   // cost/vendor pricing separately and must never be exposed on /g.
   const invoiceLabel = hasInvoice ? 'View Client Invoice' : 'Create Client Invoice';
-  const vendorInvoiceLabel = 'Vendor Invoice';
   // Compact date pill on the row. row.eventDate is populated by
   // buildClientRecords from real event_date columns only
   // (plainEventDate strips ISO timestamps), so a created_at /
@@ -1275,8 +1296,15 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
       <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
         {invoiceLabel}
       </a>
-      <a className={vendorInvoiceClassName} href={eventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
-        {vendorInvoiceLabel}
+      <a
+        className={`${vendorInvoiceClassName} record-row-vendor-invoice`}
+        href={eventVendorInvoiceHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={hasVendorInvoice ? 'View vendor invoice' : 'Create vendor invoice'}
+        title={hasVendorInvoice ? 'View Vendor Invoice' : 'Create Vendor Invoice'}
+      >
+        <PaperIcon />
       </a>
       <button
         type="button"
