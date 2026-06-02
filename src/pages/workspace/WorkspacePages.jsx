@@ -880,9 +880,29 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     if (ts && (!group.date || (Date.parse(ts) || 0) > (Date.parse(group.date) || 0))) {
       group.date = ts;
     }
-    if (!group.name) group.name = String(record?.client_name || record?.name || '').trim();
-    if (!group.title) group.title = String(record?.client_title || record?.title || '').trim();
-    if (!group.contact) group.contact = String(record?.client_contact || record?.contact || '').trim();
+    const isVendor = record?.type === 'vendor' || record?.invoice_type === 'vendor' || record?.invoice_data?.invoiceType === 'vendor';
+    const cName = String(record?.client_name || record?.name || '').trim();
+    const cTitle = String(record?.client_title || record?.title || '').trim();
+    const cContact = String(record?.client_contact || record?.contact || '').trim();
+
+    if (cName) {
+      if (!group.name || (group.nameIsVendor && !isVendor)) {
+        group.name = cName;
+        group.nameIsVendor = isVendor;
+      }
+    }
+    if (cTitle) {
+      if (!group.title || (group.titleIsVendor && !isVendor)) {
+        group.title = cTitle;
+        group.titleIsVendor = isVendor;
+      }
+    }
+    if (cContact) {
+      if (!group.contact || (group.contactIsVendor && !isVendor)) {
+        group.contact = cContact;
+        group.contactIsVendor = isVendor;
+      }
+    }
 
     if (kind === 'delivery') {
       if (record?.type === 'vendor') group.vendorDelivery = record;
@@ -970,7 +990,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
 function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClient, onDeleteRecord, onViewLinks, onRefresh, onClose }) {
   const todayIso = useMemo(() => jakartaTodayISO(), []);
   const records = buildClientRecords(client, invoices, deliveries, todayIso);
-  const title = client?.title || 'Ms.';
+  const title = client?.title ?? 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
   const contact = client?.contact || client?.client_contact || '';
 
@@ -1446,7 +1466,7 @@ function buildShortUrl(code) {
 // MessageIg below). The folder name is intentionally NOT included —
 // it can be edited internally and must never be sent to the client.
 function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password) {
-  const t = String(title || 'Ms.').trim() || 'Ms.';
+  const t = String(title ?? 'Ms.').trim() ?? 'Ms.';
   const n = String(clientName || '').trim();
   const link = shortUrl || '(link unavailable)';
   const pass = String(password || '').trim() || '(no password)';
@@ -1663,7 +1683,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     return () => clearTimeout(id);
   }, [confirmDelete]);
 
-  const title = String(currentDelivery?.title || 'Ms.').trim() || 'Ms.';
+  const title = String(currentDelivery?.title ?? 'Ms.').trim() ?? 'Ms.';
   const clientName = String(currentDelivery?.client_name || 'Client').trim() || 'Client';
   const folder =
     String(currentDelivery?.folder_name || '').trim() ||
@@ -4859,7 +4879,7 @@ export function DatabasePage() {
             if (!clientRow) return;
             const parent = selected;
             setDraft({
-              title: String(clientRow.title || clientRow.client_title || 'Ms.'),
+              title: String(clientRow.title || clientRow.client_title ?? 'Ms.'),
               name: String(clientRow.name || clientRow.client_name || ''),
               contact: String(clientRow.contact || clientRow.client_contact || ''),
             });
@@ -5223,6 +5243,7 @@ function readInvoiceHandoff() {
     // sheet. Empty when /l is opened standalone or from a legacy
     // bucket — the worker still has its name+contact fallback.
     clientId: params.get('clientId') || '',
+    type: params.get('type') || '',
   };
   if (cleanLinkText(fromUrl.name)) return fromUrl;
   try {
@@ -5244,7 +5265,10 @@ function readInvoiceHandoff() {
 
 function buildPreviewMessage(title, clientName, info) {
   const link = info.shortLink || info.directUrl;
-  return `Dear ${cleanLinkText(title)} ${cleanLinkText(clientName)},
+  const t = cleanLinkText(title);
+  const c = cleanLinkText(clientName);
+  const namePart = t ? `${t} ${c}` : c;
+  return `Dear ${namePart},
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
 
@@ -5352,7 +5376,7 @@ export function LinkGeneratorPage() {
       setEventDateHandoff((current) => current || jakartaTodayISO());
       return;
     }
-    const handoffTitle = normalizeInvoiceTitleValue(handoff.title);
+    const handoffTitle = handoff.type === 'vendor' ? '' : normalizeInvoiceTitleValue(handoff.title);
     setTitle(handoffTitle);
     setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
     // Capture the stable parent client id when present. /db
@@ -5377,8 +5401,9 @@ export function LinkGeneratorPage() {
       const code = folderCodeFromEventDate(handoff.eventDate);
       return code ? normalizeFolderName(`${code} ${handoffName}`) : current;
     });
+    const nameText = handoffTitle ? `${handoffTitle} ${handoffName}` : handoffName;
     setStatus({
-      text: `Loaded ${handoffTitle} ${handoffName} from invoice.`,
+      text: `Loaded ${nameText} from invoice.`,
       tone: 'success',
     });
     // Mount-only: legacy /l reads handoff exactly once on page open.

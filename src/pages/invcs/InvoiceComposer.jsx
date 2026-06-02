@@ -673,7 +673,11 @@ export function InvoiceComposer() {
         if (!row || cancelled) return;
         const data = (row.invoice_data && typeof row.invoice_data === 'object') ? row.invoice_data : {};
 
-        if (row.client_title) setTitle(String(row.client_title));
+        if (row.invoice_type === INVOICE_TYPES.VENDOR || data.invoiceType === INVOICE_TYPES.VENDOR) {
+          setTitle('');
+        } else if (row.client_title) {
+          setTitle(String(row.client_title));
+        }
         if (row.client_name != null) setClientName(String(row.client_name || ''));
         if (row.client_contact != null) setContact(String(row.client_contact || ''));
         if (data.venue != null || row.venue != null) setVenue(String(data.venue ?? row.venue ?? 'TBA'));

@@ -186,7 +186,7 @@ function deliveryCodeContext(raw = {}) {
   return {
     yymmdd,
     firstName: firstName || clientName.split(' ')[0] || '',
-    title: normalizeCodePart(raw.title || raw.client_title || 'Ms.', 20),
+    title: normalizeCodePart(raw.title || raw.client_title ?? 'Ms.', 20),
     clientName
   };
 }
@@ -448,7 +448,10 @@ async function generateGalleryPassword(context = {}, shortCode = '') {
 }
 
 function buildDeliveryMessage(title, clientName, shortCode, password) {
-  return `Dear *${String(title || 'Ms.').trim()} ${String(clientName || '').trim()}*,
+  const t = String(title ?? 'Ms.').trim();
+  const c = String(clientName || '').trim();
+  const namePart = t ? `${t} ${c}` : c;
+  return `Dear *${namePart.trim()}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
 
@@ -547,7 +550,7 @@ function normalizeClientContact(value = '') {
 
 function cleanClientTitle(value = '') {
   const title = cleanText(value, 20);
-  return title || 'Ms.';
+  return title ?? 'Ms.';
 }
 
 function cleanClientPayload(raw = {}) {
@@ -1427,8 +1430,8 @@ async function handleSave(request, env) {
   const shortCode = await uniqueShortCode(env, deliveryContext);
   const password = await generateGalleryPassword(deliveryContext, shortCode);
   const deliveryUrl = `/${shortCode}`;
-  const generatedText = buildDeliveryMessage(body.title || 'Ms.', body.clientName, shortCode, password);
-  const generatedTextIg = buildDeliveryMessageIg(body.title || 'Ms.', body.clientName, shortCode, password);
+  const generatedText = buildDeliveryMessage(body.title ?? 'Ms.', body.clientName, shortCode, password);
+  const generatedTextIg = buildDeliveryMessageIg(body.title ?? 'Ms.', body.clientName, shortCode, password);
   const passwordSecurity = await hashGalleryPassword(password);
   const invoiceId = String(body.invoiceId || '').trim();
   let linkedInvoice = null;
@@ -1449,7 +1452,7 @@ async function handleSave(request, env) {
   const handoffClientId = String(body.clientId || '').trim().slice(0, 80);
   const preferredClientId = handoffClientId || String(linkedInvoice?.client_id || '').trim();
   const client = await findOrCreateClient(env, {
-    title: linkedInvoice?.client_title || body.title || 'Ms.',
+    title: linkedInvoice?.client_title || body.title ?? 'Ms.',
     name: linkedInvoice?.client_name || body.clientName,
     contact: linkedInvoice?.client_contact || ''
   }, preferredClientId);
@@ -1459,7 +1462,7 @@ async function handleSave(request, env) {
   }
 
   const baseRecord = {
-    title: String(body.title || 'Ms.').slice(0, 12),
+    title: String(body.title ?? 'Ms.').slice(0, 12),
     client_name: String(body.clientName).trim(),
     folder_name: String(body.folderName).trim(),
     base_slug: baseSlug,
@@ -1827,7 +1830,7 @@ async function handleDbSearch(request, env) {
     const shortCode = deliveryShortCode(d);
     const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
-    const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
+    const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword) : '');
     // IG fallback: prefer the stored IG text when present, otherwise
     // synthesise the IG variant directly. We intentionally do NOT
     // fall back to the WA text here — older rows that only have the
@@ -1836,7 +1839,7 @@ async function handleDbSearch(request, env) {
     // resolve. When neither is available we leave the field empty
     // so the client side can synth its own copy.
     const generatedTextIg = d.generated_text_instagram
-      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title || 'Ms.', d.client_name, shortCode, displayPassword) : '');
+      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword) : '');
     // Effective event grouping key.
     //
     // Preferred source is the typed column (deliveries.event_key,
@@ -2166,8 +2169,8 @@ async function handleDbRepairDelivery(request, env) {
     }, shortCode);
   }
 
-  const generatedText = buildDeliveryMessage(delivery.title || 'Ms.', delivery.client_name || '', shortCode, displayPassword);
-  const generatedTextIg = buildDeliveryMessageIg(delivery.title || 'Ms.', delivery.client_name || '', shortCode, displayPassword);
+  const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword);
+  const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword);
   const patch = {
     short_code: shortCode,
     password: '',
@@ -2503,7 +2506,7 @@ function normalizeInvoicePayload(raw = {}) {
   // applied yet. We never overwrite a non-empty existing value.
   if (eventKeyRaw && !data.event_key) data.event_key = eventKeyRaw;
   const payload = {
-    client_title: String(raw.client_title || 'Ms.').slice(0, 20),
+    client_title: String(raw.client_title ?? 'Ms.').slice(0, 20),
     client_name: String(raw.client_name || '').trim().slice(0, 160),
     client_contact: String(raw.client_contact || '').trim().slice(0, 240),
     invoice_date: String(raw.invoice_date || '').trim().slice(0, 40),
@@ -2732,7 +2735,7 @@ function normalizeSubscriptionPayload(raw = {}) {
   const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
 
   return {
-    client_title: String(raw.client_title || raw.clientTitle || 'Ms.').slice(0, 20),
+    client_title: String(raw.client_title || raw.clientTitle ?? 'Ms.').slice(0, 20),
     client_name: String(raw.client_name || raw.clientName || '').trim().slice(0, 160),
     client_contact: String(raw.client_contact || raw.clientContact || '').trim().slice(0, 240),
     service: String(raw.service || '').trim().slice(0, 60),
