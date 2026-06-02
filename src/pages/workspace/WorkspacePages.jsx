@@ -849,6 +849,7 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
         eventDate: '',
         date: '',
         name: '',
+        vendorName: '',
         title: '',
         contact: '',
         delivery: null,
@@ -886,6 +887,9 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     const cContact = String(record?.client_contact || record?.contact || '').trim();
 
     if (cName) {
+      if (isVendor && !group.vendorName) {
+        group.vendorName = cName;
+      }
       if (!group.name || (group.nameIsVendor && !isVendor)) {
         group.name = cName;
         group.nameIsVendor = isVendor;
@@ -1142,7 +1146,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
             ? createRecordUrl('/inv/', { invoiceId: row.vendorInvoice.id, type: 'vendor' })
             : createRecordUrl('/inv/', {
                 title: '',
-                name: String(row.name || name).replace(/^(Ms\.|Mr\.|Mrs\.|Family)\s+/i, '').trim(),
+                name: row.vendorName || String(row.name || name).replace(/^(Ms\.|Mr\.|Mrs\.|Family)\s+/i, '').trim(),
                 contact,
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
@@ -1165,7 +1169,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
             ? row.vendorDelivery.short_url || row.vendorDelivery.delivery_url || newEventLinkHref
             : createRecordUrl('/l/', {
                 title: '',
-                name: String(row.name || name).replace(/^(Ms\.|Mr\.|Mrs\.|Family)\s+/i, '').trim(),
+                name: row.vendorName || String(row.name || name).replace(/^(Ms\.|Mr\.|Mrs\.|Family)\s+/i, '').trim(),
                 contact,
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
