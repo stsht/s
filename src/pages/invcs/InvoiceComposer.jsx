@@ -456,7 +456,7 @@ function readInitialQuery() {
     const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(rawEventDate) ? rawEventDate : '';
     return {
       invoiceId: (params.get('invoiceId') || '').trim(),
-      title: (params.get('title') || '').trim(),
+      title: params.has('title') ? (params.get('title') || '').trim() : undefined,
       name: (params.get('name') || '').trim(),
       contact: (params.get('contact') || '').trim(),
       eventDate,
@@ -505,7 +505,7 @@ export function InvoiceComposer() {
 
   const [mobileView, setMobileView] = useState('edit');
   const [mode, setMode] = useState('invoice');
-  const [title, setTitle] = useState(initial.title || 'Ms.');
+  const [title, setTitle] = useState(initial.title ?? (initial.type === INVOICE_TYPES.VENDOR ? '' : 'Ms.'));
   const [clientName, setClientName] = useState(initial.name || '');
   const [contact, setContact] = useState(initial.contact || '');
   const [venue, setVenue] = useState('TBA');
@@ -978,7 +978,7 @@ export function InvoiceComposer() {
       // that the hydrate effect at the top of this component reads
       // back via /api/invoices-get.
       const invoice = {
-        client_title: String(title || 'Ms.'),
+        client_title: invoiceType === 'vendor' ? String(title || '') : String(title || 'Ms.'),
         client_name: trimmedName,
         client_contact: String(contact || ''),
         invoice_date: String(issuedDate || ''),
@@ -1182,6 +1182,7 @@ export function InvoiceComposer() {
       <GlobalBackground />
       <section className={`composer-shell ${mobileView === 'preview' ? 'show-preview' : ''}`}>
         <EditorPanel
+          invoiceType={invoiceType}
           mode={mode}
           setMode={setMode}
           title={title}
@@ -1231,6 +1232,7 @@ export function InvoiceComposer() {
                                                   hydrating={hydrating}
         />
         <PreviewPanel
+          invoiceType={invoiceType}
           mode={mode}
           clientName={clientName}
           title={title}
@@ -1287,7 +1289,7 @@ function EditorPanel(props) {
       <Fieldset title="Bill To">
         <div className="field-stack">
           <div className="two-col">
-            <label>Title<Combobox value={props.title} onChange={props.setTitle} options={TITLE_OPTIONS} ariaLabel="Title" placeholder="Title" /></label>
+            {props.invoiceType !== 'vendor' && <label>Title<Combobox value={props.title} onChange={props.setTitle} options={TITLE_OPTIONS} ariaLabel="Title" placeholder="Title" /></label>}
             <label>Client Name<input value={props.clientName} onChange={(event) => props.setClientName(event.target.value)} onBlur={onBlurTitleCase(props.setClientName)} placeholder="Client Name" /></label>
           </div>
           <label>Contact<input value={props.contact} onChange={(event) => props.setContact(event.target.value)} onBlur={onBlurTitleCase(props.setContact)} placeholder="Instagram / Phone / Email" /></label>
@@ -1432,6 +1434,7 @@ function EditorPanel(props) {
       ) : (
         <>
           <LockedDetails
+            invoiceType={props.invoiceType}
             mode={props.mode}
             title={props.title}
             clientName={props.clientName}
@@ -1483,11 +1486,11 @@ function EditorPanel(props) {
 // them, they only display the locked snapshot so the operator has
 // context while recording payments. Preserves client_id / event_key
 // / client_name / event_date grouping inputs untouched.
-function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eventTime, totals }) {
+function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eventTime, totals, invoiceType }) {
   return (
     <Fieldset title="Invoice Details (locked)">
       <dl className="locked-list">
-        <div className="locked-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
+        <div className="locked-row"><dt>Client</dt><dd>{invoiceType === 'vendor' ? (clientName ? toTitleCase(clientName) : 'Client') : `${title} ${clientName ? toTitleCase(clientName) : 'Client'}`.trim()}</dd></div>
         <div className="locked-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
         <div className="locked-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
         <div className="locked-row"><dt>Event</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
@@ -1772,7 +1775,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating, invoiceType }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = (mode === 'deposit' || mode === 'paid')
@@ -1911,7 +1914,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               <div className="sheet-box">
                 <p className="eyebrow">Bill To</p>
                 <dl className="meta-list">
-                  <div className="meta-row"><dt>Client</dt><dd>{title} {clientName ? toTitleCase(clientName) : 'Client'}</dd></div>
+                  <div className="meta-row"><dt>Client</dt><dd>{invoiceType === 'vendor' ? (clientName ? toTitleCase(clientName) : 'Client') : `${title} ${clientName ? toTitleCase(clientName) : 'Client'}`.trim()}</dd></div>
                   <div className="meta-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
                 </dl>
               </div>
