@@ -262,14 +262,18 @@ function GalleryLinks({ payload }) {
   const [expandedService, setExpandedService] = useState(null);
   const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
   const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const touchStartDistRef = useRef(0);
   const touchStartScaleRef = useRef(1);
+  const gestureStartScaleRef = useRef(1);
+  const touchLastPointRef = useRef(null);
   const previewContainerRef = useRef(null);
 
   // Reset scale when fullscreen preview closes
   useEffect(() => {
     if (!fullScreenPreviewOpen) {
       setScale(1);
+      setPan({ x: 0, y: 0 });
     }
   }, [fullScreenPreviewOpen]);
 
@@ -287,6 +291,13 @@ function GalleryLinks({ payload }) {
         );
         touchStartDistRef.current = dist;
         touchStartScaleRef.current = scale;
+        touchLastPointRef.current = null;
+      } else if (e.touches.length === 1 && scale > 1) {
+        e.preventDefault();
+        touchLastPointRef.current = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+        };
       }
     };
 
@@ -300,17 +311,66 @@ function GalleryLinks({ payload }) {
         const factor = dist / touchStartDistRef.current;
         const nextScale = Math.max(1, Math.min(4, touchStartScaleRef.current * factor));
         setScale(nextScale);
+        if (nextScale === 1) setPan({ x: 0, y: 0 });
+      } else if (e.touches.length === 1 && scale > 1 && touchLastPointRef.current) {
+        e.preventDefault();
+        const nextPoint = {
+          x: e.touches[0].clientX,
+          y: e.touches[0].clientY,
+        };
+        const dx = nextPoint.x - touchLastPointRef.current.x;
+        const dy = nextPoint.y - touchLastPointRef.current.y;
+        touchLastPointRef.current = nextPoint;
+        setPan((current) => ({
+          x: current.x + dx,
+          y: current.y + dy,
+        }));
       }
+    };
+
+    const handleTouchEnd = (e) => {
+      if (e.touches.length === 0) touchLastPointRef.current = null;
+      if (scale <= 1) setPan({ x: 0, y: 0 });
+    };
+
+    const handleWheel = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      const nextScale = Math.max(1, Math.min(4, scale + (-e.deltaY * 0.01)));
+      setScale(nextScale);
+      if (nextScale === 1) setPan({ x: 0, y: 0 });
+    };
+
+    const handleGestureStart = (e) => {
+      e.preventDefault();
+      gestureStartScaleRef.current = scale;
+    };
+
+    const handleGestureChange = (e) => {
+      e.preventDefault();
+      const nextScale = Math.max(1, Math.min(4, gestureStartScaleRef.current * Number(e.scale || 1)));
+      setScale(nextScale);
+      if (nextScale === 1) setPan({ x: 0, y: 0 });
     };
 
     el.addEventListener('touchstart', handleTouchStart, { passive: false });
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    el.addEventListener('gesturestart', handleGestureStart, { passive: false });
+    el.addEventListener('gesturechange', handleGestureChange, { passive: false });
 
     return () => {
       el.removeEventListener('touchstart', handleTouchStart);
       el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+      el.removeEventListener('wheel', handleWheel);
+      el.removeEventListener('gesturestart', handleGestureStart);
+      el.removeEventListener('gesturechange', handleGestureChange);
     };
-  }, [fullScreenPreviewOpen, scale]);
+  }, [fullScreenPreviewOpen, pan, scale]);
 
   useEffect(() => {
     if (expandedService === null) return;
@@ -713,6 +773,7 @@ function GalleryLinks({ payload }) {
             </button>
             <button className="public-invoice-fullscreen-btn" onClick={() => {
               setScale(1);
+              setPan({ x: 0, y: 0 });
               if (previewContainerRef.current) {
                 previewContainerRef.current.scrollTop = 0;
                 previewContainerRef.current.scrollLeft = 0;
@@ -739,6 +800,8 @@ function GalleryLinks({ payload }) {
                 className={`public-invoice-fullscreen-img${scale > 1 ? ' is-zoomed' : ''}`}
                 style={{
                   '--scale': scale,
+                  '--pan-x': `${pan.x}px`,
+                  '--pan-y': `${pan.y}px`,
                 }}
               />
             ) : (

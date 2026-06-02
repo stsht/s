@@ -5755,31 +5755,31 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .public-invoice-fullscreen-body {
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
     background: #000;
-    -webkit-overflow-scrolling: touch;
     padding: 20px;
+    touch-action: none;
+    user-select: none;
   }
   .public-invoice-fullscreen-img {
-    margin: auto;
     display: block;
     width: 100%;
     max-width: 100%;
+    max-height: 100%;
     height: auto;
     object-fit: contain;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-    transform-origin: 0 0;
+    transform: translate3d(var(--pan-x, 0), var(--pan-y, 0), 0) scale(var(--scale, 1));
+    transform-origin: center center;
+    will-change: transform;
   }
   .public-invoice-fullscreen-img.is-zoomed {
-    width: calc(var(--scale) * 100%) !important;
-    max-width: none !important;
-    object-fit: fill !important;
     border-radius: 0;
-    margin: 0;
+    cursor: grab;
   }
 
   /* Admin Invoice Package Controls mobile-safe grid layout */
