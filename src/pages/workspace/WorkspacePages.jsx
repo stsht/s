@@ -884,7 +884,10 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     if (!group.title) group.title = String(record?.client_title || record?.title || '').trim();
     if (!group.contact) group.contact = String(record?.client_contact || record?.contact || '').trim();
 
-    if (kind === 'delivery') group.delivery = record;
+    if (kind === 'delivery') {
+      if (record?.type === 'vendor') group.vendorDelivery = record;
+      else group.delivery = record;
+    }
     else if (record?.invoice_type === 'vendor' || record?.type === 'vendor' || record?.invoice_data?.invoiceType === 'vendor') group.vendorInvoice = record;
     else group.invoice = record;
   }
@@ -1134,6 +1137,18 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                   return undefined;
                 })(),
               });
+          const hasVendorDelivery = !!row.vendorDelivery?.id;
+          const eventVendorDeliveryHref = hasVendorDelivery
+            ? row.vendorDelivery.short_url || row.vendorDelivery.delivery_url || newEventLinkHref
+            : createRecordUrl('/l/', {
+                title: '',
+                name: String(row.name || name).replace(/^(Ms\.|Mr\.|Mrs\.|Family)\s+/i, '').trim(),
+                contact,
+                eventDate: row.eventDate,
+                eventKey: rowEventKey,
+                clientId: parentClientId,
+                type: 'vendor',
+              });
           dbg('ClientDetail row', {
             recordKey: row.delivery?.id || row.invoice?.id || `${row.date}-${index}`,
             rowEventKey,
@@ -1158,6 +1173,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
               eventLinkHref={eventLinkHref}
               eventInvoiceHref={eventInvoiceHref}
               eventVendorInvoiceHref={eventVendorInvoiceHref}
+              eventVendorDeliveryHref={eventVendorDeliveryHref}
               onDelete={() => onDeleteRecord?.(row)}
               onViewLinks={onViewLinks}
             />
@@ -1231,7 +1247,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
 // and a subtle accent on the row border so a row's status reads at
 // a glance. The tone palette mirrors the four tones used on the
 // /db Clients left list so both surfaces stay visually consistent.
-function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, onDelete, onViewLinks }) {
+function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, eventVendorDeliveryHref, onDelete, onViewLinks }) {
   const hasDelivery = !!row.delivery?.id;
   const hasInvoice = !!row.invoice?.id;
   const hasVendorInvoice = !!row.vendorInvoice?.id;
@@ -1281,6 +1297,12 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   const vendorInvoicePaid = String(row.vendorInvoice?.status || '').toLowerCase() === 'paid';
   const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : ' is-neutral';
   const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass}`;
+
+  const hasVendorDelivery = !!row.vendorDelivery?.id;
+  const vendorDeliveryDone = !!row.vendorDelivery?.delivery_done;
+  const vendorDeliveryStateClass = hasVendorDelivery ? (vendorDeliveryDone ? ' is-complete' : ' is-created') : ' is-neutral';
+  const vendorDeliveryClassName = `record-row-link-anchor${vendorDeliveryStateClass}`;
+
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
       <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
@@ -1288,35 +1310,49 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
         <strong>{row.name || fallbackName}</strong>
         {priceText ? <span className="record-row-price">{priceText}</span> : null}
       </div>
-      {hasDelivery ? (
-        <button
-          type="button"
-          className={linkClassName}
-          onClick={(event) => {
-            event.stopPropagation();
-            onViewLinks?.(row.delivery);
-          }}
+      <div className="record-row-action-group">
+        {hasDelivery ? (
+          <button
+            type="button"
+            className={linkClassName}
+            onClick={(event) => {
+              event.stopPropagation();
+              onViewLinks?.(row.delivery);
+            }}
+          >
+            {linkLabel}
+          </button>
+        ) : (
+          <a className={linkAnchorClass} href={eventLinkHref} target="_blank" rel="noopener noreferrer">
+            {linkLabel}
+          </a>
+        )}
+        <a
+          className={`${vendorDeliveryClassName} record-row-vendor-addon`}
+          href={eventVendorDeliveryHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={hasVendorDelivery ? 'View vendor delivery' : 'Create vendor delivery'}
+          title={hasVendorDelivery ? 'View Vendor Delivery' : 'Create Vendor Delivery'}
         >
-          {linkLabel}
-        </button>
-      ) : (
-        <a className={linkAnchorClass} href={eventLinkHref} target="_blank" rel="noopener noreferrer">
-          {linkLabel}
+          <LinkIcon />
         </a>
-      )}
-      <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
-        {invoiceLabel}
-      </a>
-      <a
-        className={`${vendorInvoiceClassName} record-row-vendor-invoice`}
-        href={eventVendorInvoiceHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={hasVendorInvoice ? 'View vendor invoice' : 'Create vendor invoice'}
-        title={hasVendorInvoice ? 'View Vendor Invoice' : 'Create Vendor Invoice'}
-      >
-        <PaperIcon />
-      </a>
+      </div>
+      <div className="record-row-action-group">
+        <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
+          {invoiceLabel}
+        </a>
+        <a
+          className={`${vendorInvoiceClassName} record-row-vendor-addon`}
+          href={eventVendorInvoiceHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={hasVendorInvoice ? 'View vendor invoice' : 'Create vendor invoice'}
+          title={hasVendorInvoice ? 'View Vendor Invoice' : 'Create Vendor Invoice'}
+        >
+          <PaperIcon />
+        </a>
+      </div>
       <button
         type="button"
         className="row-delete-x"
@@ -1490,6 +1526,27 @@ function ExternalLinkIcon() {
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
       <path d="M15 3h6v6" />
       <path d="M10 14 21 3" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg
+      className="btn-icon"
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
   );
 }

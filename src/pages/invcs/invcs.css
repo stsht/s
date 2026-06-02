@@ -3425,7 +3425,7 @@ dd{margin:0;text-align:right;font-weight:800}
    * size to their text and shift left as the X column reserves
    * its space — actions never overlap the delete affordance. */
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto auto 34px 22px;
+  grid-template-columns:auto minmax(0,1fr) auto auto 22px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -3433,6 +3433,11 @@ dd{margin:0;text-align:right;font-weight:800}
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
+}
+.record-row-action-group{
+  display:flex;
+  align-items:center;
+  gap:6px;
 }
 .record-row strong{
   min-width:0;
@@ -3549,7 +3554,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:color-mix(in srgb,var(--evt-soon) 22%,var(--panel));
   border-color:var(--evt-soon);
 }
-.record-row a.record-row-vendor-invoice{
+.record-row a.record-row-vendor-addon{
   width:34px;
   min-width:34px;
   height:34px;
@@ -3557,7 +3562,7 @@ dd{margin:0;text-align:right;font-weight:800}
   padding:0;
   border-radius:999px;
 }
-.record-row a.record-row-vendor-invoice .btn-icon{
+.record-row a.record-row-vendor-addon .btn-icon{
   width:17px;
   height:17px;
 }
@@ -3861,13 +3866,14 @@ dd{margin:0;text-align:right;font-weight:800}
   .record-row strong{
     white-space:normal;
   }
-  .record-row a:not(.record-row-vendor-invoice){
+  .record-row-action-group{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
     width:100%;
   }
-  .record-row a.record-row-vendor-invoice{
-    position:absolute;
-    top:42px;
-    right:10px;
+  .record-row a:not(.record-row-vendor-addon),
+  .record-row button.record-row-link{
+    width:100%;
   }
   .record-row .row-delete-x{
     position:absolute;
