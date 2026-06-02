@@ -4329,8 +4329,17 @@ export function DatabasePage() {
     const annotated = crmClients.map((client) => {
       const dates = eventDatesByClient(client);
       const cls = classifyClientEvents(dates, todayIso);
+      const records = buildClientRecords(client, invoices, deliveriesAll, todayIso);
+      const clientWorkflowComplete =
+        records.length > 0 &&
+        records.every((row) => !!row.delivery?.delivery_done && String(row.invoice?.status || '').toLowerCase() === 'paid');
       const name = String(client?.name || client?.client_name || '').toLowerCase();
-      return { client, ...cls, name };
+      return {
+        client,
+        ...cls,
+        tone: clientWorkflowComplete ? '' : cls.tone,
+        name,
+      };
     });
     annotated.sort((a, b) => {
       const ba = bucketOrder[a.bucket] ?? 9;
@@ -4348,7 +4357,7 @@ export function DatabasePage() {
       return a.name.localeCompare(b.name);
     });
     return annotated;
-  }, [crmClients, eventDatesByClient, todayIso]);
+  }, [crmClients, eventDatesByClient, invoices, deliveriesAll, todayIso]);
 
   const clientToneByRowId = useMemo(() => {
     const map = new Map();
@@ -4726,6 +4735,7 @@ export function DatabasePage() {
           const clientTone = clientToneInfo?.tone || '';
           const clientToneClass = clientTone ? `event-tone-${clientTone}` : '';
           const clientPillDate = clientToneInfo?.representativeDate || '';
+          const clientPillTone = clientTone || (clientPillDate ? '' : 'tba');
           let meta = '';
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
@@ -4801,7 +4811,7 @@ export function DatabasePage() {
               </div>
               {isClient ? (
                 <span
-                  className={`event-date-pill event-tone-${clientTone || 'tba'}`}
+                  className={`event-date-pill${clientPillTone ? ` event-tone-${clientPillTone}` : ''}`}
                   aria-label={`Event ${compactEventDateLabel(clientPillDate)}`}
                 >
                   {compactEventDateLabel(clientPillDate)}
