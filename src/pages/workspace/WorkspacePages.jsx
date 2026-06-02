@@ -323,22 +323,46 @@ function daysBetweenIso(referenceIso, targetIso) {
 // in the 'tba' bucket so a missing date doesn't accidentally turn
 // blue or green. The four tones map 1:1 onto the date pill colours
 // rendered next to the client name on the left list rows.
-function classifyClientEvents(eventDates, todayIso) {
-  const dates = Array.from(new Set((eventDates || [])
-    .map(plainEventDate)
-    .filter(Boolean)))
-    .sort();
-  if (dates.length === 0) {
+function classifyClientRecords(records, todayIso) {
+  if (!records || records.length === 0) {
     return { bucket: 'tba', tone: 'tba', sortKey: '', representativeDate: '' };
   }
-  const upcoming = dates.filter((d) => d >= todayIso);
-  if (upcoming.length === 0) {
+  const dates = Array.from(new Set(records.map((r) => plainEventDate(r.eventDate)).filter(Boolean))).sort();
+
+  if (dates.length === 0) {
+    const anyIncomplete = records.some((r) => recordTone(r, todayIso) === 'tba');
+    return { bucket: 'tba', tone: anyIncomplete ? 'tba' : 'future', sortKey: '', representativeDate: '' };
+  }
+
+  const upcomingDates = dates.filter((d) => d >= todayIso);
+  if (upcomingDates.length === 0) {
     const last = dates[dates.length - 1];
     return { bucket: 'past', tone: 'past', sortKey: last, representativeDate: last };
   }
-  const nearest = upcoming[0];
+
+  const nearest = upcomingDates[0];
   const diff = daysBetweenIso(todayIso, nearest);
-  const tone = Number.isFinite(diff) && diff >= 0 && diff <= 2 ? 'soon' : 'future';
+  const upcomingRecords = records.filter(r => {
+    const d = plainEventDate(r.eventDate);
+    return !d || d >= todayIso;
+  });
+
+  let hasIncomplete = false;
+  for (const r of upcomingRecords) {
+     const t = recordTone(r, todayIso);
+     if (t === 'tba' || t === 'past') {
+       hasIncomplete = true;
+       break;
+     }
+  }
+
+  let tone = 'future';
+  if (hasIncomplete) {
+    tone = 'tba';
+  } else if (Number.isFinite(diff) && diff >= 0 && diff <= 2) {
+    tone = 'soon';
+  }
+
   return { bucket: 'upcoming', tone, sortKey: nearest, representativeDate: nearest };
 }
 
@@ -363,6 +387,27 @@ function eventDateTone(eventDate, todayIso) {
   if (diff < 0) return 'past';
   if (diff <= 2) return 'soon';
   return 'future';
+}
+
+function recordTone(row, todayIso) {
+  const dateTone = eventDateTone(row?.eventDate, todayIso);
+  if (dateTone === 'past') return 'past';
+
+  const invStatus = String(row?.invoice?.status || '').toLowerCase();
+  if (invStatus === 'revoked') return 'past';
+
+  const hasDelivery = !!row?.delivery?.id;
+  const hasInvoice = !!row?.invoice?.id;
+
+  if (!hasDelivery && !hasInvoice) return 'tba';
+
+  const deliveryDone = hasDelivery && !!row?.delivery?.delivery_done;
+  const invoicePaid = hasInvoice && invStatus === 'paid';
+
+  const isComplete = (!hasDelivery || deliveryDone) && (!hasInvoice || invoicePaid);
+  if (!isComplete) return 'tba';
+
+  return dateTone;
 }
 
 // Compact label for the date pill on /db client rows + event rows.
@@ -1110,7 +1155,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
               recordKey={recordKey}
               row={row}
               fallbackName={name}
-              tone={eventDateTone(row.eventDate, todayIso)}
+              tone={recordTone(row, todayIso)}
               eventLinkHref={eventLinkHref}
               eventInvoiceHref={eventInvoiceHref}
               onDelete={() => onDeleteRecord?.(row)}
@@ -4122,7 +4167,7 @@ export function DatabasePage() {
   // getSubscriptionById) so this helper stays Clients-only.
   const deliveriesAll = data?.items || [];
   const todayIso = useMemo(() => jakartaTodayISO(), []);
-  const eventDatesByClient = useCallback((client) => {
+  const clientRecordsByClient = useCallback((client) => {
     const cid = String(client?.id || '').trim();
     const cname = String(client?.name || client?.client_name || '').trim().toLowerCase();
     const matches = (rec) => {
@@ -4131,19 +4176,10 @@ export function DatabasePage() {
       if (cid && rid && cid === rid) return true;
       return !!cname && !!rname && cname === rname;
     };
-    const dates = [];
-    for (const rec of invoices) {
-      if (!matches(rec)) continue;
-      const d = plainEventDate(rec?.event_date);
-      if (d) dates.push(d);
-    }
-    for (const rec of deliveriesAll) {
-      if (!matches(rec)) continue;
-      const d = plainEventDate(rec?.event_date);
-      if (d) dates.push(d);
-    }
-    return dates;
-  }, [invoices, deliveriesAll]);
+    const cInvoices = invoices.filter(matches);
+    const cDeliveries = deliveriesAll.filter(matches);
+    return buildClientRecords(client, cInvoices, cDeliveries, todayIso);
+  }, [invoices, deliveriesAll, todayIso]);
 
   // Clients-tab list ordering + tone. Three buckets, each annotated
   // with a date-tone class that drives the row colour and the
@@ -4172,8 +4208,8 @@ export function DatabasePage() {
   const sortedCrmClients = useMemo(() => {
     const bucketOrder = { upcoming: 0, tba: 1, past: 2 };
     const annotated = crmClients.map((client) => {
-      const dates = eventDatesByClient(client);
-      const cls = classifyClientEvents(dates, todayIso);
+      const records = clientRecordsByClient(client);
+      const cls = classifyClientRecords(records, todayIso);
       const name = String(client?.name || client?.client_name || '').toLowerCase();
       return { client, ...cls, name };
     });
@@ -4193,7 +4229,7 @@ export function DatabasePage() {
       return a.name.localeCompare(b.name);
     });
     return annotated;
-  }, [crmClients, eventDatesByClient, todayIso]);
+  }, [crmClients, clientRecordsByClient, todayIso]);
 
   const clientToneByRowId = useMemo(() => {
     const map = new Map();
