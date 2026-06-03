@@ -881,10 +881,19 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     if (ts && (!group.date || (Date.parse(ts) || 0) > (Date.parse(group.date) || 0))) {
       group.date = ts;
     }
-    const isVendor = record?.type === 'vendor' || record?.invoice_type === 'vendor' || record?.invoice_data?.invoiceType === 'vendor';
     const cName = String(record?.client_name || record?.name || '').trim();
     const cTitle = String(record?.client_title || record?.title || '').trim();
     const cContact = String(record?.client_contact || record?.contact || '').trim();
+    const likelyVendorDelivery =
+      kind === 'delivery'
+      && !cTitle
+      && !!clientName
+      && !!cName
+      && cName.toLowerCase() !== clientName;
+    const isVendor = record?.type === 'vendor'
+      || record?.invoice_type === 'vendor'
+      || record?.invoice_data?.invoiceType === 'vendor'
+      || likelyVendorDelivery;
 
     if (cName) {
       if (isVendor) {
@@ -1336,7 +1345,7 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
       <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
       <div className="record-row-title">
-        <strong>{row.name || fallbackName}</strong>
+        <strong>{fallbackName || row.name || 'Client'}</strong>
         {priceText ? <span className="record-row-price">{priceText}</span> : null}
       </div>
       <div className="record-row-action-group">
@@ -1356,16 +1365,31 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
             {linkLabel}
           </a>
         )}
-        <a
-          className={`${vendorDeliveryClassName} record-row-vendor-addon`}
-          href={eventVendorDeliveryHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={hasVendorDelivery ? 'View vendor links' : 'Create vendor links'}
-          title={hasVendorDelivery ? 'View Vendor Links' : 'Create Vendor Links'}
-        >
-          <LinkIcon />
-        </a>
+        {hasVendorDelivery ? (
+          <button
+            type="button"
+            className={`${vendorDeliveryClassName} record-row-vendor-addon`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onViewLinks?.(row.vendorDelivery);
+            }}
+            aria-label="View vendor links"
+            title="View Vendor Links"
+          >
+            <LinkIcon />
+          </button>
+        ) : (
+          <a
+            className={`${vendorDeliveryClassName} record-row-vendor-addon`}
+            href={eventVendorDeliveryHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Create vendor links"
+            title="Create Vendor Links"
+          >
+            <LinkIcon />
+          </a>
+        )}
       </div>
       <div className="record-row-action-group">
         <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">

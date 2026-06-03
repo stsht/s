@@ -3735,7 +3735,8 @@ dd{margin:0;text-align:right;font-weight:800}
   font-weight:750;
 }
 .record-row a,
-.record-row button.record-row-link{
+.record-row button.record-row-link,
+.record-row button.record-row-link-anchor{
   min-height:34px;
   display:inline-flex;
   align-items:center;
@@ -3813,13 +3814,15 @@ dd{margin:0;text-align:right;font-weight:800}
  * pill is unchanged when the row is missing the corresponding
  * record. */
 .record-row a.is-created,
-.record-row button.record-row-link.is-created{
+.record-row button.record-row-link.is-created,
+.record-row button.record-row-link-anchor.is-created{
   background:color-mix(in srgb,var(--sub-active) 14%,var(--panel));
   border-color:color-mix(in srgb,var(--sub-active) 48%,var(--line));
   color:var(--sub-active);
 }
 .record-row a.is-created:hover,
-.record-row button.record-row-link.is-created:hover{
+.record-row button.record-row-link.is-created:hover,
+.record-row button.record-row-link-anchor.is-created:hover{
   background:color-mix(in srgb,var(--sub-active) 22%,var(--panel));
   border-color:var(--sub-active);
 }
@@ -3831,25 +3834,31 @@ dd{margin:0;text-align:right;font-weight:800}
  * label. Layered through color-mix() so light/dark modes resolve the
  * right shade automatically and it never reads as a neon blue. */
 .record-row a.is-complete,
-.record-row button.record-row-link.is-complete{
+.record-row button.record-row-link.is-complete,
+.record-row button.record-row-link-anchor.is-complete{
   background:color-mix(in srgb,var(--evt-soon) 14%,var(--panel));
   border-color:color-mix(in srgb,var(--evt-soon) 50%,var(--line));
   color:var(--evt-soon);
 }
 .record-row a.is-complete:hover,
-.record-row button.record-row-link.is-complete:hover{
+.record-row button.record-row-link.is-complete:hover,
+.record-row button.record-row-link-anchor.is-complete:hover{
   background:color-mix(in srgb,var(--evt-soon) 22%,var(--panel));
   border-color:var(--evt-soon);
 }
-.record-row a.record-row-vendor-addon{
+.record-row a.record-row-vendor-addon,
+.record-row button.record-row-vendor-addon{
   width:34px;
   min-width:34px;
   height:34px;
   min-height:34px;
   padding:0;
   border-radius:999px;
+  cursor:pointer;
+  font-family:inherit;
 }
-.record-row a.record-row-vendor-addon .btn-icon{
+.record-row a.record-row-vendor-addon .btn-icon,
+.record-row button.record-row-vendor-addon .btn-icon{
   width:17px;
   height:17px;
 }

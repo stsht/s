@@ -156,6 +156,11 @@ function PublicInvoiceDocument({ invoice }) {
     : [];
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
   const paymentMethod = cleanPaymentMethod(data.paymentMethod);
+  const invoiceType = String(invoice?.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
+  const displayName = invoice?.client_name ? toTitleCase(invoice.client_name) : 'Client';
+  const billToName = invoiceType === 'vendor'
+    ? displayName
+    : `${invoice?.client_title || 'Ms.'} ${displayName}`.trim();
   const requestedFullPayment = String(data.depositMode || '') === '100'
     || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
     || isFullPayment(invoice);
@@ -169,7 +174,7 @@ function PublicInvoiceDocument({ invoice }) {
         <div className="sheet-box">
           <p className="eyebrow">Bill To</p>
           <dl className="meta-list">
-            <div className="meta-row"><dt>Client</dt><dd>{invoice?.client_title || 'Ms.'} {invoice?.client_name ? toTitleCase(invoice.client_name) : 'Client'}</dd></div>
+            <div className="meta-row"><dt>Client</dt><dd>{billToName}</dd></div>
             <div className="meta-row"><dt>Contact</dt><dd>{invoice?.client_contact || '-'}</dd></div>
           </dl>
         </div>

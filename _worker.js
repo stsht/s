@@ -999,35 +999,54 @@ function invoiceDeliveryScore(invoice = {}, delivery = {}) {
   return 0;
 }
 
-function isClientInvoiceRecord(invoice = {}) {
-  if (!invoice || typeof invoice !== 'object') return false;
+function invoiceRecordType(invoice = {}) {
+  if (!invoice || typeof invoice !== 'object') return 'client';
   const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const type = String(invoice.invoice_type || data.invoiceType || '').trim().toLowerCase();
-  return type !== 'vendor';
+  return type === 'vendor' ? 'vendor' : 'client';
+}
+
+function isClientInvoiceRecord(invoice = {}) {
+  return invoiceRecordType(invoice) !== 'vendor';
+}
+
+function deliveryInvoiceAudience(delivery = {}, exactRows = []) {
+  const explicit = String(delivery.type || '').trim().toLowerCase();
+  if (explicit === 'vendor') return 'vendor';
+  const title = String(delivery.title || '').trim();
+  const hasVendorExact = (Array.isArray(exactRows) ? exactRows : []).some((row) => invoiceRecordType(row) === 'vendor');
+  const hasClientExact = (Array.isArray(exactRows) ? exactRows : []).some((row) => invoiceRecordType(row) !== 'vendor');
+  if (!title) return 'vendor';
+  if (hasVendorExact && !hasClientExact) return 'vendor';
+  return 'client';
 }
 
 async function findInvoiceForDelivery(env, delivery = {}) {
   const deliveryId = String(delivery.id || '').trim();
   if (!deliveryId) return null;
 
+  let exactRows = [];
   try {
-    const exactRows = await supabaseFetch(
+    exactRows = await supabaseFetch(
       env,
       `/rest/v1/invoices?select=*&invoice_data->>delivery_id=eq.${encodeURIComponent(deliveryId)}&order=updated_at.desc&limit=10`
     );
-    const exact = (Array.isArray(exactRows) ? exactRows : [exactRows]).find(isClientInvoiceRecord);
+    exactRows = Array.isArray(exactRows) ? exactRows : [exactRows].filter(Boolean);
+    const audience = deliveryInvoiceAudience(delivery, exactRows);
+    const exact = exactRows.find((row) => invoiceRecordType(row) === audience);
     if (exact) return exact;
   } catch (error) {
     if (!isSchemaError(error)) console.warn('[public-invoice] jsonb delivery lookup failed:', error?.message || error);
   }
 
+  const audience = deliveryInvoiceAudience(delivery, exactRows);
   const candidates = [];
   const seen = new Set();
   const addRows = (rows) => {
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const id = String(row?.id || '');
       if (!id || seen.has(id)) return;
-      if (!isClientInvoiceRecord(row)) return;
+      if (invoiceRecordType(row) !== audience) return;
       seen.add(id);
       candidates.push(row);
     });
