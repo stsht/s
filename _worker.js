@@ -995,7 +995,6 @@ function invoiceDeliveryScore(invoice = {}, delivery = {}) {
   if (deliveryEventKey && invoiceEventKey && deliveryEventKey === invoiceEventKey) return 90;
   if (deliveryClientId && invoiceClientId && deliveryClientId === invoiceClientId && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 80;
   if (deliveryName && invoiceName && deliveryName === invoiceName && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 70;
-  if (deliveryClientId && invoiceClientId && deliveryClientId === invoiceClientId) return 40;
   return 0;
 }
 
@@ -1071,7 +1070,9 @@ async function findInvoiceForDelivery(env, delivery = {}) {
   if (!candidates.length) return null;
   return candidates
     .map((invoice) => ({ invoice, score: invoiceDeliveryScore(invoice, delivery) }))
-    .filter((item) => item.score > 0)
+    // Never expose an invoice from client-only fallback. Public pages need an
+    // exact delivery link, event key, or matching event date to avoid stale invoices.
+    .filter((item) => item.score >= 70)
     .sort((a, b) => b.score - a.score)[0]?.invoice || null;
 }
 
