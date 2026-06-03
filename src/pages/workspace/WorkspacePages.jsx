@@ -1692,6 +1692,23 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [confirmRotatePassword]);
 
+  const restoreNoButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (confirmRestoreHash && restoreNoButtonRef.current) {
+      restoreNoButtonRef.current.focus();
+    }
+  }, [confirmRestoreHash]);
+
+  useEffect(() => {
+    if (!confirmRestoreHash) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setConfirmRestoreHash('');
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [confirmRestoreHash]);
+
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
   // data.items). Runs whenever that row changes — including after a
@@ -2376,16 +2393,58 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                           {hist.rotated_at ? new Date(hist.rotated_at).toLocaleDateString() : 'Previous'}
                         </span>
                       </div>
-                      {isConfirming ? (
-                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                          <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>Restore?</span>
-                          <button type="button" className="ghost-button compact" style={{ padding: '0 12px', minHeight: '32px' }} onClick={() => setConfirmRestoreHash('')}>No</button>
-                          <button type="button" className="ghost-button compact" style={{ padding: '0 12px', minHeight: '32px', color: 'var(--accent-2)', borderColor: 'var(--accent-2)' }} onClick={() => {
-                            setConfirmRestoreHash('');
-                            handleRepairDelivery({ restorePassword: hist });
-                          }}>Restore</button>
+                      {isConfirming && (
+                        <div
+                          className="dd-confirm-overlay"
+                          style={{
+                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            zIndex: 9999,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            padding: '16px'
+                          }}
+                          onClick={() => setConfirmRestoreHash('')}
+                        >
+                          <div
+                            className="dd-confirm-modal"
+                            style={{
+                              backgroundColor: 'var(--bg, #fff)',
+                              padding: '24px',
+                              borderRadius: '16px',
+                              boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                              minWidth: '280px',
+                              maxWidth: '100%'
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            role="dialog"
+                            aria-modal="true"
+                          >
+                            <h3 style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Restore Password?</h3>
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                              <button
+                                type="button"
+                                className="ghost-button compact"
+                                onClick={() => setConfirmRestoreHash('')}
+                                ref={restoreNoButtonRef}
+                              >
+                                No
+                              </button>
+                              <button
+                                type="button"
+                                className="ghost-button compact"
+                                style={{ color: 'var(--accent-2, red)', borderColor: 'var(--accent-2, red)' }}
+                                onClick={() => {
+                                  setConfirmRestoreHash('');
+                                  handleRepairDelivery({ restorePassword: hist });
+                                }}
+                              >
+                                Restore
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      ) : (
+                      )}
+                      {!isConfirming && (
                         <button type="button" className="ghost-button compact" style={{ padding: '0 16px', minHeight: '32px', flexShrink: 0 }} onClick={() => setConfirmRestoreHash(hist.password_hash)}>
                           Restore
                         </button>

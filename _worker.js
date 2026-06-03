@@ -2221,7 +2221,7 @@ async function handleDbRepairDelivery(request, env) {
     password: '',
     generated_text_whatsapp: generatedText,
     generated_text_instagram: generatedTextIg,
-    password_history: JSON.stringify(password_history)
+    password_history
   };
 
   if (restorePassword) {
