@@ -53,6 +53,15 @@ const BANK_DETAILS = {
   accountHolderLabel: 'BELLY',
 };
 
+const PAYMENT_QR_SRC = '/payment-qr.png';
+const PAYMENT_METHODS = ['bank', 'qr'];
+
+function cleanPaymentMethod(value) {
+  return PAYMENT_METHODS.includes(String(value || '').toLowerCase())
+    ? String(value || '').toLowerCase()
+    : 'bank';
+}
+
 const INVOICE_TYPES = {
   CLIENT: 'client',
   VENDOR: 'vendor',
@@ -574,12 +583,13 @@ export function InvoiceComposer() {
     return [emptyItem(DEFAULT_PACKAGES)];
   });
   const [folderName, setFolderName] = useState(initial.folderName || '');
-      // Payment Method shown inside the .payment-box. 'bank' renders the
+  // Payment Method shown inside the .payment-box. 'bank' renders the
   // BANK_DETAILS block (default for unpaid invoices); 'qr' replaces it
   // with the QR image. Persisted in invoice_data so reopening a saved
   // invoice restores whatever the operator picked; new drafts default
   // to Bank Transfer.
-    const [status, setStatus] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('bank');
+  const [status, setStatus] = useState('');
   const [hydrating, setHydrating] = useState(Boolean(initial.invoiceId));
   // Save Status: when /inv is opened with ?invoiceId= we treat that
   // row as already-persisted so the toolbar button reads "Update
@@ -809,11 +819,10 @@ export function InvoiceComposer() {
         } else if (row.status === 'paid' && row.invoice_date) {
           setPaidAtDate(String(row.invoice_date || '').slice(0, 10));
         }
-        // Payment Method: only adopt the saved value when it matches
-        // a known option, otherwise stay on the default 'qr'. Older
-        // rows pre-dating this field land here without a value and
-        // keep behaving exactly as before.
-        
+        // Payment Method: older rows pre-dating this field default
+        // to Bank Transfer; explicit saved QR rows restore QR.
+        setPaymentMethod(cleanPaymentMethod(data.paymentMethod));
+
       } catch (error) {
         // Silently keep blank/defaults; the user can always re-fill.
         if (!cancelled) console.warn('[inv] hydrate failed:', error);
@@ -1015,8 +1024,9 @@ export function InvoiceComposer() {
           depositMode: String(depositMode || ''),
           depositCustomAmount: String(depositCustomAmount || ''),
           depositAskOpen: !!depositAskOpen,
+          paymentMethod: cleanPaymentMethod(paymentMethod),
           venue: String(venue || ''),
-                                        eventTime: String(eventTime || ''),
+          eventTime: String(eventTime || ''),
           folderName: String(folderName || ''),
           // Deposit-mode workflow state — read back by the hydrate
           // effect. Persisted in every mode so switching invoice ↔
@@ -1233,6 +1243,8 @@ export function InvoiceComposer() {
           requestedDue={requestedDue}
           depositAskOpen={depositAskOpen}
           setDepositAskOpen={setDepositAskOpen}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
           paidConfirmed={paidConfirmed}
           setPaidConfirmed={setPaidConfirmed}
           paidAtDate={paidAtDate}
@@ -1257,6 +1269,7 @@ export function InvoiceComposer() {
           depositAskOpen={depositAskOpen}
           balanceDue={balanceDue}
           requestedDue={requestedDue}
+          paymentMethod={paymentMethod}
           paidConfirmed={paidConfirmed}
           paidAtDate={paidAtDate}
           status={status}
@@ -1428,14 +1441,11 @@ function EditorPanel(props) {
             ) : null}
           </div>
           
-          <div className="bank-details-summary" aria-label="Bank transfer destination">
-            <span className="payment-method-label">Payment Details</span>
-            <dl className="bank-details-summary-list">
-              <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-              <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-              <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-            </dl>
-          </div>
+          <PaymentMethodPicker
+            paymentMethod={props.paymentMethod}
+            setPaymentMethod={props.setPaymentMethod}
+          />
+          <PaymentMethodSummary paymentMethod={props.paymentMethod} />
           <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
           <div className="total-card"><span>{isFullPayment(props.totals) ? 'Full Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
         </div>
@@ -1454,6 +1464,12 @@ function EditorPanel(props) {
             eventTime={props.eventTime}
             totals={props.totals}
           />
+          {props.mode === 'deposit' ? (
+            <PaymentMethodFieldset
+              paymentMethod={props.paymentMethod}
+              setPaymentMethod={props.setPaymentMethod}
+            />
+          ) : null}
           {props.mode === 'deposit' || (props.mode === 'paid' && props.depositPayments && props.depositPayments.length > 0) ? (
             <DepositLedger
               payments={props.depositPayments}
@@ -1486,6 +1502,68 @@ function EditorPanel(props) {
       )}
       </div>
     </aside>
+  );
+}
+
+function PaymentMethodPicker({ paymentMethod, setPaymentMethod }) {
+  const current = cleanPaymentMethod(paymentMethod);
+  return (
+    <div className="payment-method-block">
+      <span className="payment-method-label">Payment Method</span>
+      <div className="payment-method-switch" role="radiogroup" aria-label="Payment method">
+        {[
+          { value: 'bank', label: 'Bank' },
+          { value: 'qr', label: 'QR' },
+        ].map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={current === option.value}
+            className={current === option.value ? 'active' : ''}
+            onClick={() => setPaymentMethod(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PaymentMethodSummary({ paymentMethod }) {
+  const current = cleanPaymentMethod(paymentMethod);
+  if (current === 'qr') {
+    return (
+      <div className="qr-details-summary" aria-label="QR payment destination">
+        <span className="payment-method-label">Payment Details</span>
+        <div className="qr-details-card">
+          <img src={PAYMENT_QR_SRC} alt="Payment QR" />
+          <strong>QR Payment</strong>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="bank-details-summary" aria-label="Bank transfer destination">
+      <span className="payment-method-label">Payment Details</span>
+      <dl className="bank-details-summary-list">
+        <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+        <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+        <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+      </dl>
+    </div>
+  );
+}
+
+function PaymentMethodFieldset({ paymentMethod, setPaymentMethod }) {
+  return (
+    <Fieldset title="Payment Method">
+      <div className="field-stack">
+        <PaymentMethodPicker paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
+        <PaymentMethodSummary paymentMethod={paymentMethod} />
+      </div>
+    </Fieldset>
   );
 }
 
@@ -1785,7 +1863,7 @@ function PrinterIcon() {
   );
 }
 
-function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating, invoiceType }) {
+function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paymentMethod, paidConfirmed, paidAtDate, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating, invoiceType }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = (mode === 'deposit' || mode === 'paid')
@@ -1801,6 +1879,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
   // Payment Due" instead of calling it a deposit.
   const dueLabel = isFullPayment(totals) ? 'Full Payment Due' : 'Deposit Due';
   const dueAmount = Math.max(0, Math.round(Number(requestedDue) || 0));
+  const selectedPaymentMethod = cleanPaymentMethod(paymentMethod);
   const previewCanvasRef = useRef(null);
   const [previewMetrics, setPreviewMetrics] = useState({
     fitScale: 1,
@@ -1982,7 +2061,10 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                   </div>
                 ) : (
                   <>
-                    <div className="bank-details">
+                    {selectedPaymentMethod === 'qr' ? (
+                      <img src={PAYMENT_QR_SRC} alt="Payment QR" />
+                    ) : (
+                      <div className="bank-details">
                         <p className="bank-details-heading">Bank Transfer</p>
                         <dl className="bank-details-list">
                           <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
@@ -1990,6 +2072,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
                           <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
                         </dl>
                       </div>
+                    )}
                     <div className="deposit-due">
                       <span>{dueLabel}</span>
                       <strong>{rupiah(dueAmount)}</strong>

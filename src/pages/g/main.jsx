@@ -25,6 +25,14 @@ const BANK_DETAILS = {
   accountNumber: '1050023197043',
   accountHolderLabel: 'BELLY',
 };
+const PAYMENT_QR_SRC = '/payment-qr.png';
+const PAYMENT_METHODS = ['bank', 'qr'];
+
+function cleanPaymentMethod(value) {
+  return PAYMENT_METHODS.includes(String(value || '').toLowerCase())
+    ? String(value || '').toLowerCase()
+    : 'bank';
+}
 
 // Official StarShots contact channels surfaced in the public payment
 // area so clients can send proof of payment after transferring. Subtle
@@ -147,7 +155,7 @@ function PublicInvoiceDocument({ invoice }) {
     ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
     : [];
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
-  const paymentMethod = 'bank';
+  const paymentMethod = cleanPaymentMethod(data.paymentMethod);
   const requestedFullPayment = String(data.depositMode || '') === '100'
     || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
     || isFullPayment(invoice);
@@ -219,14 +227,18 @@ function PublicInvoiceDocument({ invoice }) {
             </div>
           ) : (
             <>
-              <div className="bank-details">
-                <p className="bank-details-heading">Bank Transfer</p>
-                <dl className="bank-details-list">
-                  <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                  <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                  <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                </dl>
-              </div>
+              {paymentMethod === 'qr' ? (
+                <img src={PAYMENT_QR_SRC} alt="Payment QR" />
+              ) : (
+                <div className="bank-details">
+                  <p className="bank-details-heading">Bank Transfer</p>
+                  <dl className="bank-details-list">
+                    <div className="bank-details-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                    <div className="bank-details-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                    <div className="bank-details-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                  </dl>
+                </div>
+              )}
               <div className="deposit-due">
                 <span>{dueLabel}</span>
                 <strong>{rupiah(invoice?.deposit_amount)}</strong>
@@ -533,6 +545,14 @@ function GalleryLinks({ payload }) {
   const invoiceStatusValue = String(invoice?.status || 'invoice').toLowerCase();
   const showPaymentPanel = !!invoice && invoiceStatusValue !== 'paid';
   const paymentDue = paymentDueInfo(invoice);
+  const invoiceData = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const paymentMethod = cleanPaymentMethod(invoiceData.paymentMethod);
+  const paymentActionLabel = paymentMethod === 'qr' ? 'Download QR' : (bankCopied ? 'Copied' : 'Copy Bank Account');
+  const PaymentActionIcon = paymentMethod === 'qr' ? IconDownload : IconCopy;
+  const downloadSafeName = String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client';
+  const handlePaymentAction = paymentMethod === 'qr'
+    ? () => triggerImageDownload(PAYMENT_QR_SRC, `${downloadSafeName}-payment-qr.png`)
+    : copyBankAccount;
 
   return (
     <main className="public-delivery-page">
@@ -655,7 +675,7 @@ function GalleryLinks({ payload }) {
                   <a
                     className="public-invoice-action public-invoice-action--ghost"
                     href={invoiceImage}
-                    download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+                    download={`${downloadSafeName}-invoice.jpg`}
                   >
                     <IconDownload />
                     <span>Download Invoice</span>
@@ -665,10 +685,10 @@ function GalleryLinks({ payload }) {
                   <button
                       type="button"
                       className="public-invoice-action public-invoice-action--primary"
-                      onClick={copyBankAccount}
+                      onClick={handlePaymentAction}
                     >
-                      <IconCopy />
-                      <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                      <PaymentActionIcon />
+                      <span>{paymentActionLabel}</span>
                     </button>
                 ) : null}
                 <button
@@ -739,16 +759,16 @@ function GalleryLinks({ payload }) {
                   </div>
                 </button>
 
-                {/* Mobile actions (Copy Bank Account and Download Invoice) */}
+                {/* Mobile actions (payment method action and Download Invoice) */}
                 <div className="public-invoice-mobile-actions">
                   {showPaymentPanel ? (
                     <button
                       type="button"
                       className="public-invoice-action public-invoice-action--primary"
-                      onClick={copyBankAccount}
+                      onClick={handlePaymentAction}
                     >
-                      <IconCopy />
-                      <span>{bankCopied ? 'Copied' : 'Copy Bank Account'}</span>
+                      <PaymentActionIcon />
+                      <span>{paymentActionLabel}</span>
                     </button>
                   ) : null}
 
@@ -756,7 +776,7 @@ function GalleryLinks({ payload }) {
                     <a
                       className="public-invoice-action public-invoice-action--small"
                       href={invoiceImage}
-                      download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+                      download={`${downloadSafeName}-invoice.jpg`}
                     >
                       <IconDownload />
                       <span>Download Invoice</span>
@@ -776,11 +796,15 @@ function GalleryLinks({ payload }) {
                     </span>
                   </div>
                   <div className="public-pay-body">
-                    <dl className="public-pay-bank">
-                      <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
-                      <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
-                      <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
-                    </dl>
+                    {paymentMethod === 'qr' ? (
+                      <img className="public-pay-qr" src={PAYMENT_QR_SRC} alt="Payment QR" />
+                    ) : (
+                      <dl className="public-pay-bank">
+                        <div className="public-pay-bank-row"><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+                        <div className="public-pay-bank-row"><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+                        <div className="public-pay-bank-row"><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+                      </dl>
+                    )}
                   </div>
                   <p className="public-pay-note">
                     Kindly send your payment confirmation to StarShots via{' '}

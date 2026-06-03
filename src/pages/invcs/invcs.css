@@ -744,16 +744,11 @@ button{cursor:pointer}
  *
  * Rendered inside .public-invoice-viewer-card, below the JPG
  * preview, ONLY for unpaid invoices (invoice / deposit / any
- * non-paid state). Lets the client choose how to pay — Bank
- * Transfer (default) or the saved static QR image — without
- * touching the downloadable JPG document or any totals. A `paid`
+ * non-paid state). It mirrors the saved invoice payment method:
+ * Bank Transfer exposes the account number copy flow, while QR
+ * exposes the saved static QR image and download action. A `paid`
  * invoice never renders this panel (the JPG keeps its PAID stamp).
- *
- * The segmented control mirrors the editor's .payment-method-switch
- * pill shape, but the active segment uses a calm blue (var(--accent))
- * fill instead of a white chip so it reads as a refined payment
- * selector rather than a loud form control. Transform-free and
- * mobile-safe. */
+ * Transform-free and mobile-safe. */
 .public-pay{
   display:grid;
   gap:12px;
@@ -1878,7 +1873,36 @@ input.no-spinner::-webkit-inner-spin-button{
   gap:7px;
 }
 
+.payment-method-block{
+  display:grid;
+  gap:8px;
+}
 .payment-method-label{color:var(--muted);font-size:0.75rem;font-weight:800}
+.payment-method-switch{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px;
+  padding:4px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--soft);
+}
+.payment-method-switch button{
+  min-width:0;
+  height:36px;
+  border:0;
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  font-size:0.75rem;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.payment-method-switch button.active{
+  background:#fff;
+  color:var(--ink);
+  box-shadow:var(--shadow-soft);
+}
 
 /* Editor-side summary of the bank transfer destination shown when
  * "Bank Transfer" is the active payment method. Replaces the QR
@@ -1919,6 +1943,36 @@ input.no-spinner::-webkit-inner-spin-button{
   text-align:right;
   font-variant-numeric:tabular-nums;
   word-break:break-all;
+}
+.qr-details-summary{
+  display:grid;
+  gap:8px;
+}
+.qr-details-card{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:92px;
+  padding:12px 14px;
+  border:1px dashed var(--line-strong);
+  border-radius:18px;
+  background:var(--field);
+}
+.qr-details-card img{
+  width:68px;
+  height:68px;
+  flex:0 0 auto;
+  object-fit:contain;
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:5px;
+  background:#fff;
+  image-rendering:pixelated;
+}
+.qr-details-card strong{
+  color:var(--ink);
+  font-size:0.875rem;
+  font-weight:900;
 }
 
 /* Vertical rhythm inside form sections. Each Fieldset wraps its
