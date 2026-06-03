@@ -447,10 +447,25 @@ async function generateGalleryPassword(context = {}, shortCode = '') {
   return contextCode('gallery-password', GALLERY_PASSWORD_LENGTH, context, `${shortCode}|${context.title || context.client_title || ''}`);
 }
 
-function buildDeliveryMessage(title, clientName, shortCode, password) {
+function buildDeliveryMessage(title, clientName, shortCode, password, deliveryDone) {
   const t = String(title ?? 'Ms.').trim();
   const c = String(clientName || '').trim();
   const namePart = t ? `${t} ${c}` : c;
+  const pass = String(password || '').trim() || '(no password)';
+
+  if (deliveryDone) {
+    return `Dear *${namePart.trim()}*,
+
+Your StarShots files are now ready.
+
+You may access them here:
+*Link:* ${PUBLIC_SITE}/${shortCode}
+*Password:* \`${pass}\`
+
+Thank you for your patience.
+With love, StarShots`;
+  }
+
   return `Dear *${namePart.trim()}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
@@ -458,7 +473,7 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 You may access them through the details below:
 
 *Link:* ${PUBLIC_SITE}/${shortCode}
-*Password:* \`${String(password || '').trim()}\`
+*Password:* \`${pass}\`
 
 Should you prefer a different password, please let us know and we will update it for you.
 
@@ -482,8 +497,8 @@ function stripMessageFormatting(text) {
 // WhatsApp template with the formatting markers stripped, so the
 // two channels stay in lockstep (no Folder line, same password-
 // change notice, same "Warm Regards, / StarShots ID" closing).
-function buildDeliveryMessageIg(title, clientName, shortCode, password) {
-  return stripMessageFormatting(buildDeliveryMessage(title, clientName, shortCode, password));
+function buildDeliveryMessageIg(title, clientName, shortCode, password, deliveryDone) {
+  return stripMessageFormatting(buildDeliveryMessage(title, clientName, shortCode, password, deliveryDone));
 }
 
 async function getDeliveryByShortCode(env, code) {
@@ -1830,7 +1845,8 @@ async function handleDbSearch(request, env) {
     const shortCode = deliveryShortCode(d);
     const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
-    const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword) : '');
+    const deliveryDoneBool = !!d.delivery_done;
+    const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
     // IG fallback: prefer the stored IG text when present, otherwise
     // synthesise the IG variant directly. We intentionally do NOT
     // fall back to the WA text here — older rows that only have the
@@ -1839,7 +1855,7 @@ async function handleDbSearch(request, env) {
     // resolve. When neither is available we leave the field empty
     // so the client side can synth its own copy.
     const generatedTextIg = d.generated_text_instagram
-      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword) : '');
+      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
     // Effective event grouping key.
     //
     // Preferred source is the typed column (deliveries.event_key,
@@ -1875,7 +1891,8 @@ async function handleDbSearch(request, env) {
       // Completion flag (db-migration-part-8). Coerced to a real
       // boolean so a missing column on a legacy schema reads as
       // false rather than leaking null into the dashboard.
-      delivery_done: !!d.delivery_done,
+      delivery_done: deliveryDoneBool,
+      password_history: d.password_history || [],
       event_key: effectiveEventKey,
       delivery_url: shortPath,
       short_code: shortCode,
@@ -2131,6 +2148,7 @@ async function handleDbRepairDelivery(request, env) {
   const password = String(body.password || '').trim();
   const id = String(body.id || body.deliveryId || '').trim();
   const rotatePassword = Boolean(body.rotatePassword);
+  const restorePassword = body.restorePassword;
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing delivery id.' }, 400);
 
@@ -2153,8 +2171,10 @@ async function handleDbRepairDelivery(request, env) {
       });
 
   let displayPassword = rotatePassword ? '' : deliveryPasswordForDisplay(delivery);
+  if (restorePassword) displayPassword = restorePassword.password;
+
   const hasStoredHash = !!(String(delivery.password_hash || '').trim() && String(delivery.password_salt || '').trim());
-  if (!displayPassword && hasStoredHash && !rotatePassword) {
+  if (!displayPassword && hasStoredHash && !rotatePassword && !restorePassword) {
     return json({
       error: 'This delivery already has a hashed password but no recoverable display password. Create a fresh delivery link instead.'
     }, 409);
@@ -2169,28 +2189,73 @@ async function handleDbRepairDelivery(request, env) {
     }, shortCode);
   }
 
-  const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword);
-  const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword);
+  let password_history = [];
+  try {
+    if (typeof delivery.password_history === 'string') password_history = JSON.parse(delivery.password_history);
+    else if (Array.isArray(delivery.password_history)) password_history = delivery.password_history;
+  } catch(e){}
+
+  if (rotatePassword || restorePassword) {
+    const oldDisplayPassword = deliveryPasswordForDisplay(delivery);
+    const oldHash = delivery.password_hash;
+    const oldSalt = delivery.password_salt;
+    if (oldDisplayPassword && oldHash) {
+      password_history.unshift({
+        password: oldDisplayPassword,
+        password_hash: oldHash,
+        password_salt: oldSalt,
+        rotated_at: new Date().toISOString()
+      });
+    }
+  }
+
+  if (restorePassword) {
+    password_history = password_history.filter(h => h.password_hash !== restorePassword.password_hash);
+  }
+
+  const deliveryDone = !!delivery.delivery_done;
+  const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, deliveryDone);
+  const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, deliveryDone);
   const patch = {
     short_code: shortCode,
     password: '',
     generated_text_whatsapp: generatedText,
-    generated_text_instagram: generatedTextIg
+    generated_text_instagram: generatedTextIg,
+    password_history: JSON.stringify(password_history)
   };
 
-  if (!hasStoredHash || rotatePassword) {
+  if (restorePassword) {
+    patch.password_hash = restorePassword.password_hash;
+    patch.password_salt = restorePassword.password_salt;
+  } else if (!hasStoredHash || rotatePassword) {
     Object.assign(patch, await hashGalleryPassword(displayPassword));
   }
 
-  const repairedRows = await supabaseFetch(
-    env,
-    `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(patch)
-    }
-  );
+  let repairedRows;
+  try {
+    repairedRows = await supabaseFetch(
+      env,
+      `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(patch)
+      }
+    );
+  } catch (error) {
+    if (!isSchemaError(error)) throw error;
+    delete patch.password_history;
+    repairedRows = await supabaseFetch(
+      env,
+      `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(patch)
+      }
+    );
+  }
+
   const repaired = Array.isArray(repairedRows) ? repairedRows[0] : repairedRows;
 
   await supabaseFetch(
@@ -2251,10 +2316,15 @@ async function handleDbUpdateDelivery(request, env) {
       || body.deliveryDone === 1
       || body.deliveryDone === '1';
     try {
+      const displayPassword = deliveryPasswordForDisplay(delivery);
+      const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery) || '';
+      const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, nextDone);
+      const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, nextDone);
+
       const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ delivery_done: nextDone })
+        body: JSON.stringify({ delivery_done: nextDone, generated_text_whatsapp: generatedText, generated_text_instagram: generatedTextIg })
       });
       const patchedRow = Array.isArray(patched) ? patched[0] : patched;
       let patchedLinks = [];

@@ -295,3 +295,10 @@ create index if not exists delivery_links_link_done_idx
   on public.delivery_links (link_done);
 
 notify pgrst, 'reload schema';
+
+-- ── Password History ─────────
+-- Adds a jsonb array to track old passwords when rotated.
+alter table public.deliveries
+  add column if not exists password_history jsonb not null default '[]'::jsonb;
+
+notify pgrst, 'reload schema';

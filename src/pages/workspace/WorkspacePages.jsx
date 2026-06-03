@@ -1481,11 +1481,25 @@ function buildShortUrl(code) {
 // markers stripped (see stripMessageFormatting + synthesizeDelivery
 // MessageIg below). The folder name is intentionally NOT included —
 // it can be edited internally and must never be sent to the client.
-function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password) {
+function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deliveryDone) {
   const t = String(title ?? 'Ms.').trim() ?? 'Ms.';
   const n = String(clientName || '').trim();
   const link = shortUrl || '(link unavailable)';
   const pass = String(password || '').trim() || '(no password)';
+
+  if (deliveryDone) {
+    return `Dear *${t} ${n}*,
+
+Your StarShots files are now ready.
+
+You may access them here:
+*Link:* ${link}
+*Password:* \`${pass}\`
+
+Thank you for your patience.
+With love, StarShots`;
+  }
+
   return `Dear *${t} ${n}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
@@ -1512,8 +1526,8 @@ function stripMessageFormatting(text) {
   return String(text || '').replace(/[*_~`]/g, '');
 }
 
-function synthesizeDeliveryMessageIg(title, clientName, shortUrl, password) {
-  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, shortUrl, password));
+function synthesizeDeliveryMessageIg(title, clientName, shortUrl, password, deliveryDone) {
+  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deliveryDone));
 }
 
 // Inline circular refresh icon for the password regeneration
@@ -1659,6 +1673,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // parent refetch; markingDone only gates the button while the
   // PATCH is resolving.
   const [markingDone, setMarkingDone] = useState(false);
+  const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
+  const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
 
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
@@ -1689,6 +1705,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   useEffect(() => {
     setRepairStatus('');
     setConfirmDelete(false);
+    setConfirmRotatePassword(false);
+    setConfirmRestoreHash('');
   }, [delivery?.id]);
 
   // Auto-disarm the Delete confirm after ~4s so an accidental first
@@ -1752,10 +1770,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // at display/copy time, so older saved rows (which may carry a
   // Folder line or stale formatting in generated_text_*) never leak
   // to the client. WA keeps markdown; IG is the same text stripped.
-  const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password);
-  const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password);
+  const deliveryDone = !!currentDelivery?.delivery_done;
+  const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deliveryDone);
+  const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password, deliveryDone);
   const messageWa = synthWa;
   const messageIg = synthIg;
+
+  let passwordHistory = [];
+  try {
+    const rawHist = currentDelivery?.password_history;
+    if (typeof rawHist === 'string') passwordHistory = JSON.parse(rawHist);
+    else if (Array.isArray(rawHist)) passwordHistory = rawHist;
+  } catch(e){}
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -2122,7 +2148,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 <button
                   type="button"
                   className="dd-refresh-button"
-                  onClick={() => handleRepairDelivery({ rotatePassword: true })}
+                  onClick={() => setConfirmRotatePassword(true)}
                   disabled={rotatingPassword}
                   aria-label={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
                   title={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
@@ -2145,6 +2171,64 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                     {rotatingPassword ? 'Regenerating...' : 'Generate Secure Password'}
                   </button>
                 ) : null}
+              </div>
+            )}
+            {confirmRotatePassword && (
+              <div className="dd-card dd-card--muted">
+                <span className="dd-eyebrow" style={{ color: 'var(--ink)' }}>Change Password?</span>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="ghost-button compact"
+                    onClick={() => setConfirmRotatePassword(false)}
+                    disabled={rotatingPassword}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-button compact"
+                    style={{ color: 'var(--accent-2)', borderColor: 'var(--accent-2)' }}
+                    onClick={() => {
+                      setConfirmRotatePassword(false);
+                      handleRepairDelivery({ rotatePassword: true });
+                    }}
+                    disabled={rotatingPassword}
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+            )}
+            {passwordHistory.length > 0 && !confirmRotatePassword && (
+              <div className="dd-password-history" style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span className="dd-eyebrow" style={{ paddingLeft: '4px' }}>Password History</span>
+                <div style={{ display: 'grid', gap: '6px' }}>
+                  {passwordHistory.map((hist, i) => {
+                    const isConfirming = confirmRestoreHash === hist.password_hash;
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: 'var(--field)', borderRadius: '12px', border: '1px solid var(--line)' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.8125rem', color: 'var(--ink)' }}>{hist.password}</strong>
+                        </div>
+                        {isConfirming ? (
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Restore Password?</span>
+                            <button type="button" className="ghost-button compact" style={{ padding: '0 8px', minHeight: '26px' }} onClick={() => setConfirmRestoreHash('')}>No</button>
+                            <button type="button" className="ghost-button compact" style={{ padding: '0 8px', minHeight: '26px', color: 'var(--accent-2)', borderColor: 'var(--accent-2)' }} onClick={() => {
+                              setConfirmRestoreHash('');
+                              handleRepairDelivery({ restorePassword: hist });
+                            }}>Restore</button>
+                          </div>
+                        ) : (
+                          <button type="button" className="ghost-button compact" style={{ padding: '0 8px', minHeight: '26px' }} onClick={() => setConfirmRestoreHash(hist.password_hash)}>
+                            Restore
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
