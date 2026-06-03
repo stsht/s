@@ -999,6 +999,13 @@ function invoiceDeliveryScore(invoice = {}, delivery = {}) {
   return 0;
 }
 
+function isClientInvoiceRecord(invoice = {}) {
+  if (!invoice || typeof invoice !== 'object') return false;
+  const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const type = String(invoice.invoice_type || data.invoiceType || '').trim().toLowerCase();
+  return type !== 'vendor';
+}
+
 async function findInvoiceForDelivery(env, delivery = {}) {
   const deliveryId = String(delivery.id || '').trim();
   if (!deliveryId) return null;
@@ -1006,9 +1013,9 @@ async function findInvoiceForDelivery(env, delivery = {}) {
   try {
     const exactRows = await supabaseFetch(
       env,
-      `/rest/v1/invoices?select=*&invoice_data->>delivery_id=eq.${encodeURIComponent(deliveryId)}&order=updated_at.desc&limit=1`
+      `/rest/v1/invoices?select=*&invoice_data->>delivery_id=eq.${encodeURIComponent(deliveryId)}&order=updated_at.desc&limit=10`
     );
-    const exact = Array.isArray(exactRows) ? exactRows[0] : exactRows;
+    const exact = (Array.isArray(exactRows) ? exactRows : [exactRows]).find(isClientInvoiceRecord);
     if (exact) return exact;
   } catch (error) {
     if (!isSchemaError(error)) console.warn('[public-invoice] jsonb delivery lookup failed:', error?.message || error);
@@ -1020,6 +1027,7 @@ async function findInvoiceForDelivery(env, delivery = {}) {
     (Array.isArray(rows) ? rows : []).forEach((row) => {
       const id = String(row?.id || '');
       if (!id || seen.has(id)) return;
+      if (!isClientInvoiceRecord(row)) return;
       seen.add(id);
       candidates.push(row);
     });

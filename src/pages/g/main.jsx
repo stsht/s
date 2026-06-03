@@ -279,6 +279,7 @@ function GalleryLinks({ payload }) {
   const touchStartScaleRef = useRef(1);
   const gestureStartScaleRef = useRef(1);
   const touchLastPointRef = useRef(null);
+  const pointerLastPointRef = useRef(null);
   const previewContainerRef = useRef(null);
 
   // Reset scale when invoice preview surfaces close
@@ -365,6 +366,40 @@ function GalleryLinks({ payload }) {
       if (nextScale === 1) setPan({ x: 0, y: 0 });
     };
 
+    const handlePointerDown = (e) => {
+      if (e.pointerType === 'touch' || scale <= 1) return;
+      e.preventDefault();
+      el.setPointerCapture?.(e.pointerId);
+      pointerLastPointRef.current = {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+      };
+    };
+
+    const handlePointerMove = (e) => {
+      const lastPoint = pointerLastPointRef.current;
+      if (!lastPoint || lastPoint.id !== e.pointerId || scale <= 1) return;
+      e.preventDefault();
+      const dx = e.clientX - lastPoint.x;
+      const dy = e.clientY - lastPoint.y;
+      pointerLastPointRef.current = {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+      };
+      setPan((current) => ({
+        x: current.x + dx,
+        y: current.y + dy,
+      }));
+    };
+
+    const handlePointerEnd = (e) => {
+      if (pointerLastPointRef.current?.id === e.pointerId) {
+        pointerLastPointRef.current = null;
+      }
+    };
+
     el.addEventListener('touchstart', handleTouchStart, { passive: false });
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
     el.addEventListener('touchend', handleTouchEnd, { passive: false });
@@ -372,6 +407,11 @@ function GalleryLinks({ payload }) {
     el.addEventListener('wheel', handleWheel, { passive: false });
     el.addEventListener('gesturestart', handleGestureStart, { passive: false });
     el.addEventListener('gesturechange', handleGestureChange, { passive: false });
+    el.addEventListener('pointerdown', handlePointerDown);
+    el.addEventListener('pointermove', handlePointerMove);
+    el.addEventListener('pointerup', handlePointerEnd);
+    el.addEventListener('pointercancel', handlePointerEnd);
+    el.addEventListener('lostpointercapture', handlePointerEnd);
 
     return () => {
       el.removeEventListener('touchstart', handleTouchStart);
@@ -381,8 +421,13 @@ function GalleryLinks({ payload }) {
       el.removeEventListener('wheel', handleWheel);
       el.removeEventListener('gesturestart', handleGestureStart);
       el.removeEventListener('gesturechange', handleGestureChange);
+      el.removeEventListener('pointerdown', handlePointerDown);
+      el.removeEventListener('pointermove', handlePointerMove);
+      el.removeEventListener('pointerup', handlePointerEnd);
+      el.removeEventListener('pointercancel', handlePointerEnd);
+      el.removeEventListener('lostpointercapture', handlePointerEnd);
     };
-  }, [fullScreenPreviewOpen, invoiceOpen, pan, scale]);
+  }, [fullScreenPreviewOpen, invoiceOpen, scale]);
 
   // Pressing Esc closes the invoice viewer
   useEffect(() => {
@@ -447,6 +492,12 @@ function GalleryLinks({ payload }) {
       setInvoice(null);
       setInvoiceStatus(error.message || 'Invoice unavailable.');
     }
+  }
+
+  function openFullInvoice() {
+    setScale(1);
+    setPan({ x: 0, y: 0 });
+    setFullScreenPreviewOpen(true);
   }
 
   useEffect(() => {
@@ -664,36 +715,6 @@ function GalleryLinks({ payload }) {
                 <button
                   type="button"
                   className="public-invoice-action public-invoice-action--ghost"
-                  onClick={() => {
-                    setScale(1);
-                    setPan({ x: 0, y: 0 });
-                  }}
-                >
-                  Fit
-                </button>
-                {invoiceImage ? (
-                  <a
-                    className="public-invoice-action public-invoice-action--ghost"
-                    href={invoiceImage}
-                    download={`${downloadSafeName}-invoice.jpg`}
-                  >
-                    <IconDownload />
-                    <span>Download Invoice</span>
-                  </a>
-                ) : null}
-                {showPaymentPanel ? (
-                  <button
-                      type="button"
-                      className="public-invoice-action public-invoice-action--primary"
-                      onClick={handlePaymentAction}
-                    >
-                      <PaymentActionIcon />
-                      <span>{paymentActionLabel}</span>
-                    </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="public-invoice-action public-invoice-action--ghost"
                   onClick={() => setInvoiceOpen(false)}
                   aria-label="Close"
                   style={{ padding: 0, width: '38px' }}
@@ -718,30 +739,12 @@ function GalleryLinks({ payload }) {
 
             {/* Scrollable Body container for mobile, standard flow for desktop */}
             <div className="public-invoice-viewer-body">
-              {/* Desktop Frame (hidden on mobile) */}
-              <div className="public-invoice-frame desktop-only-frame" ref={previewContainerRef}>
-                {invoiceImage ? (
-                  <img
-                    src={invoiceImage}
-                    alt="Invoice JPG"
-                    className={scale > 1 ? 'is-zoomed' : ''}
-                    style={{
-                      '--scale': scale,
-                      '--pan-x': `${pan.x}px`,
-                      '--pan-y': `${pan.y}px`,
-                    }}
-                  />
-                ) : (
-                  <p>{invoiceStatus || 'Rendering invoice...'}</p>
-                )}
-              </div>
-
-              {/* Mobile View Invoice Row / Trigger (hidden on desktop) */}
-              <div className="public-invoice-mobile-preview-container mobile-only-preview">
+              {/* Invoice gate / trigger. The actual JPG opens in the black fullscreen viewer. */}
+              <div className="public-invoice-mobile-preview-container public-invoice-gate">
                 <button
                   type="button"
                   className="public-invoice-mobile-preview-trigger"
-                  onClick={() => setFullScreenPreviewOpen(true)}
+                  onClick={openFullInvoice}
                 >
                   <div className="public-invoice-mobile-preview-thumbnail">
                     {invoiceImage ? (
@@ -832,10 +835,10 @@ function GalleryLinks({ payload }) {
       {fullScreenPreviewOpen ? (
         <div className="public-invoice-fullscreen" role="dialog" aria-modal="true" aria-label="Fullscreen invoice preview">
           <header className="public-invoice-fullscreen-header">
-            <button className="public-invoice-fullscreen-btn" onClick={() => setFullScreenPreviewOpen(false)}>
+            <button type="button" className="public-invoice-fullscreen-btn" onClick={() => setFullScreenPreviewOpen(false)} aria-label="Close invoice preview">
               <IconClose />
             </button>
-            <button className="public-invoice-fullscreen-btn" onClick={() => {
+            <button type="button" className="public-invoice-fullscreen-btn" onClick={() => {
               setScale(1);
               setPan({ x: 0, y: 0 });
               if (previewContainerRef.current) {

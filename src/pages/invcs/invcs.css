@@ -638,7 +638,7 @@ button{cursor:pointer}
   display:grid;
   place-items:stretch;
   padding:0;
-  background:#071330;
+  background:var(--panel);
   backdrop-filter:none;
 }
 .public-invoice-viewer-card{
@@ -650,7 +650,8 @@ button{cursor:pointer}
   overflow:hidden;
   border:0;
   border-radius:0;
-  background:#071330;
+  background:var(--panel);
+  color:var(--ink);
   box-shadow:none;
 }
 .public-invoice-viewer-toolbar{
@@ -696,7 +697,12 @@ button{cursor:pointer}
   min-height:0;
   display:flex;
   flex-direction:column;
-  overflow:hidden;
+  gap:20px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  padding:24px;
+  padding-bottom:calc(32px + env(safe-area-inset-bottom));
+  background:var(--panel);
 }
 .public-invoice-frame{
   flex:1;
@@ -753,7 +759,10 @@ button{cursor:pointer}
   display:grid;
   gap:12px;
   padding:16px;
-  border-top:1px solid var(--line);
+  width:min(760px,100%);
+  margin:0 auto;
+  border:1px solid var(--line);
+  border-radius:18px;
   background:var(--panel);
 }
 .public-pay-head{
@@ -942,6 +951,207 @@ button{cursor:pointer}
   text-decoration:none;
 }
 .public-pay-note a:hover{text-decoration:underline}
+
+/* Shared public invoice gate + zoom viewer
+ * ------------------------------------------------------------
+ * The invoice/payment page is a simple action gate. The invoice JPG
+ * itself only appears inside the black fullscreen viewer so pinch,
+ * trackpad zoom, and drag/pan never fight the surrounding payment
+ * content. */
+.public-invoice-gate{
+  display:flex !important;
+  flex-direction:column;
+  gap:14px;
+  width:min(760px,100%);
+  margin:0 auto;
+  flex-shrink:0;
+}
+.public-invoice-mobile-preview-trigger{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  width:100%;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--field);
+  color:var(--ink);
+  font:inherit;
+  cursor:pointer;
+  text-align:left;
+  text-decoration:none;
+  outline:none;
+  transition:background .15s ease,border-color .15s ease;
+}
+.public-invoice-mobile-preview-trigger:active{
+  background:var(--soft);
+  border-color:var(--line-strong);
+}
+.public-invoice-mobile-preview-thumbnail{
+  width:58px;
+  height:58px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#fff;
+}
+.public-invoice-mobile-preview-thumbnail img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.thumbnail-placeholder{font-size:1.5rem}
+.public-invoice-mobile-preview-info{
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+.public-invoice-mobile-preview-info strong{
+  color:var(--ink);
+  font-size:0.9375rem;
+  font-weight:900;
+}
+.public-invoice-mobile-preview-info span{
+  color:var(--muted);
+  font-size:0.8125rem;
+  font-weight:700;
+}
+.public-invoice-mobile-preview-arrow{
+  width:38px;
+  height:38px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  border-radius:999px;
+  background:var(--soft);
+  color:var(--ink);
+}
+.public-invoice-mobile-preview-arrow svg{
+  width:16px;
+  height:16px;
+  margin:0 !important;
+}
+.public-invoice-mobile-actions{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:100%;
+}
+.public-invoice-mobile-actions .public-invoice-action{
+  min-height:46px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  width:100%;
+  padding:0 16px;
+  border:1px solid transparent;
+  border-radius:14px;
+  font:inherit;
+  font-size:0.8125rem;
+  font-weight:900;
+  text-decoration:none;
+  cursor:pointer;
+}
+.public-invoice-mobile-actions .public-invoice-action svg{
+  width:15px;
+  height:15px;
+  margin:0 !important;
+}
+.public-invoice-mobile-actions .public-invoice-action--primary{
+  background:var(--accent);
+  color:#fff;
+  box-shadow:0 8px 20px -8px rgba(95,149,245,.65);
+}
+.public-invoice-mobile-actions .public-invoice-action--small{
+  min-height:34px;
+  align-self:center;
+  width:auto;
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font-size:0.75rem;
+  text-decoration:underline;
+}
+.public-invoice-fullscreen{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:flex !important;
+  flex-direction:column;
+  background:#000;
+  color:#fff;
+}
+.public-invoice-fullscreen-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:16px 20px;
+  padding-top:calc(16px + env(safe-area-inset-top));
+  border-bottom:1px solid rgba(255,255,255,.12);
+  background:rgba(0,0,0,.88);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  flex:none;
+}
+.public-invoice-fullscreen-btn{
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:0 17px;
+  border:0;
+  border-radius:999px;
+  background:rgba(255,255,255,.15);
+  color:#fff;
+  font:inherit;
+  font-size:0.8125rem;
+  font-weight:900;
+  text-decoration:none;
+  cursor:pointer;
+}
+.public-invoice-fullscreen-btn svg{
+  width:16px;
+  height:16px;
+  color:#fff;
+  margin:0 !important;
+}
+.public-invoice-fullscreen-body{
+  flex:1;
+  min-height:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  padding:32px;
+  background:#000;
+  touch-action:none;
+  user-select:none;
+}
+.public-invoice-fullscreen-img{
+  display:block;
+  width:auto;
+  max-width:min(100%,1120px);
+  max-height:100%;
+  height:auto;
+  object-fit:contain;
+  border-radius:14px;
+  box-shadow:0 14px 44px rgba(0,0,0,.55);
+  transform:translate3d(var(--pan-x,0),var(--pan-y,0),0) scale(var(--scale,1));
+  transform-origin:center center;
+  will-change:transform;
+}
+.public-invoice-fullscreen-img.is-zoomed{
+  border-radius:0;
+  cursor:grab;
+}
 
 /* Off-screen QR payment card captured by html2canvas for the
  * "Download QR" action. Hard-coded light palette (independent of the
@@ -5541,9 +5751,7 @@ dd{margin:0;text-align:right;font-weight:800}
 /* By default (desktop), hide mobile-only elements */
 .mobile-only-header,
 .mobile-only-preview,
-.public-invoice-viewer-header-mobile,
-.public-invoice-mobile-preview-container,
-.public-invoice-fullscreen {
+.public-invoice-viewer-header-mobile {
   display: none !important;
 }
 
