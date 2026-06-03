@@ -1889,6 +1889,17 @@ async function handleDbSearch(request, env) {
 
   const latestInvoiceByClient = latestByClientKey(allInvoices);
   const latestDeliveryByClient = latestByClientKey(allDeliveries);
+  const invoiceById = new Map();
+  const invoiceByDeliveryId = new Map();
+  for (const inv of allInvoices) {
+    const invId = String(inv?.id || '').trim();
+    if (invId) invoiceById.set(invId, inv);
+    const data = (inv?.invoice_data && typeof inv.invoice_data === 'object') ? inv.invoice_data : {};
+    const deliveryId = String(data.delivery_id || '').trim();
+    if (deliveryId && !invoiceByDeliveryId.has(deliveryId)) {
+      invoiceByDeliveryId.set(deliveryId, inv);
+    }
+  }
 
   const items = allDeliveries.map((d) => {
     const key = String(d.id);
@@ -1927,16 +1938,24 @@ async function handleDbSearch(request, env) {
     // .delivery_id matches this delivery contributes its own id as
     // the effective event_key, so /db's grouping pass on the client
     // can still merge the invoice + delivery into a single row.
-    let effectiveEventKey = String(d.event_key || '').trim();
+    const typedEventKey = String(d.event_key || '').trim();
+    const linkedInvoiceForDelivery = invoiceByDeliveryId.get(key) || invoiceById.get(typedEventKey) || null;
+    const linkedInvoiceData = (linkedInvoiceForDelivery?.invoice_data && typeof linkedInvoiceForDelivery.invoice_data === 'object')
+      ? linkedInvoiceForDelivery.invoice_data
+      : {};
+    const linkedInvoiceType = String(
+      linkedInvoiceForDelivery?.invoice_type
+        || linkedInvoiceData.invoiceType
+        || d.type
+        || ''
+    ).trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
+    let effectiveEventKey = typedEventKey;
     if (!effectiveEventKey) {
-      const xref = allInvoices.find((inv) => {
-        const data = (inv?.invoice_data && typeof inv.invoice_data === 'object') ? inv.invoice_data : {};
-        return String(data.delivery_id || '') === key;
-      });
-      if (xref?.id) effectiveEventKey = String(xref.id);
+      if (linkedInvoiceForDelivery?.id) effectiveEventKey = String(linkedInvoiceForDelivery.id);
     }
     return {
       id: d.id,
+      type: linkedInvoiceType,
       title: d.title,
       client_id: d.client_id || '',
       client_name: d.client_name,

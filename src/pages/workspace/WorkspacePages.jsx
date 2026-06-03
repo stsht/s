@@ -887,25 +887,17 @@ function buildClientRecords(client, invoices, deliveries, todayIso) {
     const cContact = String(record?.client_contact || record?.contact || '').trim();
 
     if (cName) {
-      if (isVendor && !group.vendorName) {
-        group.vendorName = cName;
-      }
-      if (!group.name || (group.nameIsVendor && !isVendor)) {
+      if (isVendor) {
+        if (!group.vendorName) group.vendorName = cName;
+      } else if (!group.name) {
         group.name = cName;
-        group.nameIsVendor = isVendor;
       }
     }
-    if (cTitle) {
-      if (!group.title || (group.titleIsVendor && !isVendor)) {
-        group.title = cTitle;
-        group.titleIsVendor = isVendor;
-      }
+    if (!isVendor && cTitle && !group.title) {
+      group.title = cTitle;
     }
-    if (cContact) {
-      if (!group.contact || (group.contactIsVendor && !isVendor)) {
-        group.contact = cContact;
-        group.contactIsVendor = isVendor;
-      }
+    if (!isVendor && cContact && !group.contact) {
+      group.contact = cContact;
     }
 
     if (kind === 'delivery') {
@@ -1108,7 +1100,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
           // The Create Events sheet above always passes a fresh
           // UUID so brand-new events never collide with these
           // anchor IDs.
-          const rowEventKey = row.eventKey || row.delivery?.id || row.invoice?.id || '';
+          const rowEventKey = row.eventKey || row.delivery?.id || row.invoice?.id || row.vendorDelivery?.id || row.vendorInvoice?.id || '';
           const eventLinkHref = row.delivery?.id
             ? row.delivery.short_url || row.delivery.delivery_url || newEventLinkHref
             : createRecordUrl('/l/', {
@@ -1174,6 +1166,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
                 eventDate: row.eventDate,
                 eventKey: rowEventKey,
                 clientId: parentClientId,
+                invoiceId: row.vendorInvoice?.id || '',
                 type: 'vendor',
                 folderName: row.delivery?.folder_name,
               });
@@ -1190,7 +1183,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
           // we use it to drive both the React key and the mobile "armed"
           // state (parent owns the armed-id so only one row at a time
           // can show its delete button on touch devices).
-          const recordKey = row.delivery?.id || row.invoice?.id || `${row.date}-${index}`;
+          const recordKey = row.delivery?.id || row.invoice?.id || row.vendorDelivery?.id || row.vendorInvoice?.id || `${row.date}-${index}`;
           return (
             <RecordRow
               key={recordKey}
@@ -1368,8 +1361,8 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
           href={eventVendorDeliveryHref}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={hasVendorDelivery ? 'View vendor delivery' : 'Create vendor delivery'}
-          title={hasVendorDelivery ? 'View Vendor Delivery' : 'Create Vendor Delivery'}
+          aria-label={hasVendorDelivery ? 'View vendor links' : 'Create vendor links'}
+          title={hasVendorDelivery ? 'View Vendor Links' : 'Create Vendor Links'}
         >
           <LinkIcon />
         </a>
