@@ -2317,7 +2317,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
             </form>
           ) : services.length ? (
             <div className="dd-services">
-              {services.map(({ key, label, url, done }) => (
+              {services.map(({ key, label, url }) => (
                 <a
                   key={key}
                   className="dd-card dd-card--action dd-service-card"
@@ -2327,14 +2327,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 >
                   <span className="dd-service-head">
                     <span className="dd-chip">{key.toUpperCase()}</span>
-                    <span className="dd-service-label">
-                      {label}
-                      {!done && (
-                        <span style={{ marginLeft: 8, opacity: 0.6, fontSize: '0.85em', fontWeight: 'normal' }}>
-                          (In Progress)
-                        </span>
-                      )}
-                    </span>
+                    <span className="dd-service-label">{label}</span>
                   </span>
                   <span className="dd-service-url">{url}</span>
                 </a>

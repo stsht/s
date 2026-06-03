@@ -970,7 +970,9 @@ async function publicDeliveryPayload(env, delivery) {
       clientName: delivery.client_name,
       folderName: delivery.folder_name,
       baseSlug: delivery.base_slug,
-      eventDate: delivery.event_date || ''
+      eventDate: delivery.event_date || '',
+      delivery_done: !!delivery.delivery_done,
+      deliveryDone: !!delivery.delivery_done
     },
     links,
     invoice: invoiceSummary(invoice)

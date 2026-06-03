@@ -567,7 +567,7 @@ function GalleryLinks({ payload }) {
           {resolvedServices.map(({ key, fallback, icon, link }) => {
             const url = link?.url || '';
             const name = link?.label || fallback;
-            const isDone = link ? !!link.link_done : false;
+            const isDone = !!(delivery.delivery_done || delivery.deliveryDone);
             const hasEventDate = !!payload?.delivery?.eventDate;
 
             if (url && isDone) {
