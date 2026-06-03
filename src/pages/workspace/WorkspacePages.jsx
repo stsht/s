@@ -2242,37 +2242,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 </div>
               </div>
             )}
-            {passwordHistory.length > 0 && !confirmRotatePassword && (
-              <div className="dd-password-history" style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span className="dd-eyebrow" style={{ paddingLeft: '4px' }}>Password History</span>
-                <div style={{ display: 'grid', gap: '6px' }}>
-                  {passwordHistory.map((hist, i) => {
-                    const isConfirming = confirmRestoreHash === hist.password_hash;
-                    return (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 12px', background: 'var(--field)', borderRadius: '12px', border: '1px solid var(--line)' }}>
-                        <div>
-                          <strong style={{ fontSize: '0.8125rem', color: 'var(--ink)' }}>{hist.password}</strong>
-                        </div>
-                        {isConfirming ? (
-                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>Restore Password?</span>
-                            <button type="button" className="ghost-button compact" style={{ padding: '0 8px', minHeight: '26px' }} onClick={() => setConfirmRestoreHash('')}>No</button>
-                            <button type="button" className="ghost-button compact" style={{ padding: '0 8px', minHeight: '26px', color: 'var(--accent-2)', borderColor: 'var(--accent-2)' }} onClick={() => {
-                              setConfirmRestoreHash('');
-                              handleRepairDelivery({ restorePassword: hist });
-                            }}>Restore</button>
-                          </div>
-                        ) : (
-                          <button type="button" className="ghost-button compact" style={{ padding: '0 8px', minHeight: '26px' }} onClick={() => setConfirmRestoreHash(hist.password_hash)}>
-                            Restore
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {editingLinks ? (
@@ -2392,6 +2361,41 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
               </button>
             </div>
           </div>
+
+          {passwordHistory.length > 0 && (
+            <div className="dd-password-history" style={{ marginTop: '32px' }}>
+              <p className="eyebrow" style={{ margin: '0 0 16px 0' }}>Password History</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+                {passwordHistory.map((hist, i) => {
+                  const isConfirming = confirmRestoreHash === hist.password_hash;
+                  return (
+                    <div key={i} className="dd-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--field)', borderRadius: '12px', border: '1px solid var(--line)' }}>
+                      <div style={{ overflow: 'hidden', flex: '1 1 auto', paddingRight: '12px' }}>
+                        <strong style={{ fontSize: '0.9375rem', color: 'var(--ink)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{hist.password}</strong>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--mute)' }}>
+                          {hist.rotated_at ? new Date(hist.rotated_at).toLocaleDateString() : 'Previous'}
+                        </span>
+                      </div>
+                      {isConfirming ? (
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+                          <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>Restore?</span>
+                          <button type="button" className="ghost-button compact" style={{ padding: '0 12px', minHeight: '32px' }} onClick={() => setConfirmRestoreHash('')}>No</button>
+                          <button type="button" className="ghost-button compact" style={{ padding: '0 12px', minHeight: '32px', color: 'var(--accent-2)', borderColor: 'var(--accent-2)' }} onClick={() => {
+                            setConfirmRestoreHash('');
+                            handleRepairDelivery({ restorePassword: hist });
+                          }}>Restore</button>
+                        </div>
+                      ) : (
+                        <button type="button" className="ghost-button compact" style={{ padding: '0 16px', minHeight: '32px', flexShrink: 0 }} onClick={() => setConfirmRestoreHash(hist.password_hash)}>
+                          Restore
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
