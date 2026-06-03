@@ -1978,7 +1978,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     }
   }
 
-  const deliveryDone = !!currentDelivery?.delivery_done;
 
   return (
     <>
