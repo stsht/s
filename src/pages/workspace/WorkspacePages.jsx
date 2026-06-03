@@ -1675,6 +1675,22 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   const [markingDone, setMarkingDone] = useState(false);
   const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
   const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
+  const noButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (confirmRotatePassword && noButtonRef.current) {
+      noButtonRef.current.focus();
+    }
+  }, [confirmRotatePassword]);
+
+  useEffect(() => {
+    if (!confirmRotatePassword) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setConfirmRotatePassword(false);
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [confirmRotatePassword]);
 
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
@@ -2173,29 +2189,56 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
               </div>
             )}
             {confirmRotatePassword && (
-              <div className="dd-card dd-card--muted">
-                <span className="dd-eyebrow" style={{ color: 'var(--ink)' }}>Change Password?</span>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  <button
-                    type="button"
-                    className="ghost-button compact"
-                    onClick={() => setConfirmRotatePassword(false)}
-                    disabled={rotatingPassword}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost-button compact"
-                    style={{ color: 'var(--accent-2)', borderColor: 'var(--accent-2)' }}
-                    onClick={() => {
-                      setConfirmRotatePassword(false);
-                      handleRepairDelivery({ rotatePassword: true });
-                    }}
-                    disabled={rotatingPassword}
-                  >
-                    Change
-                  </button>
+              <div
+                className="dd-confirm-overlay"
+                style={{
+                  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  zIndex: 9999,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '16px'
+                }}
+                onClick={() => setConfirmRotatePassword(false)}
+              >
+                <div
+                  className="dd-confirm-modal"
+                  style={{
+                    backgroundColor: 'var(--bg, #fff)',
+                    padding: '24px',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    minWidth: '280px',
+                    maxWidth: '100%'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="confirm-title"
+                >
+                  <h3 id="confirm-title" style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Change Password?</h3>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="ghost-button compact"
+                      onClick={() => setConfirmRotatePassword(false)}
+                      disabled={rotatingPassword}
+                      ref={noButtonRef}
+                    >
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button compact"
+                      style={{ color: 'var(--accent-2, red)', borderColor: 'var(--accent-2, red)' }}
+                      onClick={() => {
+                        setConfirmRotatePassword(false);
+                        handleRepairDelivery({ rotatePassword: true });
+                      }}
+                      disabled={rotatingPassword}
+                    >
+                      Change
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
