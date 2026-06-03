@@ -1724,8 +1724,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
       const sameRow = String(prev?.id || '') === String(incoming.id || '');
       const incomingPwd = String(incoming.password || '').trim();
       const prevPwd = String(prev?.password || '').trim();
-      if (sameRow && !incomingPwd && prevPwd) {
-        return { ...incoming, password: prev.password };
+      const hasIncomingHistory = Array.isArray(incoming.password_history)
+        ? incoming.password_history.length > 0
+        : String(incoming.password_history || '').trim().replace(/^\[\]$/, '').length > 0;
+      const hasPrevHistory = Array.isArray(prev?.password_history)
+        ? prev.password_history.length > 0
+        : String(prev?.password_history || '').trim().replace(/^\[\]$/, '').length > 0;
+      if (sameRow && ((!incomingPwd && prevPwd) || (!hasIncomingHistory && hasPrevHistory))) {
+        return {
+          ...incoming,
+          password: !incomingPwd && prevPwd ? prev.password : incoming.password,
+          password_history: !hasIncomingHistory && hasPrevHistory ? prev.password_history : incoming.password_history,
+        };
       }
       return incoming;
     });
@@ -1862,6 +1872,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   async function handleRepairDelivery(options = {}) {
     if (!currentDelivery?.id) return;
     const rotatePassword = Boolean(options.rotatePassword);
+    const restorePassword = options.restorePassword || null;
     if (rotatePassword) setRotatingPassword(true);
     else setRepairing(true);
     setRepairStatus('');
@@ -1870,7 +1881,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id, rotatePassword }),
+        body: JSON.stringify({ id: currentDelivery.id, rotatePassword, restorePassword }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) {
@@ -1888,7 +1899,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         needs_secure_repair: false,
       };
       setCurrentDelivery(repaired);
-      setRepairStatus(rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.');
+      setRepairStatus(restorePassword ? 'Password restored.' : (rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.'));
       onRepaired?.(repaired);
     } catch (error) {
       setRepairStatus(error?.message || 'Repair failed.');

@@ -424,6 +424,55 @@ function deliveryPasswordForDisplay(delivery = {}) {
   return match ? String(match[1] || '').trim().replace(/^[*`\s]+/, '').replace(/[*`\s]+$/, '') : '';
 }
 
+const PASSWORD_HISTORY_MARKER_RE = /\n?\[SS_PASSWORD_HISTORY:([^\]]*)\]\s*$/;
+
+function stripPasswordHistoryMarker(value = '') {
+  return String(value || '').replace(PASSWORD_HISTORY_MARKER_RE, '').trim();
+}
+
+function encodePasswordHistoryMarker(history = []) {
+  try {
+    const payload = encodeURIComponent(JSON.stringify(Array.isArray(history) ? history : []));
+    return `[SS_PASSWORD_HISTORY:${payload}]`;
+  } catch {
+    return '[SS_PASSWORD_HISTORY:%5B%5D]';
+  }
+}
+
+function withPasswordHistoryMarker(value = '', history = []) {
+  const clean = stripPasswordHistoryMarker(value);
+  if (!Array.isArray(history) || history.length === 0) return clean;
+  return `${clean}\n\n${encodePasswordHistoryMarker(history)}`;
+}
+
+function parsePasswordHistoryValue(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function passwordHistoryFromGeneratedText(delivery = {}) {
+  const text = [delivery.generated_text_instagram, delivery.generated_text_whatsapp].filter(Boolean).join('\n');
+  const match = text.match(PASSWORD_HISTORY_MARKER_RE);
+  if (!match?.[1]) return [];
+  try {
+    const parsed = JSON.parse(decodeURIComponent(match[1]));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function deliveryPasswordHistory(delivery = {}) {
+  const direct = parsePasswordHistoryValue(delivery.password_history);
+  return direct.length ? direct : passwordHistoryFromGeneratedText(delivery);
+}
+
 function deliveryShortCode(delivery = {}) {
   return cleanShortCode(delivery.short_code);
 }
@@ -1846,7 +1895,8 @@ async function handleDbSearch(request, env) {
     const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
     const deliveryDoneBool = !!d.delivery_done;
-    const generatedText = d.generated_text_whatsapp || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
+    const generatedText = stripPasswordHistoryMarker(d.generated_text_whatsapp)
+      || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
     // IG fallback: prefer the stored IG text when present, otherwise
     // synthesise the IG variant directly. We intentionally do NOT
     // fall back to the WA text here — older rows that only have the
@@ -1854,8 +1904,9 @@ async function handleDbSearch(request, env) {
     // copy panel, which is the bug the channel split is meant to
     // resolve. When neither is available we leave the field empty
     // so the client side can synth its own copy.
-    const generatedTextIg = d.generated_text_instagram
+    const generatedTextIg = stripPasswordHistoryMarker(d.generated_text_instagram)
       || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
+    const passwordHistory = deliveryPasswordHistory(d);
     // Effective event grouping key.
     //
     // Preferred source is the typed column (deliveries.event_key,
@@ -1892,7 +1943,7 @@ async function handleDbSearch(request, env) {
       // boolean so a missing column on a legacy schema reads as
       // false rather than leaking null into the dashboard.
       delivery_done: deliveryDoneBool,
-      password_history: d.password_history || [],
+      password_history: passwordHistory,
       event_key: effectiveEventKey,
       delivery_url: shortPath,
       short_code: shortCode,
@@ -2189,11 +2240,7 @@ async function handleDbRepairDelivery(request, env) {
     }, shortCode);
   }
 
-  let password_history = [];
-  try {
-    if (typeof delivery.password_history === 'string') password_history = JSON.parse(delivery.password_history);
-    else if (Array.isArray(delivery.password_history)) password_history = delivery.password_history;
-  } catch(e){}
+  let password_history = deliveryPasswordHistory(delivery);
 
   if (rotatePassword || restorePassword) {
     const oldDisplayPassword = deliveryPasswordForDisplay(delivery);
@@ -2216,11 +2263,12 @@ async function handleDbRepairDelivery(request, env) {
   const deliveryDone = !!delivery.delivery_done;
   const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, deliveryDone);
   const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, deliveryDone);
+  const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, password_history);
   const patch = {
     short_code: shortCode,
     password: '',
     generated_text_whatsapp: generatedText,
-    generated_text_instagram: generatedTextIg,
+    generated_text_instagram: storedGeneratedTextIg,
     password_history
   };
 
@@ -2286,6 +2334,7 @@ async function handleDbRepairDelivery(request, env) {
       short_url: `/${shortCode}`,
       generated_text_whatsapp: generatedText,
       generated_text_instagram: generatedTextIg,
+      password_history,
       needs_secure_repair: false
     }
   });
@@ -2320,11 +2369,13 @@ async function handleDbUpdateDelivery(request, env) {
       const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery) || '';
       const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, nextDone);
       const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, nextDone);
+      const passwordHistory = deliveryPasswordHistory(delivery);
+      const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
 
       const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ delivery_done: nextDone, generated_text_whatsapp: generatedText, generated_text_instagram: generatedTextIg })
+        body: JSON.stringify({ delivery_done: nextDone, generated_text_whatsapp: generatedText, generated_text_instagram: storedGeneratedTextIg })
       });
       const patchedRow = Array.isArray(patched) ? patched[0] : patched;
       let patchedLinks = [];
@@ -2343,6 +2394,8 @@ async function handleDbUpdateDelivery(request, env) {
           ...delivery,
           ...(patchedRow || {}),
           delivery_done: nextDone,
+          generated_text_instagram: generatedTextIg,
+          password_history: passwordHistory,
           links: Array.isArray(patchedLinks) ? patchedLinks : []
         }
       });
