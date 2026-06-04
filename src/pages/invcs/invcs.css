@@ -5399,34 +5399,47 @@ dd{margin:0;text-align:right;font-weight:800}
 .dd-visitor-card{
   display:grid;
   gap:3px;
-  padding:10px 12px;
+  padding:11px 13px;
   border:1px solid var(--line);
   border-radius:14px;
   background:var(--panel);
   min-width:0;
+  cursor:pointer;
+  transition:border-color .15s ease,background .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.dd-visitor-card:hover{
+  border-color:var(--accent);
+}
+.dd-visitor-card:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
 }
 .dd-visitor-head{
   display:flex;
-  align-items:baseline;
+  align-items:center;
   justify-content:space-between;
   gap:10px;
   min-width:0;
 }
-.dd-visitor-head strong{
+/* Device / app is the card identity — no more "Visitor 1". */
+.dd-visitor-name{
   color:var(--ink);
   font-size:0.8125rem;
   font-weight:900;
   line-height:1.25;
-}
-/* IP stays visible but secondary — never the headline. */
-.dd-visitor-ip{
-  color:var(--muted);
-  font-size:0.625rem;
-  font-weight:750;
-  letter-spacing:0.01em;
-  text-align:right;
   overflow-wrap:anywhere;
-  opacity:0.85;
+  min-width:0;
+}
+/* Caret hints the expandable state; flips when the card is open. */
+.dd-visitor-caret{
+  flex:0 0 auto;
+  color:var(--muted);
+  transition:transform .18s ease,color .15s ease;
+}
+.dd-visitor-card.is-open .dd-visitor-caret{
+  transform:rotate(180deg);
+  color:var(--ink);
 }
 .dd-visitor-meta{
   margin:0;
@@ -5436,12 +5449,14 @@ dd{margin:0;text-align:right;font-weight:800}
   line-height:1.35;
   overflow-wrap:anywhere;
 }
-.dd-visitor-seen{
+/* Compact date/time status, e.g. "04 Jun \u00b7 22:20-22:50". */
+.dd-visitor-when{
   margin:0;
   color:var(--muted);
   font-size:0.6875rem;
   font-weight:750;
   line-height:1.35;
+  font-variant-numeric:tabular-nums;
 }
 .dd-visitor-actions{
   margin:2px 0 0;
@@ -5451,25 +5466,6 @@ dd{margin:0;text-align:right;font-weight:800}
   line-height:1.35;
   overflow-wrap:anywhere;
 }
-.dd-visitor-toggle{
-  justify-self:start;
-  margin-top:5px;
-  min-height:auto;
-  padding:4px 11px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:var(--field);
-  color:var(--muted);
-  font-size:0.625rem;
-  font-weight:850;
-  letter-spacing:0.01em;
-  cursor:pointer;
-  transition:color .15s ease,border-color .15s ease,background .15s ease;
-}
-.dd-visitor-toggle:hover{
-  color:var(--ink);
-  border-color:var(--accent);
-}
 .dd-visitor-timeline{
   list-style:none;
   margin:7px 0 0;
@@ -5478,19 +5474,24 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:4px;
   border-top:1px solid var(--line);
 }
-.dd-visitor-timeline li{
-  display:grid;
-  grid-template-columns:auto 1fr;
-  gap:9px;
+.dd-visitor-row{
+  display:flex;
+  flex-wrap:wrap;
   align-items:baseline;
+  gap:5px;
   min-width:0;
 }
-.dd-visitor-time{
+.dd-visitor-stamp{
   color:var(--muted);
   font-size:0.625rem;
   font-weight:800;
   font-variant-numeric:tabular-nums;
   white-space:nowrap;
+}
+.dd-visitor-dot{
+  color:var(--muted);
+  font-size:0.625rem;
+  font-weight:800;
 }
 .dd-visitor-event{
   color:var(--ink);

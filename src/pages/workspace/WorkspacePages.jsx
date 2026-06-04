@@ -1731,14 +1731,28 @@ function accessLogIsp(log = {}) {
   return String(log.isp || log.org || log.asn_org || '').trim();
 }
 
-// Time-only clock (e.g. "10:03") for the timeline rows and the
-// summary's "Last activity" — keeps the panel compact. First/last
-// seen reuse the same clock so a visitor card reads at a glance.
+// Time-only clock (e.g. "10:03") for the summary's "Last activity"
+// and the same-day visitor status — keeps the panel compact.
 function formatAccessLogClock(value = '') {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+// Short day label (e.g. "04 Jun") so a visitor card always shows
+// WHEN the access happened, not just the clock time.
+function formatAccessLogDay(value = '') {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+// Full timeline stamp (e.g. "04 Jun 22:20") for an expanded
+// timeline row: day + clock together.
+function formatAccessLogStamp(value = '') {
+  return [formatAccessLogDay(value), formatAccessLogClock(value)].filter(Boolean).join(' ');
 }
 
 // Opens vs clicks for the Access Timeline summary. Opens = public
@@ -1794,8 +1808,8 @@ function groupAccessLogsByVisitor(logs = []) {
       isp: accessLogIsp(first) || accessLogIsp(last),
     };
   });
-  // Earliest visitor first so "Visitor 1..N" numbering is stable and
-  // reads top-to-bottom in arrival order.
+  // Earliest visitor first so the cards read top-to-bottom in
+  // arrival order.
   visitors.sort((a, b) => accessLogTimeValue(a.first.created_at) - accessLogTimeValue(b.first.created_at));
   return visitors;
 }
@@ -1840,45 +1854,88 @@ function visitorActionSummary(events = []) {
   return out;
 }
 
-// One grouped visitor card with an expand-to-reveal chronological
-// timeline. Collapsed by default to keep the panel compact; the
-// toggle reveals every raw event (still time-stamped) so nothing is
-// hidden from the operator — just folded.
-function AccessLogVisitorCard({ visitor, index }) {
+// One grouped visitor card. The headline is the device/app (e.g.
+// "Safari iOS" / "WhatsApp Browser"), the supporting line carries
+// place / network / IP, and a compact date-time status shows when
+// the visit happened. The WHOLE card is the tap target: clicking or
+// pressing Enter/Space toggles an inline chronological timeline. A
+// caret on the right hints the expandable state.
+function visitorWhenLabel(visitor = {}) {
+  const first = visitor.first || {};
+  const last = visitor.last || {};
+  const fDay = formatAccessLogDay(first.created_at);
+  const fClock = formatAccessLogClock(first.created_at);
+  const lDay = formatAccessLogDay(last.created_at);
+  const lClock = formatAccessLogClock(last.created_at);
+  if (!fDay && !fClock) return '';
+  const singleMoment = (visitor.events?.length || 0) <= 1
+    || accessLogTimeValue(first.created_at) === accessLogTimeValue(last.created_at);
+  // Single event -> "04 Jun \u00b7 22:48".
+  if (singleMoment) {
+    return [fDay, fClock].filter(Boolean).join(' \u00b7 ');
+  }
+  // Same day span -> "04 Jun \u00b7 22:20-22:50".
+  if (fDay === lDay) {
+    const range = [fClock, lClock].filter(Boolean).join('-');
+    return [fDay, range].filter(Boolean).join(' \u00b7 ');
+  }
+  // Across days -> "04 Jun 22:48 - 05 Jun 00:10".
+  const start = [fDay, fClock].filter(Boolean).join(' ');
+  const end = [lDay, lClock].filter(Boolean).join(' ');
+  return [start, end].filter(Boolean).join(' - ');
+}
+
+function AccessLogVisitorCard({ visitor }) {
   const [open, setOpen] = useState(false);
   const actions = visitorActionSummary(visitor.events);
-  const meta = [visitor.place, visitor.device, visitor.isp].filter(Boolean).join(' \u00b7 ');
-  const firstClock = formatAccessLogClock(visitor.first?.created_at);
-  const lastClock = formatAccessLogClock(visitor.last?.created_at);
-  const eventCount = visitor.events.length;
-  const seenLine = [
-    firstClock ? `First seen ${firstClock}` : '',
-    lastClock && lastClock !== firstClock ? `Last seen ${lastClock}` : '',
-  ].filter(Boolean).join(' \u00b7 ');
+  const headline = visitor.device || 'Unknown device';
+  // Supporting line: place \u00b7 network \u00b7 IP. ISP only shows when
+  // the payload actually carries it; IP stays visible but secondary.
+  const support = [visitor.place, visitor.isp, visitor.ip].filter(Boolean).join(' \u00b7 ');
+  const whenLabel = visitorWhenLabel(visitor);
+  const toggle = () => setOpen((cur) => !cur);
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+      event.preventDefault();
+      toggle();
+    }
+  };
   return (
-    <article className="dd-visitor-card">
+    <article
+      className={`dd-visitor-card${open ? ' is-open' : ''}`}
+      role="button"
+      tabIndex={0}
+      aria-expanded={open}
+      onClick={toggle}
+      onKeyDown={handleKeyDown}
+    >
       <div className="dd-visitor-head">
-        <strong>{`Visitor ${index}`}</strong>
-        {visitor.ip ? <span className="dd-visitor-ip">{visitor.ip}</span> : null}
-      </div>
-      {meta ? <p className="dd-visitor-meta">{meta}</p> : null}
-      {seenLine ? <p className="dd-visitor-seen">{seenLine}</p> : null}
-      {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
-      {eventCount ? (
-        <button
-          type="button"
-          className="dd-visitor-toggle"
-          onClick={() => setOpen((cur) => !cur)}
-          aria-expanded={open}
+        <strong className="dd-visitor-name">{headline}</strong>
+        <svg
+          className="dd-visitor-caret"
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
         >
-          {open ? 'Hide timeline' : `Show timeline \u00b7 ${pluralCount(eventCount, 'event')}`}
-        </button>
-      ) : null}
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </div>
+      {support ? <p className="dd-visitor-meta">{support}</p> : null}
+      {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
+      {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
       {open ? (
         <ol className="dd-visitor-timeline">
           {visitor.events.map((event, i) => (
-            <li key={`${event.id || i}-${event.created_at || ''}`}>
-              <span className="dd-visitor-time">{formatAccessLogClock(event.created_at) || '\u2014'}</span>
+            <li className="dd-visitor-row" key={`${event.id || i}-${event.created_at || ''}`}>
+              <span className="dd-visitor-stamp">{formatAccessLogStamp(event.created_at) || '\u2014'}</span>
+              <span className="dd-visitor-dot" aria-hidden="true">{'\u00b7'}</span>
               <span className="dd-visitor-event">{accessLogEventLabel(event.event_type, event.service)}</span>
             </li>
           ))}
@@ -2752,7 +2809,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   <AccessLogVisitorCard
                     key={visitor.key || index}
                     visitor={visitor}
-                    index={index + 1}
                   />
                 ))}
               </div>
