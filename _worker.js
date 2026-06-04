@@ -496,9 +496,10 @@ async function generateGalleryPassword(context = {}, shortCode = '') {
   return contextCode('gallery-password', GALLERY_PASSWORD_LENGTH, context, `${shortCode}|${context.title || context.client_title || ''}`);
 }
 
-function buildDeliveryMessage(title, clientName, shortCode, password, deliveryDone) {
+function buildDeliveryMessage(title, clientName, folderName, shortCode, password, deliveryDone) {
   const t = String(title ?? 'Ms.').trim();
   const c = String(clientName || '').trim();
+  const f = String(folderName || '').trim() || 'TBA';
   const namePart = t ? `${t} ${c}` : c;
   const pass = String(password || '').trim() || '(no password)';
 
@@ -508,6 +509,7 @@ function buildDeliveryMessage(title, clientName, shortCode, password, deliveryDo
 Your StarShots files are now ready.
 
 You may access them here:
+*Folder:* ${f}
 *Link:* ${PUBLIC_SITE}/${shortCode}
 *Password:* \`${pass}\`
 
@@ -521,6 +523,7 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 
 You may access them through the details below:
 
+*Folder:* ${f}
 *Link:* ${PUBLIC_SITE}/${shortCode}
 *Password:* \`${pass}\`
 
@@ -544,10 +547,10 @@ function stripMessageFormatting(text) {
 
 // Instagram DM variant: the exact same content/order as the
 // WhatsApp template with the formatting markers stripped, so the
-// two channels stay in lockstep (no Folder line, same password-
-// change notice, same "Warm Regards, / StarShots ID" closing).
-function buildDeliveryMessageIg(title, clientName, shortCode, password, deliveryDone) {
-  return stripMessageFormatting(buildDeliveryMessage(title, clientName, shortCode, password, deliveryDone));
+// two channels stay in lockstep (same password-change notice,
+// same "Warm Regards, / StarShots ID" closing).
+function buildDeliveryMessageIg(title, clientName, folderName, shortCode, password, deliveryDone) {
+  return stripMessageFormatting(buildDeliveryMessage(title, clientName, folderName, shortCode, password, deliveryDone));
 }
 
 async function getDeliveryByShortCode(env, code) {
@@ -1539,8 +1542,8 @@ async function handleSave(request, env) {
   const shortCode = await uniqueShortCode(env, deliveryContext);
   const password = await generateGalleryPassword(deliveryContext, shortCode);
   const deliveryUrl = `/${shortCode}`;
-  const generatedText = buildDeliveryMessage(body.title ?? 'Ms.', body.clientName, shortCode, password);
-  const generatedTextIg = buildDeliveryMessageIg(body.title ?? 'Ms.', body.clientName, shortCode, password);
+  const generatedText = buildDeliveryMessage(body.title ?? 'Ms.', body.clientName, body.folderName, shortCode, password);
+  const generatedTextIg = buildDeliveryMessageIg(body.title ?? 'Ms.', body.clientName, body.folderName, shortCode, password);
   const passwordSecurity = await hashGalleryPassword(password);
   const invoiceId = String(body.invoiceId || '').trim();
   let linkedInvoice = null;
@@ -1977,7 +1980,7 @@ async function handleDbSearch(request, env) {
     const displayPassword = deliveryPasswordForDisplay(d);
     const deliveryDoneBool = !!d.delivery_done;
     const generatedText = stripPasswordHistoryMarker(d.generated_text_whatsapp)
-      || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
+      || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, d.folder_name, shortCode, displayPassword, deliveryDoneBool) : '');
     // IG fallback: prefer the stored IG text when present, otherwise
     // synthesise the IG variant directly. We intentionally do NOT
     // fall back to the WA text here — older rows that only have the
@@ -1986,7 +1989,7 @@ async function handleDbSearch(request, env) {
     // resolve. When neither is available we leave the field empty
     // so the client side can synth its own copy.
     const generatedTextIg = stripPasswordHistoryMarker(d.generated_text_instagram)
-      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, shortCode, displayPassword, deliveryDoneBool) : '');
+      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, d.folder_name, shortCode, displayPassword, deliveryDoneBool) : '');
     const passwordHistory = deliveryPasswordHistory(d);
     // Effective event grouping key.
     //
@@ -2350,8 +2353,8 @@ async function handleDbRepairDelivery(request, env) {
   }
 
   const deliveryDone = !!delivery.delivery_done;
-  const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, deliveryDone);
-  const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, deliveryDone);
+  const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, shortCode, displayPassword, deliveryDone);
+  const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, shortCode, displayPassword, deliveryDone);
   const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, password_history);
   const patch = {
     short_code: shortCode,
@@ -2456,8 +2459,8 @@ async function handleDbUpdateDelivery(request, env) {
     try {
       const displayPassword = deliveryPasswordForDisplay(delivery);
       const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery) || '';
-      const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, nextDone);
-      const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', shortCode, displayPassword, nextDone);
+      const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, shortCode, displayPassword, nextDone);
+      const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, shortCode, displayPassword, nextDone);
       const passwordHistory = deliveryPasswordHistory(delivery);
       const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
 
