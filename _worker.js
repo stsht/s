@@ -969,7 +969,8 @@ async function publicDeliveryPayload(env, delivery) {
     return {
       service: service.key,
       label: service.label,
-      url: row?.original_url || '',
+      url: openUrl,
+      originalUrl: row?.original_url || '',
       openUrl,
       link_done: row ? !!row.link_done : false
     };
