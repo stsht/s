@@ -1968,9 +1968,25 @@ async function handleDbSearch(request, env) {
     const key = String(d.id);
     const dl = linksByDelivery.get(key) || [];
     const lg = logsByDelivery.get(key) || [];
+    const adminLogs = lg.filter((log) => String(log?.event_type || '').startsWith('admin_'));
+    const isPairedAdminPageView = (log) => {
+      if (String(log?.event_type || '') !== 'page_view') return false;
+      const logTime = new Date(log?.created_at || '').getTime();
+      if (Number.isNaN(logTime)) return false;
+      const ip = String(log?.ip_address || '');
+      return adminLogs.some((adminLog) => {
+        if (ip && String(adminLog?.ip_address || '') !== ip) return false;
+        const adminTime = new Date(adminLog?.created_at || '').getTime();
+        return !Number.isNaN(adminTime) && Math.abs(adminTime - logTime) <= 60 * 1000;
+      });
+    };
+    const publicLogs = lg.filter((log) => {
+      const type = String(log?.event_type || '');
+      return !type.startsWith('admin_') && !isPairedAdminPageView(log);
+    });
     let clicks = 0;
     let opens = 0;
-    for (const log of lg) {
+    for (const log of publicLogs) {
       const type = log?.event_type;
       if (type === 'page_view' || type === 'password_success') opens += 1;
       else if (type !== 'admin_unlock' && type !== 'password_failed') clicks += 1;
@@ -1979,17 +1995,15 @@ async function handleDbSearch(request, env) {
     const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
     const deliveryDoneBool = !!d.delivery_done;
-    const generatedText = stripPasswordHistoryMarker(d.generated_text_whatsapp)
-      || (displayPassword && shortCode ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, d.folder_name, shortCode, displayPassword, deliveryDoneBool) : '');
-    // IG fallback: prefer the stored IG text when present, otherwise
-    // synthesise the IG variant directly. We intentionally do NOT
-    // fall back to the WA text here — older rows that only have the
-    // WA template would otherwise expose bullets in the Instagram
-    // copy panel, which is the bug the channel split is meant to
-    // resolve. When neither is available we leave the field empty
-    // so the client side can synth its own copy.
-    const generatedTextIg = stripPasswordHistoryMarker(d.generated_text_instagram)
-      || (displayPassword && shortCode ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, d.folder_name, shortCode, displayPassword, deliveryDoneBool) : '');
+    const generatedText = displayPassword && shortCode
+      ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, d.folder_name, shortCode, displayPassword, deliveryDoneBool)
+      : stripPasswordHistoryMarker(d.generated_text_whatsapp);
+    // Rebuild generated messages from canonical delivery fields so
+    // older rows pick up template additions such as Folder without
+    // needing a manual password repair.
+    const generatedTextIg = displayPassword && shortCode
+      ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, d.folder_name, shortCode, displayPassword, deliveryDoneBool)
+      : stripPasswordHistoryMarker(d.generated_text_instagram);
     const passwordHistory = deliveryPasswordHistory(d);
     // Effective event grouping key.
     //
@@ -2044,7 +2058,7 @@ async function handleDbSearch(request, env) {
       gallery_code: galleryCodeFromSlug(d.base_slug),
       related_invoice: invoiceSummary(relatedByClientKey(d, latestInvoiceByClient)),
       links: dl,
-      stats: { opens, clicks, logs: lg.slice(0, 50) }
+      stats: { opens, clicks, logs: publicLogs.slice(0, 50) }
     };
   });
 
@@ -2588,6 +2602,30 @@ async function handleDbUpdateDelivery(request, env) {
   }).catch(() => {});
 
   const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
+  const displayPassword = deliveryPasswordForDisplay(delivery);
+  const deliveryDone = !!delivery.delivery_done;
+  const generatedText = displayPassword && shortCode
+    ? buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', updatedFolderName, shortCode, displayPassword, deliveryDone)
+    : stripPasswordHistoryMarker(delivery.generated_text_whatsapp);
+  const generatedTextIg = displayPassword && shortCode
+    ? buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', updatedFolderName, shortCode, displayPassword, deliveryDone)
+    : stripPasswordHistoryMarker(delivery.generated_text_instagram);
+  const passwordHistory = deliveryPasswordHistory(delivery);
+  const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
+
+  if (generatedText || storedGeneratedTextIg) {
+    await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        generated_text_whatsapp: generatedText,
+        generated_text_instagram: storedGeneratedTextIg
+      })
+    }).catch((error) => {
+      if (!isSchemaError(error)) throw error;
+    });
+  }
+
   const insertedLinks = cleanLinks.length ? await supabaseFetch(env, '/rest/v1/delivery_links', {
     method: 'POST',
     headers: { Prefer: 'return=representation' },
@@ -2607,6 +2645,9 @@ async function handleDbUpdateDelivery(request, env) {
       ...delivery,
       folder_name: updatedFolderName,
       event_date: updatedEventDate,
+      generated_text_whatsapp: generatedText,
+      generated_text_instagram: generatedTextIg,
+      password_history: passwordHistory,
       links: Array.isArray(insertedLinks) ? insertedLinks : [],
     },
   });
@@ -4055,7 +4096,8 @@ export default {
         const shortCode = cleanShortCode(shortAliasMatch[1]);
         const delivery = shortCode ? await getDeliveryByShortCode(env, shortCode) : null;
         if (delivery) {
-          await insertLog(env, request, delivery.id, 'page_view');
+          const adminView = await verifyAdminSessionCookie(request, env);
+          await insertLog(env, request, delivery.id, adminView ? 'admin_page_view' : 'page_view');
           const assetUrl = new URL(request.url);
           assetUrl.pathname = '/g/';
           return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
@@ -4086,7 +4128,10 @@ export default {
             new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
           );
         }
-        if (delivery) await insertLog(env, request, delivery.id, 'page_view');
+        if (delivery) {
+          const adminView = await verifyAdminSessionCookie(request, env);
+          await insertLog(env, request, delivery.id, adminView ? 'admin_page_view' : 'page_view');
+        }
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/g/';
         return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
