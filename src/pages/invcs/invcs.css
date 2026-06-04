@@ -5387,6 +5387,119 @@ dd{margin:0;text-align:right;font-weight:800}
   overflow-wrap:anywhere;
 }
 
+/* Access Timeline — grouped visitor cards. Each card folds one
+ * visitor's events (same IP + device) into a compact summary with
+ * an expand-to-reveal chronological timeline, so the panel no
+ * longer repeats raw IP rows. Theme tokens keep it readable in
+ * light + dark; everything is single-column and mobile-safe. */
+.dd-visitor-list{
+  display:grid;
+  gap:8px;
+}
+.dd-visitor-card{
+  display:grid;
+  gap:3px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--panel);
+  min-width:0;
+}
+.dd-visitor-head{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  min-width:0;
+}
+.dd-visitor-head strong{
+  color:var(--ink);
+  font-size:0.8125rem;
+  font-weight:900;
+  line-height:1.25;
+}
+/* IP stays visible but secondary — never the headline. */
+.dd-visitor-ip{
+  color:var(--muted);
+  font-size:0.625rem;
+  font-weight:750;
+  letter-spacing:0.01em;
+  text-align:right;
+  overflow-wrap:anywhere;
+  opacity:0.85;
+}
+.dd-visitor-meta{
+  margin:0;
+  color:var(--muted);
+  font-size:0.6875rem;
+  font-weight:800;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.dd-visitor-seen{
+  margin:0;
+  color:var(--muted);
+  font-size:0.6875rem;
+  font-weight:750;
+  line-height:1.35;
+}
+.dd-visitor-actions{
+  margin:2px 0 0;
+  color:var(--ink);
+  font-size:0.6875rem;
+  font-weight:850;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.dd-visitor-toggle{
+  justify-self:start;
+  margin-top:5px;
+  min-height:auto;
+  padding:4px 11px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--field);
+  color:var(--muted);
+  font-size:0.625rem;
+  font-weight:850;
+  letter-spacing:0.01em;
+  cursor:pointer;
+  transition:color .15s ease,border-color .15s ease,background .15s ease;
+}
+.dd-visitor-toggle:hover{
+  color:var(--ink);
+  border-color:var(--accent);
+}
+.dd-visitor-timeline{
+  list-style:none;
+  margin:7px 0 0;
+  padding:7px 0 0;
+  display:grid;
+  gap:4px;
+  border-top:1px solid var(--line);
+}
+.dd-visitor-timeline li{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:9px;
+  align-items:baseline;
+  min-width:0;
+}
+.dd-visitor-time{
+  color:var(--muted);
+  font-size:0.625rem;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.dd-visitor-event{
+  color:var(--ink);
+  font-size:0.6875rem;
+  font-weight:750;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+
 @media(max-width:1023px){
   /* Mobile Delivery Detail (/db right panel): stack Short Link above
    * Password. On mobile the workspace collapses to a single full-width

@@ -1666,39 +1666,45 @@ function accessLogEventLabel(type = '', service = '') {
     invoice: 'Invoice',
     payment_bank: 'Bank Account',
     payment_qr: 'QR Payment',
-  }[cleanService] || cleanService.replace(/_/g, ' ');
+  }[cleanService] || cleanService.replace(/_/g, ' ').trim();
+  // Link-click events read as "Clicked Google Drive" / "Clicked
+  // Dropbox" / "Clicked WeTransfer" so the operator sees exactly
+  // which delivery service the visitor opened. A plain link click
+  // with no service falls back to "Clicked Link".
+  if (cleanType === 'service_click' || cleanType === 'button_click') {
+    const nice = serviceLabel ? serviceLabel.replace(/\b\w/g, (c) => c.toUpperCase()) : '';
+    return nice ? `Clicked ${nice}` : 'Clicked Link';
+  }
   const labels = {
     password_success: 'Unlocked',
     password_failed: 'Wrong Password',
     admin_unlock: 'Admin Preview',
-    page_view: 'Page View',
-    button_click: 'Clicked',
-    service_click: 'Opened Link',
+    admin_page_view: 'Admin Preview',
+    page_view: 'Page Opened',
     invoice_view: 'Viewed Invoice',
     invoice_fullscreen: 'Opened Full Invoice',
     invoice_download: 'Downloaded Invoice',
     payment_bank_copy: 'Copied Bank Account',
     payment_qr_download: 'Downloaded QR',
   };
-  const label = labels[cleanType] || cleanType.replace(/_/g, ' ');
-  return serviceLabel ? `${label} · ${serviceLabel}` : label;
-}
-
-function formatAccessLogTime(value = '') {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleString(undefined, {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return labels[cleanType] || cleanType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function accessLogDevice(userAgent = '') {
   const ua = String(userAgent || '');
   if (!ua) return '';
+  // In-app browsers (social / messaging shells) expose themselves
+  // through distinctive UA tokens. Surface the app as the "browser"
+  // so the operator reads "Instagram Browser" instead of the generic
+  // Safari/Chrome webview underneath. Order matters: Instagram's UA
+  // also carries FBAV, so test Instagram before Facebook.
+  const inApp = /Instagram/i.test(ua) ? 'Instagram Browser'
+    : /(FBAN|FBAV|FB_IAB|FBIOS|FB4A)/i.test(ua) ? 'Facebook Browser'
+      : /WhatsApp/i.test(ua) ? 'WhatsApp Browser'
+        : /\bLine\//i.test(ua) ? 'LINE Browser'
+          : /TikTok|musical_ly|BytedanceWebview/i.test(ua) ? 'TikTok Browser'
+            : '';
+  if (inApp) return inApp;
   const browser = /Edg\//.test(ua) ? 'Edge'
     : /OPR\//.test(ua) ? 'Opera'
       : /CriOS|Chrome\//.test(ua) ? 'Chrome'
@@ -1710,11 +1716,176 @@ function accessLogDevice(userAgent = '') {
       : /Mac OS X|Macintosh/.test(ua) ? 'macOS'
         : /Windows/.test(ua) ? 'Windows'
           : '';
-  return [browser, os].filter(Boolean).join(' · ');
+  return [browser, os].filter(Boolean).join(' ');
 }
 
 function accessLogPlace(log = {}) {
   return [log.city, log.country].map((item) => String(item || '').trim()).filter(Boolean).join(', ');
+}
+
+// ISP / network label, shown only when the log payload actually
+// carries it (ASN/org/isp). The /db dashboard payload currently
+// skips IP enrichment for speed, so this gracefully returns '' and
+// the meta line simply omits the network rather than guessing.
+function accessLogIsp(log = {}) {
+  return String(log.isp || log.org || log.asn_org || '').trim();
+}
+
+// Time-only clock (e.g. "10:03") for the timeline rows and the
+// summary's "Last activity" — keeps the panel compact. First/last
+// seen reuse the same clock so a visitor card reads at a glance.
+function formatAccessLogClock(value = '') {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+// Opens vs clicks for the Access Timeline summary. Opens = public
+// page opens / unlocks / invoice views. Clicks = service-link
+// clicks only. Admin events never reach here — the worker strips
+// admin_* and admin-paired page views from stats.logs before the
+// dashboard payload is built.
+const ACCESS_OPEN_TYPES = new Set(['page_view', 'password_success', 'invoice_view', 'invoice_fullscreen']);
+const ACCESS_CLICK_TYPES = new Set(['service_click', 'button_click']);
+
+function accessLogTimeValue(value) {
+  const t = new Date(value || 0).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+// One visitor = same IP + same browser/device/platform signature.
+// Grouping on the friendly device string (rather than the raw UA)
+// folds minor UA noise into a single person so we don't show three
+// near-identical rows for one phone.
+function accessLogVisitorKey(log = {}) {
+  const ip = String(log.ip_address || '').trim().toLowerCase();
+  const device = accessLogDevice(log.user_agent).toLowerCase();
+  return `${ip}|${device}`;
+}
+
+// Collapse the flat public access log into one card per visitor,
+// keeping each visitor's events in chronological order so a single
+// person's "opened -> unlocked -> clicked" journey reads as one
+// story instead of a wall of duplicate IP rows.
+function groupAccessLogsByVisitor(logs = []) {
+  const groups = new Map();
+  for (const log of Array.isArray(logs) ? logs : []) {
+    const key = accessLogVisitorKey(log);
+    if (!groups.has(key)) {
+      groups.set(key, { key, ip: String(log.ip_address || '').trim(), logs: [] });
+    }
+    groups.get(key).logs.push(log);
+  }
+  const visitors = [...groups.values()].map((group) => {
+    const events = [...group.logs].sort(
+      (a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at)
+    );
+    const first = events[0] || {};
+    const last = events[events.length - 1] || {};
+    return {
+      key: group.key,
+      ip: group.ip,
+      events,
+      first,
+      last,
+      place: accessLogPlace(first) || accessLogPlace(last),
+      device: accessLogDevice(first.user_agent) || accessLogDevice(last.user_agent),
+      isp: accessLogIsp(first) || accessLogIsp(last),
+    };
+  });
+  // Earliest visitor first so "Visitor 1..N" numbering is stable and
+  // reads top-to-bottom in arrival order.
+  visitors.sort((a, b) => accessLogTimeValue(a.first.created_at) - accessLogTimeValue(b.first.created_at));
+  return visitors;
+}
+
+function summarizeAccessLogs(logs = []) {
+  let opens = 0;
+  let clicks = 0;
+  let last = 0;
+  for (const log of Array.isArray(logs) ? logs : []) {
+    const type = String(log.event_type || '').toLowerCase();
+    if (ACCESS_OPEN_TYPES.has(type)) opens += 1;
+    else if (ACCESS_CLICK_TYPES.has(type)) clicks += 1;
+    const ts = accessLogTimeValue(log.created_at);
+    if (ts > last) last = ts;
+  }
+  return {
+    opens,
+    clicks,
+    lastActivity: last ? formatAccessLogClock(new Date(last).toISOString()) : '',
+  };
+}
+
+function pluralCount(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+// Distinct, meaningful actions for a visitor card's one-line
+// summary. Plain "Page Opened" is implied by the card existing, so
+// it's dropped here; unlocks, wrong passwords, link clicks and
+// invoice actions are what the operator actually scans for.
+function visitorActionSummary(events = []) {
+  const seen = new Set();
+  const out = [];
+  for (const event of Array.isArray(events) ? events : []) {
+    const type = String(event.event_type || '').toLowerCase();
+    if (type === 'page_view') continue;
+    const label = accessLogEventLabel(event.event_type, event.service);
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push(label);
+  }
+  return out;
+}
+
+// One grouped visitor card with an expand-to-reveal chronological
+// timeline. Collapsed by default to keep the panel compact; the
+// toggle reveals every raw event (still time-stamped) so nothing is
+// hidden from the operator — just folded.
+function AccessLogVisitorCard({ visitor, index }) {
+  const [open, setOpen] = useState(false);
+  const actions = visitorActionSummary(visitor.events);
+  const meta = [visitor.place, visitor.device, visitor.isp].filter(Boolean).join(' \u00b7 ');
+  const firstClock = formatAccessLogClock(visitor.first?.created_at);
+  const lastClock = formatAccessLogClock(visitor.last?.created_at);
+  const eventCount = visitor.events.length;
+  const seenLine = [
+    firstClock ? `First seen ${firstClock}` : '',
+    lastClock && lastClock !== firstClock ? `Last seen ${lastClock}` : '',
+  ].filter(Boolean).join(' \u00b7 ');
+  return (
+    <article className="dd-visitor-card">
+      <div className="dd-visitor-head">
+        <strong>{`Visitor ${index}`}</strong>
+        {visitor.ip ? <span className="dd-visitor-ip">{visitor.ip}</span> : null}
+      </div>
+      {meta ? <p className="dd-visitor-meta">{meta}</p> : null}
+      {seenLine ? <p className="dd-visitor-seen">{seenLine}</p> : null}
+      {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
+      {eventCount ? (
+        <button
+          type="button"
+          className="dd-visitor-toggle"
+          onClick={() => setOpen((cur) => !cur)}
+          aria-expanded={open}
+        >
+          {open ? 'Hide timeline' : `Show timeline \u00b7 ${pluralCount(eventCount, 'event')}`}
+        </button>
+      ) : null}
+      {open ? (
+        <ol className="dd-visitor-timeline">
+          {visitor.events.map((event, i) => (
+            <li key={`${event.id || i}-${event.created_at || ''}`}>
+              <span className="dd-visitor-time">{formatAccessLogClock(event.created_at) || '\u2014'}</span>
+              <span className="dd-visitor-event">{accessLogEventLabel(event.event_type, event.service)}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </article>
+  );
 }
 
 // Admin-only delivery detail rendered in /db's right panel after
@@ -1919,9 +2090,22 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     else if (Array.isArray(rawHist)) passwordHistory = rawHist;
   } catch(e){}
   const accessLogs = Array.isArray(currentDelivery?.stats?.logs)
-    ? currentDelivery.stats.logs.slice(0, 12)
+    ? currentDelivery.stats.logs
     : [];
-  const accessSummary = currentDelivery?.stats || {};
+  // Group the flat public log into per-visitor cards and derive the
+  // compact summary header (visitors / opens / clicks / last
+  // activity). Memoised so re-renders from unrelated state (copy
+  // flashes, variant toggles) don't re-walk the log array.
+  const accessVisitors = useMemo(() => groupAccessLogsByVisitor(accessLogs), [accessLogs]);
+  const accessStats = useMemo(() => summarizeAccessLogs(accessLogs), [accessLogs]);
+  const accessSummaryText = accessVisitors.length
+    ? [
+        pluralCount(accessVisitors.length, 'visitor'),
+        pluralCount(accessStats.opens, 'open'),
+        pluralCount(accessStats.clicks, 'click'),
+        accessStats.lastActivity ? `Last activity ${accessStats.lastActivity}` : '',
+      ].filter(Boolean).join(' \u00b7 ')
+    : '';
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -2557,29 +2741,20 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
             </div>
           )}
 
-          <section className="dd-access-log" aria-label="Delivery access log">
+          <section className="dd-access-log" aria-label="Delivery access timeline">
             <div className="dd-access-log-head">
-              <p className="eyebrow">Access Log</p>
-              <span>{Number(accessSummary.opens || 0)} opens · {Number(accessSummary.clicks || 0)} clicks</span>
+              <p className="eyebrow">Access Timeline</p>
+              {accessSummaryText ? <span>{accessSummaryText}</span> : null}
             </div>
-            {accessLogs.length ? (
-              <div className="dd-access-log-list">
-                {accessLogs.map((log, index) => {
-                  const place = accessLogPlace(log);
-                  const device = accessLogDevice(log.user_agent);
-                  return (
-                    <article className="dd-access-log-row" key={`${log.id || index}-${log.created_at || ''}`}>
-                      <div>
-                        <strong>{accessLogEventLabel(log.event_type, log.service)}</strong>
-                        <span>{formatAccessLogTime(log.created_at) || 'Unknown time'}</span>
-                      </div>
-                      <div>
-                        <span>{log.ip_address || 'No IP'}</span>
-                        <span>{[place, device].filter(Boolean).join(' · ') || 'Unknown device'}</span>
-                      </div>
-                    </article>
-                  );
-                })}
+            {accessVisitors.length ? (
+              <div className="dd-visitor-list">
+                {accessVisitors.map((visitor, index) => (
+                  <AccessLogVisitorCard
+                    key={visitor.key || index}
+                    visitor={visitor}
+                    index={index + 1}
+                  />
+                ))}
               </div>
             ) : (
               <p className="dd-access-log-empty">No public activity yet.</p>
