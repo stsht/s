@@ -1332,9 +1332,16 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   const vendorDeliveryStateClass = hasVendorDelivery ? (vendorDeliveryDone ? ' is-complete' : ' is-created') : ' is-neutral';
   const vendorDeliveryClassName = `record-row-link-anchor${vendorDeliveryStateClass}`;
 
-  const isClientWorkflowComplete = deliveryDone && invoicePaid;
+  // Row tone (and the date-pill colour) tracks ONLY the universal
+  // delivery done/check state. When the top-level checkmark marks
+  // the delivery done the event row goes neutral, regardless of
+  // whether the client invoice is paid — invoice status drives the
+  // invoice button/pill (is-complete) alone and never forces the
+  // row red. An incomplete row keeps its soon/future colour, or
+  // falls back to past/red.
+  const isDeliveryComplete = deliveryDone;
   let rowTone = tone;
-  if (isClientWorkflowComplete) {
+  if (isDeliveryComplete) {
     rowTone = '';
   } else if (tone !== 'soon' && tone !== 'future') {
     rowTone = 'past';
@@ -1497,10 +1504,14 @@ function buildShortUrl(code) {
 // variant is the exact same wording/order with the formatting
 // markers stripped (see stripMessageFormatting + synthesizeDelivery
 // MessageIg below).
-function synthesizeDeliveryMessageWa(title, clientName, folderName, shortUrl, password, deliveryDone) {
+function synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
   const t = String(title ?? 'Ms.').trim() ?? 'Ms.';
   const n = String(clientName || '').trim();
   const f = String(folderName || '').trim() || 'TBA';
+  // compactEventDateLabel returns "6 Jun 2026" for a real
+  // YYYY-MM-DD and "TBA" for a blank/timestamp value, so the Event
+  // Date line always renders and never leaks a bookkeeping date.
+  const ev = compactEventDateLabel(eventDate);
   const link = shortUrl || '(link unavailable)';
   const pass = String(password || '').trim() || '(no password)';
 
@@ -1511,6 +1522,7 @@ Your StarShots files are now ready.
 
 You may access them here:
 *Folder:* ${f}
+*Event Date:* ${ev}
 *Link:* ${link}
 *Password:* \`${pass}\`
 
@@ -1525,6 +1537,7 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 You may access them through the details below:
 
 *Folder:* ${f}
+*Event Date:* ${ev}
 *Link:* ${link}
 *Password:* \`${pass}\`
 
@@ -1545,8 +1558,8 @@ function stripMessageFormatting(text) {
   return String(text || '').replace(/[*_~`]/g, '');
 }
 
-function synthesizeDeliveryMessageIg(title, clientName, folderName, shortUrl, password, deliveryDone) {
-  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, folderName, shortUrl, password, deliveryDone));
+function synthesizeDeliveryMessageIg(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
+  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone));
 }
 
 // Inline circular refresh icon for the password regeneration
@@ -1894,8 +1907,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // Folder line or stale formatting in generated_text_*) never leak
   // to the client. WA keeps markdown; IG is the same text stripped.
   const deliveryDone = !!currentDelivery?.delivery_done;
-  const synthWa = synthesizeDeliveryMessageWa(title, clientName, folder, shortUrl, password, deliveryDone);
-  const synthIg = synthesizeDeliveryMessageIg(title, clientName, folder, shortUrl, password, deliveryDone);
+  const synthWa = synthesizeDeliveryMessageWa(title, clientName, folder, currentDelivery?.event_date, shortUrl, password, deliveryDone);
+  const synthIg = synthesizeDeliveryMessageIg(title, clientName, folder, currentDelivery?.event_date, shortUrl, password, deliveryDone);
   const messageWa = synthWa;
   const messageIg = synthIg;
 
@@ -4610,9 +4623,18 @@ export function DatabasePage() {
       const dates = eventDatesByClient(client);
       const cls = classifyClientEvents(dates, todayIso);
       const records = buildClientRecords(client, invoices, deliveriesAll, todayIso);
+      // Completion (and therefore the left-list neutral tone) tracks
+      // ONLY the universal delivery done/check state — the same
+      // top-level checkmark that flips deliveries.delivery_done. A
+      // missing or unpaid client invoice must NOT keep the row red;
+      // invoice status drives the invoice button/pill alone. Records
+      // without a delivery (invoice-only events) stay incomplete, so
+      // a client only goes neutral once every event with a delivery
+      // has that delivery marked done.
+      const deliveryRecords = records.filter((row) => !!row.delivery?.id);
       const clientWorkflowComplete =
-        records.length > 0 &&
-        records.every((row) => !!row.delivery?.delivery_done && String(row.invoice?.status || '').toLowerCase() === 'paid');
+        deliveryRecords.length > 0 &&
+        deliveryRecords.every((row) => !!row.delivery?.delivery_done);
       const name = String(client?.name || client?.client_name || '').toLowerCase();
       return {
         client,
