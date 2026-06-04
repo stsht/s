@@ -1496,11 +1496,11 @@ function buildShortUrl(code) {
 // produced it. WhatsApp keeps the *bold* markdown; the Instagram
 // variant is the exact same wording/order with the formatting
 // markers stripped (see stripMessageFormatting + synthesizeDelivery
-// MessageIg below). The folder name is intentionally NOT included —
-// it can be edited internally and must never be sent to the client.
-function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deliveryDone) {
+// MessageIg below).
+function synthesizeDeliveryMessageWa(title, clientName, folderName, shortUrl, password, deliveryDone) {
   const t = String(title ?? 'Ms.').trim() ?? 'Ms.';
   const n = String(clientName || '').trim();
+  const f = String(folderName || '').trim() || 'TBA';
   const link = shortUrl || '(link unavailable)';
   const pass = String(password || '').trim() || '(no password)';
 
@@ -1510,6 +1510,7 @@ function synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deli
 Your StarShots files are now ready.
 
 You may access them here:
+*Folder:* ${f}
 *Link:* ${link}
 *Password:* \`${pass}\`
 
@@ -1523,6 +1524,7 @@ With sincere appreciation, your StarShots delivery files have been prepared and 
 
 You may access them through the details below:
 
+*Folder:* ${f}
 *Link:* ${link}
 *Password:* \`${pass}\`
 
@@ -1543,8 +1545,8 @@ function stripMessageFormatting(text) {
   return String(text || '').replace(/[*_~`]/g, '');
 }
 
-function synthesizeDeliveryMessageIg(title, clientName, shortUrl, password, deliveryDone) {
-  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deliveryDone));
+function synthesizeDeliveryMessageIg(title, clientName, folderName, shortUrl, password, deliveryDone) {
+  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, folderName, shortUrl, password, deliveryDone));
 }
 
 // Inline circular refresh icon for the password regeneration
@@ -1892,8 +1894,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // Folder line or stale formatting in generated_text_*) never leak
   // to the client. WA keeps markdown; IG is the same text stripped.
   const deliveryDone = !!currentDelivery?.delivery_done;
-  const synthWa = synthesizeDeliveryMessageWa(title, clientName, shortUrl, password, deliveryDone);
-  const synthIg = synthesizeDeliveryMessageIg(title, clientName, shortUrl, password, deliveryDone);
+  const synthWa = synthesizeDeliveryMessageWa(title, clientName, folder, shortUrl, password, deliveryDone);
+  const synthIg = synthesizeDeliveryMessageIg(title, clientName, folder, shortUrl, password, deliveryDone);
   const messageWa = synthWa;
   const messageIg = synthIg;
 
