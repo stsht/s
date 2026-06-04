@@ -5330,6 +5330,62 @@ dd{margin:0;text-align:right;font-weight:800}
   border:1px solid var(--accent);
   color:var(--ink);
 }
+.dd-access-log{
+  display:grid;
+  gap:10px;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--field);
+}
+.dd-access-log-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.dd-access-log-head .eyebrow{
+  margin:0;
+}
+.dd-access-log-head span,
+.dd-access-log-empty{
+  margin:0;
+  color:var(--muted);
+  font-size:0.75rem;
+  font-weight:800;
+}
+.dd-access-log-list{
+  display:grid;
+  gap:8px;
+}
+.dd-access-log-row{
+  display:grid;
+  grid-template-columns:minmax(150px,.8fr) minmax(220px,1fr);
+  gap:10px;
+  align-items:start;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--panel);
+}
+.dd-access-log-row div{
+  display:grid;
+  gap:3px;
+  min-width:0;
+}
+.dd-access-log-row strong{
+  color:var(--ink);
+  font-size:0.8125rem;
+  font-weight:900;
+  line-height:1.25;
+}
+.dd-access-log-row span{
+  color:var(--muted);
+  font-size:0.6875rem;
+  font-weight:750;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
 
 @media(max-width:1023px){
   /* Mobile Delivery Detail (/db right panel): stack Short Link above
@@ -5344,6 +5400,7 @@ dd{margin:0;text-align:right;font-weight:800}
    * Link on top, Password below. Desktop (>=1024px) keeps two columns. */
   .dd-grid-2{grid-template-columns:1fr}
   .dd-services{grid-template-columns:1fr}
+  .dd-access-log-row{grid-template-columns:1fr}
   .dd-message-output{min-height:180px}
 }
 

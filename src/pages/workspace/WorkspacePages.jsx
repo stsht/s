@@ -1641,6 +1641,67 @@ function SaveIcon({ saving = false }) {
   );
 }
 
+function accessLogEventLabel(type = '', service = '') {
+  const cleanType = String(type || '').toLowerCase();
+  const cleanService = String(service || '').toLowerCase();
+  const serviceLabel = {
+    gd: 'Google Drive',
+    db: 'Dropbox',
+    wt: 'WeTransfer',
+    invoice: 'Invoice',
+    payment_bank: 'Bank Account',
+    payment_qr: 'QR Payment',
+  }[cleanService] || cleanService.replace(/_/g, ' ');
+  const labels = {
+    password_success: 'Unlocked',
+    password_failed: 'Wrong Password',
+    admin_unlock: 'Admin Preview',
+    page_view: 'Page View',
+    button_click: 'Clicked',
+    service_click: 'Opened Link',
+    invoice_view: 'Viewed Invoice',
+    invoice_fullscreen: 'Opened Full Invoice',
+    invoice_download: 'Downloaded Invoice',
+    payment_bank_copy: 'Copied Bank Account',
+    payment_qr_download: 'Downloaded QR',
+  };
+  const label = labels[cleanType] || cleanType.replace(/_/g, ' ');
+  return serviceLabel ? `${label} · ${serviceLabel}` : label;
+}
+
+function formatAccessLogTime(value = '') {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function accessLogDevice(userAgent = '') {
+  const ua = String(userAgent || '');
+  if (!ua) return '';
+  const browser = /Edg\//.test(ua) ? 'Edge'
+    : /OPR\//.test(ua) ? 'Opera'
+      : /CriOS|Chrome\//.test(ua) ? 'Chrome'
+        : /FxiOS|Firefox\//.test(ua) ? 'Firefox'
+          : /Safari\//.test(ua) ? 'Safari'
+            : 'Browser';
+  const os = /iPhone|iPad|iPod/.test(ua) ? 'iOS'
+    : /Android/.test(ua) ? 'Android'
+      : /Mac OS X|Macintosh/.test(ua) ? 'macOS'
+        : /Windows/.test(ua) ? 'Windows'
+          : '';
+  return [browser, os].filter(Boolean).join(' · ');
+}
+
+function accessLogPlace(log = {}) {
+  return [log.city, log.country].map((item) => String(item || '').trim()).filter(Boolean).join(', ');
+}
+
 // Admin-only delivery detail rendered in /db's right panel after
 // clicking "View Links" on a saved client event. Shows the
 // operator everything needed to re-share a delivery without
@@ -1842,6 +1903,10 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     if (typeof rawHist === 'string') passwordHistory = JSON.parse(rawHist);
     else if (Array.isArray(rawHist)) passwordHistory = rawHist;
   } catch(e){}
+  const accessLogs = Array.isArray(currentDelivery?.stats?.logs)
+    ? currentDelivery.stats.logs.slice(0, 12)
+    : [];
+  const accessSummary = currentDelivery?.stats || {};
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -2476,6 +2541,35 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
               </div>
             </div>
           )}
+
+          <section className="dd-access-log" aria-label="Delivery access log">
+            <div className="dd-access-log-head">
+              <p className="eyebrow">Access Log</p>
+              <span>{Number(accessSummary.opens || 0)} opens · {Number(accessSummary.clicks || 0)} clicks</span>
+            </div>
+            {accessLogs.length ? (
+              <div className="dd-access-log-list">
+                {accessLogs.map((log, index) => {
+                  const place = accessLogPlace(log);
+                  const device = accessLogDevice(log.user_agent);
+                  return (
+                    <article className="dd-access-log-row" key={`${log.id || index}-${log.created_at || ''}`}>
+                      <div>
+                        <strong>{accessLogEventLabel(log.event_type, log.service)}</strong>
+                        <span>{formatAccessLogTime(log.created_at) || 'Unknown time'}</span>
+                      </div>
+                      <div>
+                        <span>{log.ip_address || 'No IP'}</span>
+                        <span>{[place, device].filter(Boolean).join(' · ') || 'Unknown device'}</span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="dd-access-log-empty">No public activity yet.</p>
+            )}
+          </section>
         </div>
       )}
     </>

@@ -469,17 +469,18 @@ function GalleryLinks({ payload }) {
     { key: 'wt', aliases: ['wt', 'wetransfer', 'we transfer'], fallback: 'WeTransfer', icon: 'WT' },
   ];
 
-  async function track(service) {
+  async function track(service, eventType = 'button_click') {
     if (!delivery.id || !service) return;
     fetch('/api/click', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ deliveryId: delivery.id, service }),
+      body: JSON.stringify({ deliveryId: delivery.id, service, eventType }),
     }).catch(() => {});
   }
 
   async function openInvoice(event) {
     event.preventDefault();
+    track('invoice', 'invoice_view');
     setInvoiceOpen(true);
     setScale(1);
     setPan({ x: 0, y: 0 });
@@ -500,6 +501,7 @@ function GalleryLinks({ payload }) {
   }
 
   function openFullInvoice() {
+    track('invoice', 'invoice_fullscreen');
     setScale(1);
     setPan({ x: 0, y: 0 });
     setFullScreenPreviewOpen(true);
@@ -607,8 +609,14 @@ function GalleryLinks({ payload }) {
   const PaymentActionIcon = paymentMethod === 'qr' ? IconDownload : IconCopy;
   const downloadSafeName = String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client';
   const handlePaymentAction = paymentMethod === 'qr'
-    ? () => triggerImageDownload(PAYMENT_QR_SRC, `${downloadSafeName}-payment-qr.png`)
-    : copyBankAccount;
+    ? () => {
+        track('payment_qr', 'payment_qr_download');
+        triggerImageDownload(PAYMENT_QR_SRC, `${downloadSafeName}-payment-qr.png`);
+      }
+    : () => {
+        track('payment_bank', 'payment_bank_copy');
+        copyBankAccount();
+      };
 
   return (
     <main className="public-delivery-page">
@@ -642,6 +650,7 @@ function GalleryLinks({ payload }) {
         <div className="public-delivery-list">
           {resolvedServices.map(({ key, fallback, icon, link }) => {
             const url = link?.url || '';
+            const openUrl = link?.openUrl || url;
             const name = link?.label || fallback;
             const isDone = !!(delivery.delivery_done || delivery.deliveryDone);
             const hasEventDate = !!payload?.delivery?.eventDate;
@@ -651,8 +660,7 @@ function GalleryLinks({ payload }) {
                 <a
                   key={fallback}
                   className="public-delivery-row is-active"
-                  href={url}
-                  onClick={() => track(link.service || key)}
+                  href={openUrl}
                   rel="noopener"
                   target="_blank"
                 >
@@ -785,6 +793,7 @@ function GalleryLinks({ payload }) {
                       className="public-invoice-action public-invoice-action--small"
                       href={invoiceImage}
                       download={`${downloadSafeName}-invoice.jpg`}
+                      onClick={() => track('invoice', 'invoice_download')}
                     >
                       <IconDownload />
                       <span>Download Invoice</span>
@@ -858,6 +867,7 @@ function GalleryLinks({ payload }) {
                 className="public-invoice-fullscreen-btn"
                 href={invoiceImage}
                 download={`${String(delivery.clientName || 'client').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'client'}-invoice.jpg`}
+                onClick={() => track('invoice', 'invoice_download')}
               >
                 <IconDownload />
                 <span>Download Invoice</span>

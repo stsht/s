@@ -576,6 +576,16 @@ function cleanService(value) {
   return SERVICES.some((item) => item.key === service) ? service : '';
 }
 
+function cleanLogService(value) {
+  const service = String(value || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+  return service.slice(0, 40);
+}
+
+function cleanLogEvent(value) {
+  const eventType = String(value || 'button_click').toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
+  return (eventType || 'button_click').slice(0, 40);
+}
+
 function normalizeUrl(value) {
   let v = String(value || '').trim();
   if (!v) return '';
@@ -953,10 +963,14 @@ async function publicDeliveryPayload(env, delivery) {
   const rows = await getLinksByDeliveryId(env, delivery.id);
   const links = SERVICES.map((service) => {
     const row = rows.find((item) => item.service === service.key);
+    const openUrl = row?.original_url
+      ? `/api/open-link?deliveryId=${encodeURIComponent(delivery.id)}&service=${encodeURIComponent(service.key)}`
+      : '';
     return {
       service: service.key,
       label: service.label,
       url: row?.original_url || '',
+      openUrl,
       link_done: row ? !!row.link_done : false
     };
   });
@@ -1778,11 +1792,36 @@ async function handleUnlock(request, env) {
 }
 
 async function handleClick(request, env) {
-  const body = await request.json();
-  const service = cleanService(body.service);
+  const body = await request.json().catch(() => ({}));
+  const service = cleanLogService(body.service);
+  const eventType = cleanLogEvent(body.eventType || body.event_type || 'button_click');
   if (!body.deliveryId || !service) return json({ ok: false }, 400);
-  await insertLog(env, request, String(body.deliveryId), 'button_click', service);
+  await insertLog(env, request, String(body.deliveryId), eventType, service);
   return json({ ok: true });
+}
+
+async function handleOpenLink(request, env) {
+  const url = new URL(request.url);
+  const deliveryId = String(url.searchParams.get('deliveryId') || url.searchParams.get('delivery_id') || '').trim();
+  const service = cleanService(url.searchParams.get('service'));
+  if (!deliveryId || !service) return new Response('Missing link.', { status: 400 });
+
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/delivery_links?select=*&delivery_id=eq.${encodeURIComponent(deliveryId)}&service=eq.${encodeURIComponent(service)}&limit=1`
+  ).catch(() => []);
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  const target = String(row?.original_url || '').trim();
+  if (!target) return new Response('Link unavailable.', { status: 404 });
+
+  await insertLog(env, request, deliveryId, 'service_click', service);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: target,
+      'Cache-Control': 'no-store'
+    }
+  });
 }
 
 async function handleDbSearch(request, env) {
@@ -1929,8 +1968,8 @@ async function handleDbSearch(request, env) {
     let opens = 0;
     for (const log of lg) {
       const type = log?.event_type;
-      if (type === 'button_click') clicks += 1;
-      else if (type === 'page_view' || type === 'password_success') opens += 1;
+      if (type === 'page_view' || type === 'password_success') opens += 1;
+      else if (type !== 'admin_unlock' && type !== 'password_failed') clicks += 1;
     }
     const shortCode = deliveryShortCode(d);
     const shortPath = shortCode ? `/${shortCode}` : '';
@@ -3995,6 +4034,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/open-link') return await handleOpenLink(request, env);
 	      if (request.method === 'GET' && url.pathname === '/api/db') return await handleDbSearch(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/clients-save') return await handleClientSave(request, env);
 	      if (request.method === 'POST' && url.pathname === '/api/clients-delete') return await handleClientDelete(request, env);
