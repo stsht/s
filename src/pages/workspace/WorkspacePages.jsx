@@ -1888,7 +1888,7 @@ function visitorWhenLabel(visitor = {}) {
   return [start, end].filter(Boolean).join(' - ');
 }
 
-function AccessLogVisitorCard({ visitor }) {
+function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   const [open, setOpen] = useState(false);
   const actions = visitorActionSummary(visitor.events);
   // Title prefers the ISP / org / network name when the log payload
@@ -1928,21 +1928,43 @@ function AccessLogVisitorCard({ visitor }) {
     >
       <div className="dd-visitor-head">
         <strong className="dd-visitor-name">{headline}</strong>
-        <svg
-          className="dd-visitor-caret"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
+        <div className="dd-visitor-head-actions">
+          {/* Per-card delete: removes ONLY this visitor/session's log
+              rows. stopPropagation on click + Enter/Space keeps the
+              whole-card expand/collapse gesture from also firing. */}
+          <button
+            type="button"
+            className="dd-visitor-delete"
+            onClick={(event) => {
+              event.stopPropagation();
+              onRequestDelete?.();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                event.stopPropagation();
+              }
+            }}
+            title="Delete this log"
+            aria-label="Delete this log"
+          >
+            <DeleteIcon />
+          </button>
+          <svg
+            className="dd-visitor-caret"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </div>
       </div>
       {support ? <p className="dd-visitor-meta">{support}</p> : null}
       {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
@@ -2013,13 +2035,13 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   const [markingDone, setMarkingDone] = useState(false);
   const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
   const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
-  // Permanent access-log delete confirmation. confirmDeleteLogs gates
-  // the custom in-panel confirmation dialog (no native confirm());
-  // deletingLogs gates the request in-flight. The "No" button takes
-  // default focus so pressing Enter cancels unless the operator tabs
-  // to "Delete".
-  const [confirmDeleteLogs, setConfirmDeleteLogs] = useState(false);
-  const [deletingLogs, setDeletingLogs] = useState(false);
+  // Per-card access-log delete confirmation. deleteVisitor holds the
+  // visitor/session card the operator asked to delete (null = no
+  // dialog); deletingVisitor gates the request in-flight. The custom
+  // in-panel dialog (no native confirm()) focuses "No" by default so
+  // pressing Enter cancels unless the operator tabs to "Delete".
+  const [deleteVisitor, setDeleteVisitor] = useState(null);
+  const [deletingVisitor, setDeletingVisitor] = useState(false);
   const deleteLogsNoButtonRef = useRef(null);
   const noButtonRef = useRef(null);
 
@@ -2058,19 +2080,19 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // Default focus on "No" so the safe choice is the one that fires on
   // Enter; the operator must deliberately tab to "Delete".
   useEffect(() => {
-    if (confirmDeleteLogs && deleteLogsNoButtonRef.current) {
+    if (deleteVisitor && deleteLogsNoButtonRef.current) {
       deleteLogsNoButtonRef.current.focus();
     }
-  }, [confirmDeleteLogs]);
+  }, [deleteVisitor]);
 
   useEffect(() => {
-    if (!confirmDeleteLogs) return;
+    if (!deleteVisitor) return;
     function handleKeyDown(e) {
-      if (e.key === 'Escape') setConfirmDeleteLogs(false);
+      if (e.key === 'Escape') setDeleteVisitor(null);
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [confirmDeleteLogs]);
+  }, [deleteVisitor]);
 
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
@@ -2113,7 +2135,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
     setConfirmRestoreHash('');
-    setConfirmDeleteLogs(false);
+    setDeleteVisitor(null);
   }, [delivery?.id]);
 
   // Auto-disarm the Delete confirm after ~4s so an accidental first
@@ -2371,35 +2393,42 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     }
   }
 
-  // Permanently delete the PUBLIC access logs for ONLY this delivery
-  // via /api/db-clear-logs (admin-authenticated, scoped to this
-  // delivery_id on the server). It never touches other
-  // clients/deliveries, the paired invoice, or any
-  // client/subscription record. On success we clear the in-panel
-  // stats so the timeline drops straight to its empty state and the
-  // summary resets to "0 visitors..." with no refetch needed.
-  async function handleDeleteLogs() {
-    if (!currentDelivery?.id || deletingLogs) return;
-    setDeletingLogs(true);
+  // Permanently delete the access-log rows for ONE visitor/session
+  // card via /api/db-clear-logs. We pass the explicit log ids for
+  // that group; the worker scopes the delete to BOTH those ids AND
+  // this delivery_id, so it can never touch another visitor card,
+  // another delivery, or any invoice/client/subscription record. On
+  // success we drop just those rows from the in-panel stats so the
+  // card disappears and the summary counts recompute with no refetch.
+  async function handleConfirmDeleteVisitor() {
+    const target = deleteVisitor;
+    const logIds = (target?.events || []).map((event) => event.id).filter(Boolean);
+    if (!currentDelivery?.id || !logIds.length) {
+      setDeleteVisitor(null);
+      return;
+    }
+    if (deletingVisitor) return;
+    setDeletingVisitor(true);
     setRepairStatus('');
     try {
       const response = await fetch('/api/db-clear-logs', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id }),
+        body: JSON.stringify({ id: currentDelivery.id, logIds }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) throw new Error(json.error || `Delete failed (${response.status}).`);
-      setCurrentDelivery((prev) => ({
-        ...prev,
-        stats: { ...(prev?.stats || {}), opens: 0, clicks: 0, logs: [] },
-      }));
-      setConfirmDeleteLogs(false);
+      const removeSet = new Set(logIds);
+      setCurrentDelivery((prev) => {
+        const logs = Array.isArray(prev?.stats?.logs) ? prev.stats.logs : [];
+        return { ...prev, stats: { ...(prev?.stats || {}), logs: logs.filter((log) => !removeSet.has(log.id)) } };
+      });
+      setDeleteVisitor(null);
     } catch (error) {
       setRepairStatus(error?.message || 'Delete failed.');
     } finally {
-      setDeletingLogs(false);
+      setDeletingVisitor(false);
     }
   }
 
@@ -2879,21 +2908,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
           <section className="dd-access-log" aria-label="Delivery access timeline">
             <div className="dd-access-log-head">
               <p className="eyebrow">Access Timeline</p>
-              <div className="dd-access-log-head-meta">
-                {accessSummaryText ? <span>{accessSummaryText}</span> : null}
-                {accessVisitors.length ? (
-                  <button
-                    type="button"
-                    className="dd-access-log-clear"
-                    onClick={() => setConfirmDeleteLogs(true)}
-                    disabled={deletingLogs || !currentDelivery?.id}
-                    title="Delete Logs"
-                    aria-label="Delete Logs"
-                  >
-                    {deletingLogs ? 'Deleting\u2026' : 'Delete Logs'}
-                  </button>
-                ) : null}
-              </div>
+              {accessSummaryText ? <span>{accessSummaryText}</span> : null}
             </div>
             {accessVisitors.length ? (
               <div className="dd-visitor-list">
@@ -2901,13 +2916,14 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   <AccessLogVisitorCard
                     key={visitor.key || index}
                     visitor={visitor}
+                    onRequestDelete={() => setDeleteVisitor(visitor)}
                   />
                 ))}
               </div>
             ) : (
               <p className="dd-access-log-empty">No public activity yet.</p>
             )}
-            {confirmDeleteLogs && (
+            {deleteVisitor && (
               <div
                 className="dd-confirm-overlay"
                 style={{
@@ -2917,7 +2933,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   padding: '16px'
                 }}
-                onClick={() => setConfirmDeleteLogs(false)}
+                onClick={() => setDeleteVisitor(null)}
               >
                 <div
                   className="dd-confirm-modal"
@@ -2932,15 +2948,15 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   onClick={(e) => e.stopPropagation()}
                   role="dialog"
                   aria-modal="true"
-                  aria-labelledby="confirm-delete-logs-title"
+                  aria-labelledby="confirm-delete-log-title"
                 >
-                  <h3 id="confirm-delete-logs-title" style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Delete access logs?</h3>
+                  <h3 id="confirm-delete-log-title" style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Delete this log?</h3>
                   <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                     <button
                       type="button"
                       className="ghost-button compact"
-                      onClick={() => setConfirmDeleteLogs(false)}
-                      disabled={deletingLogs}
+                      onClick={() => setDeleteVisitor(null)}
+                      disabled={deletingVisitor}
                       ref={deleteLogsNoButtonRef}
                     >
                       No
@@ -2949,10 +2965,10 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                       type="button"
                       className="ghost-button compact"
                       style={{ color: 'var(--accent-2, red)', borderColor: 'var(--accent-2, red)' }}
-                      onClick={handleDeleteLogs}
-                      disabled={deletingLogs}
+                      onClick={handleConfirmDeleteVisitor}
+                      disabled={deletingVisitor}
                     >
-                      Delete
+                      {deletingVisitor ? 'Deleting\u2026' : 'Delete'}
                     </button>
                   </div>
                 </div>

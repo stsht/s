@@ -849,7 +849,14 @@ export function InvoiceComposer() {
     0,
   );
   const balanceDue = Math.max(0, Math.round(Number(totals.grandTotal) || 0) - depositPaidTotal);
-  const requestedDue = mode === 'deposit' && isFullPayment(totals)
+  // The figure we ask the client to pay. In the Paid tab this is the
+  // REMAINING balance to settle in full (grand total minus deposits
+  // already paid) — never the grand total again. A 100% deposit
+  // request resolves to the same remaining. When nothing has been
+  // paid the remaining equals the grand total, so a plain full
+  // payment with no deposit is unchanged. Deposit-tab partials still
+  // use the requested deposit due.
+  const requestedDue = mode === 'paid' || (mode === 'deposit' && isFullPayment(totals))
     ? balanceDue
     : totals.depositDue;
 
@@ -1472,6 +1479,7 @@ function EditorPanel(props) {
           ) : null}
           {props.mode === 'deposit' || (props.mode === 'paid' && props.depositPayments && props.depositPayments.length > 0) ? (
             <DepositLedger
+              mode={props.mode}
               payments={props.depositPayments}
               addPayment={props.addDepositPayment}
               updatePayment={props.updateDepositPayment}
@@ -1604,8 +1612,14 @@ function LockedDetails({ mode, title, clientName, contact, venue, eventDate, eve
 // checkbox was removed — the Balance Due line is now always shown on
 // the invoice (see PreviewPanel). All state lives in invoice_data;
 // no new DB columns are introduced.
-function DepositLedger({ payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, requestedDue, totals, depositAskOpen, setDepositAskOpen }) {
+function DepositLedger({ mode, payments, addPayment, updatePayment, removePayment, depositMode, setDepositMode, depositCustomAmount, setDepositCustomAmount, depositPaidTotal, balanceDue, requestedDue, totals, depositAskOpen, setDepositAskOpen }) {
   const fullPayment = isFullPayment(totals);
+  // In the Paid tab the requested figure is always the remaining
+  // balance, so it reads as "Full Payment" regardless of preset. The
+  // Deposit tab keeps its existing wording (full vs partial deposit).
+  const requestLabel = mode === 'paid'
+    ? 'Full Payment'
+    : (fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due');
   const paidRows = payments.filter((payment) => payment.paid);
   // Opening "Ask DP" auto-follows the requested deposit due to the
   // latest recorded paid DP, so the amount we ask for matches what
@@ -1647,7 +1661,7 @@ function DepositLedger({ payments, addPayment, updatePayment, removePayment, dep
       {depositAskOpen ? (
         <div className="dp-ask">
           <div className="dp-context">
-            <span>{fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due'}</span>
+            <span>{requestLabel}</span>
             <strong>{rupiah(requestedDue)}</strong>
           </div>
           <div className="deposit-presets" role="radiogroup" aria-label="Requested deposit preset">
@@ -2037,7 +2051,7 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
               ))}
               <p className="grand"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></p>
               {mode === 'paid' && paidConfirmed ? (
-                <p className="paid-in-full-row"><span>Fully Paid on {prettyDate(paidAtDate)}</span><strong>{rupiah(totals.grandTotal)}</strong></p>
+                <p className="paid-in-full-row"><span>{paidDeposits.length ? 'Full Payment on' : 'Fully Paid on'} {prettyDate(paidAtDate)}</span><strong>{rupiah(paidDeposits.length ? balanceDue : totals.grandTotal)}</strong></p>
               ) : null}
               {mode === 'deposit' ? (
                 <p className="balance-due"><span>Balance Due</span><strong>{rupiah(balanceDue)}</strong></p>

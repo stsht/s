@@ -154,6 +154,14 @@ function PublicInvoiceDocument({ invoice }) {
   const paidDeposits = (status === 'deposit' || status === 'paid')
     ? (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((payment) => payment?.paid)
     : [];
+  // Remaining balance settled by the final payment = grand total minus
+  // the deposits already paid. When there is no deposit this equals the
+  // grand total, so a plain paid-in-full receipt is unchanged.
+  const paidDepositTotal = paidDeposits.reduce(
+    (sum, payment) => sum + Math.max(0, Math.round(Number(payment?.amount) || 0)),
+    0,
+  );
+  const remainingPaid = Math.max(0, grandTotal - paidDepositTotal);
   const paidReceipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : {};
   const paymentMethod = cleanPaymentMethod(data.paymentMethod);
   const invoiceType = String(invoice?.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
@@ -208,7 +216,7 @@ function PublicInvoiceDocument({ invoice }) {
         ))}
         <p className="grand"><span>Grand Total</span><strong>{rupiah(grandTotal)}</strong></p>
         {status === 'paid' && paidReceipt.paid !== false ? (
-          <p className="paid-in-full-row"><span>Fully Paid on {prettyDate(paidReceipt.paidAtDate || invoice?.invoice_date)}</span><strong>{rupiah(grandTotal)}</strong></p>
+          <p className="paid-in-full-row"><span>{paidDeposits.length ? 'Full Payment on' : 'Fully Paid on'} {prettyDate(paidReceipt.paidAtDate || invoice?.invoice_date)}</span><strong>{rupiah(paidDeposits.length ? remainingPaid : grandTotal)}</strong></p>
         ) : null}
         {status === 'deposit' ? (
           <p className="balance-due"><span>Balance Due</span><strong>{rupiah(invoice?.balance_due)}</strong></p>

@@ -2310,7 +2310,24 @@ async function handleDbClearLogs(request, env) {
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing record id.' }, 400);
 
-  await supabaseFetch(env, `/rest/v1/delivery_access_logs?delivery_id=eq.${encodeURIComponent(id)}`, {
+  // Per-card delete: when the caller passes explicit log ids we delete
+  // ONLY those rows, and ALWAYS scope the delete to this delivery_id so
+  // a stray/forged id can never reach another delivery's logs. With no
+  // ids we fall back to clearing this delivery's whole timeline.
+  const logIds = Array.isArray(body.logIds)
+    ? [...new Set(body.logIds.map((value) => String(value || '').trim()).filter(Boolean))]
+    : [];
+  const deliveryFilter = `delivery_id=eq.${encodeURIComponent(id)}`;
+
+  if (Array.isArray(body.logIds) && !logIds.length) {
+    return json({ error: 'No valid log ids supplied.' }, 400);
+  }
+
+  const path = logIds.length
+    ? `/rest/v1/delivery_access_logs?${deliveryFilter}&id=in.(${logIds.map((value) => encodeURIComponent(value)).join(',')})`
+    : `/rest/v1/delivery_access_logs?${deliveryFilter}`;
+
+  await supabaseFetch(env, path, {
     method: 'DELETE',
     headers: { Prefer: 'return=minimal' }
   });

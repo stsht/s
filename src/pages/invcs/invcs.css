@@ -5354,48 +5354,6 @@ dd{margin:0;text-align:right;font-weight:800}
   font-size:0.75rem;
   font-weight:800;
 }
-/* Right side of the Access Timeline header: the count summary and
- * the secondary Delete Logs control sit together, wrapping cleanly
- * on narrow panels. */
-.dd-access-log-head-meta{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  flex-wrap:wrap;
-  gap:6px 10px;
-  min-width:0;
-}
-/* Destructive "Delete Logs" action — intentionally quiet (no
- * border/fill) so it stays less dominant than the panel's main
- * controls; it warms to the danger accent on hover/focus. */
-.dd-access-log-clear{
-  appearance:none;
-  border:0;
-  background:transparent;
-  margin:0;
-  padding:2px 4px;
-  color:var(--muted);
-  font:inherit;
-  font-size:0.6875rem;
-  font-weight:800;
-  line-height:1.2;
-  white-space:nowrap;
-  border-radius:8px;
-  cursor:pointer;
-  transition:color .15s ease,background .15s ease;
-  -webkit-tap-highlight-color:transparent;
-}
-.dd-access-log-clear:hover{
-  color:var(--accent-2,#e5484d);
-}
-.dd-access-log-clear:focus-visible{
-  outline:2px solid var(--accent);
-  outline-offset:2px;
-}
-.dd-access-log-clear:disabled{
-  opacity:.6;
-  cursor:default;
-}
 .dd-access-log-list{
   display:grid;
   gap:8px;
@@ -5482,6 +5440,48 @@ dd{margin:0;text-align:right;font-weight:800}
 .dd-visitor-card.is-open .dd-visitor-caret{
   transform:rotate(180deg);
   color:var(--ink);
+}
+/* Right-edge controls: the quiet per-card delete button paired with
+ * the expand caret. flex:0 0 auto so they never crowd the title. */
+.dd-visitor-head-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:0 0 auto;
+}
+/* Subtle per-visitor/session delete. Transparent and muted at rest
+ * so it never competes with the card content; warms to a soft danger
+ * tint on hover/focus. Sized to match the /db row delete affordance. */
+.dd-visitor-delete{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+  padding:0;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  opacity:.7;
+  transition:color .15s ease,background .15s ease,opacity .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.dd-visitor-delete:hover,
+.dd-visitor-delete:focus-visible{
+  color:#e5484d;
+  background:rgba(229,72,77,.12);
+  opacity:1;
+  outline:none;
+}
+.dd-visitor-delete:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.dd-visitor-delete .row-delete-icon{
+  width:12px;
+  height:12px;
 }
 .dd-visitor-meta{
   margin:0;
