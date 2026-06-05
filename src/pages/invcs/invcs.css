@@ -5354,6 +5354,48 @@ dd{margin:0;text-align:right;font-weight:800}
   font-size:0.75rem;
   font-weight:800;
 }
+/* Right side of the Access Timeline header: the count summary and
+ * the secondary Delete Logs control sit together, wrapping cleanly
+ * on narrow panels. */
+.dd-access-log-head-meta{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:6px 10px;
+  min-width:0;
+}
+/* Destructive "Delete Logs" action — intentionally quiet (no
+ * border/fill) so it stays less dominant than the panel's main
+ * controls; it warms to the danger accent on hover/focus. */
+.dd-access-log-clear{
+  appearance:none;
+  border:0;
+  background:transparent;
+  margin:0;
+  padding:2px 4px;
+  color:var(--muted);
+  font:inherit;
+  font-size:0.6875rem;
+  font-weight:800;
+  line-height:1.2;
+  white-space:nowrap;
+  border-radius:8px;
+  cursor:pointer;
+  transition:color .15s ease,background .15s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.dd-access-log-clear:hover{
+  color:var(--accent-2,#e5484d);
+}
+.dd-access-log-clear:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+.dd-access-log-clear:disabled{
+  opacity:.6;
+  cursor:default;
+}
 .dd-access-log-list{
   display:grid;
   gap:8px;

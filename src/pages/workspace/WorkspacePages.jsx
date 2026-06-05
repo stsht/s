@@ -1808,9 +1808,10 @@ function groupAccessLogsByVisitor(logs = []) {
       isp: accessLogIsp(first) || accessLogIsp(last),
     };
   });
-  // Earliest visitor first so the cards read top-to-bottom in
-  // arrival order.
-  visitors.sort((a, b) => accessLogTimeValue(a.first.created_at) - accessLogTimeValue(b.first.created_at));
+  // Newest activity first: the visitor/session whose most-recent
+  // event is the latest floats to the top, so the operator sees the
+  // freshest session at a glance instead of scrolling past old ones.
+  visitors.sort((a, b) => accessLogTimeValue(b.last.created_at) - accessLogTimeValue(a.last.created_at));
   return visitors;
 }
 
@@ -1854,12 +1855,14 @@ function visitorActionSummary(events = []) {
   return out;
 }
 
-// One grouped visitor card. The headline is the device/app (e.g.
-// "Safari iOS" / "WhatsApp Browser"), the supporting line carries
-// place / network / IP, and a compact date-time status shows when
-// the visit happened. The WHOLE card is the tap target: clicking or
-// pressing Enter/Space toggles an inline chronological timeline. A
-// caret on the right hints the expandable state.
+// One grouped visitor card. The headline prefers the ISP/org/network
+// name when the payload carries it (e.g. "Telkomsel" / "Meta") and
+// otherwise falls back to the device/app (e.g. "Safari iOS" /
+// "WhatsApp Browser"); the supporting line carries place / app / IP,
+// and a compact date-time status shows when the visit happened. The
+// WHOLE card is the tap target: clicking or pressing Enter/Space
+// toggles an inline timeline (newest-to-oldest). A caret on the
+// right hints the expandable state.
 function visitorWhenLabel(visitor = {}) {
   const first = visitor.first || {};
   const last = visitor.last || {};
@@ -1888,11 +1891,25 @@ function visitorWhenLabel(visitor = {}) {
 function AccessLogVisitorCard({ visitor }) {
   const [open, setOpen] = useState(false);
   const actions = visitorActionSummary(visitor.events);
-  const headline = visitor.device || 'Unknown device';
-  // Supporting line: place \u00b7 network \u00b7 IP. ISP only shows when
-  // the payload actually carries it; IP stays visible but secondary.
-  const support = [visitor.place, visitor.isp, visitor.ip].filter(Boolean).join(' \u00b7 ');
+  // Title prefers the ISP / org / network name when the log payload
+  // actually carries it (e.g. "Telkomsel", "Biznet", "Meta"). When
+  // it does not, we fall back to the app/browser label (e.g.
+  // "Safari iOS", "WhatsApp Browser") rather than guessing a network.
+  const network = visitor.isp;
+  const device = visitor.device;
+  const headline = network || device || 'Unknown device';
+  // Supporting line: place \u00b7 app/browser \u00b7 IP. The app/browser
+  // is shown here only when the title is the ISP/org, so we never
+  // repeat the device label that is already serving as the title
+  // when no network is known. IP stays visible but secondary.
+  const support = [visitor.place, network ? device : '', visitor.ip]
+    .filter(Boolean)
+    .join(' \u00b7 ');
   const whenLabel = visitorWhenLabel(visitor);
+  // Expanded timeline reads newest-to-oldest to stay consistent with
+  // the newest-first card ordering (events are stored chronological,
+  // so reverse a copy here for display).
+  const timelineRows = [...visitor.events].reverse();
   const toggle = () => setOpen((cur) => !cur);
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
@@ -1932,7 +1949,7 @@ function AccessLogVisitorCard({ visitor }) {
       {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
       {open ? (
         <ol className="dd-visitor-timeline">
-          {visitor.events.map((event, i) => (
+          {timelineRows.map((event, i) => (
             <li className="dd-visitor-row" key={`${event.id || i}-${event.created_at || ''}`}>
               <span className="dd-visitor-stamp">{formatAccessLogStamp(event.created_at) || '\u2014'}</span>
               <span className="dd-visitor-dot" aria-hidden="true">{'\u00b7'}</span>
@@ -1996,6 +2013,14 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   const [markingDone, setMarkingDone] = useState(false);
   const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
   const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
+  // Permanent access-log delete confirmation. confirmDeleteLogs gates
+  // the custom in-panel confirmation dialog (no native confirm());
+  // deletingLogs gates the request in-flight. The "No" button takes
+  // default focus so pressing Enter cancels unless the operator tabs
+  // to "Delete".
+  const [confirmDeleteLogs, setConfirmDeleteLogs] = useState(false);
+  const [deletingLogs, setDeletingLogs] = useState(false);
+  const deleteLogsNoButtonRef = useRef(null);
   const noButtonRef = useRef(null);
 
   useEffect(() => {
@@ -2029,6 +2054,23 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [confirmRestoreHash]);
+
+  // Default focus on "No" so the safe choice is the one that fires on
+  // Enter; the operator must deliberately tab to "Delete".
+  useEffect(() => {
+    if (confirmDeleteLogs && deleteLogsNoButtonRef.current) {
+      deleteLogsNoButtonRef.current.focus();
+    }
+  }, [confirmDeleteLogs]);
+
+  useEffect(() => {
+    if (!confirmDeleteLogs) return;
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setConfirmDeleteLogs(false);
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [confirmDeleteLogs]);
 
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
@@ -2071,6 +2113,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
     setConfirmRestoreHash('');
+    setConfirmDeleteLogs(false);
   }, [delivery?.id]);
 
   // Auto-disarm the Delete confirm after ~4s so an accidental first
@@ -2155,14 +2198,17 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // flashes, variant toggles) don't re-walk the log array.
   const accessVisitors = useMemo(() => groupAccessLogsByVisitor(accessLogs), [accessLogs]);
   const accessStats = useMemo(() => summarizeAccessLogs(accessLogs), [accessLogs]);
-  const accessSummaryText = accessVisitors.length
-    ? [
+  // Compact header summary. Always rendered (even at zero) so the
+  // header reads "0 visitors \u00b7 0 opens \u00b7 0 clicks" both on a
+  // delivery with no public activity yet AND immediately after the
+  // operator deletes the logs. Last activity is appended only when
+  // there is real public activity to point at.
+  const accessSummaryText = [
         pluralCount(accessVisitors.length, 'visitor'),
         pluralCount(accessStats.opens, 'open'),
         pluralCount(accessStats.clicks, 'click'),
         accessStats.lastActivity ? `Last activity ${accessStats.lastActivity}` : '',
-      ].filter(Boolean).join(' \u00b7 ')
-    : '';
+      ].filter(Boolean).join(' \u00b7 ');
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -2322,6 +2368,38 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     } catch (error) {
       setRepairStatus(error?.message || 'Delete failed.');
       setDeleting(false);
+    }
+  }
+
+  // Permanently delete the PUBLIC access logs for ONLY this delivery
+  // via /api/db-clear-logs (admin-authenticated, scoped to this
+  // delivery_id on the server). It never touches other
+  // clients/deliveries, the paired invoice, or any
+  // client/subscription record. On success we clear the in-panel
+  // stats so the timeline drops straight to its empty state and the
+  // summary resets to "0 visitors..." with no refetch needed.
+  async function handleDeleteLogs() {
+    if (!currentDelivery?.id || deletingLogs) return;
+    setDeletingLogs(true);
+    setRepairStatus('');
+    try {
+      const response = await fetch('/api/db-clear-logs', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentDelivery.id }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || !json.ok) throw new Error(json.error || `Delete failed (${response.status}).`);
+      setCurrentDelivery((prev) => ({
+        ...prev,
+        stats: { ...(prev?.stats || {}), opens: 0, clicks: 0, logs: [] },
+      }));
+      setConfirmDeleteLogs(false);
+    } catch (error) {
+      setRepairStatus(error?.message || 'Delete failed.');
+    } finally {
+      setDeletingLogs(false);
     }
   }
 
@@ -2801,7 +2879,21 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
           <section className="dd-access-log" aria-label="Delivery access timeline">
             <div className="dd-access-log-head">
               <p className="eyebrow">Access Timeline</p>
-              {accessSummaryText ? <span>{accessSummaryText}</span> : null}
+              <div className="dd-access-log-head-meta">
+                {accessSummaryText ? <span>{accessSummaryText}</span> : null}
+                {accessVisitors.length ? (
+                  <button
+                    type="button"
+                    className="dd-access-log-clear"
+                    onClick={() => setConfirmDeleteLogs(true)}
+                    disabled={deletingLogs || !currentDelivery?.id}
+                    title="Delete Logs"
+                    aria-label="Delete Logs"
+                  >
+                    {deletingLogs ? 'Deleting\u2026' : 'Delete Logs'}
+                  </button>
+                ) : null}
+              </div>
             </div>
             {accessVisitors.length ? (
               <div className="dd-visitor-list">
@@ -2814,6 +2906,57 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
               </div>
             ) : (
               <p className="dd-access-log-empty">No public activity yet.</p>
+            )}
+            {confirmDeleteLogs && (
+              <div
+                className="dd-confirm-overlay"
+                style={{
+                  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  zIndex: 9999,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '16px'
+                }}
+                onClick={() => setConfirmDeleteLogs(false)}
+              >
+                <div
+                  className="dd-confirm-modal"
+                  style={{
+                    backgroundColor: 'var(--bg, #fff)',
+                    padding: '24px',
+                    borderRadius: '16px',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+                    minWidth: '280px',
+                    maxWidth: '100%'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="confirm-delete-logs-title"
+                >
+                  <h3 id="confirm-delete-logs-title" style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Delete access logs?</h3>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      className="ghost-button compact"
+                      onClick={() => setConfirmDeleteLogs(false)}
+                      disabled={deletingLogs}
+                      ref={deleteLogsNoButtonRef}
+                    >
+                      No
+                    </button>
+                    <button
+                      type="button"
+                      className="ghost-button compact"
+                      style={{ color: 'var(--accent-2, red)', borderColor: 'var(--accent-2, red)' }}
+                      onClick={handleDeleteLogs}
+                      disabled={deletingLogs}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </section>
         </div>
