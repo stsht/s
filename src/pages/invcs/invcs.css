@@ -5422,6 +5422,15 @@ dd{margin:0;text-align:right;font-weight:800}
   gap:10px;
   min-width:0;
 }
+/* Stacked text block (title + meta + when + actions). Takes the
+ * remaining width so the centered flex row can vertically middle the
+ * clear (X) against this whole block, not just the title line. */
+.dd-visitor-info{
+  display:grid;
+  gap:3px;
+  min-width:0;
+  flex:1 1 auto;
+}
 /* Device / app is the card identity — no more "Visitor 1". */
 .dd-visitor-name{
   color:var(--ink);

@@ -1926,13 +1926,22 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
       onClick={toggle}
       onKeyDown={handleKeyDown}
     >
+      {/* Summary row: the stacked text block on the left, and the
+          clear (X) control on the right. align-items:center on the
+          row keeps the X vertically centered against the WHOLE
+          summary block (title + meta + when + actions), not just the
+          title line — and it stays out of the expanded timeline. */}
       <div className="dd-visitor-head">
-        <strong className="dd-visitor-name">{headline}</strong>
+        <div className="dd-visitor-info">
+          <strong className="dd-visitor-name">{headline}</strong>
+          {support ? <p className="dd-visitor-meta">{support}</p> : null}
+          {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
+          {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
+        </div>
         {/* Per-card clear: removes ONLY this visitor/session's log
             rows, immediately (no confirm). stopPropagation on click +
             Enter/Space keeps the whole-card expand/collapse gesture
-            from also firing. Vertically centered against the title via
-            the flex head row — no separate expand arrow. */}
+            from also firing. No separate expand arrow. */}
         <button
           type="button"
           className="dd-visitor-delete"
@@ -1951,9 +1960,6 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
           <DeleteIcon />
         </button>
       </div>
-      {support ? <p className="dd-visitor-meta">{support}</p> : null}
-      {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
-      {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
       {open ? (
         <ol className="dd-visitor-timeline">
           {timelineRows.map((event, i) => (
