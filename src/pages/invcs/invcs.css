@@ -1286,6 +1286,23 @@ button.public-delivery-row{
   letter-spacing:.18em;
   text-transform:uppercase;
 }
+/* Preview rows stay fully clickable (they reuse .is-active) but the
+ * badge reads in a muted, non-final tone so the client understands
+ * the files may still change before the delivery is completed. */
+.public-delivery-row.is-preview .public-delivery-state{
+  color:var(--muted);
+  letter-spacing:.14em;
+}
+/* Single shared note under the list when any preview link is shown.
+ * Quiet, centered, and mobile-safe — no native alert. */
+.public-delivery-preview-note{
+  margin:10px 2px 0;
+  color:var(--muted);
+  font-size:0.75rem;
+  font-weight:700;
+  line-height:1.5;
+  text-align:center;
+}
 .public-delivery-signoff{
   margin:auto 0 0;
   padding-top:34px;
@@ -1294,26 +1311,6 @@ button.public-delivery-row{
   font-weight:900;
   letter-spacing:.08em;
   text-align:center;
-}
-.public-delivery-eta-note{
-  padding:14px 16px;
-  border-radius:18px;
-  background:var(--soft);
-  border:1px solid var(--line);
-  color:var(--muted);
-  font-size:0.8125rem;
-  line-height:1.6;
-  text-align:left;
-  -webkit-animation:ssFadeIn .22s cubic-bezier(.22,1,.36,1) forwards;
-  animation:ssFadeIn .22s cubic-bezier(.22,1,.36,1) forwards;
-}
-@-webkit-keyframes ssFadeIn{
-  from{opacity:0;-webkit-transform:translateY(-4px);transform:translateY(-4px)}
-  to{opacity:1;-webkit-transform:translateY(0);transform:translateY(0)}
-}
-@keyframes ssFadeIn{
-  from{opacity:0;transform:translateY(-4px)}
-  to{opacity:1;transform:translateY(0)}
 }
 
 .composer-page{

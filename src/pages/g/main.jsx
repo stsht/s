@@ -284,7 +284,6 @@ function GalleryLinks({ payload }) {
   // Brief "Copied" confirmation shown on the adaptive Bank action.
   const [bankCopied, setBankCopied] = useState(false);
 
-  const [expandedService, setExpandedService] = useState(null);
   const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -459,16 +458,6 @@ function GalleryLinks({ payload }) {
     }
   }, [invoiceOpen, fullScreenPreviewOpen]);
 
-  useEffect(() => {
-    if (expandedService === null) return;
-    function handleDocumentClick() {
-      setExpandedService(null);
-    }
-    document.addEventListener('click', handleDocumentClick);
-    return () => {
-      document.removeEventListener('click', handleDocumentClick);
-    };
-  }, [expandedService]);
   const links = (payload?.links || []).filter((item) => item?.url);
   const linkMap = new Map(links.map((link) => [String(link.service || '').toLowerCase(), link]));
   const services = [
@@ -603,6 +592,12 @@ function GalleryLinks({ payload }) {
     link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
   }));
 
+  // True when at least one service link is openable but the delivery
+  // is not yet marked complete — drives the single shared "files may
+  // still change" note under the list (no per-row repetition).
+  const deliveryIsDone = !!(delivery.delivery_done || delivery.deliveryDone);
+  const hasPreviewLinks = resolvedServices.some(({ link }) => !!link?.url) && !deliveryIsDone;
+
   // Client-facing payment area (unpaid invoices only). Shows Bank
   // Transfer details for the client. Totals are unchanged — we only
   // read the already-computed deposit / full payment due. A `paid`
@@ -678,32 +673,24 @@ function GalleryLinks({ payload }) {
                 </a>
               );
             } else if (url && !isDone) {
-              const isExpanded = expandedService === fallback;
+              // URL exists but the delivery is not marked complete yet.
+              // The link is still openable (it logs a service_click via
+              // the /api/open-link redirect just like the final state),
+              // but we badge it PREVIEW so the client knows the files
+              // may still change. No "IN PROGRESS" — that reads as
+              // not-clickable, which contradicts an openable row.
               return (
-                <div key={fallback} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button
-                    type="button"
-                    className={`public-delivery-row is-disabled in-progress${isExpanded ? ' is-expanded' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setExpandedService(isExpanded ? null : fallback);
-                    }}
-                    style={{ cursor: 'pointer' }}
-                    aria-expanded={isExpanded}
-                  >
-                    <span className="public-delivery-icon">{icon}</span>
-                    <span className="public-delivery-name">{name}</span>
-                    <span className="public-delivery-state">IN PROGRESS</span>
-                  </button>
-                  {isExpanded && (
-                    <div
-                      className="public-delivery-eta-note"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Your files are currently being prepared and are estimated to be available within 5 days after the event.
-                    </div>
-                  )}
-                </div>
+                <a
+                  key={fallback}
+                  className="public-delivery-row is-active is-preview"
+                  href={openUrl}
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span className="public-delivery-icon">{icon}</span>
+                  <span className="public-delivery-name">{name}</span>
+                  <span className="public-delivery-state">PREVIEW</span>
+                </a>
               );
             } else {
               return (
@@ -722,6 +709,11 @@ function GalleryLinks({ payload }) {
             }
           })}
         </div>
+        {hasPreviewLinks ? (
+          <p className="public-delivery-preview-note">
+            Files may still be updated until delivery is marked complete.
+          </p>
+        ) : null}
 
         <p className="public-delivery-signoff">With love, StarShots</p>
       </section>
