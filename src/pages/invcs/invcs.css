@@ -5431,28 +5431,13 @@ dd{margin:0;text-align:right;font-weight:800}
   overflow-wrap:anywhere;
   min-width:0;
 }
-/* Caret hints the expandable state; flips when the card is open. */
-.dd-visitor-caret{
-  flex:0 0 auto;
-  color:var(--muted);
-  transition:transform .18s ease,color .15s ease;
-}
-.dd-visitor-card.is-open .dd-visitor-caret{
-  transform:rotate(180deg);
-  color:var(--ink);
-}
-/* Right-edge controls: the quiet per-card delete button paired with
- * the expand caret. flex:0 0 auto so they never crowd the title. */
-.dd-visitor-head-actions{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  flex:0 0 auto;
-}
-/* Subtle per-visitor/session delete. Transparent and muted at rest
+/* Subtle per-visitor/session clear. Transparent and muted at rest
  * so it never competes with the card content; warms to a soft danger
- * tint on hover/focus. Sized to match the /db row delete affordance. */
+ * tint on hover/focus. flex:0 0 auto + the centered flex head row
+ * keep it vertically aligned with the title and never crowding it.
+ * Sized to match the /db row delete affordance. */
 .dd-visitor-delete{
+  flex:0 0 auto;
   display:inline-flex;
   align-items:center;
   justify-content:center;

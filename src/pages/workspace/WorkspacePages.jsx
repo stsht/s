@@ -1861,8 +1861,8 @@ function visitorActionSummary(events = []) {
 // "WhatsApp Browser"); the supporting line carries place / app / IP,
 // and a compact date-time status shows when the visit happened. The
 // WHOLE card is the tap target: clicking or pressing Enter/Space
-// toggles an inline timeline (newest-to-oldest). A caret on the
-// right hints the expandable state.
+// toggles an inline timeline (newest-to-oldest). The right edge
+// carries only a subtle clear (X) control — no expand arrow.
 function visitorWhenLabel(visitor = {}) {
   const first = visitor.first || {};
   const last = visitor.last || {};
@@ -1928,43 +1928,28 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
     >
       <div className="dd-visitor-head">
         <strong className="dd-visitor-name">{headline}</strong>
-        <div className="dd-visitor-head-actions">
-          {/* Per-card delete: removes ONLY this visitor/session's log
-              rows. stopPropagation on click + Enter/Space keeps the
-              whole-card expand/collapse gesture from also firing. */}
-          <button
-            type="button"
-            className="dd-visitor-delete"
-            onClick={(event) => {
+        {/* Per-card clear: removes ONLY this visitor/session's log
+            rows, immediately (no confirm). stopPropagation on click +
+            Enter/Space keeps the whole-card expand/collapse gesture
+            from also firing. Vertically centered against the title via
+            the flex head row — no separate expand arrow. */}
+        <button
+          type="button"
+          className="dd-visitor-delete"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRequestDelete?.();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
               event.stopPropagation();
-              onRequestDelete?.();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
-                event.stopPropagation();
-              }
-            }}
-            title="Delete this log"
-            aria-label="Delete this log"
-          >
-            <DeleteIcon />
-          </button>
-          <svg
-            className="dd-visitor-caret"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </div>
+            }
+          }}
+          title="Clear this log"
+          aria-label="Clear this log"
+        >
+          <DeleteIcon />
+        </button>
       </div>
       {support ? <p className="dd-visitor-meta">{support}</p> : null}
       {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
@@ -2035,14 +2020,11 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   const [markingDone, setMarkingDone] = useState(false);
   const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
   const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
-  // Per-card access-log delete confirmation. deleteVisitor holds the
-  // visitor/session card the operator asked to delete (null = no
-  // dialog); deletingVisitor gates the request in-flight. The custom
-  // in-panel dialog (no native confirm()) focuses "No" by default so
-  // pressing Enter cancels unless the operator tabs to "Delete".
-  const [deleteVisitor, setDeleteVisitor] = useState(null);
+  // Per-card access-log clear in-flight gate. Clicking a visitor
+  // card's X clears ONLY that session's log rows immediately (no
+  // confirm dialog); deletingVisitor just prevents overlapping
+  // requests while one delete is resolving.
   const [deletingVisitor, setDeletingVisitor] = useState(false);
-  const deleteLogsNoButtonRef = useRef(null);
   const noButtonRef = useRef(null);
 
   useEffect(() => {
@@ -2076,23 +2058,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [confirmRestoreHash]);
-
-  // Default focus on "No" so the safe choice is the one that fires on
-  // Enter; the operator must deliberately tab to "Delete".
-  useEffect(() => {
-    if (deleteVisitor && deleteLogsNoButtonRef.current) {
-      deleteLogsNoButtonRef.current.focus();
-    }
-  }, [deleteVisitor]);
-
-  useEffect(() => {
-    if (!deleteVisitor) return;
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') setDeleteVisitor(null);
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [deleteVisitor]);
 
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
@@ -2135,7 +2100,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
     setConfirmRestoreHash('');
-    setDeleteVisitor(null);
   }, [delivery?.id]);
 
   // Auto-disarm the Delete confirm after ~4s so an accidental first
@@ -2393,20 +2357,17 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     }
   }
 
-  // Permanently delete the access-log rows for ONE visitor/session
-  // card via /api/db-clear-logs. We pass the explicit log ids for
-  // that group; the worker scopes the delete to BOTH those ids AND
+  // Permanently clear the access-log rows for ONE visitor/session
+  // card via /api/db-clear-logs. Fires immediately on the card's X —
+  // no confirm dialog, no native alert. We pass the explicit log ids
+  // for that group; the worker scopes the delete to BOTH those ids AND
   // this delivery_id, so it can never touch another visitor card,
   // another delivery, or any invoice/client/subscription record. On
   // success we drop just those rows from the in-panel stats so the
   // card disappears and the summary counts recompute with no refetch.
-  async function handleConfirmDeleteVisitor() {
-    const target = deleteVisitor;
+  async function handleDeleteVisitor(target) {
     const logIds = (target?.events || []).map((event) => event.id).filter(Boolean);
-    if (!currentDelivery?.id || !logIds.length) {
-      setDeleteVisitor(null);
-      return;
-    }
+    if (!currentDelivery?.id || !logIds.length) return;
     if (deletingVisitor) return;
     setDeletingVisitor(true);
     setRepairStatus('');
@@ -2424,7 +2385,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         const logs = Array.isArray(prev?.stats?.logs) ? prev.stats.logs : [];
         return { ...prev, stats: { ...(prev?.stats || {}), logs: logs.filter((log) => !removeSet.has(log.id)) } };
       });
-      setDeleteVisitor(null);
     } catch (error) {
       setRepairStatus(error?.message || 'Delete failed.');
     } finally {
@@ -2916,63 +2876,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   <AccessLogVisitorCard
                     key={visitor.key || index}
                     visitor={visitor}
-                    onRequestDelete={() => setDeleteVisitor(visitor)}
+                    onRequestDelete={() => handleDeleteVisitor(visitor)}
                   />
                 ))}
               </div>
             ) : (
               <p className="dd-access-log-empty">No public activity yet.</p>
-            )}
-            {deleteVisitor && (
-              <div
-                className="dd-confirm-overlay"
-                style={{
-                  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                  backgroundColor: 'rgba(0,0,0,0.5)',
-                  zIndex: 9999,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  padding: '16px'
-                }}
-                onClick={() => setDeleteVisitor(null)}
-              >
-                <div
-                  className="dd-confirm-modal"
-                  style={{
-                    backgroundColor: 'var(--bg, #fff)',
-                    padding: '24px',
-                    borderRadius: '16px',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                    minWidth: '280px',
-                    maxWidth: '100%'
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="confirm-delete-log-title"
-                >
-                  <h3 id="confirm-delete-log-title" style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Delete this log?</h3>
-                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                    <button
-                      type="button"
-                      className="ghost-button compact"
-                      onClick={() => setDeleteVisitor(null)}
-                      disabled={deletingVisitor}
-                      ref={deleteLogsNoButtonRef}
-                    >
-                      No
-                    </button>
-                    <button
-                      type="button"
-                      className="ghost-button compact"
-                      style={{ color: 'var(--accent-2, red)', borderColor: 'var(--accent-2, red)' }}
-                      onClick={handleConfirmDeleteVisitor}
-                      disabled={deletingVisitor}
-                    >
-                      {deletingVisitor ? 'Deleting\u2026' : 'Delete'}
-                    </button>
-                  </div>
-                </div>
-              </div>
             )}
           </section>
         </div>
