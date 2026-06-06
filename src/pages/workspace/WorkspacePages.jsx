@@ -1731,6 +1731,143 @@ function accessLogIsp(log = {}) {
   return String(log.isp || log.org || log.asn_org || '').trim();
 }
 
+// Mask an IP for the compact COLLAPSED subtitle so the card stays
+// readable without leaking a full address at a glance. IPv4 keeps the
+// first two octets ("103.109.xxx.xxx"); IPv6 keeps the first two
+// hextets ("2404:c0:xxxx"). Expanded timeline rows still show the
+// full IP for precise same-visitor / proxy correlation.
+function maskIpAddress(ip = '') {
+  const clean = String(ip || '').trim();
+  if (!clean) return '';
+  if (clean.includes(':')) {
+    const head = clean.split(':').filter(Boolean).slice(0, 2).join(':');
+    return head ? `${head}:xxxx` : clean;
+  }
+  const m = clean.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  return m ? `${m[1]}.${m[2]}.xxx.xxx` : clean;
+}
+
+function ipv4Octets(ip = '') {
+  const m = String(ip || '').trim().match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])] : null;
+}
+
+// Derive a well-known network / infrastructure owner from a log's
+// metadata. We FIRST honour any explicit isp/org/asn_org string the
+// payload carries (future-proof + lets a real ISP name like
+// "Telkomsel" become the card title). When no org is stored — the
+// current /db payload only persists ip/city/country/user_agent — we
+// fall back to conservative IP-range matching for the handful of big
+// infra owners that matter for spotting previews/proxies. Anything we
+// can't confidently place returns an empty key/name so the UI quietly
+// falls back to the browser/app label instead of guessing.
+//   key: '' | 'isp' | 'meta' | 'apple_relay' | 'cloudflare' | 'google' | 'aws' | 'datacenter'
+function classifyAccessNetwork(log = {}) {
+  const org = accessLogIsp(log);
+  if (org) {
+    const o = org.toLowerCase();
+    if (/facebook|instagram|\bmeta\b/.test(o)) return { key: 'meta', name: 'Meta' };
+    if (/apple|icloud|private relay/.test(o)) return { key: 'apple_relay', name: 'Apple Private Relay' };
+    if (/cloudflare/.test(o)) return { key: 'cloudflare', name: 'Cloudflare / Proxy' };
+    if (/google/.test(o)) return { key: 'google', name: 'Google' };
+    if (/amazon|\baws\b/.test(o)) return { key: 'aws', name: 'Amazon AWS' };
+    if (/microsoft|azure|digitalocean|\bovh\b|hetzner|linode|vultr|datacenter|hosting/.test(o)) {
+      return { key: 'datacenter', name: org };
+    }
+    // A real residential / mobile ISP (e.g. Telkomsel, Indosat, Biznet).
+    return { key: 'isp', name: org };
+  }
+  const ip = String(log.ip_address || '').trim();
+  const ipl = ip.toLowerCase();
+  if (!ipl) return { key: '', name: '' };
+  if (ipl.includes(':')) {
+    if (ipl.startsWith('2a03:2880') || ipl.startsWith('2a03:2887') || ipl.startsWith('2620:0:1c')) {
+      return { key: 'meta', name: 'Meta' };
+    }
+    if (ipl.startsWith('2606:4700') || ipl.startsWith('2803:f800') || ipl.startsWith('2405:b500')
+      || ipl.startsWith('2405:8100') || ipl.startsWith('2a06:98c0') || ipl.startsWith('2c0f:f248')) {
+      return { key: 'cloudflare', name: 'Cloudflare / Proxy' };
+    }
+    if (ipl.startsWith('2607:f8b0') || ipl.startsWith('2001:4860')) return { key: 'google', name: 'Google' };
+    if (ipl.startsWith('2600:1f') || ipl.startsWith('2600:9000') || ipl.startsWith('2406:da')) {
+      return { key: 'aws', name: 'Amazon AWS' };
+    }
+    return { key: '', name: '' };
+  }
+  const octets = ipv4Octets(ip);
+  if (octets) {
+    const [a, b, c] = octets;
+    const isMeta = (a === 31 && b === 13) || (a === 66 && b === 220) || (a === 69 && b === 63)
+      || (a === 69 && b === 171) || (a === 74 && b === 119 && c >= 76 && c <= 79)
+      || (a === 102 && b === 132) || (a === 103 && b === 4 && c >= 96 && c <= 99)
+      || (a === 129 && b === 134) || (a === 157 && b === 240) || (a === 173 && b === 252)
+      || (a === 179 && b === 60 && c >= 192 && c <= 195) || (a === 185 && b === 60 && c >= 216 && c <= 219)
+      || (a === 204 && b === 15 && c >= 20 && c <= 23);
+    if (isMeta) return { key: 'meta', name: 'Meta' };
+    const isCloudflare = (a === 104 && b >= 16 && b <= 31) || (a === 172 && b >= 64 && b <= 71)
+      || (a === 162 && (b === 158 || b === 159)) || (a === 173 && b === 245) || (a === 188 && b === 114)
+      || (a === 190 && b === 93) || (a === 197 && b === 234) || (a === 198 && b === 41) || (a === 131 && b === 0);
+    if (isCloudflare) return { key: 'cloudflare', name: 'Cloudflare / Proxy' };
+    const isGoogle = (a === 8 && (b === 8 || b === 34 || b === 35)) || (a === 66 && b === 249)
+      || (a === 64 && b === 233) || (a === 72 && b === 14) || (a === 74 && b === 125) || (a === 108 && b === 177)
+      || (a === 142 && b === 250) || (a === 172 && b === 217) || (a === 173 && b === 194) || (a === 209 && b === 85)
+      || (a === 216 && (b === 58 || b === 239)) || a === 34 || a === 35;
+    if (isGoogle) return { key: 'google', name: 'Google' };
+    const isAws = a === 3 || a === 13 || a === 15 || a === 16 || a === 18 || a === 52 || a === 54
+      || (a === 99 && b >= 77 && b <= 88);
+    if (isAws) return { key: 'aws', name: 'Amazon AWS' };
+  }
+  return { key: '', name: '' };
+}
+
+// A GENUINE in-app browser (a real person tapping a link inside
+// Instagram / WhatsApp / Facebook / etc.). Meta's link-preview
+// scanner (facebookexternalhit / Facebot / meta-externalagent) is
+// explicitly NOT a real open, so we exclude it here — that case is
+// surfaced as "Meta Preview" instead.
+function isRealInAppBrowser(userAgent = '') {
+  const ua = String(userAgent || '');
+  if (!ua) return false;
+  if (/facebookexternalhit|facebot|meta-externalagent/i.test(ua)) return false;
+  return /Instagram|WhatsApp|FBAN|FBAV|FB_IAB|FBIOS|FB4A|\bLine\/|TikTok|musical_ly|Bytedance/i.test(ua);
+}
+
+// Conservative actor classification for a grouped visitor/session.
+// Strong human signals are an unlock (password_success) or a link
+// click; a bare page view is weak. Known Meta infrastructure paired
+// with a non-app (scanner/generic) UA reads as a preview, never as a
+// confident client open.
+//   { key, label } where label is one of:
+//   "Likely Client" | "Meta Preview" | "Private Relay"
+//   | "Proxy / Datacenter" | "Unknown"
+function accessActorType(visitor = {}) {
+  const rep = visitor.first || visitor.last || {};
+  const net = classifyAccessNetwork(rep);
+  const ua = rep.user_agent || visitor.last?.user_agent || '';
+  const realApp = isRealInAppBrowser(ua);
+  const types = new Set((visitor.events || []).map((e) => String(e.event_type || '').toLowerCase()));
+  const strongSignal = types.has('password_success') || types.has('service_click') || types.has('button_click');
+  if (net.key === 'meta' && !realApp) return { key: 'meta', label: 'Meta Preview' };
+  if (net.key === 'apple_relay') return { key: 'relay', label: 'Private Relay' };
+  if (net.key === 'cloudflare' || net.key === 'google' || net.key === 'aws' || net.key === 'datacenter') {
+    return { key: 'proxy', label: 'Proxy / Datacenter' };
+  }
+  if (strongSignal) return { key: 'client', label: 'Likely Client' };
+  return { key: 'unknown', label: 'Unknown' };
+}
+
+// Muted per-event provenance line for the expanded timeline:
+// "IP \u00b7 ISP/org \u00b7 City \u00b7 Browser/App". Lets the operator tell a real
+// repeat visitor (same IP + app) from a proxy/scanner hit that shares
+// the same delivery. Empty parts (e.g. no known network) drop out.
+function accessLogRowDetail(event = {}) {
+  const ip = String(event.ip_address || '').trim();
+  const net = classifyAccessNetwork(event);
+  const place = accessLogPlace(event);
+  const device = accessLogDevice(event.user_agent);
+  return [ip, net.name, place, device].filter(Boolean).join(' \u00b7 ');
+}
+
 // Time-only clock (e.g. "10:03") for the summary's "Last activity"
 // and the same-day visitor status — keeps the panel compact.
 function formatAccessLogClock(value = '') {
@@ -1891,18 +2028,28 @@ function visitorWhenLabel(visitor = {}) {
 function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   const [open, setOpen] = useState(false);
   const actions = visitorActionSummary(visitor.events);
-  // Title prefers the ISP / org / network name when the log payload
-  // actually carries it (e.g. "Telkomsel", "Biznet", "Meta"). When
-  // it does not, we fall back to the app/browser label (e.g.
-  // "Safari iOS", "WhatsApp Browser") rather than guessing a network.
-  const network = visitor.isp;
   const device = visitor.device;
-  const headline = network || device || 'Unknown device';
-  // Supporting line: place \u00b7 app/browser \u00b7 IP. The app/browser
-  // is shown here only when the title is the ISP/org, so we never
-  // repeat the device label that is already serving as the title
-  // when no network is known. IP stays visible but secondary.
-  const support = [visitor.place, network ? device : '', visitor.ip]
+  const rep = visitor.first || visitor.last || {};
+  const network = classifyAccessNetwork(rep);
+  const actor = accessActorType(visitor);
+  const realApp = isRealInAppBrowser(rep.user_agent || visitor.last?.user_agent || '');
+  // Title identity, in priority order:
+  //   1. Meta link-preview/scanner  -> "Meta Preview" (never counted
+  //      as a real in-app open).
+  //   2. A GENUINE in-app browser   -> the app label ("Instagram
+  //      Browser" / "WhatsApp Browser") even if it rode a Meta IP.
+  //   3. A known ISP / network owner-> that name ("Telkomsel",
+  //      "Cloudflare / Proxy", "Apple Private Relay", ...).
+  //   4. Otherwise                  -> the device/browser label.
+  let headline;
+  if (actor.key === 'meta') headline = 'Meta Preview';
+  else if (realApp && device) headline = device;
+  else headline = network.name || device || 'Unknown device';
+  // Supporting line is always "City, Country \u00b7 Browser/App \u00b7 IP"
+  // (IP masked here; full IP lives in the expanded rows). Keeping the
+  // browser/app here even when it is also the title gives the operator
+  // a consistent, scannable identity strip on every card.
+  const support = [visitor.place, device, maskIpAddress(visitor.ip)]
     .filter(Boolean)
     .join(' \u00b7 ');
   const whenLabel = visitorWhenLabel(visitor);
@@ -1933,7 +2080,12 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
           title line — and it stays out of the expanded timeline. */}
       <div className="dd-visitor-head">
         <div className="dd-visitor-info">
-          <strong className="dd-visitor-name">{headline}</strong>
+          <div className="dd-visitor-titleline">
+            <strong className="dd-visitor-name">{headline}</strong>
+            {actor.label ? (
+              <span className={`dd-visitor-pill is-${actor.key}`}>{actor.label}</span>
+            ) : null}
+          </div>
           {support ? <p className="dd-visitor-meta">{support}</p> : null}
           {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
           {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
@@ -1962,13 +2114,25 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
       </div>
       {open ? (
         <ol className="dd-visitor-timeline">
-          {timelineRows.map((event, i) => (
-            <li className="dd-visitor-row" key={`${event.id || i}-${event.created_at || ''}`}>
-              <span className="dd-visitor-stamp">{formatAccessLogStamp(event.created_at) || '\u2014'}</span>
-              <span className="dd-visitor-dot" aria-hidden="true">{'\u00b7'}</span>
-              <span className="dd-visitor-event">{accessLogEventLabel(event.event_type, event.service)}</span>
-            </li>
-          ))}
+          {timelineRows.map((event, i) => {
+            const type = String(event.event_type || '').toLowerCase();
+            const strong = type === 'password_success' || type === 'service_click' || type === 'button_click';
+            const weak = type === 'page_view';
+            const detail = accessLogRowDetail(event);
+            return (
+              <li
+                className={`dd-visitor-row${strong ? ' is-strong' : ''}${weak ? ' is-weak' : ''}`}
+                key={`${event.id || i}-${event.created_at || ''}`}
+              >
+                <span className="dd-visitor-rowhead">
+                  <span className="dd-visitor-stamp">{formatAccessLogStamp(event.created_at) || '\u2014'}</span>
+                  <span className="dd-visitor-dot" aria-hidden="true">{'\u00b7'}</span>
+                  <span className="dd-visitor-event">{accessLogEventLabel(event.event_type, event.service)}</span>
+                </span>
+                {detail ? <span className="dd-visitor-detail">{detail}</span> : null}
+              </li>
+            );
+          })}
         </ol>
       ) : null}
     </article>

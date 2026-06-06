@@ -5440,6 +5440,58 @@ dd{margin:0;text-align:right;font-weight:800}
   overflow-wrap:anywhere;
   min-width:0;
 }
+/* Title + actor pill share one wrapping baseline row so the pill sits
+ * snug beside the identity without pushing the clear (X) around. */
+.dd-visitor-titleline{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+/* Conservative actor/confidence pill. Subtle tinted chips so the
+ * operator can scan "who is this" at a glance: a real client vs a
+ * Meta link preview vs a proxy/datacenter hit. Colours lean muted to
+ * avoid competing with the delivery content. */
+.dd-visitor-pill{
+  flex:0 0 auto;
+  display:inline-flex;
+  align-items:center;
+  padding:1px 7px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:var(--panel-2,rgba(127,127,127,.1));
+  color:var(--muted);
+  font-size:0.5625rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  line-height:1.5;
+  white-space:nowrap;
+}
+.dd-visitor-pill.is-client{
+  color:#1a7f4b;
+  border-color:rgba(26,127,75,.35);
+  background:rgba(26,127,75,.12);
+}
+.dd-visitor-pill.is-meta{
+  color:#2f6fd6;
+  border-color:rgba(47,111,214,.35);
+  background:rgba(47,111,214,.12);
+}
+.dd-visitor-pill.is-relay{
+  color:#7a5cd0;
+  border-color:rgba(122,92,208,.35);
+  background:rgba(122,92,208,.12);
+}
+.dd-visitor-pill.is-proxy{
+  color:#c2790a;
+  border-color:rgba(194,121,10,.35);
+  background:rgba(194,121,10,.12);
+}
+.dd-visitor-pill.is-unknown{
+  color:var(--muted);
+}
 /* Subtle per-visitor/session clear. Transparent and muted at rest
  * so it never competes with the card content; warms to a soft danger
  * tint on hover/focus. flex:0 0 auto + the centered flex head row
@@ -5512,6 +5564,13 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .dd-visitor-row{
   display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+/* Event label line: stamp · event. Wraps as a baseline group. */
+.dd-visitor-rowhead{
+  display:flex;
   flex-wrap:wrap;
   align-items:baseline;
   gap:5px;
@@ -5535,6 +5594,26 @@ dd{margin:0;text-align:right;font-weight:800}
   font-weight:750;
   line-height:1.35;
   overflow-wrap:anywhere;
+}
+/* Per-event provenance: IP · ISP/org · City · Browser/App. Muted and
+ * indented so it reads as supporting metadata under each event. */
+.dd-visitor-detail{
+  color:var(--muted);
+  font-size:0.5625rem;
+  font-weight:700;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+  opacity:.9;
+}
+/* Strong human signals (unlock / link click) read at full ink; a
+ * bare page view is de-emphasised so a preview/scanner page-open
+ * never looks like a confident client action. */
+.dd-visitor-row.is-strong .dd-visitor-event{
+  font-weight:850;
+}
+.dd-visitor-row.is-weak .dd-visitor-event{
+  color:var(--muted);
+  font-weight:700;
 }
 
 @media(max-width:1023px){
