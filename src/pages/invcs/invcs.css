@@ -4274,44 +4274,66 @@ dd{margin:0;text-align:right;font-weight:800}
   border-radius:24px;
   background:var(--soft);
 }
+/* Paid subscription receipt — premium landscape digital-pass.
+ * Wide card (~960px → ≈8:5 landscape JPG) with a calm white sheet,
+ * a single hairline brand accent at the top edge and a very faint
+ * cool corner wash. Apple Wallet / Stripe-receipt inspired: minimal,
+ * crisp, lightly branded — never colourful or decorative. */
 .subs-card{
-  width:min(100%,720px);
-  padding:28px 30px 22px;
-  border:1px solid #e8e8ec;
-  border-radius:18px;
-  background:#fff;
+  position:relative;
+  overflow:hidden;
+  width:min(100%,960px);
+  padding:30px 38px 22px;
+  border:1px solid #e7e9ee;
+  border-radius:20px;
+  /* White sheet + barely-there cool wash drifting from the
+   * top-right corner; falls back to plain white if a renderer
+   * skips the gradient layers. */
+  background:
+    radial-gradient(135% 120% at 100% 0%, rgba(54,198,207,.05) 0%, rgba(54,198,207,0) 42%),
+    radial-gradient(120% 120% at 0% 100%, rgba(96,165,250,.04) 0%, rgba(96,165,250,0) 48%),
+    #ffffff;
   color:#1f232b;
-  box-shadow:0 14px 40px rgba(20,23,33,.07);
+  box-shadow:0 18px 50px rgba(20,23,33,.08);
   font-family:var(--font);
   display:flex;
   flex-direction:column;
-  gap:18px;
+  gap:17px;
+}
+/* Hairline brand accent — sky → cyan → soft green — pinned to the
+ * very top edge and clipped to the card's rounded corners. The one
+ * restrained spot of brand colour on the sheet. */
+.subs-accent{
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  height:3px;
+  background:linear-gradient(90deg,#5fb0f5 0%,#36c6cf 52%,#46c98a 100%);
 }
 .subs-card-head{
   display:flex;
   flex-direction:column;
-  gap:14px;
+  gap:12px;
   text-align:left;
 }
 .subs-head-top{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:12px;
-  padding-bottom:14px;
-  border-bottom:1px solid #f0f0f3;
+  gap:14px;
 }
 .subs-logo{
-  height:22px;
+  height:20px;
   width:auto;
-  max-width:55%;
+  max-width:45%;
   display:block;
   object-fit:contain;
 }
 .subs-head-title{
   display:flex;
   flex-direction:column;
-  gap:3px;
+  gap:4px;
 }
 .subs-brand{
   font-size:0.8125rem;
@@ -4322,7 +4344,7 @@ dd{margin:0;text-align:right;font-weight:800}
   font-family:var(--font);
 }
 .subs-status-chip{
-  font-size:0.625rem;
+  font-size:0.5625rem;
   font-weight:700;
   letter-spacing:.14em;
   text-transform:uppercase;
@@ -4330,7 +4352,7 @@ dd{margin:0;text-align:right;font-weight:800}
   background:#eef8f1;
   border:1px solid #d3ecdd;
   border-radius:999px;
-  padding:4px 11px;
+  padding:3px 10px;
   white-space:nowrap;
 }
 .subs-greeting{
@@ -4342,7 +4364,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-title{
   margin:0;
-  font-size:1.125rem;
+  font-size:1.0625rem;
   line-height:1.2;
   font-weight:700;
   letter-spacing:-.01em;
@@ -4351,22 +4373,35 @@ dd{margin:0;text-align:right;font-weight:800}
    * generic h1 reset that may sneak in via a future global stylesheet. */
   font-family:var(--font);
 }
-/* Hero strip — service + paid amount, the strongest section. Calm
- * near-white surface, prominent (not oversized) amount. */
+/* Hero strip — service + paid amount, the strongest section. Premium
+ * cool tint (not flat grey) with a hairline border and a tiny cyan→
+ * green accent edge so it reads as intentional, not clinical. */
 .subs-hero{
+  position:relative;
+  overflow:hidden;
   display:flex;
   align-items:flex-end;
   justify-content:space-between;
-  gap:16px;
-  padding:15px 18px;
-  border:1px solid #ebebef;
-  border-radius:14px;
-  background:#f7f8fa;
+  gap:20px;
+  padding:18px 24px;
+  border:1px solid #e6edf1;
+  border-radius:16px;
+  background:linear-gradient(180deg,#f6fafc 0%,#f2f6f9 100%);
+}
+.subs-hero::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:14px;
+  bottom:14px;
+  width:3px;
+  border-radius:0 3px 3px 0;
+  background:linear-gradient(180deg,#36c6cf 0%,#46c98a 100%);
 }
 .subs-hero-cell{
   display:flex;
   flex-direction:column;
-  gap:5px;
+  gap:6px;
   min-width:0;
 }
 .subs-hero-cell--amount{
@@ -4374,23 +4409,23 @@ dd{margin:0;text-align:right;font-weight:800}
   text-align:right;
 }
 .subs-hero-label{
-  color:#8a8f9a;
+  color:#7c828d;
   font-size:0.625rem;
   font-weight:600;
-  letter-spacing:.13em;
+  letter-spacing:.14em;
   text-transform:uppercase;
 }
 .subs-hero-service{
-  font-size:1.0625rem;
+  font-size:1.125rem;
   font-weight:700;
   color:#1f232b;
   letter-spacing:0;
   font-family:var(--font);
 }
 .subs-hero-amount{
-  font-size:1.375rem;
+  font-size:1.5rem;
   font-weight:800;
-  color:#1f232b;
+  color:#1c2532;
   letter-spacing:-.015em;
   font-family:var(--font);
   white-space:nowrap;
@@ -4404,18 +4439,21 @@ dd{margin:0;text-align:right;font-weight:800}
   text-transform:uppercase;
 }
 .subs-rows{
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  column-gap:48px;
+  row-gap:0;
 }
 .subs-row{
   display:flex;
   align-items:baseline;
   justify-content:space-between;
   gap:16px;
-  padding:9px 0;
-  border-bottom:1px solid #f1f1f4;
+  padding:10px 0;
+  border-bottom:1px solid #eef0f3;
 }
-.subs-row:last-child{
+.subs-row:last-child,
+.subs-row:nth-last-child(2){
   border-bottom:0;
 }
 .subs-row-label{
@@ -4461,24 +4499,24 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-window{
   display:flex;
   flex-direction:column;
-  gap:11px;
-  padding:14px 18px 16px;
-  border:1px solid #ebebef;
-  border-radius:14px;
-  background:#fafafb;
+  gap:13px;
+  padding:16px 24px 18px;
+  border:1px solid #e6edf1;
+  border-radius:16px;
+  background:linear-gradient(180deg,#fbfdfe 0%,#f6fafb 100%);
 }
 .subs-window-title{
-  color:#8a8f9a;
+  color:#7c828d;
   font-size:0.625rem;
   font-weight:600;
-  letter-spacing:.13em;
+  letter-spacing:.14em;
   text-transform:uppercase;
 }
 .subs-window-track{
   display:grid;
   grid-template-columns:auto 1fr auto;
   align-items:center;
-  gap:16px;
+  gap:26px;
 }
 .subs-window-end{
   display:flex;
@@ -4498,7 +4536,7 @@ dd{margin:0;text-align:right;font-weight:800}
   text-transform:uppercase;
 }
 .subs-window-date{
-  font-size:0.9375rem;
+  font-size:1rem;
   font-weight:700;
   color:#1f232b;
   letter-spacing:0;
@@ -4511,8 +4549,9 @@ dd{margin:0;text-align:right;font-weight:800}
   letter-spacing:.02em;
   font-family:var(--font);
 }
-/* Thin start→expiry progress connector: restrained green start dot,
- * hairline rule, small arrowhead. */
+/* Signature start→expiry timeline: soft cyan/green start dot, a thin
+ * accent-tinted hairline that spans the landscape width, and a small
+ * arrowhead at expiry. Elegant, never chunky. */
 .subs-window-line{
   display:flex;
   align-items:center;
@@ -4520,24 +4559,25 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-window-dot{
   flex:0 0 auto;
-  width:7px;
-  height:7px;
+  width:9px;
+  height:9px;
   border-radius:999px;
-  background:#1f9d63;
+  background:#36c6cf;
+  box-shadow:0 0 0 4px rgba(54,198,207,.12);
 }
 .subs-window-rule{
   flex:1 1 auto;
   height:2px;
   border-radius:2px;
-  background:#e1e2e7;
+  background:linear-gradient(90deg,rgba(54,198,207,.55) 0%,rgba(70,201,138,.55) 100%);
 }
 .subs-window-arrow{
   flex:0 0 auto;
   width:0;
   height:0;
-  border-top:4px solid transparent;
-  border-bottom:4px solid transparent;
-  border-left:6px solid #c7c9d0;
+  border-top:5px solid transparent;
+  border-bottom:5px solid transparent;
+  border-left:7px solid #46c98a;
 }
 .subs-note{
   display:flex;
@@ -4554,11 +4594,9 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-card-foot{
   display:flex;
   flex-direction:column;
-  align-items:center;
   gap:6px;
-  text-align:center;
-  padding-top:14px;
-  border-top:1px solid #efeff2;
+  padding-top:13px;
+  border-top:1px solid #eef0f3;
   margin-top:2px;
 }
 .subs-foot-title{
@@ -4605,12 +4643,14 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-export-host{
   position:fixed;
   inset:auto auto auto -10000px;
-  width:720px;
+  width:960px;
   pointer-events:none;
   background:#fff;
   color-scheme:light;
 }
-.subs-export-host .subs-card,
+.subs-export-host .subs-card{
+  width:960px;
+}
 .subs-export-host .subs-invoice-card{
   width:720px;
 }
@@ -4625,15 +4665,28 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 
 @media(max-width:1023px){
+  /* Live on-page preview only — exports pin a wide desktop viewport,
+   * so these never affect the rasterised landscape JPG. Stack the
+   * paid card's two-column details so a narrow screen stays legible. */
   .subs-card{
-    padding:24px 20px 20px;
-    gap:16px;
+    padding:24px 22px 20px;
+    gap:15px;
   }
   .subs-hero{
-    padding:14px 16px;
+    padding:16px 18px;
+  }
+  .subs-rows{
+    grid-template-columns:1fr;
+    column-gap:0;
+  }
+  .subs-row:nth-last-child(2){
+    border-bottom:1px solid #eef0f3;
+  }
+  .subs-row:last-child{
+    border-bottom:0;
   }
   .subs-window-track{
-    gap:12px;
+    gap:16px;
   }
 }
 

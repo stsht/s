@@ -3318,8 +3318,11 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           allowTaint: true,
           imageTimeout: 0,
           logging: false,
-          windowWidth: 800,
-          windowHeight: 1200,
+          // Paid receipt is a wide landscape card — pin a desktop
+          // viewport so it never collapses into the <1024px mobile
+          // layout during rasterisation. Invoice stays portrait.
+          windowWidth: exportIsPaid ? 1120 : 800,
+          windowHeight: exportIsPaid ? 760 : 1200,
         });
         if (cancelled) return;
         const filePrefix = exportIsPaid ? 'subscription-paid' : 'subscription-invoice';
@@ -7103,6 +7106,10 @@ function SubsPaidCard({
     : '';
   return (
     <article className="subs-card" ref={cardRef}>
+      {/* Thin sky→cyan→soft-green brand accent pinned to the top edge.
+          Decorative only; carries no text so the JPG re-import parser
+          (which reads textContent in DOM order) is unaffected. */}
+      <span className="subs-accent" aria-hidden="true" />
       <header className="subs-card-head">
         <div className="subs-head-top">
           <img src="/logo-hero.png" alt="StarShots" className="subs-logo" />
@@ -7535,8 +7542,11 @@ export function SubscriptionsPage() {
         allowTaint: true,
         imageTimeout: 0,
         logging: false,
-        windowWidth: 800,
-        windowHeight: 1200,
+        // Wide landscape paid receipt needs a desktop viewport so it
+        // doesn't fold into the <1024px mobile layout. Invoice stays
+        // on the original portrait viewport.
+        windowWidth: mode === 'paid' ? 1120 : 800,
+        windowHeight: mode === 'paid' ? 760 : 1200,
       });
       const filePrefix = mode === 'paid' ? 'subscription-paid' : 'subscription-invoice';
       const link = document.createElement('a');
