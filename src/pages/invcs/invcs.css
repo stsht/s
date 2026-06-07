@@ -138,11 +138,14 @@ button{cursor:pointer}
     background:
       linear-gradient(90deg,transparent 12%,rgba(138,180,248,.72) 50%,transparent 88%) top/100% 1px no-repeat,
       linear-gradient(180deg,
-        color-mix(in srgb,var(--panel) 72%,transparent),
-        color-mix(in srgb,var(--panel) 64%,transparent));
-    border-color:color-mix(in srgb,var(--line) 60%,transparent);
-    -webkit-backdrop-filter:blur(26px) saturate(150%);
-    backdrop-filter:blur(26px) saturate(150%);
+        color-mix(in srgb,var(--panel) 66%,transparent),
+        color-mix(in srgb,var(--panel) 58%,transparent));
+    border-color:color-mix(in srgb,var(--line) 52%,transparent);
+    -webkit-backdrop-filter:blur(30px) saturate(160%);
+    backdrop-filter:blur(30px) saturate(160%);
+    /* Subtle top sheen so the glass reads as a lit edge, not a flat
+     * translucent panel; drop shadow preserved. */
+    box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),var(--shadow);
   }
 }
 .gate-logo{width:min(226px,68vw);height:auto;margin-bottom:28px}
@@ -437,30 +440,44 @@ button{cursor:pointer}
 @supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
   .public-delivery-card{
     background:linear-gradient(180deg,
-      color-mix(in srgb,var(--panel) 74%,transparent),
-      color-mix(in srgb,var(--panel) 66%,transparent));
-    border-color:color-mix(in srgb,var(--line) 55%,transparent);
-    -webkit-backdrop-filter:blur(28px) saturate(150%);
-    backdrop-filter:blur(28px) saturate(150%);
+      color-mix(in srgb,var(--panel) 68%,transparent),
+      color-mix(in srgb,var(--panel) 60%,transparent));
+    border-color:color-mix(in srgb,var(--line) 50%,transparent);
+    -webkit-backdrop-filter:blur(32px) saturate(160%);
+    backdrop-filter:blur(32px) saturate(160%);
+    /* Top sheen highlight for the liquid-glass edge; deeper drop
+     * shadow keeps the card lifted off the live aurora. */
+    box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),0 28px 70px rgba(31,26,23,.16);
   }
 }
-/* Desktop: adapt the card to the viewport height. It keeps a tall,
- * elegant panel but is capped to the visible area (minus page
- * padding) and tightens its vertical padding as the window shrinks,
- * so resizing keeps the card centered and fully visible instead of
- * forcing an awkward page scroll when the content already fits. If a
- * very short desktop window can't fit the content, the card scrolls
- * internally rather than the whole page. Mobile keeps its natural
- * full-height, top-to-bottom flow (the base rule above is untouched
- * on small screens). */
+/* Desktop: fit the card to the viewport height. The page uses
+ * vertical padding of 5vh per side and the card is capped to
+ * 100dvh minus 10vh (i.e. exactly that padding), so the card plus
+ * its margins always equals the viewport — no awkward page scroll
+ * when the content already fits. Vertical rhythm (header/divider/
+ * subcopy/invoice/list/signoff) is compressed with vh-based clamps
+ * so the whole card, including the sign-off footer, stays visible
+ * on normal laptop heights, expanding back to roomy spacing on tall
+ * displays. Only a genuinely short window falls back to internal
+ * card scroll. Mobile keeps its natural full-height flow (base rule
+ * above untouched on small screens). */
 @media (min-width:768px){
-  .public-delivery-card{
-    min-height:min(660px,calc(100svh - clamp(48px,12vh,140px)));
-    max-height:calc(100svh - clamp(36px,8vh,108px));
-    overflow-y:auto;
-    padding-top:clamp(26px,3.4vh,46px);
-    padding-bottom:clamp(26px,3.4vh,46px);
+  .public-delivery-page{
+    padding:clamp(20px,5vh,48px) clamp(18px,4vw,54px);
   }
+  .public-delivery-card{
+    min-height:min(560px,calc(100dvh - clamp(40px,10vh,120px)));
+    max-height:calc(100dvh - clamp(40px,10vh,120px));
+    overflow-y:auto;
+    padding-top:clamp(20px,3vh,42px);
+    padding-bottom:clamp(20px,3vh,42px);
+  }
+  .public-delivery-header{margin-bottom:clamp(10px,1.8vh,18px)}
+  .public-delivery-divider{margin-bottom:clamp(12px,2.4vh,22px)}
+  .public-delivery-subcopy{margin:clamp(8px,1.6vh,14px) 0 clamp(12px,2.4vh,22px)}
+  .public-delivery-invoice{margin-top:clamp(14px,2.6vh,28px)}
+  .public-delivery-list{gap:clamp(8px,1.4vh,12px)}
+  .public-delivery-signoff{padding-top:clamp(16px,2.8vh,34px)}
 }
 .public-delivery-logo{
   width:min(224px,62vw);
@@ -558,12 +575,16 @@ button{cursor:pointer}
   transform:translateY(0) scale(.995);
 }
 .public-delivery-invoice.is-paid{
-  background: var(--sub-active);
-  box-shadow: 0 16px 32px rgba(31,138,76,.28);
+  /* Keep it semantically GREEN (var(--sub-active) stays dominant)
+   * but nudge toward a richer emerald/teal so it harmonises with
+   * the new aurora palette. Scoped here so the shared --sub-active
+   * token (and the subscriptions UI) is untouched. */
+  background: color-mix(in srgb, var(--sub-active) 70%, #08c2a2);
+  box-shadow: 0 16px 32px rgba(13,148,120,.30);
 }
 .public-delivery-invoice.is-paid:hover{
-  background: color-mix(in srgb, var(--sub-active) 88%, black);
-  box-shadow: 0 20px 40px rgba(31,138,76,.34);
+  background: color-mix(in srgb, var(--sub-active) 70%, #059a80);
+  box-shadow: 0 20px 40px rgba(13,148,120,.36);
 }
 .public-delivery-invoice-icon{
   display:inline-grid;
