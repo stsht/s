@@ -451,29 +451,54 @@ button{cursor:pointer}
  * correct. Mobile-safe — moderate blur, no layout change. */
 @supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
   .public-delivery-card{
-    /* Neutral clear-frosted glass: a near-white translucent surface so
-     * the live aurora reads softly THROUGH the canvas WITHOUT the card
-     * picking up a blue/plastic cast. A gentle white wash + top-centre
-     * specular bloom keep it lit and neutral; saturation is kept low so
-     * the frost stays clear rather than vivid. */
+    /* Frosted Apple-style liquid glass: a thin translucent surface so
+     * the live aurora visibly refracts THROUGH the canvas. The fill is
+     * kept low (≈35% in light, dark-tinted in dark via --panel) to drop
+     * the milky/opaque look, with only a gentle neutral white wash +
+     * top specular bloom so it stays lit and neutral — never a blue
+     * plastic slab. Higher blur + saturate make the background read as
+     * soft refracted colour rather than a flat tint. */
     background:
-      radial-gradient(130% 86% at 50% -10%,color-mix(in srgb,#fff 34%,transparent),transparent 58%),
+      radial-gradient(120% 78% at 50% -12%,color-mix(in srgb,#fff 26%,transparent),transparent 56%),
       linear-gradient(180deg,
-        color-mix(in srgb,#fff 16%,transparent),
-        color-mix(in srgb,#fff 6%,transparent)),
+        color-mix(in srgb,#fff 9%,transparent),
+        color-mix(in srgb,#fff 3%,transparent)),
       linear-gradient(180deg,
-        color-mix(in srgb,var(--panel) 56%,transparent),
-        color-mix(in srgb,var(--panel) 47%,transparent));
-    border-color:color-mix(in srgb,var(--line) 52%,transparent);
-    -webkit-backdrop-filter:blur(32px) saturate(128%);
-    backdrop-filter:blur(32px) saturate(128%);
-    /* Lit top edge + faint inner glow for liquid depth, over a soft,
-     * diffuse neutral lift (negative spread keeps it gentle — not a
-     * heavy grey drop shadow). */
+        color-mix(in srgb,var(--panel) 34%,transparent),
+        color-mix(in srgb,var(--panel) 26%,transparent));
+    border-color:rgba(255,255,255,.5);
+    -webkit-backdrop-filter:blur(40px) saturate(150%);
+    backdrop-filter:blur(40px) saturate(150%);
+    /* Layered glass: bright top edge highlight + a faint inner glow for
+     * liquid depth + a whisper-thin bottom inner shadow, over a hairline
+     * dark outer ring (keeps the rim visible on light areas of the
+     * aurora) and a soft, diffuse bottom lift shadow. */
     box-shadow:
-      inset 0 1px 0 color-mix(in srgb,#fff 66%,transparent),
-      inset 0 0 34px color-mix(in srgb,#fff 10%,transparent),
-      0 28px 72px -32px rgba(20,22,30,.26);
+      inset 0 1px 0 rgba(255,255,255,.65),
+      inset 0 0 36px rgba(255,255,255,.08),
+      inset 0 -1px 0 rgba(20,22,30,.06),
+      0 0 0 1px rgba(20,22,30,.04),
+      0 30px 80px -30px rgba(20,22,30,.30);
+  }
+  /* Subtle top/left edge sheen — a soft diagonal specular streak so the
+   * glass catches light along its upper-left rim. Scoped to the card,
+   * non-interactive (pointer-events:none) so it never affects clicks. */
+  .public-delivery-card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:0;
+    background:linear-gradient(135deg,
+      rgba(255,255,255,.22),
+      rgba(255,255,255,.04) 26%,
+      transparent 52%);
+  }
+  /* Keep the card's own content above the sheen layer. */
+  .public-delivery-card > *{
+    position:relative;
+    z-index:1;
   }
 }
 /* Desktop: fit the card to the viewport height. The page uses
@@ -1271,14 +1296,14 @@ button{cursor:pointer}
    * as a raised glass control over the card rather than a flat panel.
    * No own backdrop blur — it rides the card's frost so small controls
    * stay crisp. */
-  border:1px solid color-mix(in srgb,var(--line) 82%,transparent);
+  border:1px solid color-mix(in srgb,var(--line) 78%,transparent);
   border-radius:18px;
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--panel) 46%,transparent),
-    color-mix(in srgb,var(--panel) 34%,transparent));
+    color-mix(in srgb,var(--panel) 38%,transparent),
+    color-mix(in srgb,var(--panel) 28%,transparent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 46%,transparent),
-    0 8px 20px -16px rgba(20,22,30,.28);
+    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),
+    0 8px 20px -16px rgba(20,22,30,.26);
   color:var(--ink);
   text-decoration:none;
   transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease;
@@ -1288,10 +1313,10 @@ button{cursor:pointer}
   border-color:color-mix(in srgb,var(--accent) 50%,transparent);
   transform:translateY(-1px);
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--panel) 54%,transparent),
-    color-mix(in srgb,var(--panel) 40%,transparent));
+    color-mix(in srgb,var(--panel) 46%,transparent),
+    color-mix(in srgb,var(--panel) 34%,transparent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
+    inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),
     0 14px 30px -18px rgba(20,22,30,.30);
 }
 /* Inactive delivery option. Rendered (as a disabled <button>) for
