@@ -28,14 +28,15 @@
  *     / aqua share the top; periwinkle / teal / mint share the
  *     middle; baby blue anchors the lower centre; a tiny peach
  *     roams. No left/right colour split.
- *   - Saturation is biased to the TOP half (top pools carry the
- *     highest opacity) while lower pools stay soft, so the page
- *     still feels grounded and text stays readable.
+ *   - SATURATION is pushed for a vivid (but still premium) mix:
+ *     higher per-pool colour alpha + a stronger saturate() filter.
+ *     It stays biased to the TOP half (top pools brightest) while
+ *     lower pools stay softer, so text stays readable.
  *   - Each pool ORBITS its own loop (rotated-diamond / circular
  *     paths) with generous horizontal AND some vertical travel and
  *     a little scale, so a 5s screenshot shows obvious movement —
  *     the field gently "dances" rather than sitting still.
- *   - The main lap is ~7s (durations 6.5-8.5s, desynced by
+ *   - The main lap is ~5s (durations 4.5-5.5s, desynced by
  *     negative delays + mixed directions) for a lively-but-smooth,
  *     randomised feel that is clearly animated within 3-5s.
  *
@@ -63,17 +64,17 @@
   inset:0;
   z-index:0;
   pointer-events:none;
-  /* Full-screen tint. A bright blue crown up top, faint aqua /
-   * lavender shoulders, and very soft mint / periwinkle glows in
-   * the lower corners so colour reaches the whole viewport without
-   * any hard left/right split. Near-white base keeps it premium
-   * and readable; the drifting pools carry most of the colour. */
+  /* Full-screen tint. A bright blue crown up top, aqua / lavender
+   * shoulders, and soft mint / periwinkle glows in the lower
+   * corners so colour reaches the whole viewport without any hard
+   * left/right split. Near-white base keeps it premium and
+   * readable; the drifting pools carry most of the colour. */
   background:
-    radial-gradient(1000px 560px at 50% -8%, rgba(95,169,255,.26), transparent 62%),
-    radial-gradient(680px 440px at 22% 6%, rgba(46,196,214,.12), transparent 60%),
-    radial-gradient(680px 440px at 78% 4%, rgba(154,132,250,.12), transparent 60%),
-    radial-gradient(760px 540px at 10% 94%, rgba(120,210,190,.10), transparent 62%),
-    radial-gradient(760px 540px at 90% 96%, rgba(140,160,252,.10), transparent 62%),
+    radial-gradient(1000px 560px at 50% -8%, rgba(95,169,255,.32), transparent 62%),
+    radial-gradient(680px 440px at 22% 6%, rgba(46,196,214,.15), transparent 60%),
+    radial-gradient(680px 440px at 78% 4%, rgba(154,132,250,.15), transparent 60%),
+    radial-gradient(760px 540px at 10% 94%, rgba(120,210,190,.13), transparent 62%),
+    radial-gradient(760px 540px at 90% 96%, rgba(140,160,252,.13), transparent 62%),
     #f3f7fb;
 }
 
@@ -98,7 +99,7 @@
   position:absolute;
   pointer-events:none;
   border-radius:50%;
-  filter:blur(66px) saturate(146%);
+  filter:blur(66px) saturate(168%);
   will-change:transform;
   transform:translate3d(0,0,0);
 }
@@ -111,10 +112,10 @@
   left:-6%;
   width:46vmax;
   height:46vmax;
-  opacity:.68;
+  opacity:.78;
   background:radial-gradient(circle at 50% 50%,
-    rgba(74,150,255,.52) 0%, rgba(74,150,255,.2) 36%, transparent 68%);
-  animation:ssBlob1 7s ease-in-out infinite;
+    rgba(74,150,255,.62) 0%, rgba(74,150,255,.24) 36%, transparent 68%);
+  animation:ssBlob1 5s ease-in-out infinite;
   animation-delay:-1s;
 }
 
@@ -124,10 +125,10 @@
   left:30%;
   width:44vmax;
   height:44vmax;
-  opacity:.62;
+  opacity:.72;
   background:radial-gradient(circle at 50% 50%,
-    rgba(158,134,250,.48) 0%, rgba(158,134,250,.18) 36%, transparent 68%);
-  animation:ssBlob2 7.5s ease-in-out infinite;
+    rgba(158,134,250,.58) 0%, rgba(158,134,250,.22) 36%, transparent 68%);
+  animation:ssBlob2 5.25s ease-in-out infinite;
   animation-delay:-3s;
 }
 
@@ -137,10 +138,10 @@
   left:60%;
   width:42vmax;
   height:42vmax;
-  opacity:.6;
+  opacity:.7;
   background:radial-gradient(circle at 50% 50%,
-    rgba(40,200,220,.46) 0%, rgba(40,200,220,.18) 36%, transparent 68%);
-  animation:ssBlob3 6.5s ease-in-out infinite;
+    rgba(40,200,220,.56) 0%, rgba(40,200,220,.22) 36%, transparent 68%);
+  animation:ssBlob3 4.5s ease-in-out infinite;
   animation-delay:-5s;
 }
 
@@ -153,10 +154,10 @@
   left:-8%;
   width:44vmax;
   height:44vmax;
-  opacity:.44;
+  opacity:.54;
   background:radial-gradient(circle at 50% 50%,
-    rgba(126,164,252,.42) 0%, rgba(126,164,252,.16) 38%, transparent 68%);
-  animation:ssBlob4 8s ease-in-out infinite;
+    rgba(126,164,252,.5) 0%, rgba(126,164,252,.2) 38%, transparent 68%);
+  animation:ssBlob4 5.5s ease-in-out infinite;
   animation-delay:-2s;
 }
 
@@ -167,10 +168,10 @@
   left:60%;
   width:42vmax;
   height:42vmax;
-  opacity:.4;
+  opacity:.5;
   background:radial-gradient(circle at 50% 50%,
-    rgba(140,214,184,.4) 0%, rgba(140,214,184,.15) 38%, transparent 68%);
-  animation:ssBlob5 7s ease-in-out infinite;
+    rgba(140,214,184,.48) 0%, rgba(140,214,184,.18) 38%, transparent 68%);
+  animation:ssBlob5 4.75s ease-in-out infinite;
   animation-delay:-6s;
 }
 
@@ -181,10 +182,10 @@
   left:28%;
   width:40vmax;
   height:40vmax;
-  opacity:.4;
+  opacity:.5;
   background:radial-gradient(circle at 50% 50%,
-    rgba(64,194,204,.4) 0%, rgba(64,194,204,.15) 38%, transparent 68%);
-  animation:ssBlob6 8.5s ease-in-out infinite;
+    rgba(64,194,204,.48) 0%, rgba(64,194,204,.18) 38%, transparent 68%);
+  animation:ssBlob6 5.5s ease-in-out infinite;
   animation-delay:-4s;
 }
 
@@ -197,24 +198,25 @@
   left:40%;
   width:46vmax;
   height:46vmax;
-  opacity:.4;
+  opacity:.5;
   background:radial-gradient(circle at 50% 50%,
-    rgba(150,186,255,.4) 0%, rgba(170,158,250,.15) 40%, transparent 70%);
-  animation:ssBlob7 7.5s ease-in-out infinite;
+    rgba(150,186,255,.48) 0%, rgba(170,158,250,.18) 40%, transparent 70%);
+  animation:ssBlob7 5.25s ease-in-out infinite;
   animation-delay:-7s;
 }
 
 /* 8 — tiny, faint clean peach / blush accent, upper-centre. Roams
- * gently to warm the cool mix without ever reading as pink. */
+ * gently to warm the cool mix without ever reading as pink. Kept
+ * low even as the rest gains saturation. */
 .ss-blob-8{
   top:4%;
   left:48%;
   width:28vmax;
   height:28vmax;
-  opacity:.22;
+  opacity:.26;
   background:radial-gradient(circle at 50% 50%,
-    rgba(255,186,170,.38) 0%, rgba(255,186,170,.12) 40%, transparent 66%);
-  animation:ssBlob8 6.5s ease-in-out infinite;
+    rgba(255,186,170,.42) 0%, rgba(255,186,170,.14) 40%, transparent 66%);
+  animation:ssBlob8 4.5s ease-in-out infinite;
   animation-delay:-2.5s;
 }
 
@@ -291,55 +293,55 @@
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(1000px 600px at 50% -8%, rgba(70,128,255,.52), transparent 60%),
-      radial-gradient(700px 440px at 22% 6%, rgba(34,176,210,.22), transparent 60%),
-      radial-gradient(700px 440px at 78% 4%, rgba(138,112,248,.22), transparent 60%),
-      radial-gradient(760px 540px at 10% 94%, rgba(74,196,176,.16), transparent 62%),
-      radial-gradient(760px 540px at 90% 96%, rgba(120,140,250,.16), transparent 62%),
+      radial-gradient(1000px 600px at 50% -8%, rgba(70,128,255,.56), transparent 60%),
+      radial-gradient(700px 440px at 22% 6%, rgba(34,176,210,.26), transparent 60%),
+      radial-gradient(700px 440px at 78% 4%, rgba(138,112,248,.26), transparent 60%),
+      radial-gradient(760px 540px at 10% 94%, rgba(74,196,176,.18), transparent 62%),
+      radial-gradient(760px 540px at 90% 96%, rgba(120,140,250,.18), transparent 62%),
       #0a1226;
   }
   .ss-blob{
-    filter:blur(74px) saturate(156%);
+    filter:blur(74px) saturate(178%);
   }
   .ss-blob-1{
-    opacity:.82;
+    opacity:.86;
     background:radial-gradient(circle at 50% 50%,
-      rgba(74,150,255,.58) 0%, rgba(74,150,255,.24) 36%, transparent 66%);
+      rgba(74,150,255,.64) 0%, rgba(74,150,255,.26) 36%, transparent 66%);
   }
   .ss-blob-2{
-    opacity:.78;
+    opacity:.82;
     background:radial-gradient(circle at 50% 50%,
-      rgba(158,130,252,.56) 0%, rgba(158,130,252,.22) 36%, transparent 66%);
+      rgba(158,130,252,.62) 0%, rgba(158,130,252,.24) 36%, transparent 66%);
   }
   .ss-blob-3{
-    opacity:.74;
+    opacity:.78;
     background:radial-gradient(circle at 50% 50%,
-      rgba(40,198,228,.54) 0%, rgba(40,198,228,.22) 36%, transparent 66%);
+      rgba(40,198,228,.6) 0%, rgba(40,198,228,.24) 36%, transparent 66%);
   }
   .ss-blob-4{
-    opacity:.56;
+    opacity:.6;
     background:radial-gradient(circle at 50% 50%,
-      rgba(126,164,252,.5) 0%, rgba(126,164,252,.2) 38%, transparent 66%);
+      rgba(126,164,252,.54) 0%, rgba(126,164,252,.22) 38%, transparent 66%);
   }
   .ss-blob-5{
-    opacity:.5;
+    opacity:.54;
     background:radial-gradient(circle at 50% 50%,
-      rgba(120,214,180,.46) 0%, rgba(120,214,180,.18) 38%, transparent 66%);
+      rgba(120,214,180,.5) 0%, rgba(120,214,180,.2) 38%, transparent 66%);
   }
   .ss-blob-6{
-    opacity:.5;
+    opacity:.54;
     background:radial-gradient(circle at 50% 50%,
-      rgba(56,196,208,.46) 0%, rgba(56,196,208,.18) 38%, transparent 66%);
+      rgba(56,196,208,.5) 0%, rgba(56,196,208,.2) 38%, transparent 66%);
   }
   .ss-blob-7{
-    opacity:.5;
+    opacity:.54;
     background:radial-gradient(circle at 50% 50%,
-      rgba(150,186,255,.46) 0%, rgba(168,156,252,.18) 40%, transparent 68%);
+      rgba(150,186,255,.5) 0%, rgba(168,156,252,.2) 40%, transparent 68%);
   }
   .ss-blob-8{
-    opacity:.26;
+    opacity:.28;
     background:radial-gradient(circle at 50% 50%,
-      rgba(255,178,162,.4) 0%, rgba(255,178,162,.14) 40%, transparent 64%);
+      rgba(255,178,162,.42) 0%, rgba(255,178,162,.15) 40%, transparent 64%);
   }
 }
 
@@ -351,7 +353,7 @@
  * ============================================================ */
 @media (max-width:768px){
   .ss-blob{
-    filter:blur(54px) saturate(146%);
+    filter:blur(54px) saturate(168%);
   }
   .ss-blob-1{ top:-14%; left:-16%; width:64vmax; height:64vmax; }
   .ss-blob-2{ top:-18%; left:22%;  width:62vmax; height:62vmax; }
@@ -360,7 +362,7 @@
   .ss-blob-5{ top:36%;  left:54%;  width:60vmax; height:60vmax; }
   .ss-blob-6{ top:24%;  left:22%;  width:58vmax; height:58vmax; }
   .ss-blob-7{ top:58%;  left:30%;  width:64vmax; height:64vmax; }
-  .ss-blob-8{ top:6%;   left:44%;  width:40vmax; height:40vmax; opacity:.24; }
+  .ss-blob-8{ top:6%;   left:44%;  width:40vmax; height:40vmax; opacity:.28; }
 }
 
 /* ============================================================
