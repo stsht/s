@@ -3244,7 +3244,6 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     || Number(effective?.total)
     || 0;
   const priceLabel = priceValue > 0 ? rupiah(priceValue) : '';
-  const isPaid = String(subscription?.status || '').toLowerCase() === 'paid';
 
   // Off-screen export card. We always render the appropriate card
   // for the saved subscription inside a .subs-export-host wrapper
@@ -3254,40 +3253,73 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // /subs live preview computes from local state, so the same JPG
   // comes out for both creation and re-print.
   const cardRef = useRef(null);
-  const cardProps = useMemo(
-    () => subscriptionToCardProps(subscription || {}),
-    [subscription],
-  );
+  // `printPeriod` selects which subscription period the off-screen
+  // export card renders. null means the EFFECTIVE subscription (base
+  // + latest extension) — i.e. the current active period — so the
+  // toolbar Print button always prints the latest receipt. A specific
+  // extension's effective subscription is swapped in when an
+  // individual row's Print button is used. The export then captures
+  // whatever the card currently shows.
+  const [printPeriod, setPrintPeriod] = useState(null);
+  const [printReq, setPrintReq] = useState(0);
   const [printStatus, setPrintStatus] = useState('');
 
-  async function handlePrint() {
-    if (!cardRef.current) return;
-    setPrintStatus('Rendering JPG\u2026');
-    if (document.fonts?.ready) {
-      try { await document.fonts.ready; } catch {}
-    }
-    try {
-      const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: '#ffffff',
-        scale: Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 2)),
-        useCORS: true,
-        allowTaint: true,
-        imageTimeout: 0,
-        logging: false,
-        windowWidth: 800,
-        windowHeight: 1200,
-      });
-      const filePrefix = isPaid ? 'subscription-paid' : 'subscription-invoice';
-      const link = document.createElement('a');
-      link.download = `${filePrefix}-${safeSubsToken(subscription?.service) || 'service'}-${safeSubsToken(subscription?.client_name) || 'client'}.jpg`;
-      link.href = canvas.toDataURL('image/jpeg', 1.0);
-      link.click();
-      setPrintStatus('JPG ready.');
-    } catch (error) {
-      console.warn('[db/subs] print failed:', error);
-      setPrintStatus(error?.message || 'Failed to render JPG.');
-    }
+  const exportSub = printPeriod || effective || subscription || {};
+  const cardProps = useMemo(
+    () => subscriptionToCardProps(exportSub),
+    [exportSub],
+  );
+  const exportIsPaid = String(exportSub?.status || '').toLowerCase() === 'paid';
+
+  // Queue a render-then-rasterise pass. Setting printPeriod swaps the
+  // hidden export card's props; bumping printReq triggers the capture
+  // effect AFTER React has committed the new card to the DOM, so the
+  // JPG always matches the requested period.
+  function requestPrint(periodSub) {
+    setPrintPeriod(periodSub || null);
+    setPrintReq((n) => n + 1);
   }
+
+  function handlePrint() {
+    // Toolbar print → current active period (effective subscription).
+    requestPrint(null);
+  }
+
+  useEffect(() => {
+    if (printReq === 0) return undefined;
+    let cancelled = false;
+    (async () => {
+      if (!cardRef.current) return;
+      setPrintStatus('Rendering JPG\u2026');
+      if (document.fonts?.ready) {
+        try { await document.fonts.ready; } catch {}
+      }
+      try {
+        const canvas = await html2canvas(cardRef.current, {
+          backgroundColor: '#ffffff',
+          scale: Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 2)),
+          useCORS: true,
+          allowTaint: true,
+          imageTimeout: 0,
+          logging: false,
+          windowWidth: 800,
+          windowHeight: 1200,
+        });
+        if (cancelled) return;
+        const filePrefix = exportIsPaid ? 'subscription-paid' : 'subscription-invoice';
+        const link = document.createElement('a');
+        link.download = `${filePrefix}-${safeSubsToken(exportSub?.service) || 'service'}-${safeSubsToken(exportSub?.client_name || subscription?.client_name) || 'client'}.jpg`;
+        link.href = canvas.toDataURL('image/jpeg', 1.0);
+        link.click();
+        if (!cancelled) setPrintStatus('JPG ready.');
+      } catch (error) {
+        console.warn('[db/subs] print failed:', error);
+        if (!cancelled) setPrintStatus(error?.message || 'Failed to render JPG.');
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printReq]);
 
   // Display-time format helpers. Detail rows use the en-GB short
   // date (now TZ-safe via dateLabel) and the receipt's HH.MM time
@@ -3911,17 +3943,25 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                     </div>
                     {/* Action column is rendered on EVERY row so the
                         Start/Expiry grid and right edge line up across
-                        the whole list. The base subscription is edited
-                        via the main "Edit" button at the top of the
-                        panel, so its row renders an invisible spacer of
-                        the same fixed width instead of live controls —
-                        keeping alignment identical without breaking the
-                        "base is edited up top" data rule. Actions are
-                        icon-only and vertically centered. */}
-                    <div
-                      className="subs-extension-row-actions"
-                      aria-hidden={ext.isBase ? 'true' : undefined}
-                    >
+                        the whole list. Every row gets its OWN Print
+                        button so the operator can re-issue the receipt
+                        for that exact period (the row's effective
+                        subscription). The base subscription is still
+                        edited via the main "Edit" button at the top of
+                        the panel, so its row exposes Print only — no
+                        edit/delete — keeping the "base is edited up top"
+                        data rule intact. Actions are icon-only and
+                        vertically centered. */}
+                    <div className="subs-extension-row-actions">
+                      <button
+                        type="button"
+                        className="row-icon-btn"
+                        onClick={() => requestPrint(extEffective)}
+                        aria-label={ext.isBase ? 'Print initial receipt' : 'Print extension receipt'}
+                        title="Print"
+                      >
+                        <PrintIcon />
+                      </button>
                       {!ext.isBase ? (
                         <>
                           <button
@@ -3929,6 +3969,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                             className="row-icon-btn"
                             onClick={() => openEditExtension(ext)}
                             aria-label="Edit extension"
+                            title="Edit"
                           >
                             <EditIcon />
                           </button>
@@ -3937,6 +3978,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                             className="row-delete-x"
                             onClick={() => deleteExtension(ext)}
                             aria-label="Delete extension"
+                            title="Delete"
                           >
                             <DeleteIcon />
                           </button>
@@ -3959,7 +4001,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           extra mount step. */}
       {subscription ? (
         <div className="subs-export-host" aria-hidden="true">
-          {isPaid ? (
+          {exportIsPaid ? (
             <SubsPaidCard cardRef={cardRef} {...cardProps} />
           ) : (
             <SubsInvoiceCard cardRef={cardRef} {...cardProps} />
@@ -6925,6 +6967,10 @@ function subscriptionToCardProps(sub = {}) {
     titlePrefix: String(sub?.client_title || ''),
     displayClient: toTitleCase(sub?.client_name || '') || 'Client',
     service,
+    // Optional free-text reference/receipt note. Rendered on the paid
+    // receipt only when present, so existing rows without a note are
+    // unaffected. Reads the first non-empty of the tolerated aliases.
+    note: String(sub?.note || sub?.receipt_note || sub?.reference || sub?.reference_note || '').trim(),
     price: Number.isFinite(Number(sub?.price)) ? Number(sub.price) : 0,
     paymentDate: sub?.payment_date || '',
     paymentTime: sub?.payment_time || '',
@@ -6967,54 +7013,77 @@ function SubsPaidCard({
   startTime,
   expiryDate,
   expiryTime,
+  note,
 }) {
+  const noteText = String(note || '').trim();
   return (
     <article className="subs-card" ref={cardRef}>
       <header className="subs-card-head">
-        <p className="subs-greeting">Hello, {titlePrefix ? titlePrefix + ' ' : ''}{displayClient}!</p>
-        <p className="subs-service-tag">{service}</p>
+        <div className="subs-head-top">
+          <span className="subs-brand">StarShots</span>
+          {/* "Paid" status chip — also doubles as the OCR/vision
+              "paid" marker alongside the title text below. */}
+          <span className="subs-status-chip">Paid</span>
+        </div>
         <h1 className="subs-title">Subscription Confirmed</h1>
-        <p className="subs-eyebrow">Payment Received</p>
+        <p className="subs-greeting">
+          Hello, {titlePrefix ? titlePrefix + ' ' : ''}{displayClient} — Payment Received.
+        </p>
       </header>
-      <section className="subs-grid">
-        <div className="subs-tile">
-          <span className="subs-tile-label">Date of Payment</span>
-          <strong>{fmtSubsDate(paymentDate)}</strong>
+      {/* Label/value ledger. DOM order is intentional: payment date,
+          then start, then expiry — the OCR importer reads dates in
+          document order (1st=payment, 2nd=start, 3rd=expiry). Keep
+          the "Paid Amount" and "Access Period" labels verbatim; the
+          parser keys off them. */}
+      <section className="subs-rows">
+        <div className="subs-row">
+          <span className="subs-row-label">Service</span>
+          <span className="subs-row-value">{service}</span>
         </div>
-        <div className="subs-tile">
-          <span className="subs-tile-label">Time of Payment</span>
-          <strong>{fmtSubsTime(paymentTime)}</strong>
+        <div className="subs-row">
+          <span className="subs-row-label">Payment Date</span>
+          <span className="subs-row-value">{fmtSubsDate(paymentDate)}</span>
         </div>
-        <div className="subs-tile">
-          <span className="subs-tile-label">Paid Amount</span>
-          <strong>{rupiah(price)}</strong>
+        <div className="subs-row">
+          <span className="subs-row-label">Payment Time</span>
+          <span className="subs-row-value">{fmtSubsTime(paymentTime)}</span>
         </div>
-        <div className="subs-tile">
-          <span className="subs-tile-label">Access Period</span>
-          <strong>{periodLabel || '-'}</strong>
+        <div className="subs-row">
+          <span className="subs-row-label">Paid Amount</span>
+          <span className="subs-row-value subs-row-amount">{rupiah(price)}</span>
         </div>
-      </section>
-      <section className="subs-period">
-        <div className="subs-period-card">
-          <span className="subs-tile-label">Start Access</span>
-          <strong className="subs-period-date">{fmtSubsDate(startDate)}</strong>
-          <strong className="subs-period-time">{fmtSubsTime(startTime)}</strong>
-        </div>
-        <div className="subs-period-card">
-          <span className="subs-tile-label">Expiry</span>
-          <strong className="subs-period-date">{fmtSubsDate(expiryDate)}</strong>
-          {/* Was: fmtSubsTime(startTime). Now uses the actual saved
-              expiry time when present, falling back to startTime so
-              live previews on /subs (which don't track a separate
-              expiry time) keep their previous look. */}
-          <strong className="subs-period-time">{fmtSubsTime(expiryTime || startTime)}</strong>
+        <div className="subs-row">
+          <span className="subs-row-label">Access Period</span>
+          <span className="subs-row-value">{periodLabel || '-'}</span>
         </div>
       </section>
+      <section className="subs-access">
+        <div className="subs-access-cell">
+          <span className="subs-row-label">Start Access</span>
+          <span className="subs-access-date">{fmtSubsDate(startDate)}</span>
+          <span className="subs-access-time">{fmtSubsTime(startTime)}</span>
+        </div>
+        <div className="subs-access-divider" aria-hidden="true" />
+        <div className="subs-access-cell">
+          <span className="subs-row-label">Expiry</span>
+          <span className="subs-access-date">{fmtSubsDate(expiryDate)}</span>
+          {/* Uses the saved expiry time when present, falling back to
+              start time for legacy/live-preview rows. */}
+          <span className="subs-access-time">{fmtSubsTime(expiryTime || startTime)}</span>
+        </div>
+      </section>
+      {noteText ? (
+        <section className="subs-note">
+          <span className="subs-row-label">Reference</span>
+          <p className="subs-note-text">{noteText}</p>
+        </section>
+      ) : null}
       <footer className="subs-card-foot">
-        <p className="subs-foot-title">This card serves as your confirmed subscription receipt</p>
-        <p className="subs-foot-sub">Please keep this JPG for your subscription history and future reference.</p>
+        <p className="subs-foot-note">
+          This card serves as your confirmed subscription receipt — please keep it for future reference.
+        </p>
         <div className="subs-foot-meta">
-          <span>This confirmation is automatically generated and valid without signature.</span>
+          <span>Automatically generated &middot; valid without signature</span>
           <strong>@starshots.id</strong>
         </div>
       </footer>
