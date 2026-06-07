@@ -2,19 +2,26 @@
  * GlobalBackground
  *
  * Self-contained ambient page background: a flat radial tint
- * (.ss-bg) plus the animated Gemini-style colour wash (.ss-aurora).
- * Pairs with GlobalBackground.jsx, which renders the two layers and
- * imports this file — so dropping <GlobalBackground /> on any page
- * or slug brings its own styling along, with no dependency on the
- * page's main stylesheet.
+ * (.ss-bg) plus a living, Gemini-style colour wash (.ss-aurora)
+ * built from THREE stacked layers:
  *
- * Both layers are position:fixed at z-index:0 and pointer-events
- * pass straight through, so they always sit behind (and never
- * intercept) the page content.
+ *   .ss-aurora          palette A  (blue / cyan / violet / pink)
+ *   .ss-aurora::before  palette B  (teal / indigo / magenta)
+ *   .ss-aurora::after   a single floating, hue-shifting light
  *
- * NOTE: the reduced-motion freeze for .ss-aurora intentionally
- * lives in invcs.css alongside the gate's reduced-motion handling
- * and is left untouched.
+ * The two palettes drift on different paths and cross-fade, so the
+ * scene visibly MOVES and CHANGES COLOUR within a few seconds; the
+ * floating light adds a slow orbiting highlight. Pairs with
+ * GlobalBackground.jsx, which renders .ss-bg + .ss-aurora and
+ * imports this file — drop <GlobalBackground /> on any page and it
+ * brings its own styling, motion, gate-freeze and reduced-motion
+ * handling with it (no dependency on the page's main stylesheet).
+ *
+ * Both .ss-bg and .ss-aurora are position:fixed at z-index:0 with
+ * pointer-events:none, so they always sit behind (and never
+ * intercept) the page content. App panels are opaque and cover the
+ * centre, which is why every colour source is anchored to the
+ * edges / corners / bottom where it stays visible.
  * ============================================================ */
 
 .ss-bg{
@@ -27,40 +34,79 @@
     radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.20), transparent 55%),
     #f3f7fb;
 }
+
+/* ------------------------------------------------------------
+ * Base layer — palette A (light mode).
+ * Vibrant blue/cyan/violet/pink anchored to the corners and
+ * bottom so it bleeds around the white workspace canvas.
+ * ------------------------------------------------------------ */
 .ss-aurora{
   position:fixed;
-  inset:-14vmax;
+  inset:-16vmax;
   z-index:0;
   pointer-events:none;
-  /* Gemini-style colour wash: vibrant enough to read around the
-   * white workspace canvas, but still ambient. The glow is pushed
-   * low-and-wide (bottom-centre anchor + large radii) so the
-   * centered opaque panels never fully cover it — the blue/cyan/
-   * violet/pink edges bleed into the page padding and the side
-   * gutters on wide screens. filter is STATIC (never animated);
-   * motion comes from transform (ssDrift) + opacity breathing
-   * (ssGlow) below, both GPU-cheap. The static `opacity` here is
-   * the rest value used when motion is frozen (gate / reduced
-   * motion); ssGlow overrides it while animating. */
-  opacity:.76;
-  /* Less blur + more saturate keeps the hues vivid instead of
-   * desaturating into a dusty grey wash; the pink is a true
-   * magenta, not a washed-out pastel. */
-  filter:blur(74px) saturate(140%);
+  opacity:.82;
+  /* Moderate blur + high saturate keeps the hues vivid (true
+   * magenta / cyan) instead of collapsing into a dusty grey-pink. */
+  filter:blur(66px) saturate(155%);
   background:
-    radial-gradient(72% 62% at 18% 30%, rgba(70,140,255,.46) 0%, transparent 60%),
-    radial-gradient(66% 58% at 86% 26%, rgba(168,108,250,.46) 0%, transparent 60%),
-    radial-gradient(80% 64% at 50% 94%, rgba(56,196,255,.44) 0%, transparent 62%),
-    radial-gradient(60% 54% at 78% 100%, rgba(255,96,176,.42) 0%, transparent 58%);
+    radial-gradient(64% 56% at 16% 26%, rgba(70,140,255,.52) 0%, transparent 60%),
+    radial-gradient(62% 54% at 88% 22%, rgba(168,108,250,.50) 0%, transparent 60%),
+    radial-gradient(78% 62% at 50% 96%, rgba(56,196,255,.48) 0%, transparent 62%),
+    radial-gradient(58% 52% at 80% 100%, rgba(255,96,176,.46) 0%, transparent 58%);
   will-change:transform,opacity;
-  /* Two independent, GPU-cheap loops on differing periods so the
-   * wash keeps wandering instead of settling into an obvious cycle:
-   * ssDrift slides/rotates/scales the colour anchors around the
-   * edges; ssGlow gently breathes the whole layer's brightness. */
+  /* Visible drift + a brightness breath, on different periods. */
   animation:
-    ssDrift 18s ease-in-out infinite alternate,
-    ssGlow 11s ease-in-out infinite alternate;
+    ssDrift 16s ease-in-out infinite alternate,
+    ssGlow 9s ease-in-out infinite alternate;
 }
+
+/* Cross-fade layer — palette B (light mode).
+ * Distinctly different hues anchored to different edges; ssWash
+ * fades it in and out so the overall colour of the scene shifts. */
+.ss-aurora::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  filter:blur(66px) saturate(155%);
+  background:
+    radial-gradient(60% 56% at 8% 88%, rgba(46,212,200,.48) 0%, transparent 60%),
+    radial-gradient(62% 56% at 92% 70%, rgba(108,124,255,.52) 0%, transparent 60%),
+    radial-gradient(58% 50% at 62% 6%, rgba(232,92,210,.46) 0%, transparent 58%),
+    radial-gradient(54% 50% at 24% 16%, rgba(80,170,255,.42) 0%, transparent 58%);
+  will-change:transform,opacity;
+  animation:
+    ssDrift2 19s ease-in-out infinite alternate,
+    ssWash 13s ease-in-out infinite alternate;
+}
+
+/* Floating light — a single soft highlight that slowly orbits the
+ * lower edges and gently shifts hue, adding obvious life on top of
+ * the two wash layers. hue-rotate is applied ONLY here (a small,
+ * lightly-blurred blob) to keep the animated filter cheap. */
+.ss-aurora::after{
+  content:"";
+  position:absolute;
+  left:6%;
+  bottom:0;
+  width:78vmax;
+  height:78vmax;
+  pointer-events:none;
+  filter:blur(50px) saturate(160%);
+  background:radial-gradient(circle at 50% 50%,
+    rgba(120,150,255,.55) 0%, rgba(120,150,255,.28) 34%, transparent 64%);
+  will-change:transform,opacity,filter;
+  animation:
+    ssFloat 21s ease-in-out infinite alternate,
+    ssHue 17s ease-in-out infinite alternate;
+}
+
+/* ============================================================
+ * Dark mode palette.
+ * Deeper, more saturated jewel tones so every layer stays
+ * visible on the near-black canvas without going muddy.
+ * ============================================================ */
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
@@ -70,69 +116,116 @@
       #0a1226;
   }
   .ss-aurora{
-    /* Dark mode: deeper, more saturated jewel tones so the wash
-     * stays visible on the near-black canvas without going muddy.
-     * Same low-and-wide anchoring as light mode. */
-    opacity:.84;
-    filter:blur(92px) saturate(150%);
+    opacity:.88;
+    filter:blur(82px) saturate(160%);
     background:
-      radial-gradient(72% 62% at 18% 30%, rgba(72,122,255,.56) 0%, transparent 58%),
-      radial-gradient(66% 58% at 86% 26%, rgba(150,92,245,.52) 0%, transparent 58%),
-      radial-gradient(80% 64% at 50% 94%, rgba(40,172,236,.50) 0%, transparent 60%),
-      radial-gradient(60% 54% at 78% 100%, rgba(240,84,172,.44) 0%, transparent 56%);
+      radial-gradient(64% 56% at 16% 26%, rgba(72,122,255,.62) 0%, transparent 58%),
+      radial-gradient(62% 54% at 88% 22%, rgba(150,92,245,.58) 0%, transparent 58%),
+      radial-gradient(78% 62% at 50% 96%, rgba(40,172,236,.56) 0%, transparent 60%),
+      radial-gradient(58% 52% at 80% 100%, rgba(240,84,172,.48) 0%, transparent 56%);
+  }
+  .ss-aurora::before{
+    filter:blur(82px) saturate(160%);
+    background:
+      radial-gradient(60% 56% at 8% 88%, rgba(38,196,188,.54) 0%, transparent 58%),
+      radial-gradient(62% 56% at 92% 70%, rgba(96,112,250,.6) 0%, transparent 58%),
+      radial-gradient(58% 50% at 62% 6%, rgba(214,78,196,.5) 0%, transparent 56%),
+      radial-gradient(54% 50% at 24% 16%, rgba(64,150,250,.46) 0%, transparent 56%);
+  }
+  .ss-aurora::after{
+    filter:blur(58px) saturate(165%);
+    background:radial-gradient(circle at 50% 50%,
+      rgba(118,150,255,.62) 0%, rgba(118,150,255,.3) 34%, transparent 64%);
   }
 }
+
 /* ============================================================
  * Motion.
  *
- * ssDrift does the visible work: it travels the oversized
- * (.ss-aurora is inset:-14vmax) blurred colour layer a noticeable
- * distance, rotates it a few degrees and breathes its scale, so
- * the blue/cyan/violet/pink anchors visibly wander around the
- * edges and corners of the viewport — never a dead, static wash,
- * but slow enough to stay calm and premium. ssGlow layers a gentle
- * brightness pulse on top on a different period so the two never
- * sync into an obvious loop. Both animate only transform / opacity
- * (no layout, no filter churn).
+ * ssDrift / ssDrift2 travel the two oversized wash layers a
+ * noticeable distance on different paths (translate + rotate +
+ * scale), so the colour anchors visibly wander around the edges
+ * and corners — never a dead, static wash. ssGlow breathes the
+ * base layer's brightness; ssWash cross-fades palette B in and out
+ * (the obvious colour change); ssFloat orbits the highlight and
+ * ssHue gently shifts its hue. All cheap transform/opacity work,
+ * with hue-rotate confined to the small ::after blob.
  * ============================================================ */
 @keyframes ssDrift{
   0%{transform:translate3d(-5%,-2%,0) rotate(-5deg) scale(1.06)}
   50%{transform:translate3d(5%,2%,0) rotate(4deg) scale(1.14)}
-  100%{transform:translate3d(0%,5%,0) rotate(-2deg) scale(1.08)}
+  100%{transform:translate3d(0,5%,0) rotate(-2deg) scale(1.08)}
+}
+@keyframes ssDrift2{
+  0%{transform:translate3d(5%,3%,0) rotate(6deg) scale(1.12)}
+  50%{transform:translate3d(-5%,-3%,0) rotate(-5deg) scale(1.05)}
+  100%{transform:translate3d(2%,-5%,0) rotate(3deg) scale(1.1)}
 }
 @keyframes ssGlow{
-  0%,100%{opacity:.6}
-  50%{opacity:.86}
+  0%,100%{opacity:.62}
+  50%{opacity:.9}
+}
+@keyframes ssWash{
+  0%{opacity:.14}
+  50%{opacity:.92}
+  100%{opacity:.32}
+}
+@keyframes ssFloat{
+  0%{transform:translate3d(-16%,8%,0) scale(1)}
+  50%{transform:translate3d(18%,-6%,0) scale(1.2)}
+  100%{transform:translate3d(8%,12%,0) scale(1.08)}
+}
+@keyframes ssHue{
+  from{filter:blur(50px) saturate(160%) hue-rotate(-30deg)}
+  to{filter:blur(50px) saturate(160%) hue-rotate(45deg)}
 }
 
 /* ============================================================
- * Mobile: bottom-heavy / off-centre Gemini wash.
+ * Mobile palette.
  *
  * On phones the workspace card fills nearly the whole viewport,
  * so the desktop "around the edges" bleed mostly disappears.
- * Re-anchor the glow to the bottom edge (Gemini-mobile style) so
- * the colour stays noticeable below / behind the card. Position
- * only — motion is still the shared transform + opacity loops,
- * filter stays static.
+ * Re-anchor every layer to the bottom edge so the colour stays
+ * noticeable below / behind the card. Motion (the shared
+ * keyframes above) is unchanged — palette/position only — so the
+ * background still animates on mobile, no device-based freeze.
  * ============================================================ */
 @media (max-width:768px){
   .ss-aurora{
-    opacity:.8;
+    opacity:.84;
     background:
-      radial-gradient(120% 78% at 50% 104%, rgba(70,140,255,.54) 0%, transparent 64%),
-      radial-gradient(96% 62% at 16% 96%, rgba(56,196,255,.44) 0%, transparent 62%),
-      radial-gradient(96% 62% at 86% 100%, rgba(168,108,250,.48) 0%, transparent 62%),
-      radial-gradient(86% 56% at 64% 82%, rgba(255,96,176,.40) 0%, transparent 60%);
+      radial-gradient(120% 78% at 50% 104%, rgba(70,140,255,.56) 0%, transparent 64%),
+      radial-gradient(96% 62% at 16% 96%, rgba(56,196,255,.48) 0%, transparent 62%),
+      radial-gradient(96% 62% at 86% 100%, rgba(168,108,250,.5) 0%, transparent 62%),
+      radial-gradient(86% 56% at 64% 82%, rgba(255,96,176,.44) 0%, transparent 60%);
+  }
+  .ss-aurora::before{
+    background:
+      radial-gradient(116% 74% at 30% 108%, rgba(46,212,200,.5) 0%, transparent 62%),
+      radial-gradient(100% 64% at 88% 96%, rgba(108,124,255,.52) 0%, transparent 60%),
+      radial-gradient(92% 58% at 8% 86%, rgba(232,92,210,.46) 0%, transparent 60%);
+  }
+  .ss-aurora::after{
+    left:50%;
+    width:120vmax;
+    height:120vmax;
+    transform-origin:center;
   }
 }
 @media (max-width:768px) and (prefers-color-scheme:dark){
   .ss-aurora{
-    opacity:.86;
+    opacity:.9;
     background:
-      radial-gradient(120% 78% at 50% 104%, rgba(72,122,255,.6) 0%, transparent 62%),
-      radial-gradient(96% 62% at 16% 96%, rgba(40,172,236,.5) 0%, transparent 60%),
-      radial-gradient(96% 62% at 86% 100%, rgba(150,92,245,.54) 0%, transparent 60%),
-      radial-gradient(86% 56% at 64% 82%, rgba(240,84,172,.42) 0%, transparent 58%);
+      radial-gradient(120% 78% at 50% 104%, rgba(72,122,255,.62) 0%, transparent 62%),
+      radial-gradient(96% 62% at 16% 96%, rgba(40,172,236,.54) 0%, transparent 60%),
+      radial-gradient(96% 62% at 86% 100%, rgba(150,92,245,.56) 0%, transparent 60%),
+      radial-gradient(86% 56% at 64% 82%, rgba(240,84,172,.46) 0%, transparent 58%);
+  }
+  .ss-aurora::before{
+    background:
+      radial-gradient(116% 74% at 30% 108%, rgba(38,196,188,.56) 0%, transparent 60%),
+      radial-gradient(100% 64% at 88% 96%, rgba(96,112,250,.6) 0%, transparent 58%),
+      radial-gradient(92% 58% at 8% 86%, rgba(214,78,196,.5) 0%, transparent 58%);
   }
 }
 
@@ -140,21 +233,36 @@
  * Gate intro freeze.
  *
  * Gate screens have their own one-shot logo bounce
- * (.gate-splash-logo). Keep the ambient background still there on
- * every device so the bounce owns the intro moment cleanly.
- *
- * Every page after the gate — /db, public delivery, /inv, /l,
- * /subs, etc. — keeps the default .ss-aurora animation on desktop
- * and mobile. The split is intentionally page-based, not
- * device-based:
- *   gate page = static aurora + bouncing logo
- *   after gate = animated aurora
- *
- * This rule animates nothing — it only stops an animation, so it
- * cannot introduce layout work.
+ * (.gate-splash-logo). Hold the ambient background still there on
+ * EVERY device so the bounce owns the intro moment cleanly. The
+ * split is intentionally page-based, not device-based:
+ *   gate page  = static aurora + bouncing logo
+ *   after gate = animated aurora (desktop + mobile)
+ * Covers the pseudo-elements too, since they carry their own
+ * animations. Stops animations only — no layout work.
  * ============================================================ */
-.gate-page .ss-aurora{
+.gate-page .ss-aurora,
+.gate-page .ss-aurora::before,
+.gate-page .ss-aurora::after{
   -webkit-animation:none !important;
   animation:none !important;
   will-change:auto !important;
+}
+
+/* ============================================================
+ * Reduced motion.
+ *
+ * Honour prefers-reduced-motion across all three layers so the
+ * background holds completely still (unless the app opts back in
+ * via .ss-force-motion, matching the gate's handling in invcs.css).
+ * Self-contained here so the component freezes correctly even on
+ * pages that don't load invcs.css.
+ * ============================================================ */
+@media (prefers-reduced-motion:reduce){
+  html:not(.ss-force-motion) .ss-aurora,
+  html:not(.ss-force-motion) .ss-aurora::before,
+  html:not(.ss-force-motion) .ss-aurora::after{
+    -webkit-animation:none !important;
+    animation:none !important;
+  }
 }
