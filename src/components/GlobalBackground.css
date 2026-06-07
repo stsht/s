@@ -1,256 +1,244 @@
 /* ============================================================
  * GlobalBackground
  *
- * Self-contained ambient page background: a flat radial tint
- * (.ss-bg) plus a living, Gemini-style colour wash (.ss-aurora)
- * built from THREE stacked layers:
+ * Self-contained ambient page background. Two parts:
  *
- *   .ss-aurora          palette A  (sky / cyan / violet / coral)
- *   .ss-aurora::before  palette B  (teal / indigo / magenta / gold)
- *   .ss-aurora::after   a single floating, hue-shifting light
+ *   .ss-bg      a flat, top-biased radial tint (the page colour).
+ *   .ss-aurora  a clipping container holding five .ss-blob pools.
  *
- * The two palettes drift on different paths and cross-fade, so the
- * scene visibly MOVES and CHANGES COLOUR within a few seconds; the
- * floating light adds a slow orbiting highlight. Pairs with
- * GlobalBackground.jsx, which renders .ss-bg + .ss-aurora and
- * imports this file — drop <GlobalBackground /> on any page and it
- * brings its own styling + motion with it (no dependency on the
- * page's main stylesheet).
+ * Gemini-app-inspired ambience: instead of one big wash that
+ * fades / hue-shifts in place, the colour lives in a handful of
+ * compact, soft, blurred POOLS that each drift along their own
+ * transform path. The viewer reads "the blue / cyan / lavender /
+ * peach areas are moving through space", not "the background is
+ * changing colour". Motion is pure transform (GPU-friendly), slow
+ * and smooth, looping back to the start so there is never a jump.
+ *
+ * Composition is top-biased: most pools sit in the upper third of
+ * the viewport with some soft bleed toward the corners / left
+ * edge, leaving the area behind central cards calm.
+ *
+ * Pairs with GlobalBackground.jsx (renders .ss-bg + .ss-aurora and
+ * five blob spans) and imports this file, so dropping
+ * <GlobalBackground /> on any page brings its own styling + motion.
  *
  * StarShots motion is brief, calm and intentional, so it is NOT
  * frozen on the gate intro and is NOT disabled by
- * prefers-reduced-motion — the background stays alive everywhere
- * (gate + post-unlock, desktop + mobile). See animate.js, which
- * tags <html class="ss-force-motion"> for the same reason.
+ * prefers-reduced-motion (animate.js tags <html class=
+ * "ss-force-motion"> to keep the ambience alive everywhere).
  *
  * Both .ss-bg and .ss-aurora are position:fixed at z-index:0 with
  * pointer-events:none, so they always sit behind (and never
- * intercept) the page content. App panels are opaque and cover the
- * centre, which is why every colour source is anchored to the
- * edges / corners / bottom where it stays visible.
+ * intercept) the page content.
  * ============================================================ */
 
 .ss-bg{
   position:fixed;
   inset:0;
   z-index:0;
+  pointer-events:none;
+  /* Top-biased tint: the main blue glow is anchored just above the
+   * top edge with soft cyan / lavender shoulders, over a near-white
+   * base. Keeps the page bright and the activity up top. */
   background:
-    radial-gradient(1040px 580px at 50% 58%, rgba(95,169,255,.44), transparent 66%),
-    radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.18), transparent 60%),
-    radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.20), transparent 55%),
+    radial-gradient(900px 520px at 50% -8%, rgba(95,169,255,.34), transparent 62%),
+    radial-gradient(760px 460px at 14% 2%, rgba(46,190,228,.16), transparent 60%),
+    radial-gradient(760px 460px at 86% 0%, rgba(150,130,250,.16), transparent 60%),
     #f3f7fb;
 }
 
 /* ------------------------------------------------------------
- * Base layer — palette A (light mode).
- * Rich, cool-dominant wash (sky / cyan / violet) with a single
- * warm coral accent, anchored to the corners and bottom so it
- * bleeds around the white workspace canvas. Bold but not muddy.
+ * Aurora container — clips the drifting pools to the viewport so
+ * they can sit partly off-screen (edge bleed) without creating
+ * scrollbars, and so the motion stays composed up top.
  * ------------------------------------------------------------ */
 .ss-aurora{
   position:fixed;
-  inset:-16vmax;
+  inset:0;
   z-index:0;
   pointer-events:none;
-  opacity:.95;
-  /* Moderate blur + high saturate keeps the hues vivid (true
-   * magenta / cyan) instead of collapsing into a dusty grey-pink.
-   * Blur is kept lighter than you'd expect because the workspace
-   * panels add their own backdrop-blur on top (see
-   * PrivateWorkspaceFrame.css), so the colour positions stay
-   * legible/moving instead of smearing into a flat tint. */
-  filter:blur(46px) saturate(160%);
-  background:
-    radial-gradient(64% 56% at 16% 26%, rgba(46,170,255,.54) 0%, transparent 60%),
-    radial-gradient(62% 54% at 88% 22%, rgba(132,96,252,.54) 0%, transparent 60%),
-    radial-gradient(78% 62% at 50% 96%, rgba(38,206,230,.52) 0%, transparent 62%),
-    radial-gradient(58% 52% at 80% 100%, rgba(255,122,110,.42) 0%, transparent 58%);
-  will-change:transform,opacity;
-  /* Visible drift + a brightness breath, on different periods.
-   * ssDrift runs a brisk 14s so the motion reads during the brief
-   * link previews, but stays calm/premium. */
-  animation:
-    ssDrift 14s ease-in-out infinite alternate,
-    ssGlow 7s ease-in-out infinite alternate;
+  overflow:hidden;
 }
 
-/* Cross-fade layer — palette B (light mode).
- * Teal / indigo / magenta with a subtle gold accent, anchored to
- * different edges; ssWash fades it in and out so the overall
- * colour of the scene shifts. */
-.ss-aurora::before{
-  content:"";
+/* Base pool. The radial-gradient feathers each pool to fully
+ * transparent before its box edge, and the blur softens it
+ * further, so there is never a visible hard circle — just an
+ * atmospheric cloud of colour. Only transform animates. */
+.ss-blob{
   position:absolute;
-  inset:0;
   pointer-events:none;
-  filter:blur(46px) saturate(160%);
-  background:
-    radial-gradient(60% 56% at 8% 88%, rgba(32,214,196,.5) 0%, transparent 60%),
-    radial-gradient(62% 56% at 92% 70%, rgba(96,108,255,.54) 0%, transparent 60%),
-    radial-gradient(58% 50% at 62% 6%, rgba(196,86,238,.5) 0%, transparent 58%),
-    radial-gradient(54% 50% at 24% 16%, rgba(255,192,96,.34) 0%, transparent 56%);
-  will-change:transform,opacity;
-  animation:
-    ssDrift2 14s ease-in-out infinite alternate,
-    ssWash 9s ease-in-out infinite alternate;
+  border-radius:50%;
+  filter:blur(64px) saturate(150%);
+  will-change:transform;
+  transform:translate3d(0,0,0);
 }
 
-/* Floating light — a single soft highlight that slowly orbits the
- * lower edges and gently shifts hue, adding obvious life on top of
- * the two wash layers. hue-rotate is applied ONLY here (a small,
- * lightly-blurred blob) to keep the animated filter cheap. */
-.ss-aurora::after{
-  content:"";
-  position:absolute;
-  left:6%;
-  bottom:0;
-  width:78vmax;
-  height:78vmax;
-  pointer-events:none;
-  filter:blur(40px) saturate(165%);
+/* 1 — sky blue, top-left, the largest/anchoring pool. */
+.ss-blob-1{
+  top:-12%;
+  left:-8%;
+  width:46vmax;
+  height:46vmax;
+  opacity:.82;
   background:radial-gradient(circle at 50% 50%,
-    rgba(110,150,255,.56) 0%, rgba(110,150,255,.28) 34%, transparent 64%);
-  will-change:transform,opacity,filter;
-  animation:
-    ssFloat 15s ease-in-out infinite alternate,
-    ssHue 11s ease-in-out infinite alternate;
+    rgba(58,150,255,.55) 0%, rgba(58,150,255,.22) 36%, transparent 68%);
+  animation:ssBlob1 27s ease-in-out infinite;
+}
+
+/* 2 — cyan / aqua, top-centre. */
+.ss-blob-2{
+  top:-15%;
+  left:26%;
+  width:42vmax;
+  height:42vmax;
+  opacity:.8;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(34,205,228,.5) 0%, rgba(34,205,228,.2) 36%, transparent 68%);
+  animation:ssBlob2 33s ease-in-out infinite;
+}
+
+/* 3 — soft lavender / violet, top-right. This pool drifts so the
+ * old static "dusty pink" corner now visibly moves. */
+.ss-blob-3{
+  top:-13%;
+  left:55%;
+  width:46vmax;
+  height:46vmax;
+  opacity:.8;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(150,130,250,.5) 0%, rgba(150,130,250,.2) 36%, transparent 68%);
+  animation:ssBlob3 30s ease-in-out infinite;
+}
+
+/* 4 — very subtle warm peach accent, upper-centre. Kept small and
+ * faint so it warms the top without muddying the cool pools. */
+.ss-blob-4{
+  top:-6%;
+  left:38%;
+  width:30vmax;
+  height:30vmax;
+  opacity:.4;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(255,176,158,.46) 0%, rgba(255,176,158,.16) 38%, transparent 66%);
+  animation:ssBlob4 36s ease-in-out infinite;
+}
+
+/* 5 — aqua/blue edge bleed on the left, slightly lower, for depth. */
+.ss-blob-5{
+  top:24%;
+  left:-14%;
+  width:40vmax;
+  height:40vmax;
+  opacity:.6;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(70,170,255,.46) 0%, rgba(70,170,255,.18) 36%, transparent 68%);
+  animation:ssBlob5 38s ease-in-out infinite;
 }
 
 /* ============================================================
- * Dark mode palette.
- * Deeper, more saturated jewel tones so every layer stays
- * visible on the near-black canvas without going muddy.
+ * Motion — each pool wanders a distinct path and returns to its
+ * start (0% == 100%) so the loop never jumps. Slow, smooth, and
+ * noticeable within a few seconds. Pure transform = GPU-friendly.
+ * ============================================================ */
+@keyframes ssBlob1{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  25%{transform:translate3d(14%,7%,0) scale(1.06)}
+  55%{transform:translate3d(7%,15%,0) scale(1.02)}
+  80%{transform:translate3d(-6%,5%,0) scale(1.08)}
+  100%{transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes ssBlob2{
+  0%{transform:translate3d(0,0,0) scale(1.02)}
+  30%{transform:translate3d(-12%,9%,0) scale(1.1)}
+  60%{transform:translate3d(9%,4%,0) scale(1)}
+  85%{transform:translate3d(4%,13%,0) scale(1.05)}
+  100%{transform:translate3d(0,0,0) scale(1.02)}
+}
+@keyframes ssBlob3{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  28%{transform:translate3d(-13%,8%,0) scale(1.08)}
+  58%{transform:translate3d(-5%,16%,0) scale(1.03)}
+  82%{transform:translate3d(8%,6%,0) scale(1.06)}
+  100%{transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes ssBlob4{
+  0%{transform:translate3d(0,0,0) scale(1)}
+  33%{transform:translate3d(10%,10%,0) scale(1.12)}
+  66%{transform:translate3d(-8%,5%,0) scale(1.04)}
+  100%{transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes ssBlob5{
+  0%{transform:translate3d(0,0,0) scale(1.04)}
+  35%{transform:translate3d(12%,-8%,0) scale(1.12)}
+  70%{transform:translate3d(20%,6%,0) scale(1.02)}
+  100%{transform:translate3d(0,0,0) scale(1.04)}
+}
+
+/* ============================================================
+ * Dark mode — deeper, more saturated jewel tones so each pool
+ * stays visible on the near-black canvas without going muddy.
+ * Positions / motion are unchanged (palette + intensity only).
  * ============================================================ */
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(1100px 640px at 54% 58%, rgba(70,128,255,.74), transparent 62%),
-      radial-gradient(880px 540px at 48% 72%, rgba(38,82,210,.68), transparent 62%),
-      radial-gradient(680px 400px at 88% 10%, rgba(96,144,255,.30), transparent 58%),
+      radial-gradient(1000px 600px at 50% -8%, rgba(70,128,255,.6), transparent 60%),
+      radial-gradient(760px 460px at 14% 2%, rgba(34,168,224,.3), transparent 60%),
+      radial-gradient(760px 460px at 86% 0%, rgba(132,108,248,.3), transparent 60%),
       #0a1226;
   }
-  .ss-aurora{
-    opacity:.96;
-    filter:blur(60px) saturate(165%);
-    background:
-      radial-gradient(64% 56% at 16% 26%, rgba(56,150,255,.64) 0%, transparent 58%),
-      radial-gradient(62% 54% at 88% 22%, rgba(140,98,252,.6) 0%, transparent 58%),
-      radial-gradient(78% 62% at 50% 96%, rgba(34,200,236,.6) 0%, transparent 60%),
-      radial-gradient(58% 52% at 80% 100%, rgba(255,116,104,.46) 0%, transparent 56%);
+  .ss-blob{
+    filter:blur(72px) saturate(160%);
   }
-  .ss-aurora::before{
-    filter:blur(60px) saturate(165%);
-    background:
-      radial-gradient(60% 56% at 8% 88%, rgba(28,206,190,.56) 0%, transparent 58%),
-      radial-gradient(62% 56% at 92% 70%, rgba(92,104,252,.62) 0%, transparent 58%),
-      radial-gradient(58% 50% at 62% 6%, rgba(190,82,236,.54) 0%, transparent 56%),
-      radial-gradient(54% 50% at 24% 16%, rgba(255,188,96,.32) 0%, transparent 54%);
-  }
-  .ss-aurora::after{
-    filter:blur(46px) saturate(170%);
+  .ss-blob-1{
+    opacity:.9;
     background:radial-gradient(circle at 50% 50%,
-      rgba(112,150,255,.64) 0%, rgba(112,150,255,.3) 34%, transparent 64%);
+      rgba(64,150,255,.62) 0%, rgba(64,150,255,.26) 36%, transparent 66%);
+  }
+  .ss-blob-2{
+    opacity:.88;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(34,200,236,.58) 0%, rgba(34,200,236,.24) 36%, transparent 66%);
+  }
+  .ss-blob-3{
+    opacity:.88;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(150,124,252,.58) 0%, rgba(150,124,252,.24) 36%, transparent 66%);
+  }
+  .ss-blob-4{
+    opacity:.46;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(255,168,150,.48) 0%, rgba(255,168,150,.18) 38%, transparent 64%);
+  }
+  .ss-blob-5{
+    opacity:.7;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(72,166,255,.52) 0%, rgba(72,166,255,.2) 36%, transparent 66%);
   }
 }
 
 /* ============================================================
- * Motion.
- *
- * ssDrift / ssDrift2 travel the two oversized wash layers a
- * noticeable distance on different paths (translate + rotate +
- * scale), so the colour anchors visibly wander around the edges
- * and corners — never a dead, static wash. ssGlow breathes the
- * base layer's brightness; ssWash cross-fades palette B in and out
- * (the obvious colour change); ssFloat orbits the highlight and
- * ssHue gently shifts its hue. All cheap transform/opacity work,
- * with hue-rotate confined to the small ::after blob.
- * ============================================================ */
-@keyframes ssDrift{
-  0%{transform:translate3d(-5%,-2%,0) rotate(-5deg) scale(1.06)}
-  50%{transform:translate3d(5%,2%,0) rotate(4deg) scale(1.14)}
-  100%{transform:translate3d(0,5%,0) rotate(-2deg) scale(1.08)}
-}
-@keyframes ssDrift2{
-  0%{transform:translate3d(5%,3%,0) rotate(6deg) scale(1.12)}
-  50%{transform:translate3d(-5%,-3%,0) rotate(-5deg) scale(1.05)}
-  100%{transform:translate3d(2%,-5%,0) rotate(3deg) scale(1.1)}
-}
-@keyframes ssGlow{
-  0%,100%{opacity:.62}
-  50%{opacity:.9}
-}
-@keyframes ssWash{
-  0%{opacity:.14}
-  50%{opacity:.92}
-  100%{opacity:.32}
-}
-@keyframes ssFloat{
-  0%{transform:translate3d(-16%,8%,0) scale(1)}
-  50%{transform:translate3d(18%,-6%,0) scale(1.2)}
-  100%{transform:translate3d(8%,12%,0) scale(1.08)}
-}
-@keyframes ssHue{
-  from{filter:blur(40px) saturate(165%) hue-rotate(-30deg)}
-  to{filter:blur(40px) saturate(165%) hue-rotate(45deg)}
-}
-
-/* ============================================================
- * Mobile palette.
- *
- * On phones the workspace card fills nearly the whole viewport,
- * so the desktop "around the edges" bleed mostly disappears.
- * Re-anchor every layer to the bottom edge so the colour stays
- * noticeable below / behind the card. Motion (the shared
- * keyframes above) is unchanged — palette/position only — so the
- * background still animates on mobile, no device-based freeze.
+ * Mobile — the workspace card fills most of the viewport, so pull
+ * the pools tighter to the top edge and lift opacity a touch so
+ * the ambience still reads above / behind the card. Motion (the
+ * shared keyframes) is unchanged — no device-based freeze.
  * ============================================================ */
 @media (max-width:768px){
-  .ss-aurora{
-    opacity:.96;
-    background:
-      radial-gradient(120% 78% at 50% 104%, rgba(46,170,255,.58) 0%, transparent 64%),
-      radial-gradient(96% 62% at 16% 96%, rgba(38,206,230,.5) 0%, transparent 62%),
-      radial-gradient(96% 62% at 86% 100%, rgba(132,96,252,.52) 0%, transparent 62%),
-      radial-gradient(86% 56% at 64% 82%, rgba(255,122,110,.42) 0%, transparent 60%);
+  .ss-blob{
+    filter:blur(54px) saturate(150%);
   }
-  .ss-aurora::before{
-    background:
-      radial-gradient(116% 74% at 30% 108%, rgba(32,214,196,.52) 0%, transparent 62%),
-      radial-gradient(100% 64% at 88% 96%, rgba(96,108,255,.54) 0%, transparent 60%),
-      radial-gradient(92% 58% at 8% 86%, rgba(196,86,238,.46) 0%, transparent 60%);
-  }
-  .ss-aurora::after{
-    left:50%;
-    width:120vmax;
-    height:120vmax;
-    transform-origin:center;
-  }
-}
-@media (max-width:768px) and (prefers-color-scheme:dark){
-  .ss-aurora{
-    opacity:.98;
-    background:
-      radial-gradient(120% 78% at 50% 104%, rgba(56,150,255,.64) 0%, transparent 62%),
-      radial-gradient(96% 62% at 16% 96%, rgba(34,200,236,.56) 0%, transparent 60%),
-      radial-gradient(96% 62% at 86% 100%, rgba(140,98,252,.58) 0%, transparent 60%),
-      radial-gradient(86% 56% at 64% 82%, rgba(255,116,104,.44) 0%, transparent 58%);
-  }
-  .ss-aurora::before{
-    background:
-      radial-gradient(116% 74% at 30% 108%, rgba(28,206,190,.58) 0%, transparent 60%),
-      radial-gradient(100% 64% at 88% 96%, rgba(92,104,252,.62) 0%, transparent 58%),
-      radial-gradient(92% 58% at 8% 86%, rgba(190,82,236,.5) 0%, transparent 58%);
-  }
+  .ss-blob-1{ top:-16%; left:-18%; width:64vmax; height:64vmax; }
+  .ss-blob-2{ top:-18%; left:18%;  width:60vmax; height:60vmax; }
+  .ss-blob-3{ top:-16%; left:52%;  width:64vmax; height:64vmax; }
+  .ss-blob-4{ top:-10%; left:30%;  width:44vmax; height:44vmax; opacity:.44; }
+  .ss-blob-5{ top:14%;  left:-24%; width:56vmax; height:56vmax; }
 }
 
 /* ============================================================
  * Motion policy: NO gate freeze, NO reduced-motion freeze.
- *
- * Earlier revisions froze .ss-aurora on `.gate-page` and under
- * `prefers-reduced-motion`. Both have been intentionally removed:
- * the ambient wash now animates on the password gate AND after
- * unlock, on desktop and mobile, and is not disabled by reduced
- * motion (StarShots motion is brief and tasteful; animate.js also
- * tags <html class="ss-force-motion"> to neutralise any remaining
+ * The ambient pools animate on the password gate AND after
+ * unlock, on desktop and mobile, and are not disabled by reduced
+ * motion (StarShots motion is brief and tasteful; animate.js tags
+ * <html class="ss-force-motion"> to neutralise any remaining
  * reduced-motion freezes elsewhere). Keep it this way.
  * ============================================================ */
