@@ -123,6 +123,28 @@ button{cursor:pointer}
     linear-gradient(180deg,color-mix(in srgb,var(--panel) 96%,white 4%),var(--panel));
   box-shadow:var(--shadow);
 }
+/* Liquid-glass gate canvas — shared by EVERY password gate
+ * (/db, /inv, /l, /subs via <PasswordGate>, plus /g's own gate),
+ * since they all render .gate-card and load this stylesheet.
+ *
+ * Translucent frosted surface so the animated aurora reads softly
+ * THROUGH the card, with blur + saturate for a premium glass feel
+ * and a softened border. @supports-gated so any browser without
+ * backdrop-filter keeps the original solid card (no contrast loss),
+ * and color-mix on var(--panel) keeps it correct in light AND dark.
+ * The top hairline accent is preserved. */
+@supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
+  .gate-page .gate-card{
+    background:
+      linear-gradient(90deg,transparent 12%,rgba(138,180,248,.72) 50%,transparent 88%) top/100% 1px no-repeat,
+      linear-gradient(180deg,
+        color-mix(in srgb,var(--panel) 72%,transparent),
+        color-mix(in srgb,var(--panel) 64%,transparent));
+    border-color:color-mix(in srgb,var(--line) 60%,transparent);
+    -webkit-backdrop-filter:blur(26px) saturate(150%);
+    backdrop-filter:blur(26px) saturate(150%);
+  }
+}
 .gate-logo{width:min(226px,68vw);height:auto;margin-bottom:28px}
 .gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:0.6875rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
 .gate-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.18)}
@@ -312,23 +334,18 @@ button{cursor:pointer}
  * forced-motion layout keeps its breathing logo + reveal even
  * when the OS requests reduced motion.
  * Without the opt-in, the system preference is fully respected. */
+/* Reduced-motion: StarShots motion is deliberately kept ALIVE.
+ *
+ * Per product direction, prefers-reduced-motion must NOT disable
+ * the gate logo bounce or the ambient aurora — links are previewed
+ * only briefly, so the motion needs to read for every visitor.
+ * We therefore no longer freeze .gate-splash-logo or .ss-aurora
+ * here. animate.js additionally tags <html class="ss-force-motion">,
+ * which already bypasses any remaining html:not(.ss-force-motion)
+ * freezes. We still skip the one-shot reveal *transition* so the
+ * card/splash swap snaps rather than slides for reduced-motion
+ * users — that is a page transition, not the StarShots ambience. */
 @media (prefers-reduced-motion:reduce){
-  html:not(.ss-force-motion) .gate-splash-logo{
-    /* Freeze the breathing loop, clear the animated transform,
-     * and completely strip filters so it sits at a steady, sharp rest opacity. */
-    animation:none !important;
-    opacity:.86 !important;
-    transform:scale(1) !important;
-    -webkit-filter:none !important;
-    filter:none !important;
-  }
-  /* Freeze the ambient aurora drift too, mirroring animate.css's
-   * reduced-motion handling on the homepage so the public pre-gate
-   * page honours the system preference consistently. */
-  html:not(.ss-force-motion) .ss-aurora{
-    -webkit-animation:none !important;
-    animation:none !important;
-  }
   html:not(.ss-force-motion) .gate-splash,
   html:not(.ss-force-motion) .gate-card{
     transition:none !important;
@@ -411,6 +428,21 @@ button{cursor:pointer}
   background:
     linear-gradient(180deg,color-mix(in srgb,var(--panel) 98%,white 2%),var(--panel));
   box-shadow:0 28px 70px rgba(31,26,23,.14);
+}
+/* Liquid-glass treatment for the public client delivery canvas.
+ * Matches the gate card: translucent frosted surface so the live
+ * aurora shows through, premium blur + saturate, softened border.
+ * @supports-gated (solid fallback) and color-mix keeps light/dark
+ * correct. Mobile-safe — moderate blur, no layout change. */
+@supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
+  .public-delivery-card{
+    background:linear-gradient(180deg,
+      color-mix(in srgb,var(--panel) 74%,transparent),
+      color-mix(in srgb,var(--panel) 66%,transparent));
+    border-color:color-mix(in srgb,var(--line) 55%,transparent);
+    -webkit-backdrop-filter:blur(28px) saturate(150%);
+    backdrop-filter:blur(28px) saturate(150%);
+  }
 }
 /* Desktop: adapt the card to the viewport height. It keeps a tall,
  * elegant panel but is capped to the visible area (minus page

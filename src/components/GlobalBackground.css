@@ -14,8 +14,14 @@
  * floating light adds a slow orbiting highlight. Pairs with
  * GlobalBackground.jsx, which renders .ss-bg + .ss-aurora and
  * imports this file — drop <GlobalBackground /> on any page and it
- * brings its own styling, motion, gate-freeze and reduced-motion
- * handling with it (no dependency on the page's main stylesheet).
+ * brings its own styling + motion with it (no dependency on the
+ * page's main stylesheet).
+ *
+ * StarShots motion is brief, calm and intentional, so it is NOT
+ * frozen on the gate intro and is NOT disabled by
+ * prefers-reduced-motion — the background stays alive everywhere
+ * (gate + post-unlock, desktop + mobile). See animate.js, which
+ * tags <html class="ss-force-motion"> for the same reason.
  *
  * Both .ss-bg and .ss-aurora are position:fixed at z-index:0 with
  * pointer-events:none, so they always sit behind (and never
@@ -59,10 +65,12 @@
     radial-gradient(78% 62% at 50% 96%, rgba(56,196,255,.48) 0%, transparent 62%),
     radial-gradient(58% 52% at 80% 100%, rgba(255,96,176,.46) 0%, transparent 58%);
   will-change:transform,opacity;
-  /* Visible drift + a brightness breath, on different periods. */
+  /* Visible drift + a brightness breath, on different periods.
+   * Brisk enough (≈12s / 7s) that the movement reads within a
+   * second or two, but still calm/premium. */
   animation:
-    ssDrift 16s ease-in-out infinite alternate,
-    ssGlow 9s ease-in-out infinite alternate;
+    ssDrift 12s ease-in-out infinite alternate,
+    ssGlow 7s ease-in-out infinite alternate;
 }
 
 /* Cross-fade layer — palette B (light mode).
@@ -81,8 +89,8 @@
     radial-gradient(54% 50% at 24% 16%, rgba(80,170,255,.42) 0%, transparent 58%);
   will-change:transform,opacity;
   animation:
-    ssDrift2 19s ease-in-out infinite alternate,
-    ssWash 13s ease-in-out infinite alternate;
+    ssDrift2 14s ease-in-out infinite alternate,
+    ssWash 9s ease-in-out infinite alternate;
 }
 
 /* Floating light — a single soft highlight that slowly orbits the
@@ -102,8 +110,8 @@
     rgba(120,150,255,.55) 0%, rgba(120,150,255,.28) 34%, transparent 64%);
   will-change:transform,opacity,filter;
   animation:
-    ssFloat 21s ease-in-out infinite alternate,
-    ssHue 17s ease-in-out infinite alternate;
+    ssFloat 15s ease-in-out infinite alternate,
+    ssHue 11s ease-in-out infinite alternate;
 }
 
 /* ============================================================
@@ -234,39 +242,13 @@
 }
 
 /* ============================================================
- * Gate intro freeze.
+ * Motion policy: NO gate freeze, NO reduced-motion freeze.
  *
- * Gate screens have their own one-shot logo bounce
- * (.gate-splash-logo). Hold the ambient background still there on
- * EVERY device so the bounce owns the intro moment cleanly. The
- * split is intentionally page-based, not device-based:
- *   gate page  = static aurora + bouncing logo
- *   after gate = animated aurora (desktop + mobile)
- * Covers the pseudo-elements too, since they carry their own
- * animations. Stops animations only — no layout work.
+ * Earlier revisions froze .ss-aurora on `.gate-page` and under
+ * `prefers-reduced-motion`. Both have been intentionally removed:
+ * the ambient wash now animates on the password gate AND after
+ * unlock, on desktop and mobile, and is not disabled by reduced
+ * motion (StarShots motion is brief and tasteful; animate.js also
+ * tags <html class="ss-force-motion"> to neutralise any remaining
+ * reduced-motion freezes elsewhere). Keep it this way.
  * ============================================================ */
-.gate-page .ss-aurora,
-.gate-page .ss-aurora::before,
-.gate-page .ss-aurora::after{
-  -webkit-animation:none !important;
-  animation:none !important;
-  will-change:auto !important;
-}
-
-/* ============================================================
- * Reduced motion.
- *
- * Honour prefers-reduced-motion across all three layers so the
- * background holds completely still (unless the app opts back in
- * via .ss-force-motion, matching the gate's handling in invcs.css).
- * Self-contained here so the component freezes correctly even on
- * pages that don't load invcs.css.
- * ============================================================ */
-@media (prefers-reduced-motion:reduce){
-  html:not(.ss-force-motion) .ss-aurora,
-  html:not(.ss-force-motion) .ss-aurora::before,
-  html:not(.ss-force-motion) .ss-aurora::after{
-    -webkit-animation:none !important;
-    animation:none !important;
-  }
-}
