@@ -3263,7 +3263,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
 
   // Off-screen export card. We always render the appropriate card
   // for the saved subscription inside a .subs-export-host wrapper
-  // (position:fixed at left:-10000px, width:720px) so html2canvas
+  // (position:fixed at left:-10000px, ~760px wide for the paid card) so html2canvas
   // can rasterise a stable layout on Print without the operator
   // ever seeing the card on screen. cardProps mirrors what the
   // /subs live preview computes from local state, so the same JPG
@@ -3318,11 +3318,11 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           allowTaint: true,
           imageTimeout: 0,
           logging: false,
-          // Paid receipt is a wide landscape card — pin a desktop
+          // Paid receipt is a balanced ~4:3 card — pin a desktop
           // viewport so it never collapses into the <1024px mobile
           // layout during rasterisation. Invoice stays portrait.
           windowWidth: exportIsPaid ? 1120 : 800,
-          windowHeight: exportIsPaid ? 760 : 1200,
+          windowHeight: exportIsPaid ? 840 : 1200,
         });
         if (cancelled) return;
         const filePrefix = exportIsPaid ? 'subscription-paid' : 'subscription-invoice';
@@ -7110,12 +7110,15 @@ function SubsPaidCard({
           Decorative only; carries no text so the JPG re-import parser
           (which reads textContent in DOM order) is unaffected. */}
       <span className="subs-accent" aria-hidden="true" />
+      {/* Oversized, low-opacity PAID watermark sitting behind the
+          content — a luxury-receipt cue rather than a rubber stamp or
+          pill badge. Decorative/aria-hidden; the "Payment received"
+          line and the "Paid Amount" label remain the machine-readable
+          paid markers for JPG re-import. */}
+      <span className="subs-watermark" aria-hidden="true">PAID</span>
       <header className="subs-card-head">
         <div className="subs-head-top">
           <img src="/logo-hero.png" alt="StarShots" className="subs-logo" />
-          {/* "Paid" chip — also the OCR/vision "paid" marker, paired
-              with the "Payment received" line below. */}
-          <span className="subs-status-chip">Paid</span>
         </div>
         <div className="subs-head-title">
           <h1 className="subs-title">Subscription Receipt</h1>
@@ -7542,11 +7545,11 @@ export function SubscriptionsPage() {
         allowTaint: true,
         imageTimeout: 0,
         logging: false,
-        // Wide landscape paid receipt needs a desktop viewport so it
-        // doesn't fold into the <1024px mobile layout. Invoice stays
+        // Wide-ish landscape paid receipt needs a desktop viewport so
+        // it doesn't fold into the <1024px mobile layout. Invoice stays
         // on the original portrait viewport.
         windowWidth: mode === 'paid' ? 1120 : 800,
-        windowHeight: mode === 'paid' ? 760 : 1200,
+        windowHeight: mode === 'paid' ? 840 : 1200,
       });
       const filePrefix = mode === 'paid' ? 'subscription-paid' : 'subscription-invoice';
       const link = document.createElement('a');

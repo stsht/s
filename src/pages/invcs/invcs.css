@@ -4282,8 +4282,8 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-card{
   position:relative;
   overflow:hidden;
-  width:min(100%,960px);
-  padding:30px 38px 22px;
+  width:min(100%,760px);
+  padding:28px 34px 22px;
   border:1px solid #e7e9ee;
   border-radius:20px;
   /* White sheet + barely-there cool wash drifting from the
@@ -4298,7 +4298,7 @@ dd{margin:0;text-align:right;font-weight:800}
   font-family:var(--font);
   display:flex;
   flex-direction:column;
-  gap:17px;
+  gap:16px;
 }
 /* Hairline brand accent — sky → cyan → soft green — pinned to the
  * very top edge and clipped to the card's rounded corners. The one
@@ -4311,29 +4311,60 @@ dd{margin:0;text-align:right;font-weight:800}
   height:3px;
   background:linear-gradient(90deg,#5fb0f5 0%,#36c6cf 52%,#46c98a 100%);
 }
+/* Centered, oversized PAID watermark. Very low opacity slate so it
+ * reads as a premium paid cue without hurting legibility; generous
+ * room left around it (never edge-to-edge). Sits at z-index 0 with
+ * the real content lifted to z-index 1. */
+.subs-watermark{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:0;
+  font-family:var(--font);
+  font-size:168px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.05em;
+  color:#1f3146;
+  opacity:.05;
+  white-space:nowrap;
+  pointer-events:none;
+  user-select:none;
+}
+.subs-card-head,
+.subs-hero,
+.subs-rows,
+.subs-window,
+.subs-note,
+.subs-card-foot{
+  position:relative;
+  z-index:1;
+}
 .subs-card-head{
   display:flex;
   flex-direction:column;
-  gap:12px;
+  gap:14px;
   text-align:left;
 }
 .subs-head-top{
   display:flex;
   align-items:center;
-  justify-content:space-between;
   gap:14px;
+  padding-bottom:14px;
+  border-bottom:1px solid #eef0f3;
 }
 .subs-logo{
-  height:20px;
+  height:22px;
   width:auto;
-  max-width:45%;
+  max-width:50%;
   display:block;
   object-fit:contain;
 }
 .subs-head-title{
   display:flex;
   flex-direction:column;
-  gap:4px;
+  gap:5px;
 }
 .subs-brand{
   font-size:0.8125rem;
@@ -4342,18 +4373,6 @@ dd{margin:0;text-align:right;font-weight:800}
   text-transform:uppercase;
   color:#1f232b;
   font-family:var(--font);
-}
-.subs-status-chip{
-  font-size:0.5625rem;
-  font-weight:700;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  color:#1f8a55;
-  background:#eef8f1;
-  border:1px solid #d3ecdd;
-  border-radius:999px;
-  padding:3px 10px;
-  white-space:nowrap;
 }
 .subs-greeting{
   margin:0;
@@ -4364,7 +4383,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-title{
   margin:0;
-  font-size:1.0625rem;
+  font-size:1.1875rem;
   line-height:1.2;
   font-weight:700;
   letter-spacing:-.01em;
@@ -4373,9 +4392,8 @@ dd{margin:0;text-align:right;font-weight:800}
    * generic h1 reset that may sneak in via a future global stylesheet. */
   font-family:var(--font);
 }
-/* Hero strip — service + paid amount, the strongest section. Premium
- * cool tint (not flat grey) with a hairline border and a tiny cyan→
- * green accent edge so it reads as intentional, not clinical. */
+/* Hero strip — service + paid amount, the strongest section. Clean
+ * cool tint with a hairline border only — no accent bar. */
 .subs-hero{
   position:relative;
   overflow:hidden;
@@ -4383,20 +4401,10 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:flex-end;
   justify-content:space-between;
   gap:20px;
-  padding:18px 24px;
+  padding:18px 22px;
   border:1px solid #e6edf1;
   border-radius:16px;
   background:linear-gradient(180deg,#f6fafc 0%,#f2f6f9 100%);
-}
-.subs-hero::before{
-  content:"";
-  position:absolute;
-  left:0;
-  top:14px;
-  bottom:14px;
-  width:3px;
-  border-radius:0 3px 3px 0;
-  background:linear-gradient(180deg,#36c6cf 0%,#46c98a 100%);
 }
 .subs-hero-cell{
   display:flex;
@@ -4438,36 +4446,44 @@ dd{margin:0;text-align:right;font-weight:800}
   letter-spacing:.22em;
   text-transform:uppercase;
 }
+/* Details summary — Payment Date / Time / Access Period (+ optional
+ * Proof) as evenly-sized columns with the value sitting directly under
+ * its label. Thin top/bottom rules and slim column separators keep it
+ * aligned and crisp, never an invoice table. */
 .subs-rows{
   display:grid;
-  grid-template-columns:1fr 1fr;
-  column-gap:48px;
-  row-gap:0;
+  grid-auto-flow:column;
+  grid-auto-columns:1fr;
+  gap:0;
+  padding:14px 0;
+  border-top:1px solid #eef0f3;
+  border-bottom:1px solid #eef0f3;
 }
 .subs-row{
   display:flex;
-  align-items:baseline;
-  justify-content:space-between;
-  gap:16px;
-  padding:10px 0;
-  border-bottom:1px solid #eef0f3;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:7px;
+  padding:0 20px;
+  border-left:1px solid #eef0f3;
 }
-.subs-row:last-child,
-.subs-row:nth-last-child(2){
-  border-bottom:0;
+.subs-row:first-child{
+  border-left:0;
+  padding-left:0;
 }
 .subs-row-label{
   color:#8a8f9a;
-  font-size:0.6875rem;
+  font-size:0.625rem;
   font-weight:600;
   letter-spacing:.12em;
   text-transform:uppercase;
 }
 .subs-row-value{
   font-size:0.9375rem;
-  font-weight:600;
+  font-weight:700;
   color:#1f232b;
-  text-align:right;
+  text-align:left;
+  letter-spacing:0;
   font-family:var(--font);
 }
 .subs-tile{
@@ -4499,8 +4515,8 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-window{
   display:flex;
   flex-direction:column;
-  gap:13px;
-  padding:16px 24px 18px;
+  gap:12px;
+  padding:16px 22px 18px;
   border:1px solid #e6edf1;
   border-radius:16px;
   background:linear-gradient(180deg,#fbfdfe 0%,#f6fafb 100%);
@@ -4514,9 +4530,9 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 .subs-window-track{
   display:grid;
-  grid-template-columns:auto 1fr auto;
+  grid-template-columns:auto minmax(80px,1fr) auto;
   align-items:center;
-  gap:26px;
+  gap:22px;
 }
 .subs-window-end{
   display:flex;
@@ -4643,13 +4659,13 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-export-host{
   position:fixed;
   inset:auto auto auto -10000px;
-  width:960px;
+  width:760px;
   pointer-events:none;
   background:#fff;
   color-scheme:light;
 }
 .subs-export-host .subs-card{
-  width:960px;
+  width:760px;
 }
 .subs-export-host .subs-invoice-card{
   width:720px;
@@ -4666,8 +4682,8 @@ dd{margin:0;text-align:right;font-weight:800}
 
 @media(max-width:1023px){
   /* Live on-page preview only — exports pin a wide desktop viewport,
-   * so these never affect the rasterised landscape JPG. Stack the
-   * paid card's two-column details so a narrow screen stays legible. */
+   * so these never affect the rasterised JPG. Stack the details
+   * summary into label/value rows so a narrow screen stays legible. */
   .subs-card{
     padding:24px 22px 20px;
     gap:15px;
@@ -4676,17 +4692,31 @@ dd{margin:0;text-align:right;font-weight:800}
     padding:16px 18px;
   }
   .subs-rows{
+    grid-auto-flow:row;
+    grid-auto-columns:auto;
     grid-template-columns:1fr;
-    column-gap:0;
+    padding:6px 0;
   }
-  .subs-row:nth-last-child(2){
-    border-bottom:1px solid #eef0f3;
+  .subs-row{
+    flex-direction:row;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:16px;
+    padding:9px 0;
+    border-left:0;
+    padding-left:0;
   }
-  .subs-row:last-child{
-    border-bottom:0;
+  .subs-row + .subs-row{
+    border-top:1px solid #eef0f3;
+  }
+  .subs-row-value{
+    text-align:right;
   }
   .subs-window-track{
     gap:16px;
+  }
+  .subs-watermark{
+    font-size:108px;
   }
 }
 
