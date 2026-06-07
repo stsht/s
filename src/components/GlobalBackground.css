@@ -3,51 +3,46 @@
  *
  * Self-contained ambient page background. Two parts:
  *
- *   .ss-bg      a soft, top-biased radial tint (the page colour).
+ *   .ss-bg      a soft, full-screen radial tint (the page colour).
  *   .ss-aurora  a clipping container holding eight .ss-blob pools.
  *
- * Gemini-app-inspired ambience: instead of one big wash that
- * fades / hue-shifts in place, the colour lives in a handful of
- * soft, blurred POOLS that ORBIT through one another near the top
- * centre, so the viewer reads "the colours are moving across and
- * through each other", not "the background is changing colour" and
- * not "blue lives left, purple lives right".
+ * Gemini-app-inspired ambience: instead of one flat wash that
+ * fades / hue-shifts in place, the colour lives in many soft,
+ * blurred POOLS spread across the WHOLE viewport that drift and
+ * orbit through one another, so the viewer reads "the colours are
+ * moving across the screen", not "the background is changing
+ * colour" and not "blue lives left, purple lives right".
  *
  * Palette — a cohesive cool aurora, NOT a rainbow and NOT neon:
- *   sky blue · aqua/cyan · soft teal/mint · periwinkle · indigo ·
- *   lavender · soft violet · plus one tiny, faint clean peach
- *   accent. Everything sits in the blue→violet family with a
- *   single soft teal-green and one whisper of warmth, so the pools
- *   blend into many in-between tones rather than reading as two.
+ *   sky blue · baby blue · aqua · cyan · soft teal · mint green ·
+ *   soft lavender · periwinkle · subtle lilac · plus one tiny,
+ *   faint clean peach / blush accent. Every pool sits in the
+ *   blue→teal→violet family with a single soft mint-green and one
+ *   whisper of warmth, so overlaps blend into seafoam / periwinkle
+ *   / lilac in-betweens — many tones, never just two.
  *
- * Tuning notes (why this version has depth and is not two-tone):
- *   - Eight pools instead of six, retoned across the palette above
- *     so neighbouring pools mix into teal / periwinkle / violet
- *     in-betweens rather than just "blue" and "purple".
- *   - No static colour territories. The base .ss-bg shoulders are
- *     pulled inward (38% / 62%) and kept faint, so the static
- *     layer never bakes in a left/right split; the moving pools
- *     own the colour distribution.
- *   - The pools share one overlapping upper-centre band (homes
- *     clustered ~2-54% left, all near the top edge) and are large
- *     (32-42vmax) so they genuinely overlap and blend.
- *   - Each pool ORBITS a small loop (a rotated diamond path) rather
- *     than ping-ponging around a fixed spot. Blue / teal pools
- *     orbit rightward and the cyan / lavender / violet pools orbit
- *     leftward, so they continually CROSS through the top centre
- *     and mix. The teal/mint pool sweeps through the blue zone; the
- *     faint peach drifts under the lavender to soften it.
- *   - The main lap is ~7s (durations 6.5-8s, desynced by negative
- *     delays), so the crossing is clearly visible within 3-5s while
- *     still feeling soft and premium.
- *   - Vertical travel is kept small and the homes are top-biased,
- *     so the busiest mixing stays in the upper third and the area
- *     directly behind a centred login / card stays calm + readable.
+ * Tuning notes (richer, livelier, full-screen, not two-tone):
+ *   - Eight pools spread across the FULL screen (top, middle and
+ *     lower bands; left, centre and right), not a single top strip.
+ *   - Hues are INTERLEAVED so neither side is mono: blue / lavender
+ *     / aqua share the top; periwinkle / teal / mint share the
+ *     middle; baby blue anchors the lower centre; a tiny peach
+ *     roams. No left/right colour split.
+ *   - Saturation is biased to the TOP half (top pools carry the
+ *     highest opacity) while lower pools stay soft, so the page
+ *     still feels grounded and text stays readable.
+ *   - Each pool ORBITS its own loop (rotated-diamond / circular
+ *     paths) with generous horizontal AND some vertical travel and
+ *     a little scale, so a 5s screenshot shows obvious movement —
+ *     the field gently "dances" rather than sitting still.
+ *   - The main lap is ~7s (durations 6.5-8.5s, desynced by
+ *     negative delays + mixed directions) for a lively-but-smooth,
+ *     randomised feel that is clearly animated within 3-5s.
  *
- * Motion is pure transform (GPU-friendly), loops back to the start
- * (0% == 100%) so it never jumps, and uses only clean tones (no
- * dirty pink/grey, no hue-rotate, no opacity-fade as the driver —
- * position is what moves).
+ * Motion is pure transform (GPU-friendly); blur/opacity are static
+ * per pool (not animated) to stay cheap. Loops return to the start
+ * (0% == 100%) so they never jump. No hue-rotate, no opacity-fade
+ * driver, no dirty pink/grey — position is what moves.
  *
  * Pairs with GlobalBackground.jsx (renders .ss-bg + .ss-aurora and
  * eight blob spans) and imports this file, so dropping
@@ -68,24 +63,24 @@
   inset:0;
   z-index:0;
   pointer-events:none;
-  /* Top-biased tint. The shoulders are pulled toward the centre
-   * (38% / 62%) and kept faint so the STATIC layer no longer reads
-   * as a left/right colour split — the drifting pools carry the
-   * colour. A faint teal touch at centre adds depth without tinting
-   * the whole page. Near-white base keeps the page bright and the
-   * centre (behind cards) calm. */
+  /* Full-screen tint. A bright blue crown up top, faint aqua /
+   * lavender shoulders, and very soft mint / periwinkle glows in
+   * the lower corners so colour reaches the whole viewport without
+   * any hard left/right split. Near-white base keeps it premium
+   * and readable; the drifting pools carry most of the colour. */
   background:
-    radial-gradient(900px 520px at 50% -8%, rgba(95,169,255,.28), transparent 62%),
-    radial-gradient(640px 400px at 38% -4%, rgba(46,196,214,.12), transparent 60%),
-    radial-gradient(640px 400px at 62% -4%, rgba(154,132,250,.12), transparent 60%),
-    radial-gradient(560px 360px at 50% -2%, rgba(104,206,194,.08), transparent 60%),
+    radial-gradient(1000px 560px at 50% -8%, rgba(95,169,255,.26), transparent 62%),
+    radial-gradient(680px 440px at 22% 6%, rgba(46,196,214,.12), transparent 60%),
+    radial-gradient(680px 440px at 78% 4%, rgba(154,132,250,.12), transparent 60%),
+    radial-gradient(760px 540px at 10% 94%, rgba(120,210,190,.10), transparent 62%),
+    radial-gradient(760px 540px at 90% 96%, rgba(140,160,252,.10), transparent 62%),
     #f3f7fb;
 }
 
 /* ------------------------------------------------------------
  * Aurora container — clips the drifting pools to the viewport so
  * they can sit partly off-screen (edge bleed) without creating
- * scrollbars, and so the motion stays composed up top.
+ * scrollbars.
  * ------------------------------------------------------------ */
 .ss-aurora{
   position:fixed;
@@ -103,190 +98,189 @@
   position:absolute;
   pointer-events:none;
   border-radius:50%;
-  filter:blur(64px) saturate(148%);
+  filter:blur(66px) saturate(146%);
   will-change:transform;
   transform:translate3d(0,0,0);
 }
 
-/* 1 — sky blue. Home upper-left of the band; ORBITS rightward so
- * the blue crosses into the centre and over the cooler pools. */
+/* ---- TOP band (highest saturation) ---- */
+
+/* 1 — sky blue, top-left. Orbits right + down into the centre. */
 .ss-blob-1{
-  top:-14%;
-  left:2%;
-  width:42vmax;
-  height:42vmax;
-  opacity:.8;
+  top:-12%;
+  left:-6%;
+  width:46vmax;
+  height:46vmax;
+  opacity:.68;
   background:radial-gradient(circle at 50% 50%,
-    rgba(74,150,255,.54) 0%, rgba(74,150,255,.22) 36%, transparent 68%);
+    rgba(74,150,255,.52) 0%, rgba(74,150,255,.2) 36%, transparent 68%);
   animation:ssBlob1 7s ease-in-out infinite;
   animation-delay:-1s;
 }
 
-/* 2 — aqua / cyan. Central home; orbits leftward, weaving under
- * the blue and through the lavender. */
+/* 2 — soft lavender, top-centre. Orbits left, crossing the blue. */
 .ss-blob-2{
-  top:-18%;
-  left:26%;
-  width:38vmax;
-  height:38vmax;
-  opacity:.72;
+  top:-16%;
+  left:30%;
+  width:44vmax;
+  height:44vmax;
+  opacity:.62;
   background:radial-gradient(circle at 50% 50%,
-    rgba(40,198,222,.48) 0%, rgba(40,198,222,.19) 36%, transparent 68%);
+    rgba(158,134,250,.48) 0%, rgba(158,134,250,.18) 36%, transparent 68%);
   animation:ssBlob2 7.5s ease-in-out infinite;
-  animation-delay:-3.5s;
+  animation-delay:-3s;
 }
 
-/* 3 — soft lavender / violet. Home centre-right of the band;
- * ORBITS leftward so the purple crosses well past centre and
- * overlaps the blue (no "purple stays right"). */
+/* 3 — aqua, top-right. Orbits left toward the centre. */
 .ss-blob-3{
-  top:-14%;
-  left:46%;
+  top:-10%;
+  left:60%;
   width:42vmax;
   height:42vmax;
-  opacity:.74;
+  opacity:.6;
   background:radial-gradient(circle at 50% 50%,
-    rgba(150,128,250,.48) 0%, rgba(150,128,250,.19) 36%, transparent 68%);
+    rgba(40,200,220,.46) 0%, rgba(40,200,220,.18) 36%, transparent 68%);
   animation:ssBlob3 6.5s ease-in-out infinite;
   animation-delay:-5s;
 }
 
-/* 4 — very subtle, clean warm peach accent. Homed UNDER the
- * lavender (centre-right) and kept tiny + faint, so it occasionally
- * softens the violet with warmth without ever reading as pink. */
+/* ---- MIDDLE band (soft) ---- */
+
+/* 4 — periwinkle, mid-left. Orbits up-and-right (blue↔violet
+ * bridge tone), pulling colour toward the centre. */
 .ss-blob-4{
-  top:-4%;
-  left:44%;
-  width:26vmax;
-  height:26vmax;
-  opacity:.26;
+  top:30%;
+  left:-8%;
+  width:44vmax;
+  height:44vmax;
+  opacity:.44;
   background:radial-gradient(circle at 50% 50%,
-    rgba(255,184,166,.4) 0%, rgba(255,184,166,.13) 38%, transparent 66%);
+    rgba(126,164,252,.42) 0%, rgba(126,164,252,.16) 38%, transparent 68%);
   animation:ssBlob4 8s ease-in-out infinite;
-  animation-delay:-2.5s;
-}
-
-/* 5 — indigo / deeper blue, lower-left of the band. Orbits
- * up-and-right, adding depth and pushing cool blue toward centre. */
-.ss-blob-5{
-  top:-2%;
-  left:14%;
-  width:38vmax;
-  height:38vmax;
-  opacity:.54;
-  background:radial-gradient(circle at 50% 50%,
-    rgba(92,140,252,.46) 0%, rgba(92,140,252,.18) 36%, transparent 68%);
-  animation:ssBlob5 7s ease-in-out infinite;
-  animation-delay:-4s;
-}
-
-/* 6 — periwinkle, centre-right. Orbits leftward, the blue↔violet
- * bridge tone that helps the two families read as a continuum. */
-.ss-blob-6{
-  top:-12%;
-  left:54%;
-  width:38vmax;
-  height:38vmax;
-  opacity:.52;
-  background:radial-gradient(circle at 50% 50%,
-    rgba(126,164,252,.44) 0%, rgba(126,164,252,.17) 36%, transparent 68%);
-  animation:ssBlob6 7.5s ease-in-out infinite;
-  animation-delay:-6s;
-}
-
-/* 7 — soft teal / mint (the new green-leaning accent). Home
- * centre-left, inside the blue zone; ORBITS rightward so the teal
- * passes THROUGH the blue and mixes into seafoam in-betweens. */
-.ss-blob-7{
-  top:-6%;
-  left:20%;
-  width:36vmax;
-  height:36vmax;
-  opacity:.5;
-  background:radial-gradient(circle at 50% 50%,
-    rgba(104,206,194,.44) 0%, rgba(104,206,194,.17) 36%, transparent 68%);
-  animation:ssBlob7 7s ease-in-out infinite;
   animation-delay:-2s;
 }
 
-/* 8 — soft violet, centre. Orbits leftward, deepening the purple
- * end and blending with periwinkle / lavender for more range. */
-.ss-blob-8{
-  top:-10%;
-  left:38%;
-  width:36vmax;
-  height:36vmax;
-  opacity:.5;
+/* 5 — mint green, mid-right. Orbits left toward the centre, the
+ * lone green-leaning accent (kept soft, never neon). */
+.ss-blob-5{
+  top:34%;
+  left:60%;
+  width:42vmax;
+  height:42vmax;
+  opacity:.4;
   background:radial-gradient(circle at 50% 50%,
-    rgba(176,150,250,.44) 0%, rgba(176,150,250,.17) 36%, transparent 68%);
+    rgba(140,214,184,.4) 0%, rgba(140,214,184,.15) 38%, transparent 68%);
+  animation:ssBlob5 7s ease-in-out infinite;
+  animation-delay:-6s;
+}
+
+/* 6 — soft teal, mid-centre. Gentle circular orbit; blends the
+ * aqua and mint into seafoam in-betweens. */
+.ss-blob-6{
+  top:26%;
+  left:28%;
+  width:40vmax;
+  height:40vmax;
+  opacity:.4;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(64,194,204,.4) 0%, rgba(64,194,204,.15) 38%, transparent 68%);
+  animation:ssBlob6 8.5s ease-in-out infinite;
+  animation-delay:-4s;
+}
+
+/* ---- LOWER band (softest) ---- */
+
+/* 7 — baby blue / lilac, lower-centre. Drifts up and sideways so
+ * the lower half keeps soft movement too. */
+.ss-blob-7{
+  top:54%;
+  left:40%;
+  width:46vmax;
+  height:46vmax;
+  opacity:.4;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(150,186,255,.4) 0%, rgba(170,158,250,.15) 40%, transparent 70%);
+  animation:ssBlob7 7.5s ease-in-out infinite;
+  animation-delay:-7s;
+}
+
+/* 8 — tiny, faint clean peach / blush accent, upper-centre. Roams
+ * gently to warm the cool mix without ever reading as pink. */
+.ss-blob-8{
+  top:4%;
+  left:48%;
+  width:28vmax;
+  height:28vmax;
+  opacity:.22;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(255,186,170,.38) 0%, rgba(255,186,170,.12) 40%, transparent 66%);
   animation:ssBlob8 6.5s ease-in-out infinite;
-  animation-delay:-4.5s;
+  animation-delay:-2.5s;
 }
 
 /* ============================================================
- * Motion — each pool ORBITS a small rotated-diamond loop and
- * returns to its start (0% == 100%) so the loop never jumps. Blue
- * and teal pools (1, 5, 7) bias rightward, cyan / lavender /
- * violet (2, 3, 6, 8) bias leftward, so the colours continually
- * CROSS through the top centre and blend. Horizontal swing is
- * generous; vertical swing is kept small to protect the calm
- * centre behind cards. Pure transform = GPU-friendly. (translate
- * %s are relative to each pool's own box.)
+ * Motion — each pool ORBITS its own loop and returns to its start
+ * (0% == 100%) so the loop never jumps. Directions are mixed
+ * (some bias right, some left, some up) and durations/delays are
+ * desynced, giving a lively, randomised, full-screen "dance".
+ * Horizontal swing is generous (obvious in a 5s screenshot) with
+ * some vertical travel and a little scale. Pure transform =
+ * GPU-friendly. (translate %s are relative to each pool's box.)
  * ============================================================ */
-@keyframes ssBlob1{ /* sky blue — orbits right */
-  0%{transform:translate3d(-6%,-6%,0) scale(1)}
-  25%{transform:translate3d(16%,-2%,0) scale(1.06)}
-  50%{transform:translate3d(22%,5%,0) scale(1.04)}
-  75%{transform:translate3d(4%,8%,0) scale(1.07)}
-  100%{transform:translate3d(-6%,-6%,0) scale(1)}
+@keyframes ssBlob1{ /* sky blue — right + down */
+  0%{transform:translate3d(-6%,-5%,0) scale(1)}
+  25%{transform:translate3d(15%,-1%,0) scale(1.06)}
+  50%{transform:translate3d(22%,7%,0) scale(1.03)}
+  75%{transform:translate3d(4%,10%,0) scale(1.07)}
+  100%{transform:translate3d(-6%,-5%,0) scale(1)}
 }
-@keyframes ssBlob2{ /* aqua — orbits left */
-  0%{transform:translate3d(8%,-5%,0) scale(1.03)}
-  25%{transform:translate3d(-12%,-1%,0) scale(1.07)}
-  50%{transform:translate3d(-20%,6%,0) scale(1.03)}
-  75%{transform:translate3d(-4%,9%,0) scale(1.06)}
-  100%{transform:translate3d(8%,-5%,0) scale(1.03)}
+@keyframes ssBlob2{ /* lavender — left + down */
+  0%{transform:translate3d(7%,-5%,0) scale(1.02)}
+  25%{transform:translate3d(-14%,-1%,0) scale(1.07)}
+  50%{transform:translate3d(-22%,7%,0) scale(1.03)}
+  75%{transform:translate3d(-3%,10%,0) scale(1.06)}
+  100%{transform:translate3d(7%,-5%,0) scale(1.02)}
 }
-@keyframes ssBlob3{ /* lavender — orbits left across centre */
-  0%{transform:translate3d(6%,-6%,0) scale(1)}
-  25%{transform:translate3d(-16%,-2%,0) scale(1.06)}
-  50%{transform:translate3d(-24%,5%,0) scale(1.05)}
-  75%{transform:translate3d(-6%,8%,0) scale(1.07)}
-  100%{transform:translate3d(6%,-6%,0) scale(1)}
+@keyframes ssBlob3{ /* aqua — left toward centre */
+  0%{transform:translate3d(5%,-6%,0) scale(1)}
+  25%{transform:translate3d(-16%,-1%,0) scale(1.06)}
+  50%{transform:translate3d(-24%,6%,0) scale(1.05)}
+  75%{transform:translate3d(-5%,9%,0) scale(1.07)}
+  100%{transform:translate3d(5%,-6%,0) scale(1)}
 }
-@keyframes ssBlob4{ /* peach — gentle drift under the lavender */
-  0%{transform:translate3d(0,-4%,0) scale(1)}
-  33%{transform:translate3d(-12%,2%,0) scale(1.08)}
-  66%{transform:translate3d(8%,4%,0) scale(1.04)}
-  100%{transform:translate3d(0,-4%,0) scale(1)}
+@keyframes ssBlob4{ /* periwinkle — up + right */
+  0%{transform:translate3d(-7%,5%,0) scale(1.02)}
+  25%{transform:translate3d(13%,-6%,0) scale(1.08)}
+  50%{transform:translate3d(22%,-2%,0) scale(1.04)}
+  75%{transform:translate3d(4%,-9%,0) scale(1.07)}
+  100%{transform:translate3d(-7%,5%,0) scale(1.02)}
 }
-@keyframes ssBlob5{ /* indigo — orbits up-right */
-  0%{transform:translate3d(-8%,0,0) scale(1.03)}
-  25%{transform:translate3d(10%,-8%,0) scale(1.09)}
-  50%{transform:translate3d(20%,-3%,0) scale(1.05)}
-  75%{transform:translate3d(2%,-9%,0) scale(1.08)}
-  100%{transform:translate3d(-8%,0,0) scale(1.03)}
-}
-@keyframes ssBlob6{ /* periwinkle — orbits left */
-  0%{transform:translate3d(6%,-5%,0) scale(1)}
-  25%{transform:translate3d(-14%,-1%,0) scale(1.06)}
-  50%{transform:translate3d(-22%,5%,0) scale(1.04)}
+@keyframes ssBlob5{ /* mint — left + up */
+  0%{transform:translate3d(6%,-4%,0) scale(1)}
+  25%{transform:translate3d(-14%,4%,0) scale(1.07)}
+  50%{transform:translate3d(-23%,-3%,0) scale(1.04)}
   75%{transform:translate3d(-4%,8%,0) scale(1.06)}
-  100%{transform:translate3d(6%,-5%,0) scale(1)}
+  100%{transform:translate3d(6%,-4%,0) scale(1)}
 }
-@keyframes ssBlob7{ /* teal/mint — orbits right through the blue */
-  0%{transform:translate3d(-5%,-5%,0) scale(1)}
-  25%{transform:translate3d(15%,-1%,0) scale(1.07)}
-  50%{transform:translate3d(24%,6%,0) scale(1.04)}
-  75%{transform:translate3d(3%,8%,0) scale(1.08)}
-  100%{transform:translate3d(-5%,-5%,0) scale(1)}
+@keyframes ssBlob6{ /* teal — gentle circle */
+  0%{transform:translate3d(0,-5%,0) scale(1)}
+  25%{transform:translate3d(13%,2%,0) scale(1.06)}
+  50%{transform:translate3d(2%,10%,0) scale(1.04)}
+  75%{transform:translate3d(-12%,3%,0) scale(1.07)}
+  100%{transform:translate3d(0,-5%,0) scale(1)}
 }
-@keyframes ssBlob8{ /* soft violet — orbits left */
-  0%{transform:translate3d(5%,-6%,0) scale(1.02)}
-  25%{transform:translate3d(-13%,-2%,0) scale(1.07)}
-  50%{transform:translate3d(-21%,5%,0) scale(1.03)}
-  75%{transform:translate3d(-3%,8%,0) scale(1.06)}
-  100%{transform:translate3d(5%,-6%,0) scale(1.02)}
+@keyframes ssBlob7{ /* baby blue — drift up + sideways */
+  0%{transform:translate3d(-5%,5%,0) scale(1.02)}
+  25%{transform:translate3d(11%,-3%,0) scale(1.06)}
+  50%{transform:translate3d(18%,4%,0) scale(1.03)}
+  75%{transform:translate3d(2%,-7%,0) scale(1.06)}
+  100%{transform:translate3d(-5%,5%,0) scale(1.02)}
+}
+@keyframes ssBlob8{ /* peach — small gentle drift */
+  0%{transform:translate3d(0,-3%,0) scale(1)}
+  33%{transform:translate3d(-13%,3%,0) scale(1.08)}
+  66%{transform:translate3d(10%,5%,0) scale(1.04)}
+  100%{transform:translate3d(0,-3%,0) scale(1)}
 }
 
 /* ============================================================
@@ -297,76 +291,76 @@
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(1000px 600px at 50% -8%, rgba(70,128,255,.54), transparent 60%),
-      radial-gradient(700px 440px at 38% -4%, rgba(34,170,210,.24), transparent 60%),
-      radial-gradient(700px 440px at 62% -4%, rgba(136,110,248,.24), transparent 60%),
-      radial-gradient(560px 360px at 50% -2%, rgba(80,200,188,.14), transparent 60%),
+      radial-gradient(1000px 600px at 50% -8%, rgba(70,128,255,.52), transparent 60%),
+      radial-gradient(700px 440px at 22% 6%, rgba(34,176,210,.22), transparent 60%),
+      radial-gradient(700px 440px at 78% 4%, rgba(138,112,248,.22), transparent 60%),
+      radial-gradient(760px 540px at 10% 94%, rgba(74,196,176,.16), transparent 62%),
+      radial-gradient(760px 540px at 90% 96%, rgba(120,140,250,.16), transparent 62%),
       #0a1226;
   }
   .ss-blob{
-    filter:blur(72px) saturate(158%);
+    filter:blur(74px) saturate(156%);
   }
   .ss-blob-1{
-    opacity:.88;
+    opacity:.82;
     background:radial-gradient(circle at 50% 50%,
-      rgba(74,150,255,.6) 0%, rgba(74,150,255,.25) 36%, transparent 66%);
+      rgba(74,150,255,.58) 0%, rgba(74,150,255,.24) 36%, transparent 66%);
   }
   .ss-blob-2{
-    opacity:.84;
+    opacity:.78;
     background:radial-gradient(circle at 50% 50%,
-      rgba(40,196,230,.56) 0%, rgba(40,196,230,.23) 36%, transparent 66%);
+      rgba(158,130,252,.56) 0%, rgba(158,130,252,.22) 36%, transparent 66%);
   }
   .ss-blob-3{
-    opacity:.86;
+    opacity:.74;
     background:radial-gradient(circle at 50% 50%,
-      rgba(150,124,252,.56) 0%, rgba(150,124,252,.23) 36%, transparent 66%);
+      rgba(40,198,228,.54) 0%, rgba(40,198,228,.22) 36%, transparent 66%);
   }
   .ss-blob-4{
-    opacity:.3;
+    opacity:.56;
     background:radial-gradient(circle at 50% 50%,
-      rgba(255,176,158,.42) 0%, rgba(255,176,158,.15) 38%, transparent 64%);
+      rgba(126,164,252,.5) 0%, rgba(126,164,252,.2) 38%, transparent 66%);
   }
   .ss-blob-5{
-    opacity:.66;
+    opacity:.5;
     background:radial-gradient(circle at 50% 50%,
-      rgba(96,140,255,.52) 0%, rgba(96,140,255,.2) 36%, transparent 66%);
+      rgba(120,214,180,.46) 0%, rgba(120,214,180,.18) 38%, transparent 66%);
   }
   .ss-blob-6{
-    opacity:.62;
+    opacity:.5;
     background:radial-gradient(circle at 50% 50%,
-      rgba(126,164,252,.5) 0%, rgba(126,164,252,.2) 36%, transparent 66%);
+      rgba(56,196,208,.46) 0%, rgba(56,196,208,.18) 38%, transparent 66%);
   }
   .ss-blob-7{
-    opacity:.6;
+    opacity:.5;
     background:radial-gradient(circle at 50% 50%,
-      rgba(96,206,192,.5) 0%, rgba(96,206,192,.2) 36%, transparent 66%);
+      rgba(150,186,255,.46) 0%, rgba(168,156,252,.18) 40%, transparent 68%);
   }
   .ss-blob-8{
-    opacity:.6;
+    opacity:.26;
     background:radial-gradient(circle at 50% 50%,
-      rgba(176,148,252,.5) 0%, rgba(176,148,252,.2) 36%, transparent 66%);
+      rgba(255,178,162,.4) 0%, rgba(255,178,162,.14) 40%, transparent 64%);
   }
 }
 
 /* ============================================================
- * Mobile — the workspace card fills most of the viewport, so pull
- * the pools tighter to the top edge and lift size a touch so the
- * overlapping mix still reads above / behind the card. Homes stay
- * clustered (no left/right split); motion (the shared keyframes)
- * is unchanged — no device-based freeze.
+ * Mobile — keep the full-screen spread but enlarge the pools so
+ * the mix still reads on a narrow viewport. Homes stay interleaved
+ * (no left/right split); motion (the shared keyframes) is
+ * unchanged — no device-based freeze.
  * ============================================================ */
 @media (max-width:768px){
   .ss-blob{
-    filter:blur(54px) saturate(148%);
+    filter:blur(54px) saturate(146%);
   }
-  .ss-blob-1{ top:-16%; left:-8%;  width:60vmax; height:60vmax; }
-  .ss-blob-2{ top:-18%; left:18%;  width:56vmax; height:56vmax; }
-  .ss-blob-3{ top:-16%; left:40%;  width:60vmax; height:60vmax; }
-  .ss-blob-4{ top:-6%;  left:38%;  width:40vmax; height:40vmax; opacity:.28; }
-  .ss-blob-5{ top:-2%;  left:6%;   width:54vmax; height:54vmax; }
-  .ss-blob-6{ top:-14%; left:48%;  width:54vmax; height:54vmax; }
-  .ss-blob-7{ top:-8%;  left:14%;  width:52vmax; height:52vmax; }
-  .ss-blob-8{ top:-12%; left:32%;  width:52vmax; height:52vmax; }
+  .ss-blob-1{ top:-14%; left:-16%; width:64vmax; height:64vmax; }
+  .ss-blob-2{ top:-18%; left:22%;  width:62vmax; height:62vmax; }
+  .ss-blob-3{ top:-12%; left:56%;  width:60vmax; height:60vmax; }
+  .ss-blob-4{ top:28%;  left:-18%; width:62vmax; height:62vmax; }
+  .ss-blob-5{ top:36%;  left:54%;  width:60vmax; height:60vmax; }
+  .ss-blob-6{ top:24%;  left:22%;  width:58vmax; height:58vmax; }
+  .ss-blob-7{ top:58%;  left:30%;  width:64vmax; height:64vmax; }
+  .ss-blob-8{ top:6%;   left:44%;  width:40vmax; height:40vmax; opacity:.24; }
 }
 
 /* ============================================================
