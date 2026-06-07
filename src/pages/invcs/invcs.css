@@ -431,6 +431,18 @@ button{cursor:pointer}
   background:
     linear-gradient(180deg,color-mix(in srgb,var(--panel) 98%,white 2%),var(--panel));
   box-shadow:0 28px 70px rgba(31,26,23,.14);
+  /* Hide the scrollbar chrome on the public delivery card without
+   * disabling scroll. The desktop rule below keeps overflow-y:auto
+   * so short viewports / long content still scroll — only the rail
+   * is visually suppressed. Scoped to this card so admin (/db,/inv)
+   * and invoice preview modals keep their native scrollbars. */
+  scrollbar-width:none;            /* Firefox */
+  -ms-overflow-style:none;         /* legacy Edge/IE */
+}
+.public-delivery-card::-webkit-scrollbar{
+  width:0;
+  height:0;
+  display:none;                    /* Chrome/Safari/WebKit */
 }
 /* Liquid-glass treatment for the public client delivery canvas.
  * Matches the gate card: translucent frosted surface so the live
