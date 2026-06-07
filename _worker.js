@@ -511,6 +511,57 @@ function formatEventDateLabel(value) {
   return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Build a bag of human-readable date tokens for the /db search index.
+//
+// The stored value is a bare YYYY-MM-DD, but operators read the
+// *visible* date pill ("2 Jun 2026") off a row and search for the
+// pieces they see — "Jun", "June", "2026", "26", or one of the
+// slash/spaced display forms. This helper emits every one of those
+// forms as a single lowercase string so the existing search match
+// (`[...].join(' ').toLowerCase().includes(q)`) picks them up with
+// no change to the matching logic itself. Returns '' for blank /
+// non-date values so it composes cleanly inside a join().
+//
+// Tokens emitted for 2026-06-02:
+//   2026-06-02                       (raw ISO)
+//   jun  june                        (month short / full)
+//   2026  26                         (year / short year)
+//   2  02                            (day / padded day)
+//   6  06                            (month number / padded)
+//   2 jun 2026   02 jun 2026         (compact pill forms)
+//   2 june 2026                      (full-month form)
+//   2/6/26   02/06/26   02 / 06 / 26 (slash display forms)
+//   2/6/2026  02/06/2026             (slash + full year)
+function dateSearchTokens(value) {
+  const iso = String(value || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+  const dt = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(dt.getTime())) return '';
+  const day = dt.getUTCDate();
+  const month = dt.getUTCMonth() + 1;
+  const year = dt.getUTCFullYear();
+  const dd = String(day).padStart(2, '0');
+  const mm = String(month).padStart(2, '0');
+  const yy = String(year).slice(-2);
+  const monShort = dt.toLocaleDateString('en-GB', { month: 'short' });
+  const monFull = dt.toLocaleDateString('en-GB', { month: 'long' });
+  return [
+    iso,
+    monShort, monFull,
+    String(year), yy,
+    String(day), dd,
+    String(month), mm,
+    `${day} ${monShort} ${year}`,
+    `${dd} ${monShort} ${year}`,
+    `${day} ${monFull} ${year}`,
+    `${day}/${month}/${yy}`,
+    `${dd}/${mm}/${yy}`,
+    `${dd} / ${mm} / ${yy}`,
+    `${day}/${month}/${year}`,
+    `${dd}/${mm}/${year}`
+  ].join(' ');
+}
+
 function buildDeliveryMessage(title, clientName, folderName, eventDate, shortCode, password, deliveryDone) {
   const t = String(title ?? 'Ms.').trim();
   const c = String(clientName || '').trim();
@@ -1179,12 +1230,28 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     return null;
   };
 
+  // Event dates per client, kept in a side map keyed by the summary
+  // object so they feed the search index WITHOUT bloating the
+  // `clients` payload returned to the frontend (which computes its
+  // own pill dates from invoices/deliveries). These are exactly the
+  // event_dates that drive the visible date pill on a client row, so
+  // searching the pill text ("Jun", "2026", "02/06/26", …) matches.
+  const eventDatesBySummary = new Map();
+  const noteEventDate = (summary, value) => {
+    const iso = String(value || '').trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+    let set = eventDatesBySummary.get(summary);
+    if (!set) { set = new Set(); eventDatesBySummary.set(summary, set); }
+    set.add(iso);
+  };
+
   (Array.isArray(invoices) ? invoices : []).forEach((invoice) => {
     const summary = bucketFor(invoice);
     if (!summary) return;
     summary.invoice_count += 1;
     summary.invoice_ids.push(String(invoice.id));
     if (!summary.contact && invoice.client_contact) summary.contact = cleanText(invoice.client_contact, 240);
+    noteEventDate(summary, invoice.event_date);
   });
 
   (Array.isArray(deliveries) ? deliveries : []).forEach((delivery) => {
@@ -1192,6 +1259,7 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     if (!summary) return;
     summary.delivery_count += 1;
     summary.delivery_ids.push(String(delivery.id));
+    noteEventDate(summary, delivery.event_date);
   });
 
   (Array.isArray(subscriptions) ? subscriptions : []).forEach((sub) => {
@@ -1231,7 +1299,8 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
       client.contact,
       client.normalized_name,
       client.invoice_count,
-      client.delivery_count
+      client.delivery_count,
+      [...(eventDatesBySummary.get(client) || [])].map(dateSearchTokens).join(' ')
     ].join(' ').toLowerCase().includes(query))
     .sort((a, b) => (Date.parse(b.updated_at || '') || 0) - (Date.parse(a.updated_at || '') || 0))
     .slice(0, 300);
@@ -1965,7 +2034,7 @@ async function handleDbSearch(request, env) {
   }
 
   const invoiceRows = q
-    ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at].join(' ').toLowerCase().includes(q))
+    ? allInvoices.filter((inv) => [inv.client_name, inv.client_contact, inv.status, inv.invoice_date, inv.event_date, inv.venue, inv.created_at, inv.updated_at, dateSearchTokens(inv.event_date), dateSearchTokens(inv.invoice_date)].join(' ').toLowerCase().includes(q))
     : allInvoices;
 
   const latestInvoiceByClient = latestByClientKey(allInvoices);
@@ -2109,7 +2178,11 @@ async function handleDbSearch(request, env) {
         sub.start_date,
         sub.expiry_date,
         sub.created_at,
-        sub.updated_at
+        sub.updated_at,
+        dateSearchTokens(sub.start_date),
+        dateSearchTokens(sub.expiry_date),
+        dateSearchTokens(sub.invoice_date),
+        dateSearchTokens(sub.payment_date)
       ].join(' ').toLowerCase().includes(q))
     : allSubscriptions;
 

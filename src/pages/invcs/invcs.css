@@ -90,13 +90,21 @@ button{cursor:pointer}
   inset:-14vmax;
   z-index:0;
   pointer-events:none;
-  opacity:.62;
-  filter:blur(78px) saturate(112%);
+  /* Gemini-style colour wash: vibrant enough to read around the
+   * white workspace canvas, but still ambient. The glow is pushed
+   * low-and-wide (bottom-centre anchor + large radii) so the
+   * centered opaque panels never fully cover it — the blue/cyan/
+   * violet/pink edges bleed into the page padding and the side
+   * gutters on wide screens. filter is STATIC (never animated);
+   * only transform moves via ssDrift below. */
+  opacity:.7;
+  filter:blur(82px) saturate(122%);
   background:
-    radial-gradient(circle at 25% 25%, rgba(66,133,244,.34) 0%, transparent 65%),
-    radial-gradient(circle at 75% 65%, rgba(138,180,248,.30) 0%, transparent 60%),
-    radial-gradient(circle at 50% 15%, rgba(194,231,255,.38) 0%, transparent 55%);
-  animation:ssDrift 25s ease-in-out infinite alternate;
+    radial-gradient(82% 64% at 50% 86%, rgba(95,149,245,.46) 0%, transparent 62%),
+    radial-gradient(64% 58% at 8% 40%, rgba(86,198,255,.34) 0%, transparent 60%),
+    radial-gradient(62% 56% at 92% 30%, rgba(176,138,246,.34) 0%, transparent 60%),
+    radial-gradient(58% 52% at 74% 98%, rgba(255,150,205,.30) 0%, transparent 60%);
+  animation:ssDrift 22s ease-in-out infinite alternate;
 }
 @media(prefers-color-scheme:dark){
   .ss-bg{
@@ -107,12 +115,16 @@ button{cursor:pointer}
       #0a1226;
   }
   .ss-aurora{
-    opacity:.82;
-    filter:blur(96px) saturate(140%);
+    /* Dark mode: deeper, more saturated jewel tones so the wash
+     * stays visible on the near-black canvas without going muddy.
+     * Same low-and-wide anchoring as light mode. */
+    opacity:.8;
+    filter:blur(100px) saturate(138%);
     background:
-      radial-gradient(circle at 50% 54%, rgba(82,134,255,.50) 0%, transparent 58%),
-      radial-gradient(circle at 54% 72%, rgba(46,96,235,.46) 0%, transparent 58%),
-      radial-gradient(circle at 78% 24%, rgba(150,196,255,.18) 0%, transparent 48%);
+      radial-gradient(82% 64% at 50% 84%, rgba(86,138,255,.52) 0%, transparent 60%),
+      radial-gradient(62% 58% at 10% 38%, rgba(60,176,238,.40) 0%, transparent 58%),
+      radial-gradient(60% 56% at 90% 28%, rgba(150,108,240,.42) 0%, transparent 58%),
+      radial-gradient(56% 52% at 74% 98%, rgba(232,112,182,.34) 0%, transparent 58%);
   }
   /* Dark-mode logo fallback for the password gate and the public
    * client delivery card. The components already ship a <picture>
@@ -132,8 +144,38 @@ button{cursor:pointer}
   }
 }
 @keyframes ssDrift{
-  from{transform:translate3d(-1.5%,-1%,0) scale(1)}
-  to{transform:translate3d(1.5%,2%,0) scale(1.04)}
+  from{transform:translate3d(-2%,-1%,0) scale(1)}
+  to{transform:translate3d(2%,2.5%,0) scale(1.06)}
+}
+
+/* ============================================================
+ * Mobile: bottom-heavy / off-centre Gemini wash.
+ *
+ * On phones the workspace card fills nearly the whole viewport,
+ * so the desktop "around the edges" bleed mostly disappears.
+ * Re-anchor the glow to the bottom edge (Gemini-mobile style) so
+ * the colour stays noticeable below / behind the card. Position
+ * only — still transform-only animation, still filter-static.
+ * ============================================================ */
+@media (max-width:768px){
+  .ss-aurora{
+    opacity:.74;
+    background:
+      radial-gradient(120% 72% at 50% 102%, rgba(95,149,245,.50) 0%, transparent 64%),
+      radial-gradient(96% 60% at 16% 92%, rgba(86,198,255,.36) 0%, transparent 62%),
+      radial-gradient(96% 60% at 86% 98%, rgba(176,138,246,.36) 0%, transparent 62%),
+      radial-gradient(82% 52% at 64% 70%, rgba(255,150,205,.28) 0%, transparent 60%);
+  }
+}
+@media (max-width:768px) and (prefers-color-scheme:dark){
+  .ss-aurora{
+    opacity:.82;
+    background:
+      radial-gradient(120% 72% at 50% 102%, rgba(86,138,255,.56) 0%, transparent 62%),
+      radial-gradient(96% 60% at 16% 92%, rgba(60,176,238,.42) 0%, transparent 60%),
+      radial-gradient(96% 60% at 86% 98%, rgba(150,108,240,.44) 0%, transparent 60%),
+      radial-gradient(82% 52% at 64% 70%, rgba(232,112,182,.32) 0%, transparent 58%);
+  }
 }
 
 /* ============================================================
