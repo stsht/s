@@ -476,3 +476,30 @@
     }
   }
 }
+
+
+/* ============================================================
+ * Mobile performance: drop the expensive panel backdrop-filter.
+ *
+ * On phones the workspace is a single full-viewport .pf-panel that
+ * scrolls; a large backdrop-filter blur on a scrolling surface is
+ * very repaint-heavy on iOS Safari/Brave (jank + device heat while
+ * filling in the Subs form). Below the tablet breakpoint we drop the
+ * blur and use a more opaque panel surface instead — the animated
+ * background still reads through the page frame/gap, the palette and
+ * motion are unchanged, and scrolling/typing stays smooth and cool.
+ * ============================================================ */
+@media (max-width: 1023px) {
+  .pf-panel {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.92);
+  }
+  @media (prefers-color-scheme: dark) {
+    .pf-page .pf-panel {
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      background: rgba(20, 22, 28, 0.9);
+    }
+  }
+}

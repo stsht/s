@@ -72,7 +72,7 @@ body{
   -webkit-font-smoothing:antialiased;
   overflow:auto;
 }
-button,input,select{font:inherit}
+button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 
 @media(prefers-color-scheme:dark){
@@ -1469,16 +1469,31 @@ button.public-delivery-row{
 .two-col.one-col{grid-template-columns:1fr}
 .three-col{grid-template-columns:.7fr 1fr auto;align-items:end}
 label{display:grid;gap:6px;color:var(--muted);font-size:0.8125rem;font-weight:700}
-input,select{
+input,select,textarea{
   width:100%;
-  height:48px;
+  max-width:100%;
   border:1px solid var(--line);
   border-radius:16px;
   background:var(--field);
   color:var(--ink);
-  padding:0 14px;
   outline:none;
   font-weight:750;
+}
+input,select{
+  height:48px;
+  padding:0 14px;
+}
+/* Textareas (e.g. Subs "Notes (Optional)") match the rounded input
+ * look — same radius, border, field background, focus ring — with a
+ * compact min-height and a contained vertical-only resize so the
+ * native square/auto-resize handle never breaks the form layout or
+ * overflows horizontally (box-sizing:border-box is global). */
+textarea{
+  min-height:96px;
+  padding:12px 14px;
+  line-height:1.5;
+  resize:vertical;
+  display:block;
 }
 select{
   appearance:none;
@@ -1488,7 +1503,7 @@ select{
   background-position:right 14px center;
   background-size:18px 18px;
 }
-input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95,149,245,.12)}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(95,149,245,.12)}
 input[type="number"],
 input.no-spinner{
   appearance:textfield;
@@ -5376,8 +5391,15 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 
 @media(max-width:1023px){
-  input, select, textarea{
-    font-size:1rem !important;
+  /* iOS Safari/Brave auto-zoom the page when a focused control's
+   * font-size is below 16px. Root font uses -apple-system-body, so
+   * `1rem` here is NOT guaranteed to be >=16px — pin an explicit
+   * 16px on every interactive control (incl. the custom date/time
+   * picker's segment inputs) so focusing a Subs form field never
+   * triggers the zoom-and-jump behaviour. text-size-adjust:100%
+   * (set on html/body) keeps Safari from re-inflating it. */
+  input, select, textarea, .dtf-segment{
+    font-size:16px !important;
   }
   .public-delivery-page{
     /* Top-aligned on mobile so a tall card never pushes its header
