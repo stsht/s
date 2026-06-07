@@ -3,7 +3,8 @@ import html2canvas from 'html2canvas';
 import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
 import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
-import { selectAllIfZero, parseMoneyInput } from '../../utils/moneyInput.js';
+import { selectAllIfZero, parseMoneyInput, moneyInputValue } from '../../utils/moneyInput.js';
+import { readProofFile, isProofViewable, isProofImage } from '../../utils/proofImage.js';
 
 // Lightweight gated debug logger.
 //
@@ -492,6 +493,10 @@ function applySubscriptionExtension(sub, extension) {
     payment_date: extension.payment_date || sub.payment_date,
     payment_time: extension.payment_time || sub.payment_time,
     payment_proof: extension.payment_proof != null ? extension.payment_proof : '',
+    // Notes are strictly per-period too: the effective view shows the
+    // active period's own note (empty when the extension carries none)
+    // and never inherits the base note.
+    notes: extension.notes != null ? extension.notes : '',
   };
 }
 
@@ -635,6 +640,14 @@ function makeExtensionDraft(subscription, extension, latestExtension) {
     // its own proof; a brand-new extension starts blank (never
     // inherits the base/prior proof).
     payment_proof: String(ext.payment_proof || ''),
+    // Notes are per-period (admin-facing); an edited extension keeps
+    // its own note, a fresh extension starts blank.
+    notes: String(ext.notes || ''),
+    // Req2: an existing extension that already has a start date is
+    // treated as "customized" so editing its payment date won't move
+    // the start; a brand-new extension (no start yet) lets Start
+    // follow Payment until the operator edits Start manually.
+    start_customized: !!String(ext.start_date || ''),
   };
 }
 
@@ -3188,6 +3201,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       payment_date: subscription?.payment_date || '',
       payment_time: subscription?.payment_time || '',
       payment_proof: subscription?.payment_proof || '',
+      notes: subscription?.notes || '',
       isBase: true,
     };
     const rawExtensions = Array.isArray(subscription?.extensions) ? subscription.extensions : [];
@@ -3407,6 +3421,10 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   const [extensionBusy, setExtensionBusy] = useState(false);
   const [extensionStatus, setExtensionStatus] = useState('');
   const [extensionStatusTone, setExtensionStatusTone] = useState('');
+  // Req6: which period/extension row is expanded inline. Empty = all
+  // collapsed (compact). Toggled by clicking the row body — no arrow
+  // affordance; the whole summary acts as the expand/collapse target.
+  const [expandedPeriodId, setExpandedPeriodId] = useState('');
 
   // Reset the extension form whenever the parent swaps to a
   // different subscription so it doesn't carry stale draft state
@@ -3423,11 +3441,24 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   function setExtensionField(key, value) {
     setExtensionDraft((current) => {
       const next = { ...current, [key]: value };
+      // Req2 (extensions): Start mirrors Payment date/time until the
+      // operator manually edits Start, which latches start_customized.
+      if (key === 'start_date' || key === 'start_time') {
+        next.start_customized = true;
+      }
+      const followingPayment = !current.start_customized
+        && (key === 'payment_date' || key === 'payment_time');
+      if (followingPayment) {
+        if (key === 'payment_date') next.start_date = value;
+        if (key === 'payment_time') next.start_time = value;
+      }
       // Period/bonus/start edits are authoritative: recompute expiry
       // from start + access period + bonus immediately. Manual expiry
       // edits still work, but the next period/bonus/start edit resets
-      // it to the formula the operator is asking for.
-      if (key === 'start_date' || key === 'access_period' || key === 'bonus') {
+      // it to the formula the operator is asking for. A Payment edit
+      // that is mirrored into Start recomputes expiry the same way.
+      if (key === 'start_date' || key === 'access_period' || key === 'bonus'
+        || (followingPayment && key === 'payment_date')) {
         const nextPeriod = Number(next.access_period) || 0;
         const nextBonus = Number(next.bonus) || 0;
         const nextStart = next.start_date || '';
@@ -3437,7 +3468,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           if (computed) next.expiry_date = computed;
         }
       }
-      if (key === 'start_time') {
+      if (key === 'start_time' || (followingPayment && key === 'payment_time')) {
         next.expiry_time = next.start_time;
       }
       return next;
@@ -3586,7 +3617,10 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // proof when extended, else the base subscription's. Only rendered
   // when present so the panel stays clean for proof-less records.
   const proofValue = String(effective?.payment_proof || '').trim();
-  const proofIsUrl = /^https?:\/\//i.test(proofValue);
+  const proofIsUrl = isProofViewable(proofValue);
+  // Admin-facing note for the current/active period (per-period; the
+  // effective view already resolves the latest extension's own note).
+  const notesValue = String(effective?.notes || '').trim();
   // Composed h2 label: "<title> <client_name>" — e.g. "Ms. Linda" or
   // "Mr. Fenny Sofian". Falls back to the client name alone when no
   // title prefix is set, so a row missing a title prefix still reads
@@ -3598,7 +3632,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // subscription details available." copy so the panel doesn't show
   // a stack of blank label boxes.
   const hasAnyDetailRow = Boolean(
-    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact || proofValue
+    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact || proofValue || notesValue
   );
 
   return (
@@ -3821,6 +3855,14 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               </div>
             </article>
           ) : null}
+          {notesValue ? (
+            <article className="list-row" key="Notes">
+              <div>
+                <strong>Notes</strong>
+                <span className="subs-detail-notes">{notesValue}</span>
+              </div>
+            </article>
+          ) : null}
           {!hasAnyDetailRow ? <p className="empty-state">No subscription details available.</p> : null}
         </div>
       )}
@@ -3895,6 +3937,15 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   />
                 </label>
               </div>
+              <label>Notes (Optional)
+                <textarea
+                  value={extensionDraft.notes || ''}
+                  onChange={(e) => setExtensionField('notes', e.target.value)}
+                  rows={2}
+                  placeholder="Internal note for this period (optional)"
+                  aria-label="Extension notes"
+                />
+              </label>
               <div className="two-col">
                 <label>Payment Date
                   <DateTimeField
@@ -3908,24 +3959,20 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                 </label>
                 <label>Price (IDR)
                   <input
-                    type="number"
-                    min="0"
-                    value={extensionDraft.price}
-                    onFocus={selectAllIfZero}
+                    type="text"
+                    inputMode="numeric"
+                    value={moneyInputValue(extensionDraft.price)}
+                    placeholder="0"
                     onChange={(e) => setExtensionField('price', parseMoneyInput(e.target.value))}
+                    aria-label="Extension price in rupiah"
                   />
                 </label>
               </div>
-              <label>Payment Proof (optional)
-                <input
-                  type="url"
-                  inputMode="url"
-                  value={extensionDraft.payment_proof || ''}
-                  onChange={(e) => setExtensionField('payment_proof', e.target.value)}
-                  placeholder="https://\u2026 receipt/transfer proof link"
-                  aria-label="Extension payment proof URL"
-                />
-              </label>
+              <ProofField
+                value={extensionDraft.payment_proof}
+                onChange={(v) => setExtensionField('payment_proof', v)}
+                ariaLabel="Extension payment proof"
+              />
               {extensionStatus ? (
                 <p className={`download-status${extensionStatusTone ? ` lg-status-${extensionStatusTone}` : ''}`}>
                   {extensionStatus}
@@ -3964,12 +4011,32 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   .filter(Boolean)
                   .join(' \u00b7 ');
                 const noRange = !startLabel && !expiryLabel;
+                const expanded = String(expandedPeriodId) === String(ext.id);
+                const toggleExpand = () => setExpandedPeriodId((cur) => (String(cur) === String(ext.id) ? '' : String(ext.id)));
+                const paymentLabelExt = ext.payment_date
+                  ? `${dateLabel(ext.payment_date)}${ext.payment_time ? ` \u00b7 ${fmtSubsTime(ext.payment_time)}` : ''}`
+                  : '';
+                const proofExt = String(ext.payment_proof || '').trim();
+                const proofViewableExt = isProofViewable(proofExt);
+                const notesExt = String(ext.notes || '').trim();
+                const bonusDetailExt = Number.isFinite(bonusDaysExt) && bonusDaysExt > 0
+                  ? `${bonusDaysExt} ${bonusDaysExt === 1 ? 'Day' : 'Days'}`
+                  : '0 Days';
                 return (
                   <article
-                    className={`list-row subs-extension-row sub-${extToneCls}${ext.isBase ? ' subs-period-base' : ''}`}
+                    className={`list-row subs-extension-row sub-${extToneCls}${ext.isBase ? ' subs-period-base' : ''}${expanded ? ' is-expanded' : ''}`}
                     key={ext.id}
                   >
-                    <div className="subs-extension-body">
+                    <div
+                      className="subs-extension-body"
+                      role="button"
+                      tabIndex={0}
+                      aria-expanded={expanded}
+                      onClick={toggleExpand}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(); }
+                      }}
+                    >
                       {/* Clean Start / Expiry pair — two columns on
                           desktop, stacked on mobile. No "->" arrow on
                           any surface; the labelled rows carry the range
@@ -3993,22 +4060,12 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                         </div>
                       )}
                       {meta ? <span className="subs-extension-meta">{meta}</span> : null}
-                      {ext.payment_proof ? (
-                        /^https?:\/\//i.test(String(ext.payment_proof)) ? (
-                          <a
-                            className="subs-extension-proof"
-                            href={String(ext.payment_proof)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            View payment proof
-                          </a>
-                        ) : (
-                          <span className="subs-extension-proof subs-extension-proof--text">
-                            Proof: {String(ext.payment_proof)}
-                          </span>
-                        )
-                      ) : null}
+                      <span className="subs-extension-toggle">
+                        {expanded ? 'Hide details' : 'View details'}
+                        {!expanded && (proofExt || notesExt) ? (
+                          <span className="subs-extension-toggle-dot" aria-hidden="true" />
+                        ) : null}
+                      </span>
                     </div>
                     {/* Action column is rendered on EVERY row so the
                         Start/Expiry grid and right edge line up across
@@ -4054,6 +4111,46 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                         </>
                       ) : null}
                     </div>
+                    {expanded ? (
+                      <div className="subs-extension-detail">
+                        {paymentLabelExt ? (
+                          <div className="subs-extension-detail-row"><span>Payment</span><strong>{paymentLabelExt}</strong></div>
+                        ) : null}
+                        {startLabel ? (
+                          <div className="subs-extension-detail-row"><span>Start</span><strong>{startLabel}</strong></div>
+                        ) : null}
+                        {expiryLabel ? (
+                          <div className="subs-extension-detail-row"><span>Expiry</span><strong>{expiryLabel}</strong></div>
+                        ) : null}
+                        {priceLabelExt ? (
+                          <div className="subs-extension-detail-row"><span>Price</span><strong>{priceLabelExt}</strong></div>
+                        ) : null}
+                        <div className="subs-extension-detail-row"><span>Access Period</span><strong>{periodLabel || '0 Days'}</strong></div>
+                        <div className="subs-extension-detail-row"><span>Bonus</span><strong>{bonusDetailExt}</strong></div>
+                        {statusLabelExt ? (
+                          <div className="subs-extension-detail-row"><span>Status</span><strong>{statusLabelExt}</strong></div>
+                        ) : null}
+                        {ext.service ? (
+                          <div className="subs-extension-detail-row"><span>Service</span><strong>{toTitleCase(ext.service)}</strong></div>
+                        ) : null}
+                        {proofExt ? (
+                          <div className="subs-extension-detail-row">
+                            <span>Payment Proof</span>
+                            {proofViewableExt ? (
+                              <a className="subs-proof-link" href={proofExt} target="_blank" rel="noopener noreferrer">View proof</a>
+                            ) : (
+                              <strong className="subs-extension-detail-proof-text">{proofExt}</strong>
+                            )}
+                          </div>
+                        ) : null}
+                        {notesExt ? (
+                          <div className="subs-extension-detail-row subs-extension-detail-notes-row">
+                            <span>Notes</span>
+                            <strong className="subs-detail-notes">{notesExt}</strong>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}
@@ -4384,7 +4481,21 @@ async function extractSubscriptionReceiptInBrowser(file, setStatus) {
 // and the rule lives in one place.
 function applySubscriptionDraftUpdate(current, key, value) {
   const next = { ...current, [key]: value };
-  if (key === 'start_date' || key === 'access_period' || key === 'bonus') {
+  // Req2: until the operator manually customizes Start, it mirrors the
+  // Payment date/time. A manual Start edit latches `start_customized`
+  // so subsequent Payment edits stop moving Start. Clearing Payment
+  // (to '') while still following also clears the mirrored Start.
+  if (key === 'start_date' || key === 'start_time') {
+    next.start_customized = true;
+  }
+  const followingPayment = !current.start_customized
+    && (key === 'payment_date' || key === 'payment_time');
+  if (followingPayment) {
+    if (key === 'payment_date') next.start_date = value;
+    if (key === 'payment_time') next.start_time = value;
+  }
+  if (key === 'start_date' || key === 'access_period' || key === 'bonus'
+    || (followingPayment && key === 'payment_date')) {
     const nextPeriod = Number(next.access_period) || 0;
     const nextBonus = Number(next.bonus) || 0;
     const nextStart = next.start_date || '';
@@ -4394,7 +4505,7 @@ function applySubscriptionDraftUpdate(current, key, value) {
       if (computed) next.expiry_date = computed;
     }
   }
-  if (key === 'start_time') {
+  if (key === 'start_time' || (followingPayment && key === 'payment_time')) {
     next.expiry_time = next.start_time;
   }
   return next;
@@ -4420,6 +4531,9 @@ const INITIAL_SUBS_IMPORT_DRAFT = {
   start_time: '',
   expiry_date: '',
   expiry_time: '',
+  payment_proof: '',
+  notes: '',
+  start_customized: false,
 };
 
 function SubscriptionImport({ onSaved, onCancel }) {
@@ -4486,6 +4600,10 @@ function SubscriptionImport({ onSaved, onCancel }) {
       start_time: parsed.start_time || current.start_time,
       expiry_date: parsed.expiry_date || current.expiry_date,
       expiry_time: parsed.expiry_time || current.expiry_time,
+      // If OCR extracted a start date, latch it as customized so a
+      // later Payment edit in the review stage won't overwrite the
+      // start the receipt actually shows (Req2 follow-until-custom).
+      start_customized: !!parsed.start_date || current.start_customized,
     }));
   }
 
@@ -4830,6 +4948,80 @@ function SubscriptionImport({ onSaved, onCancel }) {
 // Save explicitly does not auto-create a public.clients row from a
 // subscription save (see comment block in _worker.js), so manual
 // creation here keeps the two systems independent.
+// Optional payment-proof control for /db Subs (main form + extension
+// form). Supports uploading a receipt image (stored inline as a
+// downscaled data URL in the existing per-period `payment_proof`
+// string field) and stays backward compatible with any previously
+// saved http(s) proof link. Shows a compact indicator with a View
+// action (when openable) and a Remove control. Per-period: each main
+// subscription period and each extension carries its own proof.
+function ProofField({ value, onChange, label = 'Payment Proof (optional)', ariaLabel }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const inputRef = useRef(null);
+  const proof = String(value || '').trim();
+  const hasProof = !!proof;
+  const viewable = isProofViewable(proof);
+  const isImage = isProofImage(proof);
+
+  async function handleFile(file) {
+    if (!file) return;
+    setError('');
+    setBusy(true);
+    try {
+      const dataUrl = await readProofFile(file);
+      onChange(dataUrl);
+    } catch (err) {
+      setError(err?.message || 'Could not read that image.');
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  }
+
+  return (
+    <div className="subs-proof-field">
+      <span className="subs-proof-field-label">{label}</span>
+      <div className="subs-proof-field-controls">
+        <label className="subs-proof-upload">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            disabled={busy}
+            onChange={(e) => handleFile(e.target.files && e.target.files[0])}
+            aria-label={ariaLabel || 'Upload payment proof image'}
+          />
+          <span className="subs-proof-upload-pill">
+            {busy ? 'Uploading\u2026' : (hasProof ? 'Replace' : 'Upload proof')}
+          </span>
+        </label>
+        {hasProof ? (
+          <span className="subs-proof-chip">
+            {isImage ? <span className="subs-proof-chip-tag">Image</span> : null}
+            {viewable ? (
+              <a className="subs-proof-chip-view" href={proof} target="_blank" rel="noopener noreferrer">View</a>
+            ) : (
+              <span className="subs-proof-chip-text" title={proof}>{proof}</span>
+            )}
+            <button
+              type="button"
+              className="subs-proof-chip-remove"
+              onClick={() => onChange('')}
+              aria-label="Remove payment proof"
+            >
+              Remove
+            </button>
+          </span>
+        ) : (
+          <span className="subs-proof-empty">No proof attached</span>
+        )}
+      </div>
+      {error ? <span className="subs-proof-error">{error}</span> : null}
+    </div>
+  );
+}
+
 function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
   const id = String(subscription?.id || '');
   const isCreate = mode === 'create' || !id;
@@ -4974,6 +5166,15 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
             aria-label="Subscription bonus days"
           />
         </label>
+        <label>Notes (Optional)
+          <textarea
+            value={draft.notes || ''}
+            onChange={(e) => setField('notes', e.target.value)}
+            rows={2}
+            placeholder="Internal note for this period (optional)"
+            aria-label="Subscription notes"
+          />
+        </label>
         <label>Payment
           <DateTimeField
             value={draft.payment_date}
@@ -5006,23 +5207,19 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
         </label>
         <label>Price (IDR)
           <input
-            type="number"
-            min="0"
-            value={draft.price}
-            onFocus={selectAllIfZero}
+            type="text"
+            inputMode="numeric"
+            value={moneyInputValue(draft.price)}
+            placeholder="0"
             onChange={(e) => setField('price', parseMoneyInput(e.target.value))}
+            aria-label="Subscription price in rupiah"
           />
         </label>
-        <label>Payment Proof (optional)
-          <input
-            type="url"
-            inputMode="url"
-            value={draft.payment_proof || ''}
-            onChange={(e) => setField('payment_proof', e.target.value)}
-            placeholder="https://\u2026 receipt/transfer proof link"
-            aria-label="Subscription payment proof URL"
-          />
-        </label>
+        <ProofField
+          value={draft.payment_proof}
+          onChange={(v) => setField('payment_proof', v)}
+          ariaLabel="Subscription payment proof"
+        />
         {status ? (
           <p className={`download-status${statusTone ? ` lg-status-${statusTone}` : ''}`}>{status}</p>
         ) : null}
@@ -7022,6 +7219,11 @@ function subscriptionToDraft(sub = {}) {
     expiry_date: String(sub.expiry_date || ''),
     expiry_time: padTime(sub.expiry_time),
     payment_proof: String(sub.payment_proof || ''),
+    notes: String(sub.notes || ''),
+    // Req2: an existing row with a start already set is treated as
+    // customized (editing Payment won't move Start); a fresh draft
+    // (no start) lets Start follow Payment until manually edited.
+    start_customized: !!String(sub.start_date || ''),
   };
 }
 

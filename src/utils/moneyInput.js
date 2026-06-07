@@ -35,7 +35,24 @@ export function selectAllIfZero(event) {
 
 export function parseMoneyInput(raw) {
   if (raw === '' || raw === null || raw === undefined) return 0;
-  const num = Number(raw);
+  // Strip everything but digits before parsing. This makes the field
+  // robust against stray characters AND collapses any leading zeros
+  // (e.g. "090000" → 90000, "09" → 9) so a default-0 field that the
+  // operator types into never sticks a leading zero on the value.
+  const digits = String(raw).replace(/[^0-9]/g, '');
+  if (digits === '') return 0;
+  const num = Number(digits);
   if (!Number.isFinite(num) || num < 0) return 0;
   return Math.round(num);
+}
+
+// Display helper for IDR number fields rendered as type="text"
+// inputs. A stored 0 (or empty) shows as an empty string so the
+// field reads as a placeholder while typing instead of a sticky
+// visible "0" the operator has to clear — and a leading zero can
+// never appear because the visible value is always derived from the
+// parsed integer, not the raw keystrokes.
+export function moneyInputValue(value) {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? String(num) : '';
 }
