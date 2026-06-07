@@ -1333,9 +1333,9 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
   const invoicePaid = String(row.invoice?.status || '').toLowerCase() === 'paid';
   const linkStateClass = hasDelivery ? (deliveryDone ? ' is-complete' : ' is-created') : '';
   const invoiceStateClass = hasInvoice ? (invoicePaid ? ' is-complete' : ' is-created') : '';
-  const linkClassName = `record-row-link${linkStateClass}`;
-  const invoiceClassName = `record-row-link-anchor${invoiceStateClass}`;
-  const linkAnchorClass = `record-row-link-anchor${linkStateClass}`;
+  const linkClassName = `record-row-link${linkStateClass} record-row-pill record-row-pill--links`;
+  const invoiceClassName = `record-row-link-anchor${invoiceStateClass} record-row-pill record-row-pill--invoice`;
+  const linkAnchorClass = `record-row-link-anchor${linkStateClass} record-row-pill record-row-pill--links`;
   const vendorInvoicePaid = String(row.vendorInvoice?.status || '').toLowerCase() === 'paid';
   const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : ' is-neutral';
   const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass}`;

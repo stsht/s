@@ -451,25 +451,29 @@ button{cursor:pointer}
  * correct. Mobile-safe — moderate blur, no layout change. */
 @supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
   .public-delivery-card{
-    /* Translucent frosted base — lower panel opacity than before so the
-     * live aurora reads softly THROUGH the large canvas instead of the
-     * card flattening into a tinted slab. A soft top-centre specular
-     * bloom + faint sheen make the glass feel lit, not painted. */
+    /* Neutral clear-frosted glass: a near-white translucent surface so
+     * the live aurora reads softly THROUGH the canvas WITHOUT the card
+     * picking up a blue/plastic cast. A gentle white wash + top-centre
+     * specular bloom keep it lit and neutral; saturation is kept low so
+     * the frost stays clear rather than vivid. */
     background:
-      radial-gradient(135% 90% at 50% -8%,color-mix(in srgb,#fff 26%,transparent),transparent 56%),
+      radial-gradient(130% 86% at 50% -10%,color-mix(in srgb,#fff 34%,transparent),transparent 58%),
       linear-gradient(180deg,
-        color-mix(in srgb,var(--panel) 54%,transparent),
-        color-mix(in srgb,var(--panel) 44%,transparent));
-    border-color:color-mix(in srgb,var(--line) 44%,transparent);
-    -webkit-backdrop-filter:blur(34px) saturate(185%);
-    backdrop-filter:blur(34px) saturate(185%);
+        color-mix(in srgb,#fff 16%,transparent),
+        color-mix(in srgb,#fff 6%,transparent)),
+      linear-gradient(180deg,
+        color-mix(in srgb,var(--panel) 56%,transparent),
+        color-mix(in srgb,var(--panel) 47%,transparent));
+    border-color:color-mix(in srgb,var(--line) 52%,transparent);
+    -webkit-backdrop-filter:blur(32px) saturate(128%);
+    backdrop-filter:blur(32px) saturate(128%);
     /* Lit top edge + faint inner glow for liquid depth, over a soft,
-     * diffuse lift (negative spread keeps it gentle — not a heavy grey
-     * drop shadow). */
+     * diffuse neutral lift (negative spread keeps it gentle — not a
+     * heavy grey drop shadow). */
     box-shadow:
-      inset 0 1px 0 color-mix(in srgb,#fff 62%,transparent),
-      inset 0 0 34px color-mix(in srgb,#fff 8%,transparent),
-      0 30px 80px -30px rgba(31,26,23,.30);
+      inset 0 1px 0 color-mix(in srgb,#fff 66%,transparent),
+      inset 0 0 34px color-mix(in srgb,#fff 10%,transparent),
+      0 28px 72px -32px rgba(20,22,30,.26);
   }
 }
 /* Desktop: fit the card to the viewport height. The page uses
@@ -583,56 +587,57 @@ button{cursor:pointer}
   min-height:64px;
   margin:clamp(22px,3.6vw,28px) 0 0;
   padding:10px 16px;
-  /* Liquid-glass CTA: translucent accent tint over the frosted card
-   * with a tinted border + top sheen and a soft accent-coloured lift —
-   * not a heavy solid block. Light backdrop blur only (it rides over
-   * the already-frosted card, so a small value keeps the label crisp). */
-  border:1px solid color-mix(in srgb,var(--accent) 42%,transparent);
+  /* Liquid-glass CTA: a soft translucent accent tint over the frosted
+   * card with a hairline tinted border + top sheen — a light glass
+   * control, not a heavy solid block. Low backdrop saturation keeps it
+   * clear rather than plastic; it rides the card's frost so a small
+   * blur keeps the label crisp. */
+  border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
   border-radius:18px;
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--accent) 24%,transparent),
-    color-mix(in srgb,var(--accent) 15%,transparent));
+    color-mix(in srgb,var(--accent) 17%,transparent),
+    color-mix(in srgb,var(--accent) 10%,transparent));
   color:var(--ink);
   text-decoration:none;
-  -webkit-backdrop-filter:blur(10px) saturate(150%);
-  backdrop-filter:blur(10px) saturate(150%);
+  -webkit-backdrop-filter:blur(10px) saturate(125%);
+  backdrop-filter:blur(10px) saturate(125%);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),
-    0 14px 30px -18px color-mix(in srgb,var(--accent) 70%,transparent);
+    inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
+    0 12px 26px -18px color-mix(in srgb,var(--accent) 58%,transparent);
   transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
 }
 .public-delivery-invoice:hover{
   transform:translateY(-1px);
-  border-color:color-mix(in srgb,var(--accent) 60%,transparent);
+  border-color:color-mix(in srgb,var(--accent) 50%,transparent);
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--accent) 30%,transparent),
-    color-mix(in srgb,var(--accent) 20%,transparent));
+    color-mix(in srgb,var(--accent) 23%,transparent),
+    color-mix(in srgb,var(--accent) 14%,transparent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),
-    0 18px 38px -18px color-mix(in srgb,var(--accent) 75%,transparent);
+    inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),
+    0 16px 34px -18px color-mix(in srgb,var(--accent) 64%,transparent);
 }
 .public-delivery-invoice:active{
   transform:translateY(0) scale(.995);
 }
 .public-delivery-invoice.is-paid{
-  /* Paid: translucent emerald glass tint (stays semantically green)
-   * rather than a solid green block. */
-  border-color:color-mix(in srgb,var(--sub-active) 46%,transparent);
+  /* Paid: a light translucent emerald glass tint (stays semantically
+   * green) — clearly glassy, never a heavy solid green slab. */
+  border-color:color-mix(in srgb,var(--sub-active) 36%,transparent);
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--sub-active) 26%,transparent),
-    color-mix(in srgb,var(--sub-active) 16%,transparent));
+    color-mix(in srgb,var(--sub-active) 18%,transparent),
+    color-mix(in srgb,var(--sub-active) 11%,transparent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),
-    0 14px 30px -18px color-mix(in srgb,var(--sub-active) 60%,transparent);
+    inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
+    0 12px 26px -18px color-mix(in srgb,var(--sub-active) 50%,transparent);
 }
 .public-delivery-invoice.is-paid:hover{
-  border-color:color-mix(in srgb,var(--sub-active) 64%,transparent);
+  border-color:color-mix(in srgb,var(--sub-active) 52%,transparent);
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--sub-active) 32%,transparent),
-    color-mix(in srgb,var(--sub-active) 21%,transparent));
+    color-mix(in srgb,var(--sub-active) 24%,transparent),
+    color-mix(in srgb,var(--sub-active) 15%,transparent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),
-    0 18px 38px -18px color-mix(in srgb,var(--sub-active) 66%,transparent);
+    inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),
+    0 16px 34px -18px color-mix(in srgb,var(--sub-active) 56%,transparent);
 }
 .public-delivery-invoice-icon{
   display:inline-grid;
@@ -1261,30 +1266,33 @@ button{cursor:pointer}
   gap:14px;
   min-height:64px;
   padding:10px 16px;
-  /* Glassy option row: faint translucent fill + top sheen + softened
-   * border so it sits in the same liquid-glass family as the card and
-   * the invoice CTA. No own backdrop blur (it rides the card's frost,
-   * so small controls stay crisp). */
-  border:1px solid color-mix(in srgb,var(--line) 60%,transparent);
+  /* Glassy option tile: a subtle frosted fill defined by a crisp
+   * hairline border + soft lift shadow (Apple-style) so each row reads
+   * as a raised glass control over the card rather than a flat panel.
+   * No own backdrop blur — it rides the card's frost so small controls
+   * stay crisp. */
+  border:1px solid color-mix(in srgb,var(--line) 82%,transparent);
   border-radius:18px;
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--panel) 34%,transparent),
-    color-mix(in srgb,var(--panel) 24%,transparent));
-  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 34%,transparent);
+    color-mix(in srgb,var(--panel) 46%,transparent),
+    color-mix(in srgb,var(--panel) 34%,transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 46%,transparent),
+    0 8px 20px -16px rgba(20,22,30,.28);
   color:var(--ink);
   text-decoration:none;
   transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease;
 }
 
 .public-delivery-row.is-active:hover{
-  border-color:color-mix(in srgb,var(--accent) 55%,transparent);
+  border-color:color-mix(in srgb,var(--accent) 50%,transparent);
   transform:translateY(-1px);
   background:linear-gradient(180deg,
-    color-mix(in srgb,var(--panel) 42%,transparent),
-    color-mix(in srgb,var(--panel) 30%,transparent));
+    color-mix(in srgb,var(--panel) 54%,transparent),
+    color-mix(in srgb,var(--panel) 40%,transparent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 40%,transparent),
-    0 14px 30px -18px rgba(31,26,23,.18);
+    inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
+    0 14px 30px -18px rgba(20,22,30,.30);
 }
 /* Inactive delivery option. Rendered (as a disabled <button>) for
  * every missing service so the row set stays consistent, but greyed
@@ -3823,7 +3831,12 @@ dd{margin:0;text-align:right;font-weight:800}
   padding:0 12px;
   border:1px solid var(--line);
   border-radius:999px;
-  background:var(--panel);
+  /* Subtle liquid-glass: translucent neutral fill + a hairline top
+   * highlight so the pill reads as a light glass control rather than a
+   * heavy solid block. Tinted (is-created / is-complete) states layer
+   * their colour over this same base. */
+  background:color-mix(in srgb,var(--panel) 70%,transparent);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent);
   color:var(--ink);
   text-decoration:none;
   font-size:0.6875rem;
@@ -3940,6 +3953,26 @@ dd{margin:0;text-align:right;font-weight:800}
 .record-row button.record-row-vendor-addon .btn-icon{
   width:17px;
   height:17px;
+}
+/* Even action-pill sizing (desktop grid layout only — the mobile
+ * stacked layout below makes pills full-width). Each text pill is
+ * locked to a min-width sized for its longest label state so rows
+ * align cleanly whether the action reads "View Links"/"Create Links"
+ * or "View Client Invoice"/"Create Client Invoice", and whether or
+ * not the vendor add-on is active. The icon-only vendor add-ons are
+ * already a fixed 34px square, so each action group keeps a stable
+ * width across every row. flex:0 0 auto stops the pill shrinking
+ * below its min-width inside the flex action group. */
+@media(min-width:1024px){
+  .record-row .record-row-pill{
+    flex:0 0 auto;
+  }
+  .record-row .record-row-pill--links{
+    min-width:118px;
+  }
+  .record-row .record-row-pill--invoice{
+    min-width:184px;
+  }
 }
 .db-back-button{
   display:none;
