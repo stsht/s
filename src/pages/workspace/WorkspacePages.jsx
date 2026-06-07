@@ -7021,25 +7021,35 @@ function SubsPaidCard({
       <header className="subs-card-head">
         <div className="subs-head-top">
           <span className="subs-brand">StarShots</span>
-          {/* "Paid" status chip — also doubles as the OCR/vision
-              "paid" marker alongside the title text below. */}
+          {/* "Paid" chip — also the OCR/vision "paid" marker, paired
+              with the "Payment received" line below. */}
           <span className="subs-status-chip">Paid</span>
         </div>
-        <h1 className="subs-title">Subscription Confirmed</h1>
-        <p className="subs-greeting">
-          Hello, {titlePrefix ? titlePrefix + ' ' : ''}{displayClient} — Payment Received.
-        </p>
-      </header>
-      {/* Label/value ledger. DOM order is intentional: payment date,
-          then start, then expiry — the OCR importer reads dates in
-          document order (1st=payment, 2nd=start, 3rd=expiry). Keep
-          the "Paid Amount" and "Access Period" labels verbatim; the
-          parser keys off them. */}
-      <section className="subs-rows">
-        <div className="subs-row">
-          <span className="subs-row-label">Service</span>
-          <span className="subs-row-value">{service}</span>
+        <div className="subs-head-title">
+          <h1 className="subs-title">Subscription Receipt</h1>
+          <p className="subs-greeting">
+            Payment received for {titlePrefix ? titlePrefix + ' ' : ''}{displayClient}
+          </p>
         </div>
+      </header>
+      {/* Hero — the strongest section: service + paid amount. The
+          "Paid Amount" label is kept verbatim so the JPG re-import
+          parser still extracts the amount from the rasterised text. */}
+      <section className="subs-hero">
+        <div className="subs-hero-cell">
+          <span className="subs-hero-label">Service</span>
+          <span className="subs-hero-service">{service}</span>
+        </div>
+        <div className="subs-hero-cell subs-hero-cell--amount">
+          <span className="subs-hero-label">Paid Amount</span>
+          <span className="subs-hero-amount">{rupiah(price)}</span>
+        </div>
+      </section>
+      {/* Key-value details. Payment date appears here first, then
+          start/expiry in the window below — the importer reads dates
+          in document order (1st=payment, 2nd=start, 3rd=expiry). The
+          "Access Period" label is kept verbatim for the parser. */}
+      <section className="subs-rows">
         <div className="subs-row">
           <span className="subs-row-label">Payment Date</span>
           <span className="subs-row-value">{fmtSubsDate(paymentDate)}</span>
@@ -7049,27 +7059,32 @@ function SubsPaidCard({
           <span className="subs-row-value">{fmtSubsTime(paymentTime)}</span>
         </div>
         <div className="subs-row">
-          <span className="subs-row-label">Paid Amount</span>
-          <span className="subs-row-value subs-row-amount">{rupiah(price)}</span>
-        </div>
-        <div className="subs-row">
           <span className="subs-row-label">Access Period</span>
           <span className="subs-row-value">{periodLabel || '-'}</span>
         </div>
       </section>
-      <section className="subs-access">
-        <div className="subs-access-cell">
-          <span className="subs-row-label">Start Access</span>
-          <span className="subs-access-date">{fmtSubsDate(startDate)}</span>
-          <span className="subs-access-time">{fmtSubsTime(startTime)}</span>
-        </div>
-        <div className="subs-access-divider" aria-hidden="true" />
-        <div className="subs-access-cell">
-          <span className="subs-row-label">Expiry</span>
-          <span className="subs-access-date">{fmtSubsDate(expiryDate)}</span>
-          {/* Uses the saved expiry time when present, falling back to
-              start time for legacy/live-preview rows. */}
-          <span className="subs-access-time">{fmtSubsTime(expiryTime || startTime)}</span>
+      {/* Access window — Start → Expiry with a thin progress
+          connector (green start dot, hairline rule, arrow). */}
+      <section className="subs-window">
+        <span className="subs-window-title">Access Window</span>
+        <div className="subs-window-track">
+          <div className="subs-window-end">
+            <span className="subs-window-label">Start</span>
+            <span className="subs-window-date">{fmtSubsDate(startDate)}</span>
+            <span className="subs-window-time">{fmtSubsTime(startTime)}</span>
+          </div>
+          <div className="subs-window-line" aria-hidden="true">
+            <span className="subs-window-dot" />
+            <span className="subs-window-rule" />
+            <span className="subs-window-arrow" />
+          </div>
+          <div className="subs-window-end subs-window-end--right">
+            <span className="subs-window-label">Expiry</span>
+            <span className="subs-window-date">{fmtSubsDate(expiryDate)}</span>
+            {/* Saved expiry time when present, else start time for
+                legacy/live-preview rows. */}
+            <span className="subs-window-time">{fmtSubsTime(expiryTime || startTime)}</span>
+          </div>
         </div>
       </section>
       {noteText ? (
@@ -7079,9 +7094,6 @@ function SubsPaidCard({
         </section>
       ) : null}
       <footer className="subs-card-foot">
-        <p className="subs-foot-note">
-          This card serves as your confirmed subscription receipt — please keep it for future reference.
-        </p>
         <div className="subs-foot-meta">
           <span>Automatically generated &middot; valid without signature</span>
           <strong>@starshots.id</strong>
