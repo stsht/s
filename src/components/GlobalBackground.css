@@ -38,7 +38,10 @@
    * centered opaque panels never fully cover it — the blue/cyan/
    * violet/pink edges bleed into the page padding and the side
    * gutters on wide screens. filter is STATIC (never animated);
-   * only transform moves via ssDrift below. */
+   * motion comes from transform (ssDrift) + opacity breathing
+   * (ssGlow) below, both GPU-cheap. The static `opacity` here is
+   * the rest value used when motion is frozen (gate / reduced
+   * motion); ssGlow overrides it while animating. */
   opacity:.76;
   /* Less blur + more saturate keeps the hues vivid instead of
    * desaturating into a dusty grey wash; the pink is a true
@@ -49,7 +52,14 @@
     radial-gradient(66% 58% at 86% 26%, rgba(168,108,250,.46) 0%, transparent 60%),
     radial-gradient(80% 64% at 50% 94%, rgba(56,196,255,.44) 0%, transparent 62%),
     radial-gradient(60% 54% at 78% 100%, rgba(255,96,176,.42) 0%, transparent 58%);
-  animation:ssDrift 28s ease-in-out infinite alternate;
+  will-change:transform,opacity;
+  /* Two independent, GPU-cheap loops on differing periods so the
+   * wash keeps wandering instead of settling into an obvious cycle:
+   * ssDrift slides/rotates/scales the colour anchors around the
+   * edges; ssGlow gently breathes the whole layer's brightness. */
+  animation:
+    ssDrift 18s ease-in-out infinite alternate,
+    ssGlow 11s ease-in-out infinite alternate;
 }
 @media(prefers-color-scheme:dark){
   .ss-bg{
@@ -72,9 +82,27 @@
       radial-gradient(60% 54% at 78% 100%, rgba(240,84,172,.44) 0%, transparent 56%);
   }
 }
+/* ============================================================
+ * Motion.
+ *
+ * ssDrift does the visible work: it travels the oversized
+ * (.ss-aurora is inset:-14vmax) blurred colour layer a noticeable
+ * distance, rotates it a few degrees and breathes its scale, so
+ * the blue/cyan/violet/pink anchors visibly wander around the
+ * edges and corners of the viewport — never a dead, static wash,
+ * but slow enough to stay calm and premium. ssGlow layers a gentle
+ * brightness pulse on top on a different period so the two never
+ * sync into an obvious loop. Both animate only transform / opacity
+ * (no layout, no filter churn).
+ * ============================================================ */
 @keyframes ssDrift{
-  from{transform:translate3d(-3%,-1%,0) rotate(-4deg) scale(1.04)}
-  to{transform:translate3d(3%,3%,0) rotate(4deg) scale(1.12)}
+  0%{transform:translate3d(-5%,-2%,0) rotate(-5deg) scale(1.06)}
+  50%{transform:translate3d(5%,2%,0) rotate(4deg) scale(1.14)}
+  100%{transform:translate3d(0%,5%,0) rotate(-2deg) scale(1.08)}
+}
+@keyframes ssGlow{
+  0%,100%{opacity:.6}
+  50%{opacity:.86}
 }
 
 /* ============================================================
@@ -84,7 +112,8 @@
  * so the desktop "around the edges" bleed mostly disappears.
  * Re-anchor the glow to the bottom edge (Gemini-mobile style) so
  * the colour stays noticeable below / behind the card. Position
- * only — still transform-only animation, still filter-static.
+ * only — motion is still the shared transform + opacity loops,
+ * filter stays static.
  * ============================================================ */
 @media (max-width:768px){
   .ss-aurora{
