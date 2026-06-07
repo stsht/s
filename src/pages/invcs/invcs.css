@@ -451,15 +451,25 @@ button{cursor:pointer}
  * correct. Mobile-safe — moderate blur, no layout change. */
 @supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
   .public-delivery-card{
-    background:linear-gradient(180deg,
-      color-mix(in srgb,var(--panel) 68%,transparent),
-      color-mix(in srgb,var(--panel) 60%,transparent));
-    border-color:color-mix(in srgb,var(--line) 50%,transparent);
-    -webkit-backdrop-filter:blur(32px) saturate(160%);
-    backdrop-filter:blur(32px) saturate(160%);
-    /* Top sheen highlight for the liquid-glass edge; deeper drop
-     * shadow keeps the card lifted off the live aurora. */
-    box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),0 28px 70px rgba(31,26,23,.16);
+    /* Translucent frosted base — lower panel opacity than before so the
+     * live aurora reads softly THROUGH the large canvas instead of the
+     * card flattening into a tinted slab. A soft top-centre specular
+     * bloom + faint sheen make the glass feel lit, not painted. */
+    background:
+      radial-gradient(135% 90% at 50% -8%,color-mix(in srgb,#fff 26%,transparent),transparent 56%),
+      linear-gradient(180deg,
+        color-mix(in srgb,var(--panel) 54%,transparent),
+        color-mix(in srgb,var(--panel) 44%,transparent));
+    border-color:color-mix(in srgb,var(--line) 44%,transparent);
+    -webkit-backdrop-filter:blur(34px) saturate(185%);
+    backdrop-filter:blur(34px) saturate(185%);
+    /* Lit top edge + faint inner glow for liquid depth, over a soft,
+     * diffuse lift (negative spread keeps it gentle — not a heavy grey
+     * drop shadow). */
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb,#fff 62%,transparent),
+      inset 0 0 34px color-mix(in srgb,#fff 8%,transparent),
+      0 30px 80px -30px rgba(31,26,23,.30);
   }
 }
 /* Desktop: fit the card to the viewport height. The page uses
@@ -511,7 +521,7 @@ button{cursor:pointer}
 .public-delivery-folder{
   margin:0;
   color:var(--muted);
-  font-size:0.75rem;
+  font-size:12px;
   font-weight:900;
   letter-spacing:.16em;
   text-transform:uppercase;
@@ -541,16 +551,19 @@ button{cursor:pointer}
   margin:0;
   color:var(--ink);
   font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;
-  font-size:clamp(26px,4.4vw,38px);
+  /* Locked, balanced scale. vw clamp (not rem) keeps it independent of
+   * iOS Dynamic Type, and the 30px cap avoids an oversized desktop
+   * "Hello" while staying readable on phones. */
+  font-size:clamp(24px,3.1vw,30px);
   font-weight:500;
-  line-height:1.12;
+  line-height:1.16;
   letter-spacing:-0.005em;
   text-align:center;
 }
 .public-delivery-subcopy{
   margin:14px 0 22px;
   color:var(--muted);
-  font-size:0.8125rem;
+  font-size:13px;
   font-weight:500;
   letter-spacing:.01em;
   text-align:center;
@@ -570,33 +583,56 @@ button{cursor:pointer}
   min-height:64px;
   margin:clamp(22px,3.6vw,28px) 0 0;
   padding:10px 16px;
-  border:1px solid transparent;
+  /* Liquid-glass CTA: translucent accent tint over the frosted card
+   * with a tinted border + top sheen and a soft accent-coloured lift —
+   * not a heavy solid block. Light backdrop blur only (it rides over
+   * the already-frosted card, so a small value keeps the label crisp). */
+  border:1px solid color-mix(in srgb,var(--accent) 42%,transparent);
   border-radius:18px;
-  background:var(--accent);
-  color:#fff;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--accent) 24%,transparent),
+    color-mix(in srgb,var(--accent) 15%,transparent));
+  color:var(--ink);
   text-decoration:none;
-  box-shadow:0 16px 32px rgba(95,149,245,.28);
-  transition:transform .15s ease,box-shadow .15s ease,background .15s ease;
+  -webkit-backdrop-filter:blur(10px) saturate(150%);
+  backdrop-filter:blur(10px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),
+    0 14px 30px -18px color-mix(in srgb,var(--accent) 70%,transparent);
+  transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
 }
 .public-delivery-invoice:hover{
   transform:translateY(-1px);
-  background:var(--accent-2);
-  box-shadow:0 20px 40px rgba(95,149,245,.34);
+  border-color:color-mix(in srgb,var(--accent) 60%,transparent);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--accent) 30%,transparent),
+    color-mix(in srgb,var(--accent) 20%,transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),
+    0 18px 38px -18px color-mix(in srgb,var(--accent) 75%,transparent);
 }
 .public-delivery-invoice:active{
   transform:translateY(0) scale(.995);
 }
 .public-delivery-invoice.is-paid{
-  /* Keep it semantically GREEN (var(--sub-active) stays dominant)
-   * but nudge toward a richer emerald/teal so it harmonises with
-   * the new aurora palette. Scoped here so the shared --sub-active
-   * token (and the subscriptions UI) is untouched. */
-  background: color-mix(in srgb, var(--sub-active) 70%, #08c2a2);
-  box-shadow: 0 16px 32px rgba(13,148,120,.30);
+  /* Paid: translucent emerald glass tint (stays semantically green)
+   * rather than a solid green block. */
+  border-color:color-mix(in srgb,var(--sub-active) 46%,transparent);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--sub-active) 26%,transparent),
+    color-mix(in srgb,var(--sub-active) 16%,transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),
+    0 14px 30px -18px color-mix(in srgb,var(--sub-active) 60%,transparent);
 }
 .public-delivery-invoice.is-paid:hover{
-  background: color-mix(in srgb, var(--sub-active) 70%, #059a80);
-  box-shadow: 0 20px 40px rgba(13,148,120,.36);
+  border-color:color-mix(in srgb,var(--sub-active) 64%,transparent);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--sub-active) 32%,transparent),
+    color-mix(in srgb,var(--sub-active) 21%,transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),
+    0 18px 38px -18px color-mix(in srgb,var(--sub-active) 66%,transparent);
 }
 .public-delivery-invoice-icon{
   display:inline-grid;
@@ -604,24 +640,31 @@ button{cursor:pointer}
   width:36px;
   height:36px;
   border-radius:12px;
-  background:rgba(255,255,255,.2);
-  color:#fff;
-  font-size:0.6875rem;
+  background:color-mix(in srgb,var(--accent) 30%,transparent);
+  color:color-mix(in srgb,var(--accent) 78%,var(--ink));
+  font-size:11px;
   font-weight:900;
   letter-spacing:.06em;
 }
+.public-delivery-invoice.is-paid .public-delivery-invoice-icon{
+  background:color-mix(in srgb,var(--sub-active) 30%,transparent);
+  color:color-mix(in srgb,var(--sub-active) 82%,var(--ink));
+}
 .public-delivery-invoice-label{
   min-width:0;
-  font-size:1rem;
+  font-size:15px;
   font-weight:900;
 }
 .public-delivery-invoice-cta{
-  color:#fff;
-  font-size:0.6875rem;
+  color:color-mix(in srgb,var(--accent) 82%,var(--ink));
+  font-size:11px;
   font-weight:900;
   letter-spacing:.18em;
   text-transform:uppercase;
-  opacity:.85;
+  opacity:.9;
+}
+.public-delivery-invoice.is-paid .public-delivery-invoice-cta{
+  color:color-mix(in srgb,var(--sub-active) 84%,var(--ink));
 }
 .public-invoice-viewer{
   position:fixed;
@@ -1218,17 +1261,30 @@ button{cursor:pointer}
   gap:14px;
   min-height:64px;
   padding:10px 16px;
-  border:1px solid var(--line);
+  /* Glassy option row: faint translucent fill + top sheen + softened
+   * border so it sits in the same liquid-glass family as the card and
+   * the invoice CTA. No own backdrop blur (it rides the card's frost,
+   * so small controls stay crisp). */
+  border:1px solid color-mix(in srgb,var(--line) 60%,transparent);
   border-radius:18px;
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--panel) 34%,transparent),
+    color-mix(in srgb,var(--panel) 24%,transparent));
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 34%,transparent);
   color:var(--ink);
   text-decoration:none;
-  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease;
+  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease;
 }
 
 .public-delivery-row.is-active:hover{
-  border-color:var(--accent);
+  border-color:color-mix(in srgb,var(--accent) 55%,transparent);
   transform:translateY(-1px);
-  box-shadow:0 14px 28px rgba(31,26,23,.08);
+  background:linear-gradient(180deg,
+    color-mix(in srgb,var(--panel) 42%,transparent),
+    color-mix(in srgb,var(--panel) 30%,transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb,#fff 40%,transparent),
+    0 14px 30px -18px rgba(31,26,23,.18);
 }
 /* Inactive delivery option. Rendered (as a disabled <button>) for
  * every missing service so the row set stays consistent, but greyed
@@ -1245,9 +1301,10 @@ button.public-delivery-row{
 }
 .public-delivery-row.is-disabled{
   cursor:default;
-  opacity:.55;
-  background:var(--soft);
+  opacity:.5;
+  background:color-mix(in srgb,var(--soft) 30%,transparent);
   border-style:dashed;
+  box-shadow:none;
 }
 .public-delivery-row.is-disabled .public-delivery-icon,
 .public-delivery-row.is-disabled .public-delivery-name,
@@ -1260,20 +1317,21 @@ button.public-delivery-row{
   width:36px;
   height:36px;
   border-radius:12px;
-  background:var(--field);
+  background:color-mix(in srgb,var(--field) 55%,transparent);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 32%,transparent);
   color:var(--ink);
-  font-size:0.6875rem;
+  font-size:11px;
   font-weight:900;
   letter-spacing:.06em;
 }
 .public-delivery-name{
   min-width:0;
-  font-size:1rem;
+  font-size:15px;
   font-weight:900;
 }
 .public-delivery-state{
   color:var(--accent);
-  font-size:0.6875rem;
+  font-size:11px;
   font-weight:900;
   letter-spacing:.18em;
   text-transform:uppercase;
@@ -1290,7 +1348,7 @@ button.public-delivery-row{
 .public-delivery-preview-note{
   margin:10px 2px 0;
   color:var(--muted);
-  font-size:0.75rem;
+  font-size:12px;
   font-weight:700;
   line-height:1.5;
   text-align:center;
@@ -1299,7 +1357,7 @@ button.public-delivery-row{
   margin:auto 0 0;
   padding-top:34px;
   color:var(--muted);
-  font-size:0.8125rem;
+  font-size:13px;
   font-weight:900;
   letter-spacing:.08em;
   text-align:center;
@@ -5110,10 +5168,12 @@ dd{margin:0;text-align:right;font-weight:800}
   .public-delivery-card h1{
     /* Keep the greeting centered on mobile too so it stays visually
      * aligned with the centered logo + folder label above the divider.
-     * Drop the size a notch so a long "Hello, Mr. Billy Regal" still
-     * fits one line on narrow phones. */
+     * vw clamp stays controlled (no Dynamic Type inflation) and the
+     * 27px cap keeps a long "Hello, Mr. Billy Regal" on one line on
+     * narrow phones without shrinking to unreadable. */
     text-align:center;
-    font-size:clamp(22px,7vw,30px);
+    font-size:clamp(21px,5.4vw,27px);
+    line-height:1.18;
   }
   .public-delivery-subcopy{
     text-align:center;
@@ -5134,13 +5194,13 @@ dd{margin:0;text-align:right;font-weight:800}
     width:32px;
     height:32px;
     border-radius:10px;
-    font-size:0.625rem;
+    font-size:10px;
   }
   .public-delivery-name{
-    font-size:0.9375rem;
+    font-size:14px;
   }
   .public-delivery-state{
-    font-size:0.625rem;
+    font-size:10px;
     letter-spacing:.14em;
   }
   .public-delivery-signoff{
