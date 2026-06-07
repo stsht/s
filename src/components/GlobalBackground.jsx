@@ -15,6 +15,7 @@ export function GlobalBackground() {
         <span className="ss-blob ss-blob-3" />
         <span className="ss-blob ss-blob-4" />
         <span className="ss-blob ss-blob-5" />
+        <span className="ss-blob ss-blob-6" />
       </div>
     </>
   );
