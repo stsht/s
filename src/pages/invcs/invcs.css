@@ -75,57 +75,7 @@ body{
 button,input,select{font:inherit}
 button{cursor:pointer}
 
-.ss-bg{
-  position:fixed;
-  inset:0;
-  z-index:0;
-  background:
-    radial-gradient(1040px 580px at 50% 58%, rgba(95,169,255,.44), transparent 66%),
-    radial-gradient(1100px 620px at 18% 8%, rgba(66,133,244,.18), transparent 60%),
-    radial-gradient(900px 560px at 82% 92%, rgba(138,180,248,.20), transparent 55%),
-    #f3f7fb;
-}
-.ss-aurora{
-  position:fixed;
-  inset:-14vmax;
-  z-index:0;
-  pointer-events:none;
-  /* Gemini-style colour wash: vibrant enough to read around the
-   * white workspace canvas, but still ambient. The glow is pushed
-   * low-and-wide (bottom-centre anchor + large radii) so the
-   * centered opaque panels never fully cover it — the blue/cyan/
-   * violet/pink edges bleed into the page padding and the side
-   * gutters on wide screens. filter is STATIC (never animated);
-   * only transform moves via ssDrift below. */
-  opacity:.7;
-  filter:blur(82px) saturate(122%);
-  background:
-    radial-gradient(82% 64% at 50% 86%, rgba(95,149,245,.46) 0%, transparent 62%),
-    radial-gradient(64% 58% at 8% 40%, rgba(86,198,255,.34) 0%, transparent 60%),
-    radial-gradient(62% 56% at 92% 30%, rgba(176,138,246,.34) 0%, transparent 60%),
-    radial-gradient(58% 52% at 74% 98%, rgba(255,150,205,.30) 0%, transparent 60%);
-  animation:ssDrift 22s ease-in-out infinite alternate;
-}
 @media(prefers-color-scheme:dark){
-  .ss-bg{
-    background:
-      radial-gradient(1100px 640px at 54% 58%, rgba(70,128,255,.74), transparent 62%),
-      radial-gradient(880px 540px at 48% 72%, rgba(38,82,210,.68), transparent 62%),
-      radial-gradient(680px 400px at 88% 10%, rgba(96,144,255,.30), transparent 58%),
-      #0a1226;
-  }
-  .ss-aurora{
-    /* Dark mode: deeper, more saturated jewel tones so the wash
-     * stays visible on the near-black canvas without going muddy.
-     * Same low-and-wide anchoring as light mode. */
-    opacity:.8;
-    filter:blur(100px) saturate(138%);
-    background:
-      radial-gradient(82% 64% at 50% 84%, rgba(86,138,255,.52) 0%, transparent 60%),
-      radial-gradient(62% 58% at 10% 38%, rgba(60,176,238,.40) 0%, transparent 58%),
-      radial-gradient(60% 56% at 90% 28%, rgba(150,108,240,.42) 0%, transparent 58%),
-      radial-gradient(56% 52% at 74% 98%, rgba(232,112,182,.34) 0%, transparent 58%);
-  }
   /* Dark-mode logo fallback for the password gate and the public
    * client delivery card. The components already ship a <picture>
    * source-media swap to /logo-hero-white.png — this CSS filter is
@@ -141,71 +91,6 @@ button{cursor:pointer}
   .public-delivery-logo{
     filter:brightness(0) invert(1) sepia(.08) saturate(.7);
     opacity:.92;
-  }
-}
-@keyframes ssDrift{
-  from{transform:translate3d(-2%,-1%,0) scale(1)}
-  to{transform:translate3d(2%,2.5%,0) scale(1.06)}
-}
-
-/* ============================================================
- * Mobile: bottom-heavy / off-centre Gemini wash.
- *
- * On phones the workspace card fills nearly the whole viewport,
- * so the desktop "around the edges" bleed mostly disappears.
- * Re-anchor the glow to the bottom edge (Gemini-mobile style) so
- * the colour stays noticeable below / behind the card. Position
- * only — still transform-only animation, still filter-static.
- * ============================================================ */
-@media (max-width:768px){
-  .ss-aurora{
-    opacity:.74;
-    background:
-      radial-gradient(120% 72% at 50% 102%, rgba(95,149,245,.50) 0%, transparent 64%),
-      radial-gradient(96% 60% at 16% 92%, rgba(86,198,255,.36) 0%, transparent 62%),
-      radial-gradient(96% 60% at 86% 98%, rgba(176,138,246,.36) 0%, transparent 62%),
-      radial-gradient(82% 52% at 64% 70%, rgba(255,150,205,.28) 0%, transparent 60%);
-  }
-}
-@media (max-width:768px) and (prefers-color-scheme:dark){
-  .ss-aurora{
-    opacity:.82;
-    background:
-      radial-gradient(120% 72% at 50% 102%, rgba(86,138,255,.56) 0%, transparent 62%),
-      radial-gradient(96% 60% at 16% 92%, rgba(60,176,238,.42) 0%, transparent 60%),
-      radial-gradient(96% 60% at 86% 98%, rgba(150,108,240,.44) 0%, transparent 60%),
-      radial-gradient(82% 52% at 64% 70%, rgba(232,112,182,.32) 0%, transparent 58%);
-  }
-}
-
-/* ============================================================
- * Aurora compositor relief on touch / coarse-pointer devices.
- *
- * This is the single biggest reason the pre-gate splash on
- * /g/<slug> felt laggy while the StarShots homepage
- * (sshots.pages.dev/) stays buttery smooth: the homepage loads
- * animate.css, which kills its `.aurora` drift on touch devices
- * (see the (hover:none),(pointer:coarse) rule there) precisely
- * because an always-running 25s drift on a huge blur(78px) layer
- * forces iOS Safari / Low Power Mode to re-rasterize the blur
- * every frame and coalesce the whole page to 30fps — which
- * stutters the logo bounce.
- *
- * The Vite bundle (/, /db, /g/<slug>, /inv, /l, /subs) renders the
- * ambient layer as `.ss-aurora` and never loads animate.css, so
- * that relief was missing here. Freeze the drift (and release the
- * compositor hint) on touch/coarse-pointer devices so the splash
- * logo bounce runs on the GPU undisturbed — same smooth result as
- * main /. Desktop (fine-pointer) keeps the living drift.
- *
- * Transform/opacity only elsewhere; this rule animates nothing —
- * it only stops an animation, so it cannot introduce layout work.
- * ============================================================ */
-@media (hover:none),(pointer:coarse){
-  .ss-aurora{
-    -webkit-animation:none !important;
-    animation:none !important;
-    will-change:auto !important;
   }
 }
 

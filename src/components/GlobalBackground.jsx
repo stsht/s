@@ -1,3 +1,5 @@
+import './GlobalBackground.css';
+
 export function GlobalBackground() {
   return (
     <>
