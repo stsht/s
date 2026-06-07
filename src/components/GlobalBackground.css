@@ -108,32 +108,24 @@
 }
 
 /* ============================================================
- * Aurora compositor relief on touch / coarse-pointer devices —
- * SCOPED TO THE GATE PAGE ONLY.
+ * Gate intro freeze.
  *
- * An always-running drift on a huge blurred layer makes iOS Safari
- * (and Low Power Mode) re-rasterize the blur every frame and
- * coalesce the whole page to 30fps. On the pre-password splash
- * that competes with the bouncing logo (.gate-splash-logo) and
- * makes it stutter — so on the gate we freeze the drift on touch
- * devices and the bounce runs on the GPU undisturbed.
+ * Gate screens have their own one-shot logo bounce
+ * (.gate-splash-logo). Keep the ambient background still there on
+ * every device so the bounce owns the intro moment cleanly.
  *
- * The bouncing logo only ever lives inside `.gate-page` (the admin
- * password gate and the /g/<slug> client gate). Every other page
- * — /db (.pf-page), the client delivery card
- * (.public-delivery-page), /inv, /l, /subs — has no bounce to
- * protect, so the aurora is free to keep its slow drift on mobile
- * there. Scoping the freeze to `.gate-page .ss-aurora` is what
- * makes the wash visibly move on phones everywhere except the
- * splash. Desktop (fine-pointer) keeps the drift everywhere.
+ * Every page after the gate — /db, public delivery, /inv, /l,
+ * /subs, etc. — keeps the default .ss-aurora animation on desktop
+ * and mobile. The split is intentionally page-based, not
+ * device-based:
+ *   gate page = static aurora + bouncing logo
+ *   after gate = animated aurora
  *
  * This rule animates nothing — it only stops an animation, so it
  * cannot introduce layout work.
  * ============================================================ */
-@media (hover:none),(pointer:coarse){
-  .gate-page .ss-aurora{
-    -webkit-animation:none !important;
-    animation:none !important;
-    will-change:auto !important;
-  }
+.gate-page .ss-aurora{
+  -webkit-animation:none !important;
+  animation:none !important;
+  will-change:auto !important;
 }
