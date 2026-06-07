@@ -4300,37 +4300,55 @@ dd{margin:0;text-align:right;font-weight:800}
   flex-direction:column;
   gap:16px;
 }
-/* Hairline brand accent — sky → cyan → soft green — pinned to the
- * very top edge and clipped to the card's rounded corners. The one
- * restrained spot of brand colour on the sheet. */
+/* Hairline brand accent — cyan → emerald — pinned to the very top
+ * edge and clipped to the card's rounded corners. Green-forward to
+ * signal the paid/confirmed state, echoing the client invoice's paid
+ * accent (#1f9d57). The one restrained spot of brand colour up top. */
 .subs-accent{
   position:absolute;
   top:0;
   left:0;
   right:0;
   height:3px;
-  background:linear-gradient(90deg,#5fb0f5 0%,#36c6cf 52%,#46c98a 100%);
+  background:linear-gradient(90deg,#36c6cf 0%,#2bb673 56%,#1f9d57 100%);
+  z-index:2;
+}
+/* Thin premium inset frame — a soft emerald hairline tracing just
+ * inside the card edge, inspired by the framed paid badge on the
+ * client invoice. Decorative only (sits in the padding gutter, never
+ * crosses the text), behind the content at z-index 0. */
+.subs-card::after{
+  content:"";
+  position:absolute;
+  top:7px;
+  right:7px;
+  bottom:7px;
+  left:7px;
+  border:1px solid rgba(31,157,87,.18);
+  border-radius:14px;
+  pointer-events:none;
+  z-index:0;
 }
 /* Diagonal document-style PAID watermark — classic official-receipt
- * direction (bottom-left → top-right), soft neutral cyan-gray at very
- * low opacity. Large enough to read but never dominating: it sits
- * behind the receipt body (shifted below the header so it doesn't wash
- * over the logo/title), well inside the card edges, with the real
- * content lifted to z-index 1. No stamp, box, or red. */
+ * direction (bottom-left → top-right). Sits in the open upper-right
+ * area between the header and the body so it never overlaps the
+ * logo/title or the key text, at a whisper-soft green-gray opacity
+ * that reads as an official watermark rather than a hero element.
+ * Well inside the card edges; content stays at z-index 1 above it. */
 .subs-watermark{
   position:absolute;
-  top:57%;
-  left:50%;
+  top:30%;
+  left:64%;
   transform:translate(-50%,-50%) rotate(-28deg);
   transform-origin:center;
   z-index:0;
   font-family:var(--font);
-  font-size:122px;
+  font-size:104px;
   line-height:1;
   font-weight:800;
-  letter-spacing:.14em;
-  color:#5e767b;
-  opacity:.06;
+  letter-spacing:.16em;
+  color:#3c7a63;
+  opacity:.03;
   white-space:nowrap;
   pointer-events:none;
   user-select:none;
@@ -4719,7 +4737,7 @@ dd{margin:0;text-align:right;font-weight:800}
     gap:16px;
   }
   .subs-watermark{
-    font-size:92px;
+    font-size:78px;
   }
 }
 
