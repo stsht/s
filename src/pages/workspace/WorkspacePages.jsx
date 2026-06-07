@@ -483,6 +483,15 @@ function applySubscriptionExtension(sub, extension) {
     start_time: extension.start_time || sub.start_time,
     expiry_date: extension.expiry_date || sub.expiry_date,
     expiry_time: extension.expiry_time || sub.expiry_time,
+    // Payment date/time and proof follow the extension when it
+    // carries them, so a per-extension (and the current/effective)
+    // receipt prints the renewal's own payment moment rather than
+    // the base subscription's. payment_proof is strictly per-period:
+    // it is the extension's own proof (empty when the extension has
+    // none) and never inherits the base proof.
+    payment_date: extension.payment_date || sub.payment_date,
+    payment_time: extension.payment_time || sub.payment_time,
+    payment_proof: extension.payment_proof != null ? extension.payment_proof : '',
   };
 }
 
@@ -622,6 +631,10 @@ function makeExtensionDraft(subscription, extension, latestExtension) {
     // mutated here — it stays the receipt of record.
     payment_date: String(ext.payment_date || latest.payment_date || sub.payment_date || ''),
     payment_time: String(ext.payment_time || latest.payment_time || sub.payment_time || ''),
+    // Payment proof is strictly per-period: an edited extension keeps
+    // its own proof; a brand-new extension starts blank (never
+    // inherits the base/prior proof).
+    payment_proof: String(ext.payment_proof || ''),
   };
 }
 
@@ -3172,6 +3185,9 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       start_time: subscription?.start_time || '',
       expiry_date: subscription?.expiry_date || '',
       expiry_time: subscription?.expiry_time || '',
+      payment_date: subscription?.payment_date || '',
+      payment_time: subscription?.payment_time || '',
+      payment_proof: subscription?.payment_proof || '',
       isBase: true,
     };
     const rawExtensions = Array.isArray(subscription?.extensions) ? subscription.extensions : [];
@@ -3563,6 +3579,11 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   );
   const startValue = fmtDateTime(effective?.start_date, effective?.start_time);
   const expiryValue = fmtDateTime(effective?.expiry_date, effective?.expiry_time);
+  // Payment proof for the CURRENT/active period: latest extension's
+  // proof when extended, else the base subscription's. Only rendered
+  // when present so the panel stays clean for proof-less records.
+  const proofValue = String(effective?.payment_proof || '').trim();
+  const proofIsUrl = /^https?:\/\//i.test(proofValue);
   // Composed h2 label: "<title> <client_name>" — e.g. "Ms. Linda" or
   // "Mr. Fenny Sofian". Falls back to the client name alone when no
   // title prefix is set, so a row missing a title prefix still reads
@@ -3574,7 +3595,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // subscription details available." copy so the panel doesn't show
   // a stack of blank label boxes.
   const hasAnyDetailRow = Boolean(
-    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact
+    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact || proofValue
   );
 
   return (
@@ -3778,6 +3799,25 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               </div>
             </article>
           ) : null}
+          {proofValue ? (
+            <article className="list-row" key="PaymentProof">
+              <div>
+                <strong>Payment Proof</strong>
+                {proofIsUrl ? (
+                  <a
+                    className="subs-proof-link"
+                    href={proofValue}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View proof
+                  </a>
+                ) : (
+                  <span>{proofValue}</span>
+                )}
+              </div>
+            </article>
+          ) : null}
           {!hasAnyDetailRow ? <p className="empty-state">No subscription details available.</p> : null}
         </div>
       )}
@@ -3873,6 +3913,16 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   />
                 </label>
               </div>
+              <label>Payment Proof (optional)
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={extensionDraft.payment_proof || ''}
+                  onChange={(e) => setExtensionField('payment_proof', e.target.value)}
+                  placeholder="https://\u2026 receipt/transfer proof link"
+                  aria-label="Extension payment proof URL"
+                />
+              </label>
               {extensionStatus ? (
                 <p className={`download-status${extensionStatusTone ? ` lg-status-${extensionStatusTone}` : ''}`}>
                   {extensionStatus}
@@ -3940,6 +3990,22 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                         </div>
                       )}
                       {meta ? <span className="subs-extension-meta">{meta}</span> : null}
+                      {ext.payment_proof ? (
+                        /^https?:\/\//i.test(String(ext.payment_proof)) ? (
+                          <a
+                            className="subs-extension-proof"
+                            href={String(ext.payment_proof)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            View payment proof
+                          </a>
+                        ) : (
+                          <span className="subs-extension-proof subs-extension-proof--text">
+                            Proof: {String(ext.payment_proof)}
+                          </span>
+                        )
+                      ) : null}
                     </div>
                     {/* Action column is rendered on EVERY row so the
                         Start/Expiry grid and right edge line up across
@@ -4942,6 +5008,16 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
             value={draft.price}
             onFocus={selectAllIfZero}
             onChange={(e) => setField('price', parseMoneyInput(e.target.value))}
+          />
+        </label>
+        <label>Payment Proof (optional)
+          <input
+            type="url"
+            inputMode="url"
+            value={draft.payment_proof || ''}
+            onChange={(e) => setField('payment_proof', e.target.value)}
+            placeholder="https://\u2026 receipt/transfer proof link"
+            aria-label="Subscription payment proof URL"
           />
         </label>
         {status ? (
@@ -6942,6 +7018,7 @@ function subscriptionToDraft(sub = {}) {
     start_time: padTime(sub.start_time),
     expiry_date: String(sub.expiry_date || ''),
     expiry_time: padTime(sub.expiry_time),
+    payment_proof: String(sub.payment_proof || ''),
   };
 }
 
@@ -6985,6 +7062,9 @@ function subscriptionToCardProps(sub = {}) {
     expiryDate: sub?.expiry_date || '',
     expiryTime: sub?.expiry_time || sub?.start_time || '',
     issuedDate: sub?.invoice_date || '',
+    // Optional per-period payment proof (URL or short reference).
+    // Surfaced as a subtle indicator on the receipt only when set.
+    paymentProof: String(sub?.payment_proof || '').trim(),
     periodLabel,
     storage: storageRaw,
     showStorage,
@@ -7014,13 +7094,18 @@ function SubsPaidCard({
   expiryDate,
   expiryTime,
   note,
+  paymentProof,
 }) {
   const noteText = String(note || '').trim();
+  const proofText = String(paymentProof || '').trim();
+  const proofLabel = proofText
+    ? (/^https?:\/\//i.test(proofText) ? 'Attached' : proofText)
+    : '';
   return (
     <article className="subs-card" ref={cardRef}>
       <header className="subs-card-head">
         <div className="subs-head-top">
-          <span className="subs-brand">StarShots</span>
+          <img src="/logo-hero.png" alt="StarShots" className="subs-logo" />
           {/* "Paid" chip — also the OCR/vision "paid" marker, paired
               with the "Payment received" line below. */}
           <span className="subs-status-chip">Paid</span>
@@ -7062,6 +7147,12 @@ function SubsPaidCard({
           <span className="subs-row-label">Access Period</span>
           <span className="subs-row-value">{periodLabel || '-'}</span>
         </div>
+        {proofLabel ? (
+          <div className="subs-row">
+            <span className="subs-row-label">Payment Proof</span>
+            <span className="subs-row-value">{proofLabel}</span>
+          </div>
+        ) : null}
       </section>
       {/* Access window — Start → Expiry with a thin progress
           connector (green start dot, hairline rule, arrow). */}

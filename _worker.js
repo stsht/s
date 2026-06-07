@@ -3128,7 +3128,11 @@ function normalizeSubscriptionPayload(raw = {}) {
     start_date: startDate,
     start_time: startTime,
     expiry_date: expiryDate,
-    expiry_time: expiryTime
+    expiry_time: expiryTime,
+    // Optional per-period payment proof (URL or short reference).
+    // Nullable + backward compatible: stripped automatically on
+    // un-migrated schemas via the write-variant fallback below.
+    payment_proof: String(raw.payment_proof ?? raw.paymentProof ?? '').trim().slice(0, 2000) || null
   };
 }
 
@@ -3172,9 +3176,14 @@ async function handleSubscriptionSave(request, env) {
   // required client_name + service so a successful insert always
   // produces a valid row, just possibly without bonus/client_id.
   const stripBonus = (obj) => { const { bonus: _ignored, ...rest } = obj; return rest; };
+  const stripProof = (obj) => { const { payment_proof: _ignored, ...rest } = obj; return rest; };
   const linkedNoBonus = stripBonus(linked);
   const fallbackNoBonus = stripBonus(fallback);
-  const writeVariants = [linked, linkedNoBonus, fallback, fallbackNoBonus];
+  // Each base variant is tried first WITH payment_proof, then again
+  // with it stripped, so an environment missing the (newest)
+  // payment_proof column still saves the row without it.
+  const writeVariants = [linked, linkedNoBonus, fallback, fallbackNoBonus]
+    .flatMap((variant) => [variant, stripProof(variant)]);
 
   async function writeSubscription(url, method) {
     let lastError = null;
@@ -3327,7 +3336,10 @@ function normalizeSubscriptionExtensionPayload(raw = {}) {
     expiry_date: expiryDate,
     expiry_time: expiryTime,
     payment_date: cleanIsoDate(raw.payment_date ?? raw.paymentDate),
-    payment_time: cleanIsoTime(raw.payment_time ?? raw.paymentTime)
+    payment_time: cleanIsoTime(raw.payment_time ?? raw.paymentTime),
+    // Optional per-extension payment proof. Newest column; stripped
+    // first by the write-variant fallback on un-migrated schemas.
+    payment_proof: String(raw.payment_proof ?? raw.paymentProof ?? '').trim().slice(0, 2000) || null
   };
 }
 
@@ -3385,10 +3397,12 @@ async function handleSubscriptionExtensionSave(request, env) {
     return next;
   };
   // Each fallback drops strictly more columns than the previous one.
+  // payment_proof is the newest column, so it is dropped first.
   const payloadVariants = [
     payload,
-    dropKeys(payload, ['payment_date', 'payment_time']),
-    dropKeys(payload, ['payment_date', 'payment_time', 'bonus'])
+    dropKeys(payload, ['payment_proof']),
+    dropKeys(payload, ['payment_proof', 'payment_date', 'payment_time']),
+    dropKeys(payload, ['payment_proof', 'payment_date', 'payment_time', 'bonus'])
   ];
 
   async function writeExtension(url, method) {

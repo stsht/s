@@ -3287,6 +3287,38 @@ dd{margin:0;text-align:right;font-weight:800}
   color:var(--muted);
   font-size:0.75rem;
 }
+/* Per-extension payment proof — a quiet inline link/reference under
+ * the meta line. Only rendered when the extension carries a proof,
+ * so proof-less rows stay clean. */
+.subs-extension-proof{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  margin-top:2px;
+  width:fit-content;
+  font-size:0.75rem;
+  font-weight:600;
+  color:var(--accent,#2563eb);
+  text-decoration:none;
+}
+.subs-extension-proof:hover,
+.subs-extension-proof:focus-visible{
+  text-decoration:underline;
+}
+.subs-extension-proof--text{
+  color:var(--muted);
+  font-weight:500;
+}
+/* Detail-panel "View proof" link for the current period. */
+.subs-proof-link{
+  color:var(--accent,#2563eb);
+  font-weight:600;
+  text-decoration:none;
+}
+.subs-proof-link:hover,
+.subs-proof-link:focus-visible{
+  text-decoration:underline;
+}
 @media (max-width:640px){
   .subs-extension-dates{
     grid-template-columns:1fr;
@@ -4266,6 +4298,15 @@ dd{margin:0;text-align:right;font-weight:800}
   align-items:center;
   justify-content:space-between;
   gap:12px;
+  padding-bottom:14px;
+  border-bottom:1px solid #f0f0f3;
+}
+.subs-logo{
+  height:22px;
+  width:auto;
+  max-width:55%;
+  display:block;
+  object-fit:contain;
 }
 .subs-head-title{
   display:flex;
