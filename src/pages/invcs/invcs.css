@@ -4282,7 +4282,7 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-card{
   position:relative;
   overflow:hidden;
-  width:min(100%,760px);
+  width:min(100%,680px);
   padding:28px 34px 22px;
   border:1px solid #e7e9ee;
   border-radius:20px;
@@ -4311,23 +4311,26 @@ dd{margin:0;text-align:right;font-weight:800}
   height:3px;
   background:linear-gradient(90deg,#5fb0f5 0%,#36c6cf 52%,#46c98a 100%);
 }
-/* Centered, oversized PAID watermark. Very low opacity slate so it
- * reads as a premium paid cue without hurting legibility; generous
- * room left around it (never edge-to-edge). Sits at z-index 0 with
- * the real content lifted to z-index 1. */
+/* Diagonal document-style PAID watermark — classic official-receipt
+ * direction (bottom-left → top-right), soft neutral cyan-gray at very
+ * low opacity. Large enough to read but never dominating: it sits
+ * behind the receipt body (shifted below the header so it doesn't wash
+ * over the logo/title), well inside the card edges, with the real
+ * content lifted to z-index 1. No stamp, box, or red. */
 .subs-watermark{
   position:absolute;
-  top:50%;
+  top:57%;
   left:50%;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%) rotate(-28deg);
+  transform-origin:center;
   z-index:0;
   font-family:var(--font);
-  font-size:168px;
+  font-size:122px;
   line-height:1;
   font-weight:800;
-  letter-spacing:.05em;
-  color:#1f3146;
-  opacity:.05;
+  letter-spacing:.14em;
+  color:#5e767b;
+  opacity:.06;
   white-space:nowrap;
   pointer-events:none;
   user-select:none;
@@ -4659,13 +4662,13 @@ dd{margin:0;text-align:right;font-weight:800}
 .subs-export-host{
   position:fixed;
   inset:auto auto auto -10000px;
-  width:760px;
+  width:680px;
   pointer-events:none;
   background:#fff;
   color-scheme:light;
 }
 .subs-export-host .subs-card{
-  width:760px;
+  width:680px;
 }
 .subs-export-host .subs-invoice-card{
   width:720px;
@@ -4716,7 +4719,7 @@ dd{margin:0;text-align:right;font-weight:800}
     gap:16px;
   }
   .subs-watermark{
-    font-size:108px;
+    font-size:92px;
   }
 }
 
