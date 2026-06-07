@@ -3,37 +3,40 @@
  *
  * Self-contained ambient page background. Two parts:
  *
- *   .ss-bg      a flat, top-biased radial tint (the page colour).
+ *   .ss-bg      a soft, top-biased radial tint (the page colour).
  *   .ss-aurora  a clipping container holding six .ss-blob pools.
  *
  * Gemini-app-inspired ambience: instead of one big wash that
  * fades / hue-shifts in place, the colour lives in a handful of
- * compact, soft, blurred POOLS that each drift along their own
- * transform path. The viewer reads "the blue / cyan / lavender /
- * peach areas are moving across the canvas", not "the background
- * is changing colour".
+ * soft, blurred POOLS that ORBIT through one another near the top
+ * centre, so the viewer reads "the blue / cyan / lavender areas
+ * are moving across and through each other", not "the background
+ * is changing colour" and not "blue lives left, purple lives
+ * right".
  *
- * Tuning notes (why this version reads as MOVING, not static):
- *   - Pools are kept LOCALISED (26-38vmax) rather than one giant
- *     full-screen wash, so a shift of a pool is actually visible
- *     against the calmer space around it.
- *   - Travel is HORIZONTAL / DIAGONAL dominant and generous
- *     (translate amplitudes are a large fraction of each pool, so
- *     the centre of colour sweeps several vmax across the canvas).
- *   - Durations are short enough (19-26s) that a 5s before/after
- *     screenshot shows a clear position change, yet still slow and
- *     elegant.
- *   - Negative animation-delays start every pool mid-path and
- *     desynchronised, so the field is ALWAYS in motion (no shared
- *     "breathing" beat, no dead moment at the loop seam).
- *   - Composition is top-biased: pools live in the upper third /
- *     top half and their paths steer away from the vertical
- *     centre, so the area directly behind a centred login / card
- *     stays calm and readable.
+ * Tuning notes (why this version feels ALIVE and not split):
+ *   - No static colour territories. The base .ss-bg shoulders are
+ *     pulled inward (38% / 62%) and kept faint, so the static
+ *     layer no longer bakes in a left-cyan / right-lavender split;
+ *     the moving pools own the colour distribution.
+ *   - The pools share one overlapping upper-centre band (homes
+ *     clustered ~2-54% left, all near the top edge) and are large
+ *     (38-42vmax) so they genuinely overlap and blend.
+ *   - Each pool ORBITS a small loop (a rotated diamond path) rather
+ *     than ping-ponging around a fixed spot. The blue pools orbit
+ *     rightward and the cyan / lavender pools orbit leftward, so
+ *     they continually CROSS through the top centre and mix.
+ *   - The main lap is ~7s (durations 6.5-8s, desynced by negative
+ *     delays), so the crossing is clearly visible within 3-5s while
+ *     still feeling soft and premium.
+ *   - Vertical travel is kept small and the homes are top-biased,
+ *     so the busiest mixing stays in the upper third and the area
+ *     directly behind a centred login / card stays calm + readable.
  *
  * Motion is pure transform (GPU-friendly), loops back to the start
  * (0% == 100%) so it never jumps, and uses only clean cool tones
- * plus one faint, clean peach accent (no dirty pink).
+ * plus one faint, clean peach accent (no dirty pink, no hue-rotate,
+ * no opacity-fade as the driver — position is what moves).
  *
  * Pairs with GlobalBackground.jsx (renders .ss-bg + .ss-aurora and
  * six blob spans) and imports this file, so dropping
@@ -54,14 +57,15 @@
   inset:0;
   z-index:0;
   pointer-events:none;
-  /* Top-biased tint: the main blue glow is anchored just above the
-   * top edge with soft cyan / lavender shoulders, over a near-white
-   * base. Keeps the page bright and the activity up top while the
-   * vertical centre (behind cards) settles to the calm base. */
+  /* Top-biased tint. The shoulders are pulled toward the centre
+   * (38% / 62%) and kept faint so the STATIC layer no longer reads
+   * as a left/right colour split — the drifting pools carry the
+   * colour. Near-white base keeps the page bright and the centre
+   * (behind cards) calm. */
   background:
-    radial-gradient(900px 500px at 50% -10%, rgba(95,169,255,.32), transparent 60%),
-    radial-gradient(720px 440px at 12% 0%, rgba(46,190,228,.15), transparent 58%),
-    radial-gradient(720px 440px at 88% -2%, rgba(150,130,250,.15), transparent 58%),
+    radial-gradient(900px 520px at 50% -8%, rgba(95,169,255,.30), transparent 62%),
+    radial-gradient(680px 420px at 38% -4%, rgba(46,190,228,.12), transparent 60%),
+    radial-gradient(680px 420px at 62% -4%, rgba(150,130,250,.12), transparent 60%),
     #f3f7fb;
 }
 
@@ -86,143 +90,147 @@
   position:absolute;
   pointer-events:none;
   border-radius:50%;
-  filter:blur(60px) saturate(150%);
+  filter:blur(64px) saturate(150%);
   will-change:transform;
   transform:translate3d(0,0,0);
 }
 
-/* 1 — sky blue, top-left anchor. Sweeps rightward across the top. */
+/* 1 — sky blue. Home upper-left of the band; ORBITS rightward so
+ * the blue crosses into the centre and over the cyan/lavender. */
 .ss-blob-1{
   top:-14%;
-  left:-12%;
-  width:38vmax;
-  height:38vmax;
+  left:2%;
+  width:42vmax;
+  height:42vmax;
   opacity:.82;
   background:radial-gradient(circle at 50% 50%,
     rgba(58,150,255,.55) 0%, rgba(58,150,255,.22) 36%, transparent 68%);
-  animation:ssBlob1 12s ease-in-out infinite;
-  animation-delay:-2s;
+  animation:ssBlob1 7s ease-in-out infinite;
+  animation-delay:-1s;
 }
 
-/* 2 — cyan / aqua, upper-centre-left. Sweeps left toward the edge. */
+/* 2 — cyan / aqua. Central home; orbits leftward, weaving under
+ * the blue and through the lavender. */
 .ss-blob-2{
-  top:-16%;
-  left:24%;
-  width:34vmax;
-  height:34vmax;
-  opacity:.78;
+  top:-18%;
+  left:26%;
+  width:38vmax;
+  height:38vmax;
+  opacity:.76;
   background:radial-gradient(circle at 50% 50%,
     rgba(34,205,228,.5) 0%, rgba(34,205,228,.2) 36%, transparent 68%);
-  animation:ssBlob2 14s ease-in-out infinite;
-  animation-delay:-9s;
+  animation:ssBlob2 7.5s ease-in-out infinite;
+  animation-delay:-3.5s;
 }
 
-/* 3 — soft lavender / violet, top-right. Drifts further right /
- * toward the corner, keeping clear of the centre. */
+/* 3 — soft lavender / violet. Home centre-right of the band;
+ * ORBITS leftward so the purple crosses well past centre and
+ * overlaps the blue (no more "purple stays right"). */
 .ss-blob-3{
   top:-14%;
-  left:56%;
-  width:36vmax;
-  height:36vmax;
+  left:46%;
+  width:42vmax;
+  height:42vmax;
   opacity:.78;
   background:radial-gradient(circle at 50% 50%,
     rgba(150,130,250,.5) 0%, rgba(150,130,250,.2) 36%, transparent 68%);
-  animation:ssBlob3 12.5s ease-in-out infinite;
+  animation:ssBlob3 6.5s ease-in-out infinite;
   animation-delay:-5s;
 }
 
 /* 4 — very subtle, clean warm peach accent, upper-centre. Kept
- * small and faint so it warms the top without muddying the cool
+ * small and faint so it warms the mix without muddying the cool
  * pools (and never reads as pink). */
 .ss-blob-4{
-  top:-8%;
-  left:38%;
+  top:-6%;
+  left:32%;
   width:26vmax;
   height:26vmax;
-  opacity:.34;
+  opacity:.3;
   background:radial-gradient(circle at 50% 50%,
-    rgba(255,178,160,.44) 0%, rgba(255,178,160,.15) 38%, transparent 66%);
-  animation:ssBlob4 14.5s ease-in-out infinite;
-  animation-delay:-12s;
+    rgba(255,180,162,.42) 0%, rgba(255,180,162,.14) 38%, transparent 66%);
+  animation:ssBlob4 8s ease-in-out infinite;
+  animation-delay:-2.5s;
 }
 
-/* 5 — blue edge bleed on the left, upper-mid. Drifts diagonally
- * up-and-right for depth. */
+/* 5 — deeper blue, lower-left of the band. Orbits up-and-right,
+ * adding depth and pushing blue toward the centre-top. */
 .ss-blob-5{
-  top:6%;
-  left:-18%;
-  width:34vmax;
-  height:34vmax;
-  opacity:.58;
+  top:-2%;
+  left:14%;
+  width:38vmax;
+  height:38vmax;
+  opacity:.56;
   background:radial-gradient(circle at 50% 50%,
     rgba(70,170,255,.46) 0%, rgba(70,170,255,.18) 36%, transparent 68%);
-  animation:ssBlob5 13s ease-in-out infinite;
-  animation-delay:-7s;
+  animation:ssBlob5 7s ease-in-out infinite;
+  animation-delay:-4s;
 }
 
-/* 6 — soft cyan-lavender accent, far upper-right. Drifts left a
- * little then back, adding life to the right shoulder. */
+/* 6 — soft cyan-lavender, centre-right. Orbits leftward, helping
+ * the right shoulder bleed into the central mix. */
 .ss-blob-6{
   top:-12%;
-  left:72%;
-  width:32vmax;
-  height:32vmax;
+  left:54%;
+  width:38vmax;
+  height:38vmax;
   opacity:.55;
   background:radial-gradient(circle at 50% 50%,
     rgba(120,168,252,.46) 0%, rgba(120,168,252,.18) 36%, transparent 68%);
-  animation:ssBlob6 13.5s ease-in-out infinite;
-  animation-delay:-15s;
+  animation:ssBlob6 7.5s ease-in-out infinite;
+  animation-delay:-6s;
 }
 
 /* ============================================================
- * Motion — each pool sweeps a distinct, mostly HORIZONTAL /
- * DIAGONAL path and returns to its start (0% == 100%) so the loop
- * never jumps. Amplitudes are a large fraction of each pool, so
- * the colour visibly travels across the canvas within a few
- * seconds; combined with the negative delays above the whole field
- * is perpetually in motion. Pure transform = GPU-friendly.
- * (translate %s are relative to each pool's own box.)
+ * Motion — each pool ORBITS a small rotated-diamond loop and
+ * returns to its start (0% == 100%) so the loop never jumps. Blue
+ * pools (1, 5) bias rightward, cyan / lavender (2, 3, 6) bias
+ * leftward, so the colours continually CROSS through the top
+ * centre and blend. Horizontal swing is generous; vertical swing
+ * is kept small to protect the calm centre behind cards. Pure
+ * transform = GPU-friendly. (translate %s are relative to each
+ * pool's own box.)
  * ============================================================ */
-@keyframes ssBlob1{
-  0%{transform:translate3d(0,0,0) scale(1)}
-  25%{transform:translate3d(20%,5%,0) scale(1.06)}
-  50%{transform:translate3d(36%,1%,0) scale(1.03)}
-  75%{transform:translate3d(14%,7%,0) scale(1.07)}
-  100%{transform:translate3d(0,0,0) scale(1)}
+@keyframes ssBlob1{ /* blue — orbits right */
+  0%{transform:translate3d(-6%,-6%,0) scale(1)}
+  25%{transform:translate3d(16%,-2%,0) scale(1.06)}
+  50%{transform:translate3d(22%,5%,0) scale(1.04)}
+  75%{transform:translate3d(4%,8%,0) scale(1.07)}
+  100%{transform:translate3d(-6%,-6%,0) scale(1)}
 }
-@keyframes ssBlob2{
-  0%{transform:translate3d(0,0,0) scale(1.02)}
-  25%{transform:translate3d(-22%,7%,0) scale(1.08)}
-  50%{transform:translate3d(-36%,2%,0) scale(1.02)}
-  75%{transform:translate3d(-12%,9%,0) scale(1.06)}
-  100%{transform:translate3d(0,0,0) scale(1.02)}
+@keyframes ssBlob2{ /* cyan — orbits left */
+  0%{transform:translate3d(8%,-5%,0) scale(1.03)}
+  25%{transform:translate3d(-12%,-1%,0) scale(1.07)}
+  50%{transform:translate3d(-20%,6%,0) scale(1.03)}
+  75%{transform:translate3d(-4%,9%,0) scale(1.06)}
+  100%{transform:translate3d(8%,-5%,0) scale(1.03)}
 }
-@keyframes ssBlob3{
-  0%{transform:translate3d(0,0,0) scale(1)}
-  25%{transform:translate3d(15%,6%,0) scale(1.06)}
-  50%{transform:translate3d(27%,2%,0) scale(1.03)}
-  75%{transform:translate3d(9%,8%,0) scale(1.07)}
-  100%{transform:translate3d(0,0,0) scale(1)}
+@keyframes ssBlob3{ /* lavender — orbits left across centre */
+  0%{transform:translate3d(6%,-6%,0) scale(1)}
+  25%{transform:translate3d(-16%,-2%,0) scale(1.06)}
+  50%{transform:translate3d(-24%,5%,0) scale(1.05)}
+  75%{transform:translate3d(-6%,8%,0) scale(1.07)}
+  100%{transform:translate3d(6%,-6%,0) scale(1)}
 }
-@keyframes ssBlob4{
-  0%{transform:translate3d(0,0,0) scale(1)}
-  33%{transform:translate3d(18%,5%,0) scale(1.1)}
-  66%{transform:translate3d(-12%,3%,0) scale(1.04)}
-  100%{transform:translate3d(0,0,0) scale(1)}
+@keyframes ssBlob4{ /* peach — gentle drift */
+  0%{transform:translate3d(0,-4%,0) scale(1)}
+  33%{transform:translate3d(12%,2%,0) scale(1.08)}
+  66%{transform:translate3d(-10%,4%,0) scale(1.04)}
+  100%{transform:translate3d(0,-4%,0) scale(1)}
 }
-@keyframes ssBlob5{
-  0%{transform:translate3d(0,0,0) scale(1.03)}
-  25%{transform:translate3d(20%,-8%,0) scale(1.1)}
-  50%{transform:translate3d(34%,-4%,0) scale(1.04)}
-  75%{transform:translate3d(15%,-10%,0) scale(1.08)}
-  100%{transform:translate3d(0,0,0) scale(1.03)}
+@keyframes ssBlob5{ /* deep blue — orbits up-right */
+  0%{transform:translate3d(-8%,0,0) scale(1.03)}
+  25%{transform:translate3d(10%,-8%,0) scale(1.09)}
+  50%{transform:translate3d(20%,-3%,0) scale(1.05)}
+  75%{transform:translate3d(2%,-9%,0) scale(1.08)}
+  100%{transform:translate3d(-8%,0,0) scale(1.03)}
 }
-@keyframes ssBlob6{
-  0%{transform:translate3d(0,0,0) scale(1)}
-  25%{transform:translate3d(-16%,6%,0) scale(1.06)}
-  50%{transform:translate3d(-28%,2%,0) scale(1.03)}
-  75%{transform:translate3d(-9%,8%,0) scale(1.06)}
-  100%{transform:translate3d(0,0,0) scale(1)}
+@keyframes ssBlob6{ /* cyan-lavender — orbits left */
+  0%{transform:translate3d(6%,-5%,0) scale(1)}
+  25%{transform:translate3d(-14%,-1%,0) scale(1.06)}
+  50%{transform:translate3d(-22%,5%,0) scale(1.04)}
+  75%{transform:translate3d(-4%,8%,0) scale(1.06)}
+  100%{transform:translate3d(6%,-5%,0) scale(1)}
 }
 
 /* ============================================================
@@ -233,13 +241,13 @@
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(1000px 580px at 50% -10%, rgba(70,128,255,.58), transparent 58%),
-      radial-gradient(720px 440px at 12% 0%, rgba(34,168,224,.28), transparent 58%),
-      radial-gradient(720px 440px at 88% -2%, rgba(132,108,248,.28), transparent 58%),
+      radial-gradient(1000px 600px at 50% -8%, rgba(70,128,255,.56), transparent 60%),
+      radial-gradient(700px 440px at 38% -4%, rgba(34,168,224,.24), transparent 60%),
+      radial-gradient(700px 440px at 62% -4%, rgba(132,108,248,.24), transparent 60%),
       #0a1226;
   }
   .ss-blob{
-    filter:blur(68px) saturate(160%);
+    filter:blur(72px) saturate(160%);
   }
   .ss-blob-1{
     opacity:.9;
@@ -257,9 +265,9 @@
       rgba(150,124,252,.58) 0%, rgba(150,124,252,.24) 36%, transparent 66%);
   }
   .ss-blob-4{
-    opacity:.4;
+    opacity:.36;
     background:radial-gradient(circle at 50% 50%,
-      rgba(255,170,152,.46) 0%, rgba(255,170,152,.17) 38%, transparent 64%);
+      rgba(255,172,154,.44) 0%, rgba(255,172,154,.16) 38%, transparent 64%);
   }
   .ss-blob-5{
     opacity:.7;
@@ -275,20 +283,21 @@
 
 /* ============================================================
  * Mobile — the workspace card fills most of the viewport, so pull
- * the pools tighter to the top edge and lift size/opacity a touch
- * so the ambience still reads above / behind the card. Motion (the
- * shared keyframes) is unchanged — no device-based freeze.
+ * the pools tighter to the top edge and lift size a touch so the
+ * overlapping mix still reads above / behind the card. Homes stay
+ * clustered (no left/right split); motion (the shared keyframes)
+ * is unchanged — no device-based freeze.
  * ============================================================ */
 @media (max-width:768px){
   .ss-blob{
-    filter:blur(50px) saturate(150%);
+    filter:blur(54px) saturate(150%);
   }
-  .ss-blob-1{ top:-16%; left:-22%; width:58vmax; height:58vmax; }
-  .ss-blob-2{ top:-18%; left:14%;  width:54vmax; height:54vmax; }
-  .ss-blob-3{ top:-16%; left:50%;  width:58vmax; height:58vmax; }
-  .ss-blob-4{ top:-10%; left:28%;  width:40vmax; height:40vmax; opacity:.36; }
-  .ss-blob-5{ top:2%;   left:-28%; width:52vmax; height:52vmax; }
-  .ss-blob-6{ top:-14%; left:66%;  width:50vmax; height:50vmax; }
+  .ss-blob-1{ top:-16%; left:-8%;  width:60vmax; height:60vmax; }
+  .ss-blob-2{ top:-18%; left:18%;  width:56vmax; height:56vmax; }
+  .ss-blob-3{ top:-16%; left:40%;  width:60vmax; height:60vmax; }
+  .ss-blob-4{ top:-8%;  left:26%;  width:40vmax; height:40vmax; opacity:.32; }
+  .ss-blob-5{ top:-2%;  left:6%;   width:54vmax; height:54vmax; }
+  .ss-blob-6{ top:-14%; left:48%;  width:54vmax; height:54vmax; }
 }
 
 /* ============================================================
