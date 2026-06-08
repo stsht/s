@@ -35,11 +35,14 @@
  *     while lower pools stay softer, so text stays readable.
  *   - Each pool ORBITS its own loop (rotated-diamond / circular
  *     paths) with generous horizontal AND some vertical travel and
- *     a little scale, so a 5s screenshot shows obvious movement —
+ *     a little scale, so even a quick glance shows obvious movement —
  *     the field gently "dances" rather than sitting still.
- *   - The main lap is ~5s (durations 4.5-5.5s, desynced by
- *     negative delays + mixed directions) for a lively-but-smooth,
- *     randomised feel that is clearly animated within 3-5s.
+ *   - Laps are deliberately DESYNCED across a wide range (~3.4s for
+ *     the liveliest pool up to ~12.8s for the slow ambient ones —
+ *     no two alike and none near 5s) so a fixed-interval comparison
+ *     (e.g. a 5s before/after) can never alias to the same frame.
+ *     Timing is `linear`, so pools drift continuously instead of
+ *     easing to a near-stop at every loop corner.
  *
  * Motion is pure transform (GPU-friendly); blur/opacity are static
  * per pool (not animated) to stay cheap. Loops return to the start
@@ -116,8 +119,8 @@
   opacity:.84;
   background:radial-gradient(circle at 50% 50%,
     rgba(60,140,255,.72) 0%, rgba(60,140,255,.28) 36%, transparent 68%);
-  animation:ssBlob1 5s ease-in-out infinite;
-  animation-delay:-1s;
+  animation:ssBlob1 6.1s linear infinite;
+  animation-delay:-2.2s;
 }
 
 /* 2 — soft violet, top-centre. Orbits left, crossing the blue. */
@@ -129,8 +132,8 @@
   opacity:.78;
   background:radial-gradient(circle at 50% 50%,
     rgba(150,124,252,.68) 0%, rgba(150,124,252,.26) 36%, transparent 68%);
-  animation:ssBlob2 5.25s ease-in-out infinite;
-  animation-delay:-3s;
+  animation:ssBlob2 7.3s linear infinite;
+  animation-delay:-5.7s;
 }
 
 /* 3 — cyan / aqua, top-right. Orbits left toward the centre. */
@@ -142,8 +145,8 @@
   opacity:.76;
   background:radial-gradient(circle at 50% 50%,
     rgba(28,202,228,.66) 0%, rgba(28,202,228,.26) 36%, transparent 68%);
-  animation:ssBlob3 4.5s ease-in-out infinite;
-  animation-delay:-5s;
+  animation:ssBlob3 3.4s linear infinite;
+  animation-delay:-1.3s;
 }
 
 /* ---- MIDDLE band (soft) ---- */
@@ -158,8 +161,8 @@
   opacity:.64;
   background:radial-gradient(circle at 50% 50%,
     rgba(116,156,252,.6) 0%, rgba(116,156,252,.24) 38%, transparent 68%);
-  animation:ssBlob4 5.5s ease-in-out infinite;
-  animation-delay:-2s;
+  animation:ssBlob4 8.6s linear infinite;
+  animation-delay:-3.9s;
 }
 
 /* 5 — mint / teal accent, mid-right. Orbits left toward the centre,
@@ -172,8 +175,8 @@
   opacity:.58;
   background:radial-gradient(circle at 50% 50%,
     rgba(118,212,176,.56) 0%, rgba(118,212,176,.22) 38%, transparent 68%);
-  animation:ssBlob5 4.75s ease-in-out infinite;
-  animation-delay:-6s;
+  animation:ssBlob5 10.4s linear infinite;
+  animation-delay:-6.5s;
 }
 
 /* 6 — soft teal, mid-centre. Gentle circular orbit; blends the
@@ -186,8 +189,8 @@
   opacity:.58;
   background:radial-gradient(circle at 50% 50%,
     rgba(48,196,210,.56) 0%, rgba(48,196,210,.22) 38%, transparent 68%);
-  animation:ssBlob6 5.5s ease-in-out infinite;
-  animation-delay:-4s;
+  animation:ssBlob6 4.2s linear infinite;
+  animation-delay:-0.8s;
 }
 
 /* ---- LOWER band (softest) ---- */
@@ -202,8 +205,8 @@
   opacity:.56;
   background:radial-gradient(circle at 50% 50%,
     rgba(140,180,255,.54) 0%, rgba(162,150,250,.22) 40%, transparent 70%);
-  animation:ssBlob7 5.25s ease-in-out infinite;
-  animation-delay:-7s;
+  animation:ssBlob7 12.8s linear infinite;
+  animation-delay:-9.1s;
 }
 
 /* 8 — tiny, faint clean peach / blush accent, upper-centre. Roams
@@ -217,73 +220,76 @@
   opacity:.26;
   background:radial-gradient(circle at 50% 50%,
     rgba(255,186,170,.42) 0%, rgba(255,186,170,.14) 40%, transparent 66%);
-  animation:ssBlob8 4.5s ease-in-out infinite;
-  animation-delay:-2.5s;
+  animation:ssBlob8 9.5s linear infinite;
+  animation-delay:-4.3s;
 }
 
 /* ============================================================
  * Motion — each pool ORBITS its own loop and returns to its start
  * (0% == 100%) so the loop never jumps. Directions are mixed
- * (some bias right, some left, some up) and durations/delays are
- * desynced, giving a lively, randomised, full-screen "dance".
- * Horizontal swing is generous (obvious in a 5s screenshot) with
- * some vertical travel and a little scale. Pure transform =
- * GPU-friendly. (translate %s are relative to each pool's box.)
+ * (some bias right, some left, some up), and durations/delays are
+ * desynced across a wide ~3.4s-12.8s range (no two alike, none near
+ * 5s), giving a lively, randomised, full-screen "dance" that never
+ * aliases to a static-looking before/after. Horizontal swing is
+ * generous (obvious at a glance) with some vertical travel and a
+ * little scale. `linear` timing keeps the drift continuous (no
+ * easing-to-a-stop at the corners). Pure transform = GPU-friendly.
+ * (translate %s are relative to each pool's box.)
  * ============================================================ */
 @keyframes ssBlob1{ /* sky blue — right + down */
-  0%{transform:translate3d(-8%,-6%,0) scale(1)}
-  25%{transform:translate3d(19%,-2%,0) scale(1.07)}
-  50%{transform:translate3d(28%,9%,0) scale(1.03)}
-  75%{transform:translate3d(5%,13%,0) scale(1.08)}
-  100%{transform:translate3d(-8%,-6%,0) scale(1)}
+  0%{transform:translate3d(-10%,-8%,0) scale(1)}
+  25%{transform:translate3d(25%,-3%,0) scale(1.07)}
+  50%{transform:translate3d(36%,12%,0) scale(1.03)}
+  75%{transform:translate3d(7%,17%,0) scale(1.08)}
+  100%{transform:translate3d(-10%,-8%,0) scale(1)}
 }
 @keyframes ssBlob2{ /* violet — left + down */
-  0%{transform:translate3d(9%,-6%,0) scale(1.02)}
-  25%{transform:translate3d(-18%,-2%,0) scale(1.08)}
-  50%{transform:translate3d(-28%,9%,0) scale(1.03)}
-  75%{transform:translate3d(-4%,13%,0) scale(1.07)}
-  100%{transform:translate3d(9%,-6%,0) scale(1.02)}
+  0%{transform:translate3d(12%,-8%,0) scale(1.02)}
+  25%{transform:translate3d(-23%,-3%,0) scale(1.08)}
+  50%{transform:translate3d(-36%,12%,0) scale(1.03)}
+  75%{transform:translate3d(-5%,17%,0) scale(1.07)}
+  100%{transform:translate3d(12%,-8%,0) scale(1.02)}
 }
 @keyframes ssBlob3{ /* cyan / aqua — left toward centre */
-  0%{transform:translate3d(6%,-7%,0) scale(1)}
-  25%{transform:translate3d(-20%,-2%,0) scale(1.07)}
-  50%{transform:translate3d(-30%,8%,0) scale(1.06)}
-  75%{transform:translate3d(-6%,12%,0) scale(1.08)}
-  100%{transform:translate3d(6%,-7%,0) scale(1)}
+  0%{transform:translate3d(8%,-9%,0) scale(1)}
+  25%{transform:translate3d(-26%,-3%,0) scale(1.07)}
+  50%{transform:translate3d(-39%,10%,0) scale(1.06)}
+  75%{transform:translate3d(-8%,16%,0) scale(1.08)}
+  100%{transform:translate3d(8%,-9%,0) scale(1)}
 }
 @keyframes ssBlob4{ /* periwinkle — up + right */
-  0%{transform:translate3d(-7%,5%,0) scale(1.02)}
-  25%{transform:translate3d(13%,-6%,0) scale(1.08)}
-  50%{transform:translate3d(22%,-2%,0) scale(1.04)}
-  75%{transform:translate3d(4%,-9%,0) scale(1.07)}
-  100%{transform:translate3d(-7%,5%,0) scale(1.02)}
+  0%{transform:translate3d(-9%,7%,0) scale(1.02)}
+  25%{transform:translate3d(17%,-8%,0) scale(1.08)}
+  50%{transform:translate3d(29%,-3%,0) scale(1.04)}
+  75%{transform:translate3d(5%,-12%,0) scale(1.07)}
+  100%{transform:translate3d(-9%,7%,0) scale(1.02)}
 }
 @keyframes ssBlob5{ /* mint — left + up */
-  0%{transform:translate3d(6%,-4%,0) scale(1)}
-  25%{transform:translate3d(-14%,4%,0) scale(1.07)}
-  50%{transform:translate3d(-23%,-3%,0) scale(1.04)}
-  75%{transform:translate3d(-4%,8%,0) scale(1.06)}
-  100%{transform:translate3d(6%,-4%,0) scale(1)}
+  0%{transform:translate3d(8%,-5%,0) scale(1)}
+  25%{transform:translate3d(-18%,5%,0) scale(1.07)}
+  50%{transform:translate3d(-30%,-4%,0) scale(1.04)}
+  75%{transform:translate3d(-5%,10%,0) scale(1.06)}
+  100%{transform:translate3d(8%,-5%,0) scale(1)}
 }
 @keyframes ssBlob6{ /* teal — gentle circle */
-  0%{transform:translate3d(0,-6%,0) scale(1)}
-  25%{transform:translate3d(16%,3%,0) scale(1.07)}
-  50%{transform:translate3d(3%,13%,0) scale(1.04)}
-  75%{transform:translate3d(-15%,4%,0) scale(1.08)}
-  100%{transform:translate3d(0,-6%,0) scale(1)}
+  0%{transform:translate3d(0,-8%,0) scale(1)}
+  25%{transform:translate3d(21%,4%,0) scale(1.07)}
+  50%{transform:translate3d(4%,17%,0) scale(1.04)}
+  75%{transform:translate3d(-20%,5%,0) scale(1.08)}
+  100%{transform:translate3d(0,-8%,0) scale(1)}
 }
 @keyframes ssBlob7{ /* baby blue — drift up + sideways */
-  0%{transform:translate3d(-5%,5%,0) scale(1.02)}
-  25%{transform:translate3d(11%,-3%,0) scale(1.06)}
-  50%{transform:translate3d(18%,4%,0) scale(1.03)}
-  75%{transform:translate3d(2%,-7%,0) scale(1.06)}
-  100%{transform:translate3d(-5%,5%,0) scale(1.02)}
+  0%{transform:translate3d(-7%,7%,0) scale(1.02)}
+  25%{transform:translate3d(14%,-4%,0) scale(1.06)}
+  50%{transform:translate3d(23%,5%,0) scale(1.03)}
+  75%{transform:translate3d(3%,-9%,0) scale(1.06)}
+  100%{transform:translate3d(-7%,7%,0) scale(1.02)}
 }
 @keyframes ssBlob8{ /* peach — small gentle drift */
-  0%{transform:translate3d(0,-3%,0) scale(1)}
-  33%{transform:translate3d(-13%,3%,0) scale(1.08)}
-  66%{transform:translate3d(10%,5%,0) scale(1.04)}
-  100%{transform:translate3d(0,-3%,0) scale(1)}
+  0%{transform:translate3d(0,-4%,0) scale(1)}
+  33%{transform:translate3d(-17%,4%,0) scale(1.08)}
+  66%{transform:translate3d(13%,7%,0) scale(1.04)}
+  100%{transform:translate3d(0,-4%,0) scale(1)}
 }
 
 /* ============================================================
