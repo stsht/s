@@ -647,9 +647,20 @@ function GalleryLinks({ payload }) {
   // invoice never shows this panel (the JPG keeps its PAID
   // stamp/receipt instead).
   const invoiceStatusValue = String(invoice?.status || 'invoice').toLowerCase();
-  const showPaymentPanel = !!invoice && invoiceStatusValue !== 'paid';
-  const paymentDue = paymentDueInfo(invoice);
   const invoiceData = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  // Mirror the invoice JPG's payment box. A deposit invoice whose deposit
+  // ask has been closed (depositAskOpen === false) renders as "Deposit
+  // Received" with NO payment instructions, so the public payment panel
+  // must not contradict it by prompting the client to pay an already
+  // received deposit. depositAskOpen defaults to open (true) when unset,
+  // matching PublicInvoiceDocument.
+  const depositReceived = invoiceStatusValue === 'deposit' && invoiceData.depositAskOpen === false;
+  // The panel collects an OUTSTANDING amount only: skip it for fully paid
+  // invoices (PAID stamp) and for deposit-received invoices (the deposit
+  // is already in — there is no separate public balance-collection flow,
+  // and the JPG itself shows no balance instructions in this state).
+  const showPaymentPanel = !!invoice && invoiceStatusValue !== 'paid' && !depositReceived;
+  const paymentDue = paymentDueInfo(invoice);
   const paymentMethod = cleanPaymentMethod(invoiceData.paymentMethod);
   const paymentActionLabel = paymentMethod === 'qr' ? 'Download QR' : (bankCopied ? 'Copied' : 'Copy Bank Account');
   const PaymentActionIcon = paymentMethod === 'qr' ? IconDownload : IconCopy;
