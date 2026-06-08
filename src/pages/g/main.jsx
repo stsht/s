@@ -486,22 +486,20 @@ function GalleryLinks({ payload }) {
     event.preventDefault();
     track('invoice', 'invoice_view');
     // PAID invoices have no payment instructions (no QR/account/copy),
-    // so the intermediate gate is redundant — jump straight to the full
-    // viewer. The off-screen render host still mounts (invoiceOpen) so
-    // html2canvas can produce the JPG the viewer displays.
+    // so the intermediate gate is redundant. We still fetch + render the
+    // invoice first; the paid-direct auto-open effect below opens the
+    // full viewer only once the JPG is ready. Until then a small loading
+    // state shows — never the old intermediate gate, and never a
+    // premature "Invoice not found" (errors surface only after the fetch
+    // resolves).
     const isPaid = String(payload?.invoice?.status || '').toLowerCase() === 'paid';
     setInvoiceOpen(true);
+    setFullScreenPreviewOpen(false);
     setScale(1);
     setPan({ x: 0, y: 0 });
     setInvoiceImage('');
     setInvoiceStatus('Opening invoice...');
-    if (isPaid) {
-      setPaidDirectView(true);
-      setFullScreenPreviewOpen(true);
-      track('invoice', 'invoice_fullscreen');
-    } else {
-      setPaidDirectView(false);
-    }
+    setPaidDirectView(isPaid);
     try {
       const response = await fetch(`/api/public-invoice?slug=${encodeURIComponent(slug)}`, {
         credentials: 'same-origin',
@@ -533,6 +531,21 @@ function GalleryLinks({ payload }) {
       setPaidDirectView(false);
     }
   }
+
+  // Paid-direct auto-open: once the invoice JPG has actually rendered,
+  // open the full viewer directly. Gating on `invoiceImage` guarantees
+  // the invoice was fetched AND the sheet rendered, so we never flash the
+  // intermediate gate and never open onto a premature "not found"/empty
+  // state. If the fetch fails the image never renders, the viewer stays
+  // closed, and the loading card shows the real error instead.
+  useEffect(() => {
+    if (paidDirectView && invoiceImage && !fullScreenPreviewOpen) {
+      track('invoice', 'invoice_fullscreen');
+      setScale(1);
+      setPan({ x: 0, y: 0 });
+      setFullScreenPreviewOpen(true);
+    }
+  }, [paidDirectView, invoiceImage, fullScreenPreviewOpen]);
 
   useEffect(() => {
     let alive = true;
@@ -750,6 +763,46 @@ function GalleryLinks({ payload }) {
 
       {invoiceOpen ? (
         <div className="public-invoice-viewer" role="dialog" aria-modal="true" aria-label="Invoice preview">
+          {paidDirectView && !fullScreenPreviewOpen ? (
+            // Paid-direct loading state. The intermediate gate is skipped
+            // for paid invoices, so while the invoice fetches/renders we
+            // show a small status note (and a Close affordance) instead of
+            // the gate. The full viewer opens automatically once ready;
+            // any fetch error (e.g. genuinely missing invoice) surfaces
+            // here only after the request resolves.
+            <div className="public-invoice-viewer-card">
+              <header className="public-invoice-viewer-toolbar desktop-only-header">
+                <strong>Invoice</strong>
+                <div className="public-invoice-viewer-actions">
+                  <button
+                    type="button"
+                    className="public-invoice-action public-invoice-action--ghost"
+                    onClick={() => setInvoiceOpen(false)}
+                    aria-label="Close"
+                    style={{ padding: 0, width: '38px' }}
+                  >
+                    <IconClose />
+                  </button>
+                </div>
+              </header>
+              <header className="public-invoice-viewer-header-mobile mobile-only-header">
+                <strong>Invoice</strong>
+                <button
+                  type="button"
+                  className="public-invoice-close-btn"
+                  onClick={() => setInvoiceOpen(false)}
+                  aria-label="Close"
+                >
+                  <IconClose />
+                </button>
+              </header>
+              <div className="public-invoice-viewer-body">
+                <p style={{ padding: '28px 4px', textAlign: 'center', opacity: 0.7 }}>
+                  {invoiceStatus || 'Loading invoice…'}
+                </p>
+              </div>
+            </div>
+          ) : (
           <div className="public-invoice-viewer-card">
             {/* Desktop Toolbar (hidden on mobile) */}
             <header className="public-invoice-viewer-toolbar desktop-only-header">
@@ -864,6 +917,7 @@ function GalleryLinks({ payload }) {
               ) : null}
             </div>
           </div>
+          )}
           {invoice ? (
             <div className="invoice-export-host public-invoice-render-host" aria-hidden="true">
               <div ref={invoiceRenderRef}>
