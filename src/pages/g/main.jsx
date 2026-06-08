@@ -351,47 +351,96 @@ function GalleryLinks({ payload }) {
   }, [fullScreenPreviewOpen]);
 
   // Keep the transform refs in sync with state for any update that does not
-  // go through commitTransform (Fit button, open/close reset).
+  // go through the gesture handlers (Fit button, open/close reset).
   useEffect(() => { scaleRef.current = scale; }, [scale]);
   useEffect(() => { panRef.current = pan; }, [pan]);
 
-  // Bound a proposed pan to the container so the zoomed invoice reaches its
-  // edges but never drifts off-screen. With transform-origin:center the
-  // image overflows the container by (renderedSize*scale - containerSize),
-  // split evenly, so max travel per axis is half that overflow (0 when the
-  // image fits — which also re-centres it).
-  const clampPanValue = useCallback((nextPan, nextScale) => {
-    const el = previewContainerRef.current;
-    const img = fullscreenImgRef.current;
-    if (!el || !img) return { x: 0, y: 0 };
-    const maxX = Math.max(0, (img.offsetWidth * nextScale - el.clientWidth) / 2);
-    const maxY = Math.max(0, (img.offsetHeight * nextScale - el.clientHeight) / 2);
-    return {
-      x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
-      y: Math.min(maxY, Math.max(-maxY, nextPan.y)),
+  // Cached, stable sizing for pan bounds. Measured from layout ONLY when
+  // it can actually change (image load, viewer open, resize/orientation) —
+  // never during a gesture. Reading layout (offsetWidth / getBoundingClientRect)
+  // every move is what made Safari stutter and snap back.
+  // Bounds for the current scale are derived from these cached numbers
+  // with no DOM access, so a drag can never feed back into a reflow.
+  const baseSizeRef = useRef({ imgW: 0, imgH: 0, contW: 0, contH: 0, cx: 0, cy: 0 });
+  const boundsRef = useRef({ maxX: 0, maxY: 0 });
+
+  const recomputeBounds = useCallback(() => {
+    const { imgW, imgH, contW, contH } = baseSizeRef.current;
+    const s = scaleRef.current;
+    boundsRef.current = {
+      maxX: Math.max(0, (imgW * s - contW) / 2),
+      maxY: Math.max(0, (imgH * s - contH) / 2),
     };
   }, []);
 
-  // Single write-path for the transform: clamp, update refs (read by the
-  // next gesture frame), then state (for the CSS vars / render).
-  const commitTransform = useCallback((nextScale, nextPan) => {
-    const clamped = clampPanValue(nextPan, nextScale);
-    scaleRef.current = nextScale;
-    panRef.current = clamped;
-    setScale(nextScale);
-    setPan(clamped);
-  }, [clampPanValue]);
+  const measureBase = useCallback(() => {
+    const el = previewContainerRef.current;
+    const img = fullscreenImgRef.current;
+    if (!el || !img) return;
+    const rect = el.getBoundingClientRect();
+    baseSizeRef.current = {
+      imgW: img.offsetWidth,
+      imgH: img.offsetHeight,
+      contW: el.clientWidth,
+      contH: el.clientHeight,
+      cx: rect.left + rect.width / 2,
+      cy: rect.top + rect.height / 2,
+    };
+    recomputeBounds();
+  }, [recomputeBounds]);
 
-  // Re-clamp the current transform (image load, resize/orientation change).
-  const clampToBounds = useCallback(() => {
-    commitTransform(scaleRef.current, panRef.current);
-  }, [commitTransform]);
+  // Clamp against the cached bounds only (no layout). Stops exactly at the
+  // real edges; inside the bounds the pan is passed through untouched, so
+  // dragging never feels resisted.
+  const clampPan = useCallback((p) => {
+    const { maxX, maxY } = boundsRef.current;
+    return {
+      x: Math.min(maxX, Math.max(-maxX, p.x)),
+      y: Math.min(maxY, Math.max(-maxY, p.y)),
+    };
+  }, []);
+
+  // Imperative transform write. Bypasses React during gestures so a full
+  // re-render of this (large) component never lands between frames — that
+  // per-frame setState was the core desktop-stutter cause. React state is
+  // reconciled only when the gesture settles (syncTransformState).
+  const applyDOM = useCallback(() => {
+    const img = fullscreenImgRef.current;
+    if (!img) return;
+    img.style.setProperty('--scale', String(scaleRef.current));
+    img.style.setProperty('--pan-x', `${panRef.current.x}px`);
+    img.style.setProperty('--pan-y', `${panRef.current.y}px`);
+  }, []);
+
+  const syncTransformState = useCallback(() => {
+    setScale(scaleRef.current);
+    setPan({ x: panRef.current.x, y: panRef.current.y });
+  }, []);
+
+  // Fit / reset: recentre and rescale to 1, syncing both DOM and state.
+  const resetTransform = useCallback(() => {
+    scaleRef.current = 1;
+    panRef.current = { x: 0, y: 0 };
+    recomputeBounds();
+    applyDOM();
+    syncTransformState();
+  }, [recomputeBounds, applyDOM, syncTransformState]);
+
+  // Re-measure + re-clamp after a layout change (image load, resize,
+  // orientation) so the zoomed invoice stays inside the new bounds.
+  const reclampTransform = useCallback(() => {
+    measureBase();
+    panRef.current = clampPan(panRef.current);
+    applyDOM();
+    syncTransformState();
+  }, [measureBase, clampPan, applyDOM, syncTransformState]);
 
   // Pointer / touch / wheel zoom + pan for the fullscreen invoice. Bound
-  // once per open (handlers read the refs, never component state) so a
-  // gesture is never interrupted by a listener rebind. Zoom is
-  // focal-point based: the image point under the pinch midpoint / wheel
-  // pointer stays anchored while the scale changes.
+  // once per open (handlers read refs, never component state) so a gesture
+  // is never interrupted by a listener rebind. During a gesture the
+  // transform is written straight to the DOM via requestAnimationFrame and
+  // React state is reconciled only after the gesture settles, so Safari /
+  // Firefox no longer drop frames or snap back. Zoom is focal-point based.
   useEffect(() => {
     if (!fullScreenPreviewOpen) return undefined;
     const el = previewContainerRef.current;
@@ -402,25 +451,39 @@ function GalleryLinks({ payload }) {
     const distance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     const midpoint = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
 
-    // Scale toward (focalX, focalY): solve for the pan that keeps the
-    // content under the focal screen point fixed. extraPan lets a sliding
-    // pinch midpoint translate the image at the same time.
-    const zoomTo = (nextScaleRaw, focalX, focalY, extraPan) => {
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const s0 = scaleRef.current || 1;
-      const s1 = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScaleRaw));
-      const p0 = panRef.current;
-      const k = (s1 - s0) / s0;
-      let nx = p0.x - k * (focalX - cx - p0.x);
-      let ny = p0.y - k * (focalY - cy - p0.y);
-      if (extraPan) { nx += extraPan.x; ny += extraPan.y; }
-      commitTransform(s1, { x: nx, y: ny });
+    // Measure now in case the image was already decoded before this effect
+    // ran (cached JPG → onLoad may have fired earlier).
+    measureBase();
+
+    let rafId = 0;
+    const draw = () => { rafId = 0; applyDOM(); };
+    const schedule = () => { if (!rafId) rafId = requestAnimationFrame(draw); };
+
+    let syncId = 0;
+    const scheduleSync = () => {
+      if (syncId) clearTimeout(syncId);
+      syncId = setTimeout(() => { syncId = 0; syncTransformState(); }, 90);
     };
 
-    const panBy = (dx, dy) => {
-      commitTransform(scaleRef.current, { x: panRef.current.x + dx, y: panRef.current.y + dy });
+    const panTo = (p) => { panRef.current = clampPan(p); schedule(); scheduleSync(); };
+    const panBy = (dx, dy) => panTo({ x: panRef.current.x + dx, y: panRef.current.y + dy });
+
+    // Focal zoom: keep the image point under (fx, fy) fixed while scaling.
+    const zoomTo = (rawScale, fx, fy, extraPan) => {
+      const s0 = scaleRef.current || 1;
+      const s1 = Math.max(MIN_SCALE, Math.min(MAX_SCALE, rawScale));
+      if (s1 === s0 && !extraPan) return;
+      const { cx, cy } = baseSizeRef.current;
+      const p0 = panRef.current;
+      const k = (s1 - s0) / s0;
+      let nx = p0.x - k * (fx - cx - p0.x);
+      let ny = p0.y - k * (fy - cy - p0.y);
+      if (extraPan) { nx += extraPan.x; ny += extraPan.y; }
+      scaleRef.current = s1;
+      recomputeBounds();
+      panRef.current = clampPan({ x: nx, y: ny });
+      schedule();
+      scheduleSync();
     };
 
     const handleTouchStart = (e) => {
@@ -460,7 +523,6 @@ function GalleryLinks({ payload }) {
 
     const handleTouchEnd = (e) => {
       if (e.touches.length === 1) {
-        // A finger lifted mid-pinch: hand off to one-finger pan smoothly.
         pinchPrevDistRef.current = 0;
         pinchPrevMidRef.current = null;
         touchLastPointRef.current = scaleRef.current > 1
@@ -470,7 +532,8 @@ function GalleryLinks({ payload }) {
         pinchPrevDistRef.current = 0;
         pinchPrevMidRef.current = null;
         touchLastPointRef.current = null;
-        if (scaleRef.current <= 1) commitTransform(1, { x: 0, y: 0 });
+        if (scaleRef.current <= 1) { scaleRef.current = 1; panTo({ x: 0, y: 0 }); }
+        syncTransformState();
       }
     };
 
@@ -487,12 +550,8 @@ function GalleryLinks({ payload }) {
 
     const handleGestureChange = (e) => {
       e.preventDefault();
-      const rect = el.getBoundingClientRect();
-      zoomTo(
-        gestureStartScaleRef.current * Number(e.scale || 1),
-        rect.left + rect.width / 2,
-        rect.top + rect.height / 2,
-      );
+      const { cx, cy } = baseSizeRef.current;
+      zoomTo(gestureStartScaleRef.current * Number(e.scale || 1), cx, cy);
     };
 
     const handlePointerDown = (e) => {
@@ -515,10 +574,16 @@ function GalleryLinks({ payload }) {
       if (pointerLastPointRef.current?.id === e.pointerId) {
         pointerLastPointRef.current = null;
         el.classList.remove('is-grabbing');
+        syncTransformState();
       }
     };
 
-    const handleResize = () => { clampToBounds(); };
+    const handleResize = () => {
+      measureBase();
+      panRef.current = clampPan(panRef.current);
+      schedule();
+      scheduleSync();
+    };
 
     el.addEventListener('touchstart', handleTouchStart, { passive: false });
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -536,6 +601,8 @@ function GalleryLinks({ payload }) {
     window.addEventListener('orientationchange', handleResize);
 
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (syncId) clearTimeout(syncId);
       el.removeEventListener('touchstart', handleTouchStart);
       el.removeEventListener('touchmove', handleTouchMove);
       el.removeEventListener('touchend', handleTouchEnd);
@@ -552,7 +619,7 @@ function GalleryLinks({ payload }) {
       window.removeEventListener('orientationchange', handleResize);
       el.classList.remove('is-grabbing');
     };
-  }, [fullScreenPreviewOpen, commitTransform, clampToBounds]);
+  }, [fullScreenPreviewOpen, measureBase, recomputeBounds, clampPan, applyDOM, syncTransformState]);
 
   // Pressing Esc closes the invoice viewer
   useEffect(() => {
@@ -685,9 +752,16 @@ function GalleryLinks({ payload }) {
         try { await document.fonts.ready; } catch {}
       }
       try {
+        // Render at a higher raster resolution so the JPG stays sharp when
+        // the client zooms in the fullscreen viewer. Capped at 2x (and at
+        // the device's own pixel ratio) so phones don't render an enormous
+        // canvas — a single invoice sheet at 2x is cheap on desktop and
+        // acceptable on mobile. Design/layout is unchanged; only pixel
+        // density increases.
+        const exportScale = Math.min(2, window.devicePixelRatio || 1.5);
         const canvas = await html2canvas(invoiceRenderRef.current, {
           backgroundColor: '#ffffff',
-          scale: 1,
+          scale: exportScale,
           useCORS: true,
           allowTaint: true,
           imageTimeout: 0,
@@ -1080,7 +1154,7 @@ function GalleryLinks({ payload }) {
               <IconClose />
             </button>
             <button type="button" className="public-invoice-fullscreen-btn" onClick={() => {
-              commitTransform(1, { x: 0, y: 0 });
+              resetTransform();
               if (previewContainerRef.current) {
                 previewContainerRef.current.scrollTop = 0;
                 previewContainerRef.current.scrollLeft = 0;
@@ -1106,7 +1180,7 @@ function GalleryLinks({ payload }) {
                 src={invoiceImage}
                 alt="Invoice Preview"
                 ref={fullscreenImgRef}
-                onLoad={clampToBounds}
+                onLoad={reclampTransform}
                 className={`public-invoice-fullscreen-img${scale > 1 ? ' is-zoomed' : ''}`}
                 style={{
                   '--scale': scale,
