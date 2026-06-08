@@ -324,6 +324,7 @@ function GalleryLinks({ payload }) {
   const touchLastPointRef = useRef(null);
   const pointerLastPointRef = useRef(null);
   const previewContainerRef = useRef(null);
+  const fullscreenImgRef = useRef(null);
 
   // Reset scale when invoice preview surfaces close
   useEffect(() => {
@@ -335,10 +336,35 @@ function GalleryLinks({ payload }) {
     }
   }, [fullScreenPreviewOpen, invoiceOpen]);
 
+  // Lock background page scrolling while the fullscreen invoice viewer is
+  // open so drag/pan gestures never bleed through into body scroll.
+  useEffect(() => {
+    if (!fullScreenPreviewOpen) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [fullScreenPreviewOpen]);
+
   // Non-passive pinch-to-zoom event listeners
   useEffect(() => {
     const el = previewContainerRef.current;
     if (!el) return;
+
+    // Clamp a proposed pan to the container so the zoomed invoice can be
+    // dragged to its edges but never flung off-screen. With
+    // transform-origin:center the image overflows the container by
+    // (scaledSize - containerSize) split evenly on both sides, so the max
+    // travel on each axis is half of that overflow (0 when the image fits).
+    const clampPan = (nextPan, nextScale) => {
+      const img = fullscreenImgRef.current;
+      if (!img) return nextPan;
+      const maxX = Math.max(0, (img.offsetWidth * nextScale - el.clientWidth) / 2);
+      const maxY = Math.max(0, (img.offsetHeight * nextScale - el.clientHeight) / 2);
+      return {
+        x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
+        y: Math.min(maxY, Math.max(-maxY, nextPan.y)),
+      };
+    };
 
     const handleTouchStart = (e) => {
       if (e.touches.length === 2) {
@@ -370,6 +396,7 @@ function GalleryLinks({ payload }) {
         const nextScale = Math.max(1, Math.min(4, touchStartScaleRef.current * factor));
         setScale(nextScale);
         if (nextScale === 1) setPan({ x: 0, y: 0 });
+        else setPan((current) => clampPan(current, nextScale));
       } else if (e.touches.length === 1 && scale > 1 && touchLastPointRef.current) {
         e.preventDefault();
         const nextPoint = {
@@ -379,10 +406,10 @@ function GalleryLinks({ payload }) {
         const dx = nextPoint.x - touchLastPointRef.current.x;
         const dy = nextPoint.y - touchLastPointRef.current.y;
         touchLastPointRef.current = nextPoint;
-        setPan((current) => ({
+        setPan((current) => clampPan({
           x: current.x + dx,
           y: current.y + dy,
-        }));
+        }, scale));
       }
     };
 
@@ -397,6 +424,7 @@ function GalleryLinks({ payload }) {
       const nextScale = Math.max(1, Math.min(4, scale + (-e.deltaY * 0.01)));
       setScale(nextScale);
       if (nextScale === 1) setPan({ x: 0, y: 0 });
+      else setPan((current) => clampPan(current, nextScale));
     };
 
     const handleGestureStart = (e) => {
@@ -409,6 +437,7 @@ function GalleryLinks({ payload }) {
       const nextScale = Math.max(1, Math.min(4, gestureStartScaleRef.current * Number(e.scale || 1)));
       setScale(nextScale);
       if (nextScale === 1) setPan({ x: 0, y: 0 });
+      else setPan((current) => clampPan(current, nextScale));
     };
 
     const handlePointerDown = (e) => {
@@ -433,10 +462,10 @@ function GalleryLinks({ payload }) {
         x: e.clientX,
         y: e.clientY,
       };
-      setPan((current) => ({
+      setPan((current) => clampPan({
         x: current.x + dx,
         y: current.y + dy,
-      }));
+      }, scale));
     };
 
     const handlePointerEnd = (e) => {
@@ -1026,6 +1055,7 @@ function GalleryLinks({ payload }) {
               <img
                 src={invoiceImage}
                 alt="Invoice Preview"
+                ref={fullscreenImgRef}
                 className={`public-invoice-fullscreen-img${scale > 1 ? ' is-zoomed' : ''}`}
                 style={{
                   '--scale': scale,
