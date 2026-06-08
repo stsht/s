@@ -1155,12 +1155,42 @@ async function findInvoiceForDelivery(env, delivery = {}) {
   }
 
   if (!candidates.length) return null;
-  return candidates
+
+  // Confident match: explicit delivery link (100), event key (90), or a
+  // client_id/name match that ALSO agrees on event_date (80/70). These
+  // are safe to expose publicly without further checks.
+  const confident = candidates
     .map((invoice) => ({ invoice, score: invoiceDeliveryScore(invoice, delivery) }))
-    // Never expose an invoice from client-only fallback. Public pages need an
-    // exact delivery link, event key, or matching event date to avoid stale invoices.
     .filter((item) => item.score >= 70)
-    .sort((a, b) => b.score - a.score)[0]?.invoice || null;
+    .sort((a, b) => b.score - a.score)[0]?.invoice;
+  if (confident) return confident;
+
+  // Legacy fallback for records created before delivery_id/event_key
+  // linkage (and sometimes without a stored or matching event_date). The
+  // /db CRM already associates these by client_id or normalized
+  // client_name with no date required (see clientMatchKeys); we mirror
+  // that association here, but ONLY when it is unambiguous so one
+  // client's invoice can never surface on another client's page:
+  //   - candidate must belong to THIS client (client_id match when both
+  //     sides have one, otherwise normalized client_name match),
+  //   - candidate must not be explicitly linked to a *different* delivery
+  //     (its invoice_data.delivery_id is empty or equals this delivery),
+  //   - and there must be exactly ONE such candidate (zero ambiguity).
+  // candidates are already restricted to the resolved audience
+  // (client vs vendor), so a normal client delivery never matches a
+  // vendor invoice through this path.
+  const legacyMatches = candidates.filter((row) => {
+    const sameClientId = clientId && String(row.client_id || '').trim() === clientId;
+    const sameName = clientName
+      && normalizeClientName(row.client_name || '') === normalizeClientName(clientName);
+    if (!sameClientId && !sameName) return false;
+    const data = row.invoice_data && typeof row.invoice_data === 'object' ? row.invoice_data : {};
+    const linkedDeliveryId = String(data.delivery_id || '').trim();
+    if (linkedDeliveryId && linkedDeliveryId !== deliveryId) return false;
+    return true;
+  });
+
+  return legacyMatches.length === 1 ? legacyMatches[0] : null;
 }
 
 function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], subscriptions = [], q = '') {

@@ -682,15 +682,17 @@ function GalleryLinks({ payload }) {
         <div className="public-delivery-divider" role="presentation" />
         <h1 className="public-delivery-greeting">{heading}</h1>
 
-        <a
-          className={`public-delivery-invoice${String(payload?.invoice?.status || '').toLowerCase() === 'paid' ? ' is-paid' : ''}`}
-          href="#invoice"
-          onClick={openInvoice}
-        >
-          <span className="public-delivery-invoice-icon" aria-hidden="true">INV</span>
-          <span className="public-delivery-invoice-label">Invoice</span>
-          <span className="public-delivery-invoice-cta">{String(payload?.invoice?.status || '').toLowerCase() === 'paid' ? 'Paid' : 'View'}</span>
-        </a>
+        {payload?.invoice ? (
+          <a
+            className={`public-delivery-invoice${String(payload?.invoice?.status || '').toLowerCase() === 'paid' ? ' is-paid' : ''}`}
+            href="#invoice"
+            onClick={openInvoice}
+          >
+            <span className="public-delivery-invoice-icon" aria-hidden="true">INV</span>
+            <span className="public-delivery-invoice-label">Invoice</span>
+            <span className="public-delivery-invoice-cta">{String(payload?.invoice?.status || '').toLowerCase() === 'paid' ? 'Paid' : 'View'}</span>
+          </a>
+        ) : null}
 
         <p className="public-delivery-subcopy">Choose your preferred delivery option below</p>
         <div className="public-delivery-list">
