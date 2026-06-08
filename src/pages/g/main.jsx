@@ -285,6 +285,11 @@ function GalleryLinks({ payload }) {
   const [bankCopied, setBankCopied] = useState(false);
 
   const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
+  // PAID invoices skip the intermediate "View Full Invoice" gate and
+  // open the full viewer directly. This flag remembers that we entered
+  // the viewer that way so closing it returns straight to the delivery
+  // page (instead of revealing the unused intermediate card behind it).
+  const [paidDirectView, setPaidDirectView] = useState(false);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const touchStartDistRef = useRef(0);
@@ -299,6 +304,7 @@ function GalleryLinks({ payload }) {
     if (!fullScreenPreviewOpen && !invoiceOpen) {
       setScale(1);
       setPan({ x: 0, y: 0 });
+      setPaidDirectView(false);
     }
   }, [fullScreenPreviewOpen, invoiceOpen]);
 
@@ -447,6 +453,7 @@ function GalleryLinks({ payload }) {
       if (e.key === 'Escape') {
         if (fullScreenPreviewOpen) {
           setFullScreenPreviewOpen(false);
+          if (paidDirectView) setInvoiceOpen(false);
         } else if (invoiceOpen) {
           setInvoiceOpen(false);
         }
@@ -456,7 +463,7 @@ function GalleryLinks({ payload }) {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [invoiceOpen, fullScreenPreviewOpen]);
+  }, [invoiceOpen, fullScreenPreviewOpen, paidDirectView]);
 
   const links = (payload?.links || []).filter((item) => item?.url);
   const linkMap = new Map(links.map((link) => [String(link.service || '').toLowerCase(), link]));
@@ -478,11 +485,23 @@ function GalleryLinks({ payload }) {
   async function openInvoice(event) {
     event.preventDefault();
     track('invoice', 'invoice_view');
+    // PAID invoices have no payment instructions (no QR/account/copy),
+    // so the intermediate gate is redundant — jump straight to the full
+    // viewer. The off-screen render host still mounts (invoiceOpen) so
+    // html2canvas can produce the JPG the viewer displays.
+    const isPaid = String(payload?.invoice?.status || '').toLowerCase() === 'paid';
     setInvoiceOpen(true);
     setScale(1);
     setPan({ x: 0, y: 0 });
     setInvoiceImage('');
     setInvoiceStatus('Opening invoice...');
+    if (isPaid) {
+      setPaidDirectView(true);
+      setFullScreenPreviewOpen(true);
+      track('invoice', 'invoice_fullscreen');
+    } else {
+      setPaidDirectView(false);
+    }
     try {
       const response = await fetch(`/api/public-invoice?slug=${encodeURIComponent(slug)}`, {
         credentials: 'same-origin',
@@ -502,6 +521,17 @@ function GalleryLinks({ payload }) {
     setScale(1);
     setPan({ x: 0, y: 0 });
     setFullScreenPreviewOpen(true);
+  }
+
+  // Close the full viewer. When it was opened directly for a PAID
+  // invoice (paidDirectView), also close the intermediate gate so the
+  // client lands back on the delivery page rather than the skipped card.
+  function closeFullPreview() {
+    setFullScreenPreviewOpen(false);
+    if (paidDirectView) {
+      setInvoiceOpen(false);
+      setPaidDirectView(false);
+    }
   }
 
   useEffect(() => {
@@ -849,7 +879,7 @@ function GalleryLinks({ payload }) {
       {fullScreenPreviewOpen ? (
         <div className="public-invoice-fullscreen" role="dialog" aria-modal="true" aria-label="Fullscreen invoice preview">
           <header className="public-invoice-fullscreen-header">
-            <button type="button" className="public-invoice-fullscreen-btn" onClick={() => setFullScreenPreviewOpen(false)} aria-label="Close invoice preview">
+            <button type="button" className="public-invoice-fullscreen-btn" onClick={closeFullPreview} aria-label="Close invoice preview">
               <IconClose />
             </button>
             <button type="button" className="public-invoice-fullscreen-btn" onClick={() => {
