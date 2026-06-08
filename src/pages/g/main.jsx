@@ -318,9 +318,14 @@ function GalleryLinks({ payload }) {
   const [gateDeciding, setGateDeciding] = useState(false);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const touchStartDistRef = useRef(0);
-  const touchStartScaleRef = useRef(1);
+  // Live transform refs. Gesture handlers read/write these so the
+  // listeners never need rebinding on scale/pan changes (which used to
+  // destabilise mid-pinch). React state mirrors them only for rendering.
+  const scaleRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
   const gestureStartScaleRef = useRef(1);
+  const pinchPrevDistRef = useRef(0);
+  const pinchPrevMidRef = useRef(null);
   const touchLastPointRef = useRef(null);
   const pointerLastPointRef = useRef(null);
   const previewContainerRef = useRef(null);
@@ -345,134 +350,175 @@ function GalleryLinks({ payload }) {
     return () => { document.body.style.overflow = previous; };
   }, [fullScreenPreviewOpen]);
 
-  // Non-passive pinch-to-zoom event listeners
-  useEffect(() => {
-    const el = previewContainerRef.current;
-    if (!el) return;
+  // Keep the transform refs in sync with state for any update that does not
+  // go through commitTransform (Fit button, open/close reset).
+  useEffect(() => { scaleRef.current = scale; }, [scale]);
+  useEffect(() => { panRef.current = pan; }, [pan]);
 
-    // Clamp a proposed pan to the container so the zoomed invoice can be
-    // dragged to its edges but never flung off-screen. With
-    // transform-origin:center the image overflows the container by
-    // (scaledSize - containerSize) split evenly on both sides, so the max
-    // travel on each axis is half of that overflow (0 when the image fits).
-    const clampPan = (nextPan, nextScale) => {
-      const img = fullscreenImgRef.current;
-      if (!img) return nextPan;
-      const maxX = Math.max(0, (img.offsetWidth * nextScale - el.clientWidth) / 2);
-      const maxY = Math.max(0, (img.offsetHeight * nextScale - el.clientHeight) / 2);
-      return {
-        x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
-        y: Math.min(maxY, Math.max(-maxY, nextPan.y)),
-      };
+  // Bound a proposed pan to the container so the zoomed invoice reaches its
+  // edges but never drifts off-screen. With transform-origin:center the
+  // image overflows the container by (renderedSize*scale - containerSize),
+  // split evenly, so max travel per axis is half that overflow (0 when the
+  // image fits — which also re-centres it).
+  const clampPanValue = useCallback((nextPan, nextScale) => {
+    const el = previewContainerRef.current;
+    const img = fullscreenImgRef.current;
+    if (!el || !img) return { x: 0, y: 0 };
+    const maxX = Math.max(0, (img.offsetWidth * nextScale - el.clientWidth) / 2);
+    const maxY = Math.max(0, (img.offsetHeight * nextScale - el.clientHeight) / 2);
+    return {
+      x: Math.min(maxX, Math.max(-maxX, nextPan.x)),
+      y: Math.min(maxY, Math.max(-maxY, nextPan.y)),
+    };
+  }, []);
+
+  // Single write-path for the transform: clamp, update refs (read by the
+  // next gesture frame), then state (for the CSS vars / render).
+  const commitTransform = useCallback((nextScale, nextPan) => {
+    const clamped = clampPanValue(nextPan, nextScale);
+    scaleRef.current = nextScale;
+    panRef.current = clamped;
+    setScale(nextScale);
+    setPan(clamped);
+  }, [clampPanValue]);
+
+  // Re-clamp the current transform (image load, resize/orientation change).
+  const clampToBounds = useCallback(() => {
+    commitTransform(scaleRef.current, panRef.current);
+  }, [commitTransform]);
+
+  // Pointer / touch / wheel zoom + pan for the fullscreen invoice. Bound
+  // once per open (handlers read the refs, never component state) so a
+  // gesture is never interrupted by a listener rebind. Zoom is
+  // focal-point based: the image point under the pinch midpoint / wheel
+  // pointer stays anchored while the scale changes.
+  useEffect(() => {
+    if (!fullScreenPreviewOpen) return undefined;
+    const el = previewContainerRef.current;
+    if (!el) return undefined;
+
+    const MIN_SCALE = 1;
+    const MAX_SCALE = 4;
+    const distance = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const midpoint = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+
+    // Scale toward (focalX, focalY): solve for the pan that keeps the
+    // content under the focal screen point fixed. extraPan lets a sliding
+    // pinch midpoint translate the image at the same time.
+    const zoomTo = (nextScaleRaw, focalX, focalY, extraPan) => {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const s0 = scaleRef.current || 1;
+      const s1 = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScaleRaw));
+      const p0 = panRef.current;
+      const k = (s1 - s0) / s0;
+      let nx = p0.x - k * (focalX - cx - p0.x);
+      let ny = p0.y - k * (focalY - cy - p0.y);
+      if (extraPan) { nx += extraPan.x; ny += extraPan.y; }
+      commitTransform(s1, { x: nx, y: ny });
+    };
+
+    const panBy = (dx, dy) => {
+      commitTransform(scaleRef.current, { x: panRef.current.x + dx, y: panRef.current.y + dy });
     };
 
     const handleTouchStart = (e) => {
       if (e.touches.length === 2) {
         e.preventDefault();
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        touchStartDistRef.current = dist;
-        touchStartScaleRef.current = scale;
+        pinchPrevDistRef.current = distance(e.touches[0], e.touches[1]);
+        pinchPrevMidRef.current = midpoint(e.touches[0], e.touches[1]);
         touchLastPointRef.current = null;
-      } else if (e.touches.length === 1 && scale > 1) {
+      } else if (e.touches.length === 1 && scaleRef.current > 1) {
         e.preventDefault();
-        touchLastPointRef.current = {
-          x: e.touches[0].clientX,
-          y: e.touches[0].clientY,
-        };
+        touchLastPointRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       }
     };
 
     const handleTouchMove = (e) => {
       if (e.touches.length === 2) {
         e.preventDefault();
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
+        const prevDist = pinchPrevDistRef.current || 1;
+        const dist = distance(e.touches[0], e.touches[1]);
+        const mid = midpoint(e.touches[0], e.touches[1]);
+        const prevMid = pinchPrevMidRef.current || mid;
+        zoomTo(
+          scaleRef.current * (dist / prevDist),
+          mid.x,
+          mid.y,
+          { x: mid.x - prevMid.x, y: mid.y - prevMid.y },
         );
-        const factor = dist / touchStartDistRef.current;
-        const nextScale = Math.max(1, Math.min(4, touchStartScaleRef.current * factor));
-        setScale(nextScale);
-        if (nextScale === 1) setPan({ x: 0, y: 0 });
-        else setPan((current) => clampPan(current, nextScale));
-      } else if (e.touches.length === 1 && scale > 1 && touchLastPointRef.current) {
+        pinchPrevDistRef.current = dist;
+        pinchPrevMidRef.current = mid;
+      } else if (e.touches.length === 1 && scaleRef.current > 1 && touchLastPointRef.current) {
         e.preventDefault();
-        const nextPoint = {
-          x: e.touches[0].clientX,
-          y: e.touches[0].clientY,
-        };
-        const dx = nextPoint.x - touchLastPointRef.current.x;
-        const dy = nextPoint.y - touchLastPointRef.current.y;
-        touchLastPointRef.current = nextPoint;
-        setPan((current) => clampPan({
-          x: current.x + dx,
-          y: current.y + dy,
-        }, scale));
+        const p = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        panBy(p.x - touchLastPointRef.current.x, p.y - touchLastPointRef.current.y);
+        touchLastPointRef.current = p;
       }
     };
 
     const handleTouchEnd = (e) => {
-      if (e.touches.length === 0) touchLastPointRef.current = null;
-      if (scale <= 1) setPan({ x: 0, y: 0 });
+      if (e.touches.length === 1) {
+        // A finger lifted mid-pinch: hand off to one-finger pan smoothly.
+        pinchPrevDistRef.current = 0;
+        pinchPrevMidRef.current = null;
+        touchLastPointRef.current = scaleRef.current > 1
+          ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+          : null;
+      } else if (e.touches.length === 0) {
+        pinchPrevDistRef.current = 0;
+        pinchPrevMidRef.current = null;
+        touchLastPointRef.current = null;
+        if (scaleRef.current <= 1) commitTransform(1, { x: 0, y: 0 });
+      }
     };
 
     const handleWheel = (e) => {
       if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
-      const nextScale = Math.max(1, Math.min(4, scale + (-e.deltaY * 0.01)));
-      setScale(nextScale);
-      if (nextScale === 1) setPan({ x: 0, y: 0 });
-      else setPan((current) => clampPan(current, nextScale));
+      zoomTo(scaleRef.current * Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
     };
 
     const handleGestureStart = (e) => {
       e.preventDefault();
-      gestureStartScaleRef.current = scale;
+      gestureStartScaleRef.current = scaleRef.current;
     };
 
     const handleGestureChange = (e) => {
       e.preventDefault();
-      const nextScale = Math.max(1, Math.min(4, gestureStartScaleRef.current * Number(e.scale || 1)));
-      setScale(nextScale);
-      if (nextScale === 1) setPan({ x: 0, y: 0 });
-      else setPan((current) => clampPan(current, nextScale));
+      const rect = el.getBoundingClientRect();
+      zoomTo(
+        gestureStartScaleRef.current * Number(e.scale || 1),
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
     };
 
     const handlePointerDown = (e) => {
-      if (e.pointerType === 'touch' || scale <= 1) return;
+      if (e.pointerType === 'touch' || scaleRef.current <= 1) return;
       e.preventDefault();
       el.setPointerCapture?.(e.pointerId);
-      pointerLastPointRef.current = {
-        id: e.pointerId,
-        x: e.clientX,
-        y: e.clientY,
-      };
+      pointerLastPointRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      el.classList.add('is-grabbing');
     };
 
     const handlePointerMove = (e) => {
-      const lastPoint = pointerLastPointRef.current;
-      if (!lastPoint || lastPoint.id !== e.pointerId || scale <= 1) return;
+      const last = pointerLastPointRef.current;
+      if (!last || last.id !== e.pointerId || scaleRef.current <= 1) return;
       e.preventDefault();
-      const dx = e.clientX - lastPoint.x;
-      const dy = e.clientY - lastPoint.y;
-      pointerLastPointRef.current = {
-        id: e.pointerId,
-        x: e.clientX,
-        y: e.clientY,
-      };
-      setPan((current) => clampPan({
-        x: current.x + dx,
-        y: current.y + dy,
-      }, scale));
+      panBy(e.clientX - last.x, e.clientY - last.y);
+      pointerLastPointRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
     };
 
     const handlePointerEnd = (e) => {
       if (pointerLastPointRef.current?.id === e.pointerId) {
         pointerLastPointRef.current = null;
+        el.classList.remove('is-grabbing');
       }
     };
+
+    const handleResize = () => { clampToBounds(); };
 
     el.addEventListener('touchstart', handleTouchStart, { passive: false });
     el.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -486,6 +532,8 @@ function GalleryLinks({ payload }) {
     el.addEventListener('pointerup', handlePointerEnd);
     el.addEventListener('pointercancel', handlePointerEnd);
     el.addEventListener('lostpointercapture', handlePointerEnd);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
     return () => {
       el.removeEventListener('touchstart', handleTouchStart);
@@ -500,8 +548,11 @@ function GalleryLinks({ payload }) {
       el.removeEventListener('pointerup', handlePointerEnd);
       el.removeEventListener('pointercancel', handlePointerEnd);
       el.removeEventListener('lostpointercapture', handlePointerEnd);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      el.classList.remove('is-grabbing');
     };
-  }, [fullScreenPreviewOpen, invoiceOpen, scale]);
+  }, [fullScreenPreviewOpen, commitTransform, clampToBounds]);
 
   // Pressing Esc closes the invoice viewer
   useEffect(() => {
@@ -1029,8 +1080,7 @@ function GalleryLinks({ payload }) {
               <IconClose />
             </button>
             <button type="button" className="public-invoice-fullscreen-btn" onClick={() => {
-              setScale(1);
-              setPan({ x: 0, y: 0 });
+              commitTransform(1, { x: 0, y: 0 });
               if (previewContainerRef.current) {
                 previewContainerRef.current.scrollTop = 0;
                 previewContainerRef.current.scrollLeft = 0;
@@ -1056,6 +1106,7 @@ function GalleryLinks({ payload }) {
                 src={invoiceImage}
                 alt="Invoice Preview"
                 ref={fullscreenImgRef}
+                onLoad={clampToBounds}
                 className={`public-invoice-fullscreen-img${scale > 1 ? ' is-zoomed' : ''}`}
                 style={{
                   '--scale': scale,
