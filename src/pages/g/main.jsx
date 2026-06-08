@@ -144,6 +144,24 @@ function paymentDueInfo(invoice) {
   };
 }
 
+// Whether the public page should present the intermediate payment gate
+// (QR/bank + amount due). This is the inverse of "open the viewer
+// directly" and mirrors the payment-panel visibility rule exactly, so the
+// gate and the panel can never disagree: it is shown only when an amount
+// is actually outstanding. Fully paid invoices and deposit invoices whose
+// deposit ask has been closed (depositAskOpen === false → "Deposit
+// Received") have nothing currently due, so they skip the gate and the
+// viewer opens directly. depositAskOpen defaults to open (true) when
+// unset, matching PublicInvoiceDocument.
+function paymentGateNeeded(invoice) {
+  if (!invoice) return false;
+  const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const status = String(invoice.status || 'invoice').toLowerCase();
+  if (status === 'paid') return false;
+  if (status === 'deposit' && data.depositAskOpen === false) return false;
+  return true;
+}
+
 function PublicInvoiceDocument({ invoice }) {
   const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const items = invoiceItems(invoice);
@@ -285,11 +303,19 @@ function GalleryLinks({ payload }) {
   const [bankCopied, setBankCopied] = useState(false);
 
   const [fullScreenPreviewOpen, setFullScreenPreviewOpen] = useState(false);
-  // PAID invoices skip the intermediate "View Full Invoice" gate and
-  // open the full viewer directly. This flag remembers that we entered
-  // the viewer that way so closing it returns straight to the delivery
-  // page (instead of revealing the unused intermediate card behind it).
+  // Invoices with nothing currently due (fully paid, or a deposit invoice
+  // whose deposit is already received) skip the intermediate "View Full
+  // Invoice" payment gate and open the full viewer directly. This flag
+  // remembers that we entered the viewer that way so closing it returns
+  // straight to the delivery page (instead of revealing the unused
+  // intermediate card behind it).
   const [paidDirectView, setPaidDirectView] = useState(false);
+  // Deposit invoices need invoice_data.depositAskOpen (only on the fetched
+  // record, not the card summary) to know whether the deposit is still
+  // due. While that fetch is in flight we cannot tell whether to skip the
+  // gate, so we show the small loading state — never the gate — until the
+  // invoice resolves and the decision is made.
+  const [gateDeciding, setGateDeciding] = useState(false);
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const touchStartDistRef = useRef(0);
@@ -305,6 +331,7 @@ function GalleryLinks({ payload }) {
       setScale(1);
       setPan({ x: 0, y: 0 });
       setPaidDirectView(false);
+      setGateDeciding(false);
     }
   }, [fullScreenPreviewOpen, invoiceOpen]);
 
@@ -485,21 +512,28 @@ function GalleryLinks({ payload }) {
   async function openInvoice(event) {
     event.preventDefault();
     track('invoice', 'invoice_view');
-    // PAID invoices have no payment instructions (no QR/account/copy),
-    // so the intermediate gate is redundant. We still fetch + render the
-    // invoice first; the paid-direct auto-open effect below opens the
-    // full viewer only once the JPG is ready. Until then a small loading
-    // state shows — never the old intermediate gate, and never a
-    // premature "Invoice not found" (errors surface only after the fetch
-    // resolves).
-    const isPaid = String(payload?.invoice?.status || '').toLowerCase() === 'paid';
+    // Decide whether the intermediate payment gate is needed. We open the
+    // full viewer directly whenever nothing is currently due:
+    //   - PAID invoices: never anything due.
+    //   - DEPOSIT invoices: only direct when the deposit is already
+    //     received, which depends on invoice_data.depositAskOpen — a field
+    //     present only on the fetched record, not the card summary. So we
+    //     defer that decision (gateDeciding) and show the loading state
+    //     until the fetch resolves, never flashing the gate.
+    //   - Everything else (unpaid full invoice): keep the gate.
+    // Until the JPG is ready a small loading state shows — never a
+    // premature "Invoice not found" (errors surface only after the fetch).
+    const status = String(payload?.invoice?.status || '').toLowerCase();
+    const directNow = status === 'paid';
+    const deciding = status === 'deposit';
     setInvoiceOpen(true);
     setFullScreenPreviewOpen(false);
     setScale(1);
     setPan({ x: 0, y: 0 });
     setInvoiceImage('');
     setInvoiceStatus('Opening invoice...');
-    setPaidDirectView(isPaid);
+    setPaidDirectView(directNow);
+    setGateDeciding(deciding);
     try {
       const response = await fetch(`/api/public-invoice?slug=${encodeURIComponent(slug)}`, {
         credentials: 'same-origin',
@@ -546,6 +580,21 @@ function GalleryLinks({ payload }) {
       setFullScreenPreviewOpen(true);
     }
   }, [paidDirectView, invoiceImage, fullScreenPreviewOpen]);
+
+  // Deferred gate decision for deposit invoices. Once the invoice record
+  // is fetched we know depositAskOpen: if a payment is genuinely due we
+  // drop the loading state and reveal the intermediate gate; otherwise the
+  // deposit is already received, so we mark it direct-view and let the
+  // auto-open effect above open the full viewer once the JPG renders.
+  useEffect(() => {
+    if (!gateDeciding || !invoice) return;
+    if (paymentGateNeeded(invoice)) {
+      setGateDeciding(false);
+    } else {
+      setPaidDirectView(true);
+      setGateDeciding(false);
+    }
+  }, [gateDeciding, invoice]);
 
   useEffect(() => {
     let alive = true;
@@ -776,13 +825,14 @@ function GalleryLinks({ payload }) {
 
       {invoiceOpen ? (
         <div className="public-invoice-viewer" role="dialog" aria-modal="true" aria-label="Invoice preview">
-          {paidDirectView && !fullScreenPreviewOpen ? (
-            // Paid-direct loading state. The intermediate gate is skipped
-            // for paid invoices, so while the invoice fetches/renders we
-            // show a small status note (and a Close affordance) instead of
-            // the gate. The full viewer opens automatically once ready;
-            // any fetch error (e.g. genuinely missing invoice) surfaces
-            // here only after the request resolves.
+          {(paidDirectView || gateDeciding) && !fullScreenPreviewOpen ? (
+            // Direct-open / deciding loading state. For invoices that skip
+            // the gate (paid or deposit-received) and for deposit invoices
+            // still being classified (gateDeciding), we show a small status
+            // note (and a Close affordance) instead of the gate while the
+            // invoice fetches/renders. The full viewer opens automatically
+            // once ready; any fetch error surfaces here only after the
+            // request resolves.
             <div className="public-invoice-viewer-card">
               <header className="public-invoice-viewer-toolbar desktop-only-header">
                 <strong>Invoice</strong>
