@@ -1,4 +1,4 @@
-/* PrivateWorkspaceFrame
+/* WorkspacePanels
  *
  * Mirrors /inv (.composer-page / .composer-shell / .panel / .editor-panel /
  * .preview-panel / .panel-header / .mode-switch / .mobile-tabs).
@@ -47,7 +47,7 @@
  *
  * The actual scroll mechanics now come from the shared
  * `scroll-surface-y` utility class applied to this element in
- * PrivateWorkspaceFrame.jsx:
+ * WorkspacePanels.jsx:
  *   - overflow-x:hidden / overflow-y:auto,
  *   - momentum scrolling on iOS (-webkit-overflow-scrolling:touch),
  *   - overscroll-behavior:contain so a vigorous flick inside a
@@ -78,7 +78,7 @@
 
 /* Scrollbar chrome for the whole workspace frame is hidden by the
  * shared pattern in scroll-surface.css:
- *   - `.scroll-root` on .pf-page (set in PrivateWorkspaceFrame.jsx)
+ *   - `.scroll-root` on .pf-page (set in WorkspacePanels.jsx)
  *     silences this panel AND every nested overflow surface (sticky
  *     headers, list stacks, extension lists, pillsets) — even when
  *     macOS System Settings → "Always" show scrollbars is on,
@@ -307,7 +307,7 @@
     background: var(--panel);
   }
 
-  /* Logo dark-mode handled by <picture> swap in PrivateWorkspaceFrame
+  /* Logo dark-mode handled by <picture> swap in WorkspacePanels
    * (logo-hero-white.png). No filter needed here. */
   .pf-pillset button {
     /* Slightly brighter inactive text so it stays legible on the dark

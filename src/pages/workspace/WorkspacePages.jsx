@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
+import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 import { selectAllIfZero, parseMoneyInput, moneyInputValue } from '../../utils/moneyInput.js';
@@ -679,7 +679,7 @@ function formatSubscriptionMeta(sub = {}) {
 
 function PageChrome() {
   // Removed: legacy /admin dashboard chrome. /db is now the workspace home;
-  // /l, /subs migrated to PrivateWorkspaceFrame. Kept as a placeholder to
+  // /l, /subs migrated to WorkspacePanels. Kept as a placeholder to
   // preserve historical export shape during cleanup but no longer rendered.
   return null;
 }
@@ -6179,7 +6179,7 @@ export function DatabasePage() {
   );
 
   return (
-    <PrivateWorkspaceFrame
+    <WorkspacePanels
       active="/db/"
       showNav={false}
       pills={
@@ -6966,7 +6966,7 @@ export function LinkGeneratorPage() {
   );
 
   return (
-    <PrivateWorkspaceFrame
+    <WorkspacePanels
       active="/l/"
       // /l only needs a back-link to the workspace home. No Links/
       // Invoice/Subs in the nav row.

@@ -1,12 +1,12 @@
 /**
  * Segmented
  *
- * Right-aligned pill control used inside the PrivateWorkspaceFrame header
+ * Right-aligned pill control used inside the WorkspacePanels header
  * for contextual page modes (e.g. /db: Clients/Subs/Invoices,
  * /inv: Invoice/Deposit/Paid).
  *
  * Renders the isolated .pf-pillset styles defined in
- * PrivateWorkspaceFrame.css (deliberately not .segmented so it does
+ * WorkspacePanels.css (deliberately not .segmented so it does
  * not collide with legacy /inv .segmented / .mode-switch rules).
  */
 export function Segmented({ value, onChange, options, ariaLabel }) {

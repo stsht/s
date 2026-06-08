@@ -1,5 +1,5 @@
 import { GlobalBackground } from './GlobalBackground.jsx';
-import './PrivateWorkspaceFrame.css';
+import './WorkspacePanels.css';
 
 /**
  * Cross-tool navigation rendered inside the left panel, low-emphasis.
@@ -17,7 +17,7 @@ const NAV_ITEMS = [
 ];
 
 /**
- * PrivateWorkspaceFrame
+ * WorkspacePanels
  *
  * Shared after-password shell. Mirrors the /inv canvas:
  *   - flat blue/dark page background (from invcs.css ss-bg),
@@ -49,7 +49,7 @@ const NAV_ITEMS = [
  *                       item (e.g. just Database) for pages like /l
  *                       that only need a back-link.
  */
-export function PrivateWorkspaceFrame({
+export function WorkspacePanels({
   active,
   pills = null,
   left,

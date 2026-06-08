@@ -14,7 +14,7 @@
 // 31, regardless of the local timezone.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
-import { PrivateWorkspaceFrame } from '../../components/PrivateWorkspaceFrame.jsx';
+import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { Segmented, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 import { selectAllIfZero } from '../../utils/moneyInput.js';
@@ -514,7 +514,7 @@ export function SubscriptionsPage() {
   );
 
   return (
-    <PrivateWorkspaceFrame
+    <WorkspacePanels
       active="/subs/"
       // Contextual pills sit right of the logo in the left-panel
       // header (pf-pills slot). Segmented uses .pf-pillset which
