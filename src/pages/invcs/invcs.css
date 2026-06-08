@@ -4310,7 +4310,7 @@ dd{margin:0;text-align:right;font-weight:800}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   .invoice-sheet,.invoice-sheet *{color-scheme:light}
   /* /inv composer panels match the Gemini-grey treatment used in
-   * /db /l /subs (PrivateWorkspaceFrame). Scoped to .composer-page so
+   * /db /l /subs (WorkspacePanels). Scoped to .composer-page so
    * the outer .ss-bg blue glow keeps the page background, and
    * .invoice-sheet keeps its hard-coded #fff (the JPG/export sheet
    * stays untouched — it has its own `background:#fff` and forces
@@ -4534,7 +4534,7 @@ dd{margin:0;text-align:right;font-weight:800}
  *
  * The card is the document the Generate JPG button rasterises with
  * html2canvas. It lives inside the right panel of the shared
- * PrivateWorkspaceFrame and uses Plus Jakarta Sans only — no serif,
+ * WorkspacePanels and uses Plus Jakarta Sans only — no serif,
  * no Playfair, no Cormorant — so the receipt reads as a modern
  * artifact alongside the rest of the StarShots tooling.
  *
@@ -4576,7 +4576,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 /* .subs-canvas is the /subs live-preview scroller — the Subs analog
  * of /inv's .preview-canvas. It sits inside the clipped
- * .pf-panel--right shell (PrivateWorkspaceFrame). Scroll mechanics
+ * .pf-panel--right shell (WorkspacePanels). Scroll mechanics
  * (overflow + iOS momentum + overscroll containment + hidden
  * scrollbar chrome) come from the shared `scroll-surface-y` class
  * applied in WorkspacePages.jsx — same pattern as .preview-canvas.
@@ -6194,7 +6194,7 @@ dd{margin:0;text-align:right;font-weight:800}
 @media(max-width:1023px){
   /* Mobile Delivery Detail (/db right panel): stack Short Link above
    * Password. On mobile the workspace collapses to a single full-width
-   * panel (PrivateWorkspaceFrame.css @media max-width:1023px); keeping
+   * panel (WorkspacePanels.css @media max-width:1023px); keeping
    * these two cards side-by-side (1fr 1fr) crowded the short-link URL
    * and the password against their right-edge icon actions
    * (.dd-open-button / .dd-refresh-button). One column gives each card
