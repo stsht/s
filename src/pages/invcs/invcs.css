@@ -4021,17 +4021,18 @@ dd{margin:0;text-align:right;font-weight:800}
   margin-top:12px;
 }
 .record-row{
-  /* date pill / name / View Links / View Invoice / vendor icon / X
-   * The date column is an inline .event-date-pill (content-
-   * sized) so the grid uses `auto` to size to the pill rather
-   * than reserving a fixed slot. The trailing 22px column is
-   * the quiet .row-delete-x — small, transparent at rest, with
-   * a grey hit-box appearing only on direct hover/focus. The
-   * three middle action columns are auto so the inner anchors
-   * size to their text and shift left as the X column reserves
-   * its space — actions never overlap the delete affordance. */
+  /* left meta (date pill + price) / View Links / View Invoice / X
+   * The meta column is minmax(min-content,1fr): it grows to fill
+   * the row and pushes the action groups to the right, but never
+   * shrinks below the date pill + price so the rupiah figure can
+   * never be clipped or covered by the action buttons. The two
+   * middle columns are auto so the action groups size to their
+   * pills, and the trailing 22px column is the quiet
+   * .row-delete-x. Because every piece sits in its own grid track
+   * the actions can never overlap the price at any zoom level —
+   * no transforms or absolute positioning required. */
   display:grid;
-  grid-template-columns:auto minmax(0,1fr) auto auto 22px;
+  grid-template-columns:minmax(min-content,1fr) auto auto 22px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -4085,37 +4086,25 @@ dd{margin:0;text-align:right;font-weight:800}
   white-space:nowrap;
 }
 
-/* Name + price wrapper inside an event row.
+/* Left meta area inside an event row: the date pill + the price.
  *
- * The grid above gives this single cell minmax(0,1fr) so it grows
- * to fill the row's middle column. We render the event name as a
- * <strong> + an inline price <span> beside it; both are baseline-
- * aligned so the price reads on the same eye-line as the name and
- * never as a heavy badge. The price is plain text (no pill, no
- * border) per the spec, with tabular-nums so a "Rp 1.850.000" /
- * "Rp 850.000" stack lines up cleanly across rows. The strong
- * shrinks first under truncation (its existing ellipsis rule
- * still applies via .record-row strong above); the price column
- * is 0-shrink so the rupiah figure stays whole.
+ * The grid above gives this cell minmax(min-content,1fr) so it
+ * grows to fill the row's left side while never shrinking below
+ * its own content — that floor is what guarantees the price is
+ * always laid out in its own space and can never be covered by
+ * the action buttons (they live in separate grid tracks to the
+ * right). The price is plain text (no pill, no border) per the
+ * spec, with tabular-nums so "Rp 1.850.000" / "Rp 850.000" line
+ * up cleanly across rows.
  *
- * On mobile (single-column row, max-width:1023px) the wrapper
- * keeps the name and price side-by-side via flex. On extremely
- * narrow widths the name's ellipsis trims first; if even the
- * price doesn't fit, flex-wrap allows it to drop to a second line
- * cleanly without breaking the action pills below. */
-.record-row-title{
-  min-width:0;
+ * On mobile (single-column row, max-width:1023px) this same
+ * wrapper spans the full width and switches to space-between so
+ * the date pill pins left and the price pins right on one line,
+ * with the action pills wrapping cleanly on the lines below. */
+.record-row-meta{
   display:flex;
-  align-items:baseline;
+  align-items:center;
   gap:10px;
-  flex-wrap:wrap;
-}
-.record-row-title strong{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  flex:0 1 auto;
 }
 .record-row-price{
   flex:0 0 auto;
@@ -4506,8 +4495,12 @@ dd{margin:0;text-align:right;font-weight:800}
     position:relative;
     padding-right:40px;
   }
-  .record-row strong{
-    white-space:normal;
+  .record-row-meta{
+    /* First line on mobile: date pill pinned left, price pinned
+     * right, both on one line. The action groups wrap onto the
+     * lines below. */
+    justify-content:space-between;
+    width:100%;
   }
   .record-row-action-group{
     display:grid;

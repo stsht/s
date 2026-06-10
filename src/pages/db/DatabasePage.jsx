@@ -628,7 +628,6 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
               key={recordKey}
               recordKey={recordKey}
               row={row}
-              fallbackName={name}
               tone={eventDateTone(row.eventDate, todayIso)}
               eventLinkHref={eventLinkHref}
               eventInvoiceHref={eventInvoiceHref}
@@ -687,9 +686,10 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
 
 // One event row inside the client detail. The delete control is a
 // permanent X glyph at the far right of the row — no hover/tap-to-
-// reveal flow. The row's grid lays out date / name / View Links /
-// View Invoice / X in that order; the X column is a fixed width so
-// the inner action anchors shift left and never overlap the X. The
+// reveal flow. The row's grid lays out date+price (left meta) /
+// View Links / View Invoice / X in that order; the X column is a
+// fixed width so the inner action anchors shift left and never
+// overlap the X. The
 // row itself stays a plain shell (no click handler) so taps inside
 // it never accidentally arm a delete; only the explicit X press
 // triggers onDelete.
@@ -707,7 +707,7 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
 // and a subtle accent on the row border so a row's status reads at
 // a glance. The tone palette mirrors the four tones used on the
 // /db Clients left list so both surfaces stay visually consistent.
-function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, eventVendorDeliveryHref, onDelete, onViewLinks }) {
+function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, eventVendorDeliveryHref, onDelete, onViewLinks }) {
   const hasDelivery = !!row.delivery?.id;
   const hasInvoice = !!row.invoice?.id;
   const hasVendorInvoice = !!row.vendorInvoice?.id;
@@ -780,9 +780,8 @@ function RecordRow({ recordKey, row, fallbackName, tone, eventLinkHref, eventInv
 
   return (
     <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
-      <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
-      <div className="record-row-title">
-        <strong>{fallbackName || row.name || 'Client'}</strong>
+      <div className="record-row-meta">
+        <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
         {priceText ? <span className="record-row-price">{priceText}</span> : null}
       </div>
       <div className="record-row-action-group">
