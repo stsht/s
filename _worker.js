@@ -2444,8 +2444,18 @@ async function handleDbRepairDelivery(request, env) {
   const id = String(body.id || body.deliveryId || '').trim();
   const rotatePassword = Boolean(body.rotatePassword);
   const restorePassword = body.restorePassword;
+  // Custom password path. When the operator sets a specific password
+  // via the pencil control, body.customPassword carries it. Validate
+  // with the same minimal bounds the gallery unlock expects: trim
+  // whitespace, reject empty, cap length so the hash input stays sane.
+  const customPasswordRequested = body.customPassword !== undefined && body.customPassword !== null;
+  const customPassword = customPasswordRequested ? String(body.customPassword).trim() : '';
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing delivery id.' }, 400);
+  if (customPasswordRequested) {
+    if (!customPassword) return json({ error: 'Password cannot be empty.' }, 400);
+    if (customPassword.length > 72) return json({ error: 'Use 72 characters or fewer.' }, 400);
+  }
 
   const rows = await supabaseFetch(
     env,
@@ -2467,6 +2477,7 @@ async function handleDbRepairDelivery(request, env) {
 
   let displayPassword = rotatePassword ? '' : deliveryPasswordForDisplay(delivery);
   if (restorePassword) displayPassword = restorePassword.password;
+  if (customPassword) displayPassword = customPassword;
 
   const hasStoredHash = !!(String(delivery.password_hash || '').trim() && String(delivery.password_salt || '').trim());
   if (!displayPassword && hasStoredHash && !rotatePassword && !restorePassword) {
@@ -2486,11 +2497,16 @@ async function handleDbRepairDelivery(request, env) {
 
   let password_history = deliveryPasswordHistory(delivery);
 
-  if (rotatePassword || restorePassword) {
+  if (rotatePassword || restorePassword || customPassword) {
     const oldDisplayPassword = deliveryPasswordForDisplay(delivery);
     const oldHash = delivery.password_hash;
     const oldSalt = delivery.password_salt;
-    if (oldDisplayPassword && oldHash) {
+    // Avoid duplicate adjacent entries: skip when the password did
+    // not actually change, or when the outgoing password is already
+    // the newest history entry (e.g. a repeated identical action).
+    const unchanged = oldDisplayPassword && oldDisplayPassword === displayPassword;
+    const alreadyTop = oldHash && password_history[0] && password_history[0].password_hash === oldHash;
+    if (oldDisplayPassword && oldHash && !unchanged && !alreadyTop) {
       password_history.unshift({
         password: oldDisplayPassword,
         password_hash: oldHash,
@@ -2519,7 +2535,7 @@ async function handleDbRepairDelivery(request, env) {
   if (restorePassword) {
     patch.password_hash = restorePassword.password_hash;
     patch.password_salt = restorePassword.password_salt;
-  } else if (!hasStoredHash || rotatePassword) {
+  } else if (!hasStoredHash || rotatePassword || customPassword) {
     Object.assign(patch, await hashGalleryPassword(displayPassword));
   }
 

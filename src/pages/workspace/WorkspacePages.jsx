@@ -2228,6 +2228,13 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   const [markingDone, setMarkingDone] = useState(false);
   const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
   const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
+  // Inline custom-password editor (pencil control on the password
+  // card). editingPassword toggles the inline input; customPasswordValue
+  // holds the in-flight value; passwordEditError surfaces client-side
+  // validation before the request is sent.
+  const [editingPassword, setEditingPassword] = useState(false);
+  const [customPasswordValue, setCustomPasswordValue] = useState('');
+  const [passwordEditError, setPasswordEditError] = useState('');
   // Per-card access-log clear in-flight gate. Clicking a visitor
   // card's X clears ONLY that session's log rows immediately (no
   // confirm dialog); deletingVisitor just prevents overlapping
@@ -2308,6 +2315,9 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
     setConfirmRestoreHash('');
+    setEditingPassword(false);
+    setCustomPasswordValue('');
+    setPasswordEditError('');
   }, [delivery?.id]);
 
   // Auto-disarm the Delete confirm after ~4s so an accidental first
@@ -2451,7 +2461,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     if (!currentDelivery?.id) return;
     const rotatePassword = Boolean(options.rotatePassword);
     const restorePassword = options.restorePassword || null;
-    if (rotatePassword) setRotatingPassword(true);
+    const customPassword = typeof options.customPassword === 'string' ? options.customPassword.trim() : '';
+    if (rotatePassword || customPassword) setRotatingPassword(true);
     else setRepairing(true);
     setRepairStatus('');
     try {
@@ -2459,7 +2470,12 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id, rotatePassword, restorePassword }),
+        body: JSON.stringify({
+          id: currentDelivery.id,
+          rotatePassword,
+          restorePassword,
+          ...(customPassword ? { customPassword } : {}),
+        }),
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || !json.ok) {
@@ -2477,7 +2493,18 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         needs_secure_repair: false,
       };
       setCurrentDelivery(repaired);
-      setRepairStatus(restorePassword ? 'Password restored.' : (rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.'));
+      if (customPassword) {
+        setEditingPassword(false);
+        setCustomPasswordValue('');
+        setPasswordEditError('');
+      }
+      setRepairStatus(
+        restorePassword
+          ? 'Password restored.'
+          : customPassword
+            ? 'Custom password saved.'
+            : (rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.')
+      );
       onRepaired?.(repaired);
     } catch (error) {
       setRepairStatus(error?.message || 'Repair failed.');
@@ -2485,6 +2512,37 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
       setRepairing(false);
       setRotatingPassword(false);
     }
+  }
+
+  // Open the inline custom-password editor, seeding it with the
+  // current password so a small tweak is a one-character edit.
+  function startEditPassword() {
+    setCustomPasswordValue(password);
+    setPasswordEditError('');
+    setEditingPassword(true);
+  }
+
+  function cancelEditPassword() {
+    setEditingPassword(false);
+    setCustomPasswordValue('');
+    setPasswordEditError('');
+  }
+
+  // Validate then submit a custom password. Mirrors the worker's
+  // bounds (trim, non-empty, <= 72 chars) so the operator gets
+  // immediate feedback instead of a round-trip error.
+  function submitCustomPassword() {
+    const value = String(customPasswordValue || '').trim();
+    if (!value) {
+      setPasswordEditError('Password cannot be empty.');
+      return;
+    }
+    if (value.length > 72) {
+      setPasswordEditError('Use 72 characters or fewer.');
+      return;
+    }
+    setPasswordEditError('');
+    handleRepairDelivery({ customPassword: value });
   }
 
   async function handleSaveLinks(event) {
@@ -2749,7 +2807,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                   <span className="dd-card-hint">Tap to Copy</span>
                 </button>
                 <a
-                  className="dd-open-button"
+                  className="dd-icon-button dd-open-button"
                   href={shortUrl}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -2791,26 +2849,80 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 className={`dd-card dd-card--password${flash === 'pass' ? ' is-flash' : ''}`}
                 aria-label="Password actions"
               >
-                <button
-                  type="button"
-                  className="dd-card-tap"
-                  onClick={handlePasswordClick}
-                  aria-label="Copy password to clipboard"
-                >
-                  <span className="dd-eyebrow">Password</span>
-                  <strong className="dd-card-strong">{password}</strong>
-                  <span className="dd-card-hint">Tap to Copy</span>
-                </button>
-                <button
-                  type="button"
-                  className="dd-refresh-button"
-                  onClick={() => setConfirmRotatePassword(true)}
-                  disabled={rotatingPassword}
-                  aria-label={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
-                  title={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
-                >
-                  <RefreshIcon />
-                </button>
+                {editingPassword ? (
+                  <div className="dd-password-edit">
+                    <span className="dd-eyebrow">Set Custom Password</span>
+                    <input
+                      type="text"
+                      className="dd-password-input"
+                      value={customPasswordValue}
+                      onChange={(event) => setCustomPasswordValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') { event.preventDefault(); submitCustomPassword(); }
+                        if (event.key === 'Escape') { event.preventDefault(); cancelEditPassword(); }
+                      }}
+                      placeholder="Enter a custom password"
+                      aria-label="Custom password"
+                      autoFocus
+                      spellCheck="false"
+                      autoComplete="off"
+                    />
+                    <div className="dd-password-edit-actions">
+                      <button
+                        type="button"
+                        className="ghost-button compact"
+                        onClick={submitCustomPassword}
+                        disabled={rotatingPassword}
+                      >
+                        {rotatingPassword ? 'Saving\u2026' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost-button compact"
+                        onClick={cancelEditPassword}
+                        disabled={rotatingPassword}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {passwordEditError ? <span className="dd-card-hint">{passwordEditError}</span> : null}
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="dd-card-tap"
+                      onClick={handlePasswordClick}
+                      aria-label="Copy password to clipboard"
+                    >
+                      <span className="dd-eyebrow">Password</span>
+                      <strong className="dd-card-strong">{password}</strong>
+                      <span className="dd-card-hint">Tap to Copy</span>
+                    </button>
+                    <div className="dd-card-actions">
+                      <button
+                        type="button"
+                        className="dd-icon-button dd-edit-button"
+                        onClick={startEditPassword}
+                        disabled={rotatingPassword}
+                        aria-label="Set custom password"
+                        title="Set Custom Password"
+                      >
+                        <EditIcon />
+                      </button>
+                      <button
+                        type="button"
+                        className="dd-icon-button dd-refresh-button"
+                        onClick={() => setConfirmRotatePassword(true)}
+                        disabled={rotatingPassword}
+                        aria-label={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
+                        title={rotatingPassword ? 'Regenerating Password' : 'Regenerate Password'}
+                      >
+                        <RefreshIcon />
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="dd-card dd-card--muted" aria-label="No password">

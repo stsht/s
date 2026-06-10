@@ -5676,34 +5676,83 @@ dd{margin:0;text-align:right;font-weight:800}
 .dd-card-tap:active{
   transform:scale(.99);
 }
-.dd-refresh-button{
-  position:absolute;
-  top:50%;
-  right:10px;
-  transform:translateY(-50%);
+/* Shared frameless icon button for the link/password card actions
+ * (password refresh, custom-password pencil, short-link open). The
+ * boxed/circular frame was removed per design — only the glyph shows,
+ * with a subtle colour shift on hover and a small press feedback. */
+.dd-icon-button{
+  appearance:none;
   display:inline-grid;
   place-items:center;
-  width:36px;
-  height:36px;
+  width:34px;
+  height:34px;
   padding:0;
+  border:0;
+  border-radius:10px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  text-decoration:none;
+  transition:color .15s ease,transform .15s ease,background .15s ease;
+}
+.dd-icon-button:hover{
+  color:var(--accent);
+  background:transparent;
+}
+.dd-icon-button:active{
+  transform:scale(.94);
+}
+.dd-icon-button:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+/* Right-edge action cluster on the password card. Holds the pencil
+ * (custom password) and refresh (regenerate) icons side by side. */
+.dd-card-actions{
+  position:absolute;
+  top:50%;
+  right:8px;
+  transform:translateY(-50%);
+  display:flex;
+  align-items:center;
+  gap:2px;
+}
+/* The password card now reserves room for two right-edge icons. */
+.dd-card--password .dd-card-tap{
+  padding-right:84px;
+}
+/* Inline custom-password editor shown in place of the tap-to-copy
+ * body when the pencil is clicked. */
+.dd-password-edit{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:100%;
+  padding:14px 16px;
+}
+.dd-password-input{
+  width:100%;
+  padding:10px 12px;
   border:1px solid var(--line);
   border-radius:12px;
   background:var(--panel);
-  color:var(--muted);
-  cursor:pointer;
-  transition:border-color .15s ease,color .15s ease,transform .15s ease,background .15s ease;
+  color:var(--ink);
+  font:inherit;
 }
-.dd-refresh-button:hover{
+.dd-password-input:focus{
+  outline:none;
   border-color:var(--accent);
-  color:var(--accent);
-  background:var(--field);
+}
+.dd-password-edit-actions{
+  display:flex;
+  gap:8px;
+}
+.dd-refresh-button{
+  position:static;
+  transform:none;
 }
 .dd-refresh-button:active{
-  transform:translateY(-50%) scale(.96);
-}
-.dd-refresh-button:disabled{
-  opacity:.5;
-  cursor:not-allowed;
+  transform:scale(.94);
 }
 /* Open-in-new-tab anchor on the short link card. Reuses the refresh
  * button's right-edge geometry so the two card actions look like one
@@ -5714,26 +5763,12 @@ dd{margin:0;text-align:right;font-weight:800}
   top:50%;
   right:10px;
   transform:translateY(-50%);
-  display:inline-grid;
-  place-items:center;
-  width:36px;
-  height:36px;
-  padding:0;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:var(--panel);
-  color:var(--muted);
-  cursor:pointer;
-  text-decoration:none;
-  transition:border-color .15s ease,color .15s ease,transform .15s ease,background .15s ease;
 }
 .dd-open-button:hover{
-  border-color:var(--accent);
   color:var(--accent);
-  background:var(--field);
 }
 .dd-open-button:active{
-  transform:translateY(-50%) scale(.96);
+  transform:translateY(-50%) scale(.94);
 }
 .dd-inline-actions{
   display:flex;
