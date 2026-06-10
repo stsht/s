@@ -3,7 +3,7 @@ import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
-import { selectAllIfZero } from '../../utils/moneyInput.js';
+import { selectAllIfZero, parseMoneyInput } from '../../utils/moneyInput.js';
 
 // Lightweight gated debug logger. Mirrors the helper in
 // WorkspacePages.jsx so /db, /l, and /inv share one ?debug=1 flag
@@ -200,7 +200,16 @@ function emptyItem(packages) {
     note: option.note || '',
     qty: 1,
     price: Number(option.price) || 0,
+    discount: 0,
   };
+}
+
+// Clamp a per-item discount to a non-negative integer that never
+// exceeds the item's gross line total (qty * price). Blank/NaN → 0.
+function clampItemDiscount(rawDiscount, qty, price) {
+  const gross = Math.max(0, Math.round((Number(qty) || 0) * (Number(price) || 0)));
+  const value = Math.max(0, Math.round(Number(rawDiscount) || 0));
+  return Math.min(value, gross);
 }
 
 function cleanPackageRows(rows) {
@@ -539,10 +548,13 @@ export function InvoiceComposer() {
   const [linkedClientId, setLinkedClientId] = useState(initial.clientId || '');
   const [invoiceType, setInvoiceType] = useState(initial.type === INVOICE_TYPES.VENDOR ? INVOICE_TYPES.VENDOR : INVOICE_TYPES.CLIENT);
   const [issuedDate, setIssuedDate] = useState(today);
-  // Discount defaults to 0 — never auto-prefill a value. If the
-  // operator wants a discount they type it; loaded invoices restore
-  // whatever was saved on the row.
-  const [discount, setDiscount] = useState(0);
+  // Legacy overall discount. New invoices use per-item discounts
+  // (item.discount) instead; this holds the old top-level discount
+  // value ONLY when loading a pre-item-discount invoice whose items
+  // carry no per-item discount, so old totals never break. It is no
+  // longer directly editable — see the derived effective discount in
+  // `totals`. Defaults to 0 for fresh drafts.
+  const [legacyDiscount, setLegacyDiscount] = useState(0);
   // Deposit mode is one of '20' | '30' | '50' | '100' | 'custom'.
   // Default '20' picks the 20% preset; computeDepositDue() then
   // applies the IDR-200,000 floor (capped at the grand total) so
@@ -578,6 +590,7 @@ export function InvoiceComposer() {
         note: String(item.note || ''),
         qty: Number(item.qty) || 1,
         price: 0,
+        discount: 0,
       }));
     }
     return [emptyItem(DEFAULT_PACKAGES)];
@@ -718,23 +731,39 @@ export function InvoiceComposer() {
         if (row.invoice_date) setIssuedDate(String(row.invoice_date));
         if (row.status === 'invoice' || row.status === 'deposit' || row.status === 'paid') setMode(row.status);
 
-        // Discount: explicit blob value wins; otherwise stay at 0.
+        // Discount: per-item discounts are the source of truth for
+        // new invoices. The blob's top-level `discount` is only kept
+        // as a legacy fallback below when the items carry none.
         const blobDiscount = Number(data.discount);
-        if (Number.isFinite(blobDiscount) && blobDiscount >= 0) setDiscount(blobDiscount);
 
         // Items: the blob is the source of truth when present; fall
         // back to a single synthetic line carrying the row's
         // grand_total so the preview never renders empty.
         const blobItems = Array.isArray(data.items) ? data.items : null;
         if (blobItems && blobItems.length) {
-          setItems(blobItems.map((item) => ({
-            id: String(item.id || crypto.randomUUID()),
-            packageId: String(item.packageId || item.package_id || ''),
-            name: String(item.name || ''),
-            note: String(item.note || ''),
-            qty: Number(item.qty) || 1,
-            price: Math.max(0, Math.round(Number(item.price) || 0)),
-          })));
+          const hydratedItems = blobItems.map((item) => {
+            const qty = Number(item.qty) || 1;
+            const price = Math.max(0, Math.round(Number(item.price) || 0));
+            return {
+              id: String(item.id || crypto.randomUUID()),
+              packageId: String(item.packageId || item.package_id || ''),
+              name: String(item.name || ''),
+              note: String(item.note || ''),
+              qty,
+              price,
+              discount: clampItemDiscount(item.discount ?? item.discount_amount, qty, price),
+            };
+          });
+          setItems(hydratedItems);
+          // Backward compatibility: if this is an old invoice that has
+          // a top-level discount but no per-item discounts, retain the
+          // overall value so the loaded totals stay correct. Once the
+          // operator edits item discounts (or the invoice already used
+          // them), the legacy value stays 0 to avoid double-counting.
+          const itemsHaveDiscount = hydratedItems.some((item) => item.discount > 0);
+          if (!itemsHaveDiscount && Number.isFinite(blobDiscount) && blobDiscount > 0) {
+            setLegacyDiscount(blobDiscount);
+          }
         } else if (Number.isFinite(Number(row.grand_total)) && Number(row.grand_total) > 0) {
           const fallbackPrice = Math.max(0, Math.round(Number(row.grand_total) + (Number.isFinite(blobDiscount) ? blobDiscount : 0)));
           setItems([{
@@ -743,7 +772,9 @@ export function InvoiceComposer() {
             note: '',
             qty: 1,
             price: fallbackPrice,
+            discount: 0,
           }]);
+          if (Number.isFinite(blobDiscount) && blobDiscount > 0) setLegacyDiscount(blobDiscount);
         }
 
         // Deposit: trust the explicit blob mode if it looks valid,
@@ -835,10 +866,20 @@ export function InvoiceComposer() {
 
   const totals = useMemo(() => {
     const subtotal = items.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.price) || 0), 0);
-    const grandTotal = Math.max(0, subtotal - (Number(discount) || 0));
+    // Per-item discounts are the source of truth. The legacy overall
+    // discount only contributes when no item carries a discount (old
+    // invoices), so the two can never double-subtract.
+    const itemDiscountTotal = items.reduce(
+      (sum, item) => sum + clampItemDiscount(item.discount, item.qty, item.price),
+      0,
+    );
+    const discount = itemDiscountTotal > 0
+      ? itemDiscountTotal
+      : Math.max(0, Math.round(Number(legacyDiscount) || 0));
+    const grandTotal = Math.max(0, subtotal - discount);
     const depositDue = computeDepositDue(grandTotal, depositMode, depositCustomAmount);
-    return { subtotal, grandTotal, depositDue };
-  }, [discount, depositMode, depositCustomAmount, items]);
+    return { subtotal, discount, grandTotal, depositDue };
+  }, [legacyDiscount, depositMode, depositCustomAmount, items]);
 
   // Sum of the deposit instalments currently marked paid. This is the
   // figure persisted to paid_amount in deposit mode, and the basis for
@@ -1019,7 +1060,7 @@ export function InvoiceComposer() {
         balance_due: balanceDueAmount,
         invoice_data: {
           invoiceType,
-          discount: Math.max(0, Math.round(Number(discount) || 0)),
+          discount: Math.max(0, Math.round(Number(totals.discount) || 0)),
           items: items.map((item) => ({
             id: String(item.id || ''),
             packageId: String(item.packageId || ''),
@@ -1027,6 +1068,7 @@ export function InvoiceComposer() {
             note: String(item.note || ''),
             qty: Number(item.qty) || 1,
             price: Math.max(0, Math.round(Number(item.price) || 0)),
+            discount: clampItemDiscount(item.discount, item.qty, item.price),
           })),
           depositMode: String(depositMode || ''),
           depositCustomAmount: String(depositCustomAmount || ''),
@@ -1234,8 +1276,6 @@ export function InvoiceComposer() {
           updateItem={updateItem}
           addItem={addItem}
           removeItem={removeItem}
-          discount={discount}
-          setDiscount={setDiscount}
           depositMode={depositMode}
           setDepositMode={setDepositMode}
           depositCustomAmount={depositCustomAmount}
@@ -1378,6 +1418,20 @@ function EditorPanel(props) {
                 const next = maybeTitleCase(event.target.value.trim());
                 if (next !== item.note) props.updateItem(item.id, { note: next });
               }} placeholder="Optional note" /></label>
+              <label>Package Discount<input
+                className="no-spinner"
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={item.discount || 0}
+                onFocus={selectAllIfZero}
+                onChange={(event) => props.updateItem(item.id, { discount: parseMoneyInput(event.target.value) })}
+                onBlur={(event) => {
+                  const clamped = clampItemDiscount(parseMoneyInput(event.target.value), item.qty, item.price);
+                  if (clamped !== (Number(item.discount) || 0)) props.updateItem(item.id, { discount: clamped });
+                }}
+                placeholder="0"
+              /></label>
               <div className="invoice-item-controls">
                 <div className="qty-control" aria-label="Quantity">
                   <span>Qty</span>
@@ -1403,7 +1457,6 @@ function EditorPanel(props) {
 
       <Fieldset title="Payment">
         <div className="field-stack">
-          <label>Discount<input type="number" min="0" value={props.discount} onFocus={selectAllIfZero} onChange={(event) => props.setDiscount(event.target.value)} placeholder="0" /></label>
           <div className="deposit-block">
             <span className="deposit-label">Deposit</span>
             <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
@@ -2032,17 +2085,29 @@ function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issu
             </section>
             <section className="sheet-box line-table">
               <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
-              {items.map((item) => (
-                <div key={item.id} className="line-row">
-                  <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
-                  <span>{item.qty || 1}</span>
-                  <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
-                </div>
-              ))}
+              {items.map((item) => {
+                const lineDiscount = clampItemDiscount(item.discount, item.qty, item.price);
+                return (
+                  <div key={item.id} className={`line-row${lineDiscount > 0 ? ' line-row--has-discount' : ''}`}>
+                    <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
+                    <span>{item.qty || 1}</span>
+                    <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
+                    {lineDiscount > 0 ? (
+                      <>
+                        <div className="line-discount-label"><small>Package Discount</small></div>
+                        <span aria-hidden="true"></span>
+                        <span className="line-discount-amount">-{rupiah(lineDiscount)}</span>
+                      </>
+                    ) : null}
+                  </div>
+                );
+              })}
             </section>
             <section className="summary-box">
               <p><span>Subtotal</span><strong>{rupiah(totals.subtotal)}</strong></p>
-              <p><span>Discount</span><strong>{rupiah(Number(totals.subtotal) - Number(totals.grandTotal))}</strong></p>
+              {Number(totals.discount) > 0 ? (
+                <p><span>Discount</span><strong>-{rupiah(totals.discount)}</strong></p>
+              ) : null}
               {paidDeposits.map((payment) => (
                 <p className="deposit-paid" key={payment.id}>
                   <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
