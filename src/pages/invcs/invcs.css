@@ -2042,6 +2042,10 @@ input.no-spinner::-webkit-inner-spin-button{
   color:white;
 }
 .package-catalog-add{width:100%}
+.package-catalog-actions{
+  display:grid;
+  gap:8px;
+}
 .invoice-item-controls{
   display:grid;
   grid-template-columns:minmax(0,142px) minmax(0,1fr) 34px;
