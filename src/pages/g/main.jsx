@@ -838,12 +838,6 @@ function GalleryLinks({ payload }) {
     link: service.aliases.map((alias) => linkMap.get(alias)).find(Boolean),
   }));
 
-  // True when at least one service link is openable but the delivery
-  // is not yet marked complete — drives the single shared "files may
-  // still change" note under the list (no per-row repetition).
-  const deliveryIsDone = !!(delivery.delivery_done || delivery.deliveryDone);
-  const hasPreviewLinks = resolvedServices.some(({ link }) => !!link?.url) && !deliveryIsDone;
-
   // Client-facing payment area (unpaid invoices only). Shows Bank
   // Transfer details for the client. Totals are unchanged — we only
   // read the already-computed deposit / full payment due. A `paid`
@@ -968,13 +962,7 @@ function GalleryLinks({ payload }) {
             }
           })}
         </div>
-        {hasPreviewLinks ? (
-          <p className="public-delivery-preview-note">
-            Files may still be updated until delivery is marked complete.
-          </p>
-        ) : null}
-
-        <p className="public-delivery-signoff">With love, StarShots</p>
+        <p className="public-delivery-signoff">With Love, StarShots ID</p>
       </section>
 
       {invoiceOpen ? (

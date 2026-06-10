@@ -1379,16 +1379,6 @@ button.public-delivery-row{
   color:var(--muted);
   letter-spacing:.14em;
 }
-/* Single shared note under the list when any preview link is shown.
- * Quiet, centered, and mobile-safe — no native alert. */
-.public-delivery-preview-note{
-  margin:10px 2px 0;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:700;
-  line-height:1.5;
-  text-align:center;
-}
 .public-delivery-signoff{
   margin:auto 0 0;
   padding-top:34px;
