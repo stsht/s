@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
+import { DatabaseList } from './DatabaseList.jsx';
 import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 import { selectAllIfZero, parseMoneyInput, moneyInputValue } from '../../utils/moneyInput.js';
@@ -79,35 +80,6 @@ function dateLabel(value) {
   const date = isoDate ? new Date(`${raw}T12:00:00Z`) : new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-// Whether a string is a contact value worth showing under a client
-// row. Used by /db's left list to scrub raw timestamps (e.g.
-// "2026-05-17T13:08:21.123Z") and other non-contact metadata that
-// previously leaked into the visible meta line. Accepts only the
-// three shapes the design calls out: phone, Instagram handle/URL,
-// or email. Anything else (ISO dates, normalized slugs, empty
-// strings) is rejected and the meta line is hidden.
-function isHumanReadableContact(value) {
-  const v = String(value || '').trim();
-  if (!v) return false;
-  // Discard timestamp-shaped strings outright. Both the full ISO
-  // form and bare YYYY-MM-DD count — the dashboard never wants
-  // these on a client card.
-  if (/^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) return false;
-  // Email — at least one '@' separating two non-empty halves.
-  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return true;
-  // Instagram — handle (@name) or full instagram.com URL.
-  if (/^@[a-zA-Z0-9._]+$/.test(v)) return true;
-  if (/instagram\.com\//i.test(v)) return true;
-  // Bare IG handles from existing rows, e.g. "lisofan". Require at
-  // least one letter so numeric IDs/dates do not masquerade as contact.
-  if (/^(?=.*[a-zA-Z])[a-zA-Z0-9._]{2,30}$/.test(v)) return true;
-  // Phone — digits with optional +, spaces, dashes, parens. At
-  // least 6 digits in total so 4-digit years can't masquerade.
-  const digits = v.replace(/[^\d]/g, '');
-  if (digits.length >= 6 && /^\+?[\d\s\-().]+$/.test(v)) return true;
-  return false;
 }
 
 // Inline X glyph used by every list/row delete control on /db.
@@ -252,28 +224,6 @@ function PlusIcon() {
   );
 }
 
-function UploadIcon() {
-  return (
-    <svg
-      className="btn-icon"
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M12 16V4" />
-      <path d="M7 9l5-5 5 5" />
-      <path d="M5 20h14" />
-    </svg>
-  );
-}
-
 function PaperIcon() {
   return (
     <svg
@@ -394,20 +344,6 @@ function makeExtensionDraft(subscription, extension, latestExtension) {
     // follow Payment until the operator edits Start manually.
     start_customized: !!String(ext.start_date || ''),
   };
-}
-
-// Format the Subs-tab list meta from a subscription row. Produces
-// just the service name, e.g. "ChatGPT" / "iCloud" / "Google Drive".
-// The row already communicates state via two parallel surfaces — a
-// tone-driven left-edge tint (subscriptionTone → .sub-active /
-// .sub-warning / .sub-expired / .sub-tba) and the right-aligned
-// expiry-date pill — so repeating the status word in the subtitle
-// would be redundant. Falls back to "Subscription" when the row
-// has no service name set, matching the empty-state language used
-// elsewhere in the dashboard.
-function formatSubscriptionMeta(sub = {}) {
-  const service = String(sub.service || 'Subscription').trim();
-  return service || 'Subscription';
 }
 
 function PageChrome() {
@@ -5263,171 +5199,65 @@ export function DatabasePage() {
   const tabHeading =
     tab === 'subs' ? 'Subscriptions' : 'Choose A Client';
 
+  // Row selection logic stays parent-owned; DatabaseList calls
+  // this with the clicked/keyboard-activated row. Mirrors the
+  // previous inline handleSelect exactly (Subs → subscription
+  // detail, Clients → client detail, fall through to the raw tab
+  // type for any other tab).
+  const handleSelectRow = (row) => {
+    if (tab === 'subs') {
+      // Subs tab → subscription detail. row.id IS the subscription
+      // id (subRows builds it that way) so selectedSubscription
+      // resolves directly. We keep the row in selected.data as a
+      // fallback for the mid-transition window where the list
+      // hasn't been refreshed yet.
+      setSelected({ type: 'subscription', id: row.id, data: row });
+    } else if (tab === 'clients') {
+      setSelected({ type: 'client', id: row.id, data: row });
+    } else {
+      setSelected({ type: tab, id: row.id, data: row });
+    }
+  };
+
+  // Row delete logic stays parent-owned. DatabaseList forwards the
+  // row and the originating click event so we can stop it from
+  // bubbling to the row's select handler, then run the same delete
+  // path the inline handleDelete used.
+  const handleDeleteRow = (row, event) => {
+    event.stopPropagation();
+    if (tab === 'subs') {
+      // Deleting from the Subs list removes the subscription row
+      // directly. The orphan-client cleanup is handled server-side
+      // in handleSubscriptionDelete so a real CRM client (one with
+      // invoices/deliveries) is never touched.
+      if (row.id) {
+        deleteRecord({ kind: 'subscription', id: row.id });
+        if (selected?.type === 'subscription' && selected.id === row.id) {
+          setSelected(null);
+          setMobileView('left');
+        }
+      }
+    } else if (tab === 'clients') {
+      deleteClient(row);
+    }
+  };
+
   const left = (
-    <>
-      <div className="pf-list-tools">
-        <input
-          className="pf-search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search"
-          type="search"
-          aria-label="Search database"
-        />
-        {tab === 'clients' ? (
-          <button className="add-client-button" type="button" onClick={openNewClient}>
-            Create Client
-          </button>
-        ) : null}
-        {tab === 'subs' ? (
-          <div className="subs-list-actions">
-            <button className="add-client-button" type="button" onClick={openCreateSubscription}>
-              New Subscription
-            </button>
-            <button className="subs-import-icon-button" type="button" onClick={openImportSubscription} aria-label="Import JPG" title="Import JPG">
-              <UploadIcon />
-            </button>
-          </div>
-        ) : null}
-      </div>
-      {status ? <EmptyState>{status}</EmptyState> : null}
-      <div className="db-list">
-        {activeRows.slice(0, 80).map((row, index) => {
-          const isClient = tab === 'clients';
-          const isSub = tab === 'subs';
-          const title = row.client_name || row.name || row.title || row.slug;
-          // Subs row tone reads off the EFFECTIVE subscription so a
-          // recent extension can flip an "expired" base row back to
-          // active. row.subscription is the canonical subscription
-          // record that came down on /api/db.
-          const subRecord = isSub ? (row.subscription || null) : null;
-          const subEffective = subRecord ? effectiveSubscription(subRecord) : null;
-          const subTone = subEffective ? subscriptionTone(subEffective) : '';
-          // Subs row right-aligned expiry pill. Mirrors the Clients
-          // date pill: same chrome / event-tone-* palette, same
-          // {pill, X} grid column. effectiveSubscription has already
-          // merged the latest extension on top of the base row, so
-          // its expiry_date is the renewal-aware "current" expiry.
-          // No extension → base subscription expiry. No expiry on
-          // either → 'tba'. The compact label produces "14 Jun 2026"
-          // and "TBA" so the column reads identically to Clients.
-          const subExpiry = isSub ? String(subEffective?.expiry_date || '') : '';
-          const subPillTone = isSub
-            ? (subTone === 'expired' ? 'past' : subTone === 'active' ? 'future' : 'tba')
-            : '';
-          // Clients tab tone is computed above in sortedCrmClients
-          // by walking the row's event_dates against today (WIB).
-          // The tone drives both the row text colour and the small
-          // date pill rendered on the right side of the row, with
-          // four states (soon/future/tba/past) mapped through CSS.
-          const clientToneInfo = isClient ? (clientToneByRowId.get(row.id) || null) : null;
-          const clientTone = clientToneInfo?.tone || '';
-          const clientToneClass = clientTone ? `event-tone-${clientTone}` : '';
-          const clientPillDate = clientToneInfo?.representativeDate || '';
-          const clientPillTone = clientTone || (clientPillDate ? '' : 'tba');
-          let meta = '';
-          if (isClient) {
-            const contact = row.contact || row.client_contact || '';
-            meta = isHumanReadableContact(contact) ? contact : '';
-          } else if (isSub && subEffective) {
-            meta = formatSubscriptionMeta(subEffective);
-          }
-          const rowId = row.id || `row-${index}`;
-          const className = [
-            'db-list-row',
-            selected?.id === row.id ? 'active' : '',
-            subTone ? `sub-${subTone}` : '',
-            clientToneClass,
-            isClient ? 'has-event-pill' : '',
-            isSub ? 'has-event-pill' : '',
-          ]
-            .filter(Boolean)
-            .join(' ');
-          const handleSelect = () => {
-            // Delete X is now a permanent control on every row, so
-            // taps just select. The previous arm/disarm dance was
-            // removed along with armedRowId state in PR #56.
-            if (isSub) {
-              // Subs tab → subscription detail. row.id IS the
-              // subscription id (subRows builds it that way) so
-              // selectedSubscription resolves directly. We keep
-              // the row in selected.data as a fallback for the
-              // mid-transition window where the list hasn't been
-              // refreshed yet.
-              setSelected({ type: 'subscription', id: row.id, data: row });
-            } else if (isClient) {
-              setSelected({ type: 'client', id: row.id, data: row });
-            } else {
-              setSelected({ type: tab, id: row.id, data: row });
-            }
-          };
-          const handleDelete = (event) => {
-            event.stopPropagation();
-            if (isSub) {
-              // Deleting from the Subs list removes the subscription
-              // row directly. The orphan-client cleanup is handled
-              // server-side in handleSubscriptionDelete so a real
-              // CRM client (one with invoices/deliveries) is never
-              // touched.
-              if (row.id) {
-                deleteRecord({ kind: 'subscription', id: row.id });
-                if (selected?.type === 'subscription' && selected.id === row.id) {
-                  setSelected(null);
-                  setMobileView('left');
-                }
-              }
-            } else if (isClient) {
-              deleteClient(row);
-            }
-          };
-          return (
-            <div
-              className={className}
-              key={rowId}
-              onClick={handleSelect}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  handleSelect();
-                }
-              }}
-            >
-              <div className="db-list-row-text">
-                <strong>{title || 'Untitled'}</strong>
-                {meta ? <span>{meta}</span> : null}
-              </div>
-              {isClient ? (
-                <span
-                  className={`event-date-pill${clientPillTone ? ` event-tone-${clientPillTone}` : ''}`}
-                  aria-label={`Event ${compactEventDateLabel(clientPillDate)}`}
-                >
-                  {compactEventDateLabel(clientPillDate)}
-                </span>
-              ) : null}
-              {isSub ? (
-                <span
-                  className={`event-date-pill event-tone-${subPillTone || 'tba'}`}
-                  aria-label={`Expiry ${compactEventDateLabel(subExpiry)}`}
-                >
-                  {compactEventDateLabel(subExpiry)}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                className="row-delete-x"
-                onClick={handleDelete}
-                aria-label={`Delete ${title || 'record'}`}
-              >
-                <DeleteIcon />
-              </button>
-            </div>
-          );
-        })}
-        {!status && activeRows.length === 0 ? <EmptyState>No records yet.</EmptyState> : null}
-      </div>
-    </>
+    <DatabaseList
+      tab={tab}
+      query={query}
+      onQueryChange={setQuery}
+      status={status}
+      activeRows={activeRows}
+      selected={selected}
+      clientToneByRowId={clientToneByRowId}
+      effectiveSubscription={effectiveSubscription}
+      onSelectRow={handleSelectRow}
+      onDeleteRow={handleDeleteRow}
+      onCreateClient={openNewClient}
+      onCreateSubscription={openCreateSubscription}
+      onImportSubscription={openImportSubscription}
+    />
   );
 
   const right = (
