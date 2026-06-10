@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
@@ -1218,6 +1217,11 @@ export function InvoiceComposer() {
     exportHost.appendChild(exportSheet);
     document.body.appendChild(exportHost);
     try {
+      // html2canvas is a heavy dependency only needed when the operator
+      // actually exports a JPG. Load it on demand so it stays out of the
+      // /inv composer's initial bundle (faster first paint, less memory
+      // on mobile Safari / tablet Firefox).
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(exportSheet, {
         backgroundColor: '#ffffff',
         scale: 1,

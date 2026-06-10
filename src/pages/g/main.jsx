@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import html2canvas from 'html2canvas';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
 import '../../../animate.css';
@@ -759,6 +758,11 @@ function GalleryLinks({ payload }) {
         // acceptable on mobile. Design/layout is unchanged; only pixel
         // density increases.
         const exportScale = Math.min(2, window.devicePixelRatio || 1.5);
+        // html2canvas is a heavy dependency only needed when the client
+        // actually opens the invoice viewer. Load it on demand so it
+        // stays out of the public delivery page's initial bundle (faster
+        // first paint, less memory on mobile Safari / tablet Firefox).
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(invoiceRenderRef.current, {
           backgroundColor: '#ffffff',
           scale: exportScale,
