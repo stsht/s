@@ -1578,6 +1578,7 @@ You may access them through the details below:
 *Event Date:* ${ev}
 *Link:* ${link}
 *Password:* \`${pass}\`
+*Invoice:* Included inside the delivery page
 
 Should you prefer a different password, please let us know and we will update it for you.
 
