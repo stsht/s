@@ -2227,7 +2227,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   // PATCH is resolving.
   const [markingDone, setMarkingDone] = useState(false);
   const [confirmRotatePassword, setConfirmRotatePassword] = useState(false);
-  const [confirmRestoreHash, setConfirmRestoreHash] = useState('');
   // Inline custom-password editor (pencil control on the password
   // card). editingPassword toggles the inline input; customPasswordValue
   // holds the in-flight value; passwordEditError surfaces client-side
@@ -2257,23 +2256,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [confirmRotatePassword]);
 
-  const restoreNoButtonRef = useRef(null);
-
-  useEffect(() => {
-    if (confirmRestoreHash && restoreNoButtonRef.current) {
-      restoreNoButtonRef.current.focus();
-    }
-  }, [confirmRestoreHash]);
-
-  useEffect(() => {
-    if (!confirmRestoreHash) return;
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') setConfirmRestoreHash('');
-    }
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [confirmRestoreHash]);
-
   // Hydrate the editable copy from the freshest delivery row the
   // parent hands down (selectedDelivery, derived from /api/db
   // data.items). Runs whenever that row changes — including after a
@@ -2289,18 +2271,8 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
       const sameRow = String(prev?.id || '') === String(incoming.id || '');
       const incomingPwd = String(incoming.password || '').trim();
       const prevPwd = String(prev?.password || '').trim();
-      const hasIncomingHistory = Array.isArray(incoming.password_history)
-        ? incoming.password_history.length > 0
-        : String(incoming.password_history || '').trim().replace(/^\[\]$/, '').length > 0;
-      const hasPrevHistory = Array.isArray(prev?.password_history)
-        ? prev.password_history.length > 0
-        : String(prev?.password_history || '').trim().replace(/^\[\]$/, '').length > 0;
-      if (sameRow && ((!incomingPwd && prevPwd) || (!hasIncomingHistory && hasPrevHistory))) {
-        return {
-          ...incoming,
-          password: !incomingPwd && prevPwd ? prev.password : incoming.password,
-          password_history: !hasIncomingHistory && hasPrevHistory ? prev.password_history : incoming.password_history,
-        };
+      if (sameRow && !incomingPwd && prevPwd) {
+        return { ...incoming, password: prev.password };
       }
       return incoming;
     });
@@ -2314,7 +2286,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
     setRepairStatus('');
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
-    setConfirmRestoreHash('');
     setEditingPassword(false);
     setCustomPasswordValue('');
     setPasswordEditError('');
@@ -2387,12 +2358,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   const messageWa = synthWa;
   const messageIg = synthIg;
 
-  let passwordHistory = [];
-  try {
-    const rawHist = currentDelivery?.password_history;
-    if (typeof rawHist === 'string') passwordHistory = JSON.parse(rawHist);
-    else if (Array.isArray(rawHist)) passwordHistory = rawHist;
-  } catch(e){}
   const accessLogs = Array.isArray(currentDelivery?.stats?.logs)
     ? currentDelivery.stats.logs
     : [];
@@ -2460,7 +2425,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
   async function handleRepairDelivery(options = {}) {
     if (!currentDelivery?.id) return;
     const rotatePassword = Boolean(options.rotatePassword);
-    const restorePassword = options.restorePassword || null;
     const customPassword = typeof options.customPassword === 'string' ? options.customPassword.trim() : '';
     if (rotatePassword || customPassword) setRotatingPassword(true);
     else setRepairing(true);
@@ -2473,7 +2437,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         body: JSON.stringify({
           id: currentDelivery.id,
           rotatePassword,
-          restorePassword,
           ...(customPassword ? { customPassword } : {}),
         }),
       });
@@ -2499,11 +2462,9 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
         setPasswordEditError('');
       }
       setRepairStatus(
-        restorePassword
-          ? 'Password restored.'
-          : customPassword
-            ? 'Custom password saved.'
-            : (rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.')
+        customPassword
+          ? 'Custom password saved.'
+          : (rotatePassword ? 'Password regenerated and hashed.' : 'Secure short link repaired.')
       );
       onRepaired?.(repaired);
     } catch (error) {
@@ -3107,83 +3068,6 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
               </button>
             </div>
           </div>
-
-          {passwordHistory.length > 0 && (
-            <div className="dd-password-history" style={{ marginTop: '32px' }}>
-              <p className="eyebrow" style={{ margin: '0 0 16px 0' }}>Password History</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                {passwordHistory.map((hist, i) => {
-                  const isConfirming = confirmRestoreHash === hist.password_hash;
-                  return (
-                    <div key={i} className="dd-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', background: 'var(--field)', borderRadius: '12px', border: '1px solid var(--line)' }}>
-                      <div style={{ overflow: 'hidden', flex: '1 1 auto', paddingRight: '12px' }}>
-                        <strong style={{ fontSize: '0.9375rem', color: 'var(--ink)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{hist.password}</strong>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--mute)' }}>
-                          {hist.rotated_at ? new Date(hist.rotated_at).toLocaleDateString() : 'Previous'}
-                        </span>
-                      </div>
-                      {isConfirming && (
-                        <div
-                          className="dd-confirm-overlay"
-                          style={{
-                            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundColor: 'rgba(0,0,0,0.5)',
-                            zIndex: 9999,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            padding: '16px'
-                          }}
-                          onClick={() => setConfirmRestoreHash('')}
-                        >
-                          <div
-                            className="dd-confirm-modal"
-                            style={{
-                              backgroundColor: 'var(--bg, #fff)',
-                              padding: '24px',
-                              borderRadius: '16px',
-                              boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
-                              minWidth: '280px',
-                              maxWidth: '100%'
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            role="dialog"
-                            aria-modal="true"
-                          >
-                            <h3 style={{ margin: '0 0 24px', fontSize: '1.25rem', color: 'var(--ink)' }}>Restore Password?</h3>
-                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                              <button
-                                type="button"
-                                className="ghost-button compact"
-                                onClick={() => setConfirmRestoreHash('')}
-                                ref={restoreNoButtonRef}
-                              >
-                                No
-                              </button>
-                              <button
-                                type="button"
-                                className="ghost-button compact"
-                                style={{ color: 'var(--accent-2, red)', borderColor: 'var(--accent-2, red)' }}
-                                onClick={() => {
-                                  setConfirmRestoreHash('');
-                                  handleRepairDelivery({ restorePassword: hist });
-                                }}
-                              >
-                                Restore
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {!isConfirming && (
-                        <button type="button" className="ghost-button compact" style={{ padding: '0 16px', minHeight: '32px', flexShrink: 0 }} onClick={() => setConfirmRestoreHash(hist.password_hash)}>
-                          Restore
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           <section className="dd-access-log" aria-label="Delivery access timeline">
             <div className="dd-access-log-head">

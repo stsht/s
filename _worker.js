@@ -2443,7 +2443,6 @@ async function handleDbRepairDelivery(request, env) {
   const password = String(body.password || '').trim();
   const id = String(body.id || body.deliveryId || '').trim();
   const rotatePassword = Boolean(body.rotatePassword);
-  const restorePassword = body.restorePassword;
   // Custom password path. When the operator sets a specific password
   // via the pencil control, body.customPassword carries it. Validate
   // with the same minimal bounds the gallery unlock expects: trim
@@ -2476,11 +2475,10 @@ async function handleDbRepairDelivery(request, env) {
       });
 
   let displayPassword = rotatePassword ? '' : deliveryPasswordForDisplay(delivery);
-  if (restorePassword) displayPassword = restorePassword.password;
   if (customPassword) displayPassword = customPassword;
 
   const hasStoredHash = !!(String(delivery.password_hash || '').trim() && String(delivery.password_salt || '').trim());
-  if (!displayPassword && hasStoredHash && !rotatePassword && !restorePassword) {
+  if (!displayPassword && hasStoredHash && !rotatePassword) {
     return json({
       error: 'This delivery already has a hashed password but no recoverable display password. Create a fresh delivery link instead.'
     }, 409);
@@ -2495,30 +2493,12 @@ async function handleDbRepairDelivery(request, env) {
     }, shortCode);
   }
 
-  let password_history = deliveryPasswordHistory(delivery);
-
-  if (rotatePassword || restorePassword || customPassword) {
-    const oldDisplayPassword = deliveryPasswordForDisplay(delivery);
-    const oldHash = delivery.password_hash;
-    const oldSalt = delivery.password_salt;
-    // Avoid duplicate adjacent entries: skip when the password did
-    // not actually change, or when the outgoing password is already
-    // the newest history entry (e.g. a repeated identical action).
-    const unchanged = oldDisplayPassword && oldDisplayPassword === displayPassword;
-    const alreadyTop = oldHash && password_history[0] && password_history[0].password_hash === oldHash;
-    if (oldDisplayPassword && oldHash && !unchanged && !alreadyTop) {
-      password_history.unshift({
-        password: oldDisplayPassword,
-        password_hash: oldHash,
-        password_salt: oldSalt,
-        rotated_at: new Date().toISOString()
-      });
-    }
-  }
-
-  if (restorePassword) {
-    password_history = password_history.filter(h => h.password_hash !== restorePassword.password_hash);
-  }
+  // Password history is no longer grown here (the View Links history
+  // UI and restore flow were removed). Any existing history value is
+  // preserved verbatim so stored data and the generated-text marker
+  // round-trip unchanged, but refresh/custom-password no longer add
+  // new entries.
+  const password_history = deliveryPasswordHistory(delivery);
 
   const deliveryDone = !!delivery.delivery_done;
   const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, delivery.event_date, shortCode, displayPassword, deliveryDone);
@@ -2532,10 +2512,7 @@ async function handleDbRepairDelivery(request, env) {
     password_history
   };
 
-  if (restorePassword) {
-    patch.password_hash = restorePassword.password_hash;
-    patch.password_salt = restorePassword.password_salt;
-  } else if (!hasStoredHash || rotatePassword || customPassword) {
+  if (!hasStoredHash || rotatePassword || customPassword) {
     Object.assign(patch, await hashGalleryPassword(displayPassword));
   }
 
