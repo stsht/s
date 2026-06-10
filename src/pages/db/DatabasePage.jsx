@@ -1161,25 +1161,34 @@ function accessLogEventLabel(type = '', service = '') {
     payment_bank: 'Bank Account',
     payment_qr: 'QR Payment',
   }[cleanService] || cleanService.replace(/_/g, ' ').trim();
-  // Link-click events read as "Clicked Google Drive" / "Clicked
-  // Dropbox" / "Clicked WeTransfer" so the operator sees exactly
+  // Link-click events read as "Google Drive clicked" / "Dropbox
+  // clicked" / "WeTransfer clicked" so the operator sees exactly
   // which delivery service the visitor opened. A plain link click
-  // with no service falls back to "Clicked Link".
+  // with no service falls back to "Link clicked".
   if (cleanType === 'service_click' || cleanType === 'button_click') {
     const nice = serviceLabel ? serviceLabel.replace(/\b\w/g, (c) => c.toUpperCase()) : '';
-    return nice ? `Clicked ${nice}` : 'Clicked Link';
+    return nice ? `${nice} clicked` : 'Link clicked';
   }
+  // Friendly action labels. Both the canonical event types written by
+  // the worker (password_success / payment_qr_download / ...) and the
+  // shorter aliases from the task spec (unlock_success / payment_qr /
+  // ...) map to the same display string so existing logged rows and
+  // any future event names render identically.
   const labels = {
     password_success: 'Unlocked',
-    password_failed: 'Wrong Password',
+    unlock_success: 'Unlocked',
+    password_failed: 'Password failed',
+    unlock_failed: 'Password failed',
     admin_unlock: 'Admin Preview',
     admin_page_view: 'Admin Preview',
     page_view: 'Page Opened',
-    invoice_view: 'Viewed Invoice',
+    invoice_view: 'Invoice viewed',
     invoice_fullscreen: 'Opened Full Invoice',
     invoice_download: 'Downloaded Invoice',
-    payment_bank_copy: 'Copied Bank Account',
-    payment_qr_download: 'Downloaded QR',
+    payment_bank_copy: 'Bank copied',
+    payment_bank: 'Bank copied',
+    payment_qr_download: 'Payment QR downloaded',
+    payment_qr: 'Payment QR downloaded',
   };
   return labels[cleanType] || cleanType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
@@ -1326,6 +1335,25 @@ function isRealInAppBrowser(userAgent = '') {
   return /Instagram|WhatsApp|FBAN|FBAV|FB_IAB|FBIOS|FB4A|\bLine\/|TikTok|musical_ly|Bytedance/i.test(ua);
 }
 
+// Generic crawler / link-preview scanner detection straight from the
+// user-agent string. This complements classifyAccessNetwork (which
+// works off IP/ASN ranges): a crawler hitting from an unrecognized IP
+// would otherwise fall through to "Unknown". Returns a label key so
+// the actor pill can read "Meta preview" / "WhatsApp preview" /
+// "Crawler" without us ever blocking or dropping the log.
+function crawlerUserAgentLabel(userAgent = '') {
+  const ua = String(userAgent || '');
+  if (!ua) return '';
+  if (/facebookexternalhit|facebookcatalog|facebot|meta-externalagent/i.test(ua)) return 'Meta preview';
+  if (/WhatsApp/i.test(ua) && !/Instagram|FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua) && /bot|preview|link/i.test(ua)) {
+    return 'WhatsApp preview';
+  }
+  if (/\bbot\b|crawler|spider|crawl|preview|scrap|fetch|monitor|slurp|bingpreview|embedly|telegrambot|twitterbot|linkedinbot|discordbot|pinterest|googlebot|applebot/i.test(ua)) {
+    return 'Crawler';
+  }
+  return '';
+}
+
 // Conservative actor classification for a grouped visitor/session.
 // Strong human signals are an unlock (password_success) or a link
 // click; a bare page view is weak. Known Meta infrastructure paired
@@ -1345,6 +1373,16 @@ function accessActorType(visitor = {}) {
   if (net.key === 'apple_relay') return { key: 'relay', label: 'Private Relay' };
   if (net.key === 'cloudflare' || net.key === 'google' || net.key === 'aws' || net.key === 'datacenter') {
     return { key: 'proxy', label: 'Proxy / Datacenter' };
+  }
+  // Generic crawler/preview detection from the UA. Only trusted when
+  // the visitor showed no strong human signal (an unlock or a link
+  // click), so a real person whose UA merely contains a noisy token
+  // is never mislabeled as a bot.
+  if (!strongSignal && !realApp) {
+    const crawler = crawlerUserAgentLabel(ua);
+    if (crawler === 'Meta preview') return { key: 'meta', label: 'Meta preview' };
+    if (crawler === 'WhatsApp preview') return { key: 'meta', label: 'WhatsApp preview' };
+    if (crawler === 'Crawler') return { key: 'proxy', label: 'Crawler' };
   }
   if (strongSignal) return { key: 'client', label: 'Likely Client' };
   return { key: 'unknown', label: 'Unknown' };
@@ -1536,7 +1574,8 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   //      "Cloudflare / Proxy", "Apple Private Relay", ...).
   //   4. Otherwise                  -> the device/browser label.
   let headline;
-  if (actor.key === 'meta') headline = 'Meta Preview';
+  if (actor.key === 'meta') headline = actor.label || 'Meta Preview';
+  else if (actor.key === 'proxy' && actor.label === 'Crawler') headline = 'Crawler';
   else if (realApp && device) headline = device;
   else headline = network.name || device || 'Unknown device';
   // Supporting line is always "City, Country \u00b7 Browser/App \u00b7 IP"
@@ -2525,9 +2564,9 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
             </div>
           </div>
 
-          <section className="dd-access-log" aria-label="Delivery access timeline">
+          <section className="dd-access-log" aria-label="Delivery access activity">
             <div className="dd-access-log-head">
-              <p className="eyebrow">Access Timeline</p>
+              <p className="eyebrow">Access Activity</p>
               {accessSummaryText ? <span>{accessSummaryText}</span> : null}
             </div>
             {accessVisitors.length ? (
@@ -2541,7 +2580,7 @@ function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh })
                 ))}
               </div>
             ) : (
-              <p className="dd-access-log-empty">No public activity yet.</p>
+              <p className="dd-access-log-empty">No activity yet.</p>
             )}
           </section>
         </div>
