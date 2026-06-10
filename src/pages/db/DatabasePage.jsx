@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
 import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
@@ -3255,6 +3254,11 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
         try { await document.fonts.ready; } catch {}
       }
       try {
+        // html2canvas is a heavy dependency only needed when the
+        // operator actually exports a card. Load it on demand so it
+        // stays out of the initial /db bundle (faster first paint,
+        // less memory on mobile Safari / tablet Firefox).
+        const { default: html2canvas } = await import('html2canvas');
         const canvas = await html2canvas(cardRef.current, {
           backgroundColor: '#ffffff',
           scale: Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 2)),

@@ -347,6 +347,12 @@
      * gutter offset. Override min-height to 0 so flex container
      * children size properly. */
     min-height: 0 !important;
+    /* Touch scrolling: programmatic smooth-scroll animation is an extra
+     * per-frame cost on mobile and fights native momentum/flick. Drop
+     * it on small screens so finger scrolling stays light. iOS momentum
+     * (-webkit-overflow-scrolling:touch) and overscroll containment from
+     * the shared scroll-surface utility are unaffected. */
+    scroll-behavior: auto;
   }
   .pf-panel--right {
     display: none;
@@ -386,9 +392,19 @@
     padding: 5px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.88);
+    /* Mobile performance: this bar is position:fixed and overlaps the
+     * scrolling panel, so a backdrop-filter blur forces a full-bar
+     * recomposite on every scroll frame (jank + device heat on iOS
+     * Safari / tablet Firefox). Use a near-opaque solid background
+     * instead — visually almost identical, far cheaper to paint. */
+    background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
-    backdrop-filter: blur(18px);
+  }
+  @media (prefers-color-scheme: dark) {
+    .pf-mobile-tabs {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(28, 30, 36, 0.96);
+    }
   }
   .pf-mobile-tabs button {
     height: 46px;
