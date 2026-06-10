@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: ['src/pages/workspace/WorkspacePages.jsx', '_worker.js']
+fileMatchPattern: ['src/pages/db/DatabasePage.jsx', '_worker.js']
 ---
 
 # Subscription extension defaults
@@ -64,7 +64,7 @@ same sort key produces incorrect tie-breaks and must be avoided.
 
 ## Where this is enforced
 
-- `s/src/pages/workspace/WorkspacePages.jsx` —
+- `s/src/pages/db/DatabasePage.jsx` —
   `pickLatestSubscriptionExtension`, `openAddExtension`,
   `setExtensionField`.
 - `s/_worker.js` — `pickLatestExtension` (server-side `latest_extension`
