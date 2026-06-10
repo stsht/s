@@ -589,13 +589,12 @@ With love, StarShots`;
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
 
-You may access them through the details below:
+Your *Delivery Files* and *Invoice* may be accessed through the details below:
 
 *Folder:* ${f}
 *Event Date:* ${ev}
 *Link:* ${PUBLIC_SITE}/${shortCode}
 *Password:* \`${pass}\`
-*Invoice:* Included inside the delivery page
 
 Should you prefer a different password, please let us know and we will update it for you.
 
