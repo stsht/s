@@ -21,6 +21,7 @@ export function Combobox({
   const id = useId();
   const rootRef = useRef(null);
   const inputRef = useRef(null);
+  const pointerRef = useRef(null);
   const normalized = useMemo(() => normalizeOptions(options), [options]);
   const selected = normalized.find((option) => option.value === value) || null;
   const [open, setOpen] = useState(false);
@@ -158,10 +159,21 @@ export function Combobox({
                 className={`combobox-option${active ? ' is-active' : ''}${chosen ? ' is-selected' : ''}`}
                 onMouseEnter={() => setActiveIndex(index)}
                 onPointerDown={(event) => {
-                  event.preventDefault();
+                  pointerRef.current = { x: event.clientX, y: event.clientY, moved: false };
+                }}
+                onPointerMove={(event) => {
+                  const start = pointerRef.current;
+                  if (!start) return;
+                  if (Math.abs(event.clientX - start.x) > 10 || Math.abs(event.clientY - start.y) > 10) {
+                    start.moved = true;
+                  }
+                }}
+                onClick={() => {
+                  const moved = pointerRef.current?.moved;
+                  pointerRef.current = null;
+                  if (moved) return;
                   choose(option);
                 }}
-                onClick={() => choose(option)}
               >
                 {option.label}
               </button>

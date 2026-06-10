@@ -1979,6 +1979,10 @@ input.no-spinner::-webkit-inner-spin-button{
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
+  max-height:min(420px,45vh);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
 }
 .package-catalog-row{
   display:grid;
