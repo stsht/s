@@ -432,7 +432,18 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
     }
 
     if (kind === 'delivery') {
-      if (record?.type === 'vendor') group.vendorDelivery = record;
+      // Assign vendor-vs-client deliveries with the SAME isVendor
+      // determination used for the vendorName/name split above, not a
+      // narrower `record.type === 'vendor'` check. The worker derives a
+      // delivery's `type` from its LINKED invoice, so a vendor link
+      // saved BEFORE any vendor invoice exists comes back as
+      // type:'client'. The narrow check then dropped it into
+      // group.delivery: the vendor link icon never turned green (and the
+      // client link pill went green by mistake) until a vendor invoice
+      // was saved. isVendor still recognises that title-less vendor row
+      // via likelyVendorDelivery, so the two assignments stay in lockstep
+      // and the saved state is correct immediately on the next refetch.
+      if (isVendor) group.vendorDelivery = record;
       else group.delivery = record;
     }
     else if (record?.invoice_type === 'vendor' || record?.type === 'vendor' || record?.invoice_data?.invoiceType === 'vendor') group.vendorInvoice = record;
