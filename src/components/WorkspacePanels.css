@@ -457,70 +457,17 @@
 
 
 /* ============================================================
- * Living-glass panels (ambient background reveal).
+ * Solid private-workspace panels.
  *
- * The animated ambient wash (.ss-aurora — see GlobalBackground.css)
- * sits at z-index:0 BEHIND the z-index:1 .pf-shell. With fully
- * opaque panels it was almost entirely hidden, so its drift /
- * colour-shift only peeked through the ~18px page frame and the
- * inter-panel gap and read as "static".
+ * Long /db, /l, /subs sessions prioritise calm readability, so the
+ * panels are fully OPAQUE (var(--panel), set on .pf-panel above and
+ * re-affirmed for dark mode) with NO backdrop-filter blur — cheaper
+ * to paint and steady to read. The static aurora (.ss-aurora, behind
+ * .pf-shell at z-index:0) stays visible AROUND the panels via the
+ * ~18px page frame + inter-panel gap; it no longer washes through the
+ * panel bodies. Premium feel comes from the solid surface + border +
+ * shadow (defined on .pf-panel above), not from glass blur.
  *
- * Long private-workspace sessions prioritise readability, so the panel
- * surface is kept mostly SOLID (high opacity) with only a light frost —
- * a calm, premium glass edge rather than a heavy blur. The static
- * aurora stays visible AROUND the panels (the ~18px page frame +
- * inter-panel gap) instead of washing through the content, and the
- * lighter blur is much cheaper to paint on long sessions. Panels still
- * render in front of the aurora (it stays behind, as required).
- *
- * Gated behind @supports so any browser without backdrop-filter
- * keeps the original fully-opaque surface — no contrast regression.
- * The sticky header (.pf-header) and search row (.pf-list-tools)
- * deliberately stay opaque (var(--panel)) so content scrolling
- * underneath them is still cleanly covered.
+ * The public /g delivery canvas keeps its own liquid-glass look
+ * (see invcs.css .public-delivery-card) and is untouched.
  * ============================================================ */
-@supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
-  .pf-panel {
-    /* Mostly-solid surface + light frost: readable on long sessions,
-     * far cheaper to paint than the previous heavy blur. */
-    background: rgba(255, 255, 255, 0.9);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    backdrop-filter: blur(12px) saturate(140%);
-  }
-  /* Match the dark-mode override's specificity (.pf-page .pf-panel)
-   * and come later in the cascade so the glass wins. */
-  @media (prefers-color-scheme: dark) {
-    .pf-page .pf-panel {
-      background: rgba(22, 24, 28, 0.88);
-      -webkit-backdrop-filter: blur(14px) saturate(150%);
-      backdrop-filter: blur(14px) saturate(150%);
-    }
-  }
-}
-
-
-/* ============================================================
- * Mobile performance: drop the expensive panel backdrop-filter.
- *
- * On phones the workspace is a single full-viewport .pf-panel that
- * scrolls; a large backdrop-filter blur on a scrolling surface is
- * very repaint-heavy on iOS Safari/Brave (jank + device heat while
- * filling in the Subs form). Below the tablet breakpoint we drop the
- * blur and use a more opaque panel surface instead — the animated
- * background still reads through the page frame/gap, the palette and
- * motion are unchanged, and scrolling/typing stays smooth and cool.
- * ============================================================ */
-@media (max-width: 1023px) {
-  .pf-panel {
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-    background: rgba(255, 255, 255, 0.92);
-  }
-  @media (prefers-color-scheme: dark) {
-    .pf-page .pf-panel {
-      -webkit-backdrop-filter: none !important;
-      backdrop-filter: none !important;
-      background: rgba(20, 22, 28, 0.9);
-    }
-  }
-}
