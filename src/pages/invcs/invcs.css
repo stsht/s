@@ -115,7 +115,9 @@ button{cursor:pointer}
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:clamp(24px,5vw,34px);
+  /* Fixed px padding (not vw) so the card frame doesn't grow/shrink
+   * with display scaling or fold state. */
+  padding:32px;
   border:1px solid var(--line);
   border-radius:28px;
   background:
@@ -148,7 +150,11 @@ button{cursor:pointer}
     box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),var(--shadow);
   }
 }
-.gate-logo{width:min(226px,68vw);height:auto;margin-bottom:28px}
+/* Logo pinned to a fixed px width (not vw) so it does NOT resize with
+ * display scaling / screen zoom or fold state — the gate reads as a
+ * fixed designed poster. max-width:100% is only a narrow-screen
+ * overflow guard, never a scale driver. */
+.gate-logo{width:226px;max-width:100%;height:auto;margin-bottom:28px}
 /* Gate typography is pinned to fixed px (not rem) so device / system
  * text-size scaling (iOS Dynamic Type via the global -apple-system-body
  * rule, Android font scaling) can't grow these labels and wrap them
@@ -173,7 +179,10 @@ button{cursor:pointer}
    * the greeting reads as a personalised label, not a hero
    * title. Min/preferred/max all kept comfortably under the old
    * 32-44px hero range. */
-  font-size:clamp(18px,3.6vw,24px);
+  /* Fixed px (not vw) so the title holds one designed size across
+   * display scaling / screen zoom and fold state. Long /g greetings
+   * still wrap cleanly via the overflow-wrap rules below. */
+  font-size:22px;
   line-height:1.25;
   font-weight:700;
   letter-spacing:0;
@@ -279,12 +288,11 @@ button{cursor:pointer}
 }
 
 .gate-splash-logo{
-  /* Width matches the standard .gate-logo proportion (min 226px,
-   * max 68vw) so the splash logo and the eventual gate-card logo
-   * read as the same brand mark at the same scale on every
-   * viewport. The previous 280px hero size was too large on short
-   * phones and pushed the brand too close to the viewport edges. */
-  width:min(226px,68vw);
+  /* Fixed px width (not vw) so the intro/splash logo holds the same
+   * designed size as the gate-card logo regardless of display scaling
+   * or fold state. max-width:100% is only a narrow-screen guard. */
+  width:226px;
+  max-width:100%;
   height:auto;
   display:block;
   margin:0;
@@ -388,19 +396,18 @@ button{cursor:pointer}
   }
   .gate-card{
     min-height:auto;
-    padding:clamp(22px,6vw,28px);
+    padding:24px;
     border-radius:24px;
   }
-  .gate-logo{width:min(190px,56vw);margin-bottom:22px}
+  .gate-logo{width:190px;margin-bottom:22px}
   .gate-card h1{
     margin:0 0 22px;
     /* Mobile cap mirrors the smaller logo width (max 190px) so
      * the greeting line never feels visually wider than the
-     * brand mark above it. Font scales down with viewport so
-     * "Hello, Title Name" still reads at one or two short
-     * lines on phones. */
+     * brand mark above it. Fixed px (not vw) so it stays stable
+     * under device text-size / display scaling. */
     max-width:min(100%,260px);
-    font-size:clamp(17px,5vw,22px);
+    font-size:20px;
   }
   .gate-input{margin-bottom:14px}
   .gate-input input{height:50px;border-radius:16px}
