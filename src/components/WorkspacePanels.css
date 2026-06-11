@@ -465,13 +465,13 @@
  * colour-shift only peeked through the ~18px page frame and the
  * inter-panel gap and read as "static".
  *
- * Make the panel surface a translucent frosted glass so the moving,
- * colour-shifting aurora reads softly THROUGH the panels on every
- * screen size (incl. mobile, where a single panel fills the
- * viewport) — premium and clearly alive — while backdrop-blur keeps
- * the content fully legible. Panels still render in front of the
- * aurora (it stays behind, as required); we only let it bleed
- * through.
+ * Long private-workspace sessions prioritise readability, so the panel
+ * surface is kept mostly SOLID (high opacity) with only a light frost —
+ * a calm, premium glass edge rather than a heavy blur. The static
+ * aurora stays visible AROUND the panels (the ~18px page frame +
+ * inter-panel gap) instead of washing through the content, and the
+ * lighter blur is much cheaper to paint on long sessions. Panels still
+ * render in front of the aurora (it stays behind, as required).
  *
  * Gated behind @supports so any browser without backdrop-filter
  * keeps the original fully-opaque surface — no contrast regression.
@@ -481,17 +481,19 @@
  * ============================================================ */
 @supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
   .pf-panel {
-    background: rgba(255, 255, 255, 0.72);
-    -webkit-backdrop-filter: blur(22px) saturate(140%);
-    backdrop-filter: blur(22px) saturate(140%);
+    /* Mostly-solid surface + light frost: readable on long sessions,
+     * far cheaper to paint than the previous heavy blur. */
+    background: rgba(255, 255, 255, 0.9);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
   }
   /* Match the dark-mode override's specificity (.pf-page .pf-panel)
    * and come later in the cascade so the glass wins. */
   @media (prefers-color-scheme: dark) {
     .pf-page .pf-panel {
-      background: rgba(22, 24, 28, 0.62);
-      -webkit-backdrop-filter: blur(26px) saturate(150%);
-      backdrop-filter: blur(26px) saturate(150%);
+      background: rgba(22, 24, 28, 0.88);
+      -webkit-backdrop-filter: blur(14px) saturate(150%);
+      backdrop-filter: blur(14px) saturate(150%);
     }
   }
 }
