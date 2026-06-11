@@ -149,7 +149,12 @@ button{cursor:pointer}
   }
 }
 .gate-logo{width:min(226px,68vw);height:auto;margin-bottom:28px}
-.gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:0.6875rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+/* Gate typography is pinned to fixed px (not rem) so device / system
+ * text-size scaling (iOS Dynamic Type via the global -apple-system-body
+ * rule, Android font scaling) can't grow these labels and wrap them
+ * onto a second line. white-space:nowrap on the eyebrow keeps
+ * "Private Workspace" on one line on every viewport. */
+.gate-eyebrow{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 18px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;white-space:nowrap}
 .gate-eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.18)}
 .gate-eyebrow span{width:28px;height:1px;background:linear-gradient(90deg,transparent,var(--line-strong),transparent)}
 .gate-card h1{
@@ -180,7 +185,7 @@ button{cursor:pointer}
   word-break:normal;
   hyphens:auto;
 }
-.gate-card label{align-self:stretch;margin:0 0 8px;color:#69645f;font-size:0.6875rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+.gate-card label{align-self:stretch;margin:0 0 8px;color:#69645f;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;white-space:nowrap}
 .gate-input{align-self:stretch;position:relative;margin-bottom:18px}
 .gate-input input{
   width:100%;
@@ -191,7 +196,9 @@ button{cursor:pointer}
   background:var(--field);
   color:var(--ink);
   outline:none;
-  font-size:1rem;
+  /* Fixed 16px: stable against system text scaling AND keeps iOS from
+   * auto-zooming the page on input focus (it zooms when < 16px). */
+  font-size:16px;
 }
 .gate-input input:focus{border-color:#8ab4f8;box-shadow:0 0 0 4px rgba(138,180,248,.22)}
 .gate-input button{
@@ -203,8 +210,9 @@ button{cursor:pointer}
   border:0;
   background:transparent;
   color:var(--muted);
-  font-size:0.75rem;
+  font-size:12px;
   font-weight:800;
+  white-space:nowrap;
 }
 .gate-submit{
   align-self:stretch;
@@ -213,12 +221,13 @@ button{cursor:pointer}
   border-radius:18px;
   background:var(--accent);
   color:#fff;
-  font-size:1rem;
+  font-size:16px;
   font-weight:800;
+  white-space:nowrap;
   box-shadow:0 12px 24px rgba(26,26,26,.12);
 }
 .gate-submit:hover{background:var(--accent-2)}
-.gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:0.75rem;font-weight:800}
+.gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:12px;font-weight:800}
 .gate-status.error{color:var(--danger)}
 
 /* ============================================================
