@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PasswordGate } from '../../components/PasswordGate.jsx';
-import { DatabasePage } from './DatabasePage.jsx';
 import '../invcs/invcs.css';
+
+const DatabasePage = lazy(() => import('./DatabasePage.jsx').then((module) => ({
+  default: module.DatabasePage,
+})));
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <PasswordGate title="Database">
-      <DatabasePage />
+      <Suspense fallback={null}>
+        <DatabasePage />
+      </Suspense>
     </PasswordGate>
   </React.StrictMode>,
 );

@@ -1,13 +1,18 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PasswordGate } from '../../components/PasswordGate.jsx';
-import { InvoiceComposer } from '../invcs/InvoiceComposer.jsx';
 import '../invcs/invcs.css';
+
+const InvoiceComposer = lazy(() => import('../invcs/InvoiceComposer.jsx').then((module) => ({
+  default: module.InvoiceComposer,
+})));
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <PasswordGate title="Invoice Generator">
-      <InvoiceComposer />
+      <Suspense fallback={null}>
+        <InvoiceComposer />
+      </Suspense>
     </PasswordGate>
   </React.StrictMode>,
 );
