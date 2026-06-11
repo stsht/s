@@ -499,8 +499,14 @@ button{cursor:pointer}
         color-mix(in srgb,var(--panel) 34%,transparent),
         color-mix(in srgb,var(--panel) 26%,transparent));
     border-color:rgba(255,255,255,.5);
-    -webkit-backdrop-filter:blur(40px) saturate(150%);
-    backdrop-filter:blur(40px) saturate(150%);
+    /* Frost radius tuned for paint cost: blur() compositing scales with
+     * the radius, and 40px on this large, scrolling card (overflow-y:auto
+     * on desktop) sitting over the fixed aurora is the dominant repaint
+     * cost in Firefox. 24px keeps the surface clearly frosted/refracted
+     * while materially cutting per-frame blur work — universal, no
+     * browser-specific branch, no visual-identity change. */
+    -webkit-backdrop-filter:blur(24px) saturate(150%);
+    backdrop-filter:blur(24px) saturate(150%);
     /* Layered glass: bright top edge highlight + a faint inner glow for
      * liquid depth + a whisper-thin bottom inner shadow, over a hairline
      * dark outer ring (keeps the rim visible on light areas of the
@@ -646,9 +652,11 @@ button{cursor:pointer}
   padding:10px 16px;
   /* Liquid-glass CTA: a soft translucent accent tint over the frosted
    * card with a hairline tinted border + top sheen — a light glass
-   * control, not a heavy solid block. Low backdrop saturation keeps it
-   * clear rather than plastic; it rides the card's frost so a small
-   * blur keeps the label crisp. */
+   * control, not a heavy solid block. No own backdrop blur: like the
+   * delivery rows below it rides the card's frost, which avoids a nested
+   * backdrop-filter layer stacked on the scrolling card (an extra
+   * per-frame compositing/readback pass that is expensive in Firefox)
+   * while keeping the label crisp and the tint glassy. */
   border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
   border-radius:18px;
   background:linear-gradient(180deg,
@@ -656,8 +664,6 @@ button{cursor:pointer}
     color-mix(in srgb,var(--accent) 10%,transparent));
   color:var(--ink);
   text-decoration:none;
-  -webkit-backdrop-filter:blur(10px) saturate(125%);
-  backdrop-filter:blur(10px) saturate(125%);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
     0 12px 26px -18px color-mix(in srgb,var(--accent) 58%,transparent);
@@ -1192,9 +1198,11 @@ button{cursor:pointer}
   padding:16px 20px;
   padding-top:calc(16px + env(safe-area-inset-top));
   border-bottom:1px solid rgba(255,255,255,.12);
+  /* Near-opaque dark bar: at 88% black the backdrop blur was visually
+   * negligible but still forced a per-frame readback/repaint while the
+   * invoice image is panned/zoomed beneath it — dropped to cut that
+   * compositing cost while the bar looks unchanged. */
   background:rgba(0,0,0,.88);
-  backdrop-filter:blur(20px);
-  -webkit-backdrop-filter:blur(20px);
   flex:none;
 }
 .public-invoice-fullscreen-btn{
@@ -6942,9 +6950,9 @@ dd{margin:0;text-align:right;font-weight:800}
     justify-content: space-between;
     padding: 16px 20px;
     padding-top: calc(16px + env(safe-area-inset-top));
+    /* Near-opaque dark bar (see base rule): blur dropped to avoid a
+     * per-frame repaint over the panned/zoomed image; bar looks the same. */
     background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
     z-index: 52;
     flex-shrink: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
