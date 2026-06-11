@@ -328,10 +328,10 @@
 /* Mobile — matches /inv: bottom tabs switch which panel is visible. */
 @media (max-width: 1023px) {
   .pf-page {
-    padding: 12px 12px 82px;
+    padding: 12px 12px 76px;
   }
   .pf-shell {
-    height: calc(100dvh - 94px);
+    height: calc(100dvh - 88px);
     display: block;
   }
   .pf-panel {
@@ -389,7 +389,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
-    padding: 5px;
+    padding: 4px;
     border: 1px solid var(--line);
     border-radius: 999px;
     /* Mobile performance: this bar is position:fixed and overlaps the
@@ -407,7 +407,10 @@
     }
   }
   .pf-mobile-tabs button {
-    height: 46px;
+    /* Slimmer, less chunky toggle: trimmed from 46px to a tighter
+     * 42px so the bottom switcher reads as a polished pill while the
+     * full-width hit area keeps it comfortable to tap on mobile. */
+    height: 42px;
     border: 0;
     border-radius: 999px;
     background: transparent;
