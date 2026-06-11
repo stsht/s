@@ -13,7 +13,6 @@
 // UTC arithmetic, so a 30-day period in May expires on day 30, not
 // 31, regardless of the local timezone.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
 import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { Segmented, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
@@ -287,6 +286,9 @@ export function SubscriptionsPage() {
     exportHost.appendChild(cloned);
     document.body.appendChild(exportHost);
     try {
+      // html2canvas is a heavy dependency only needed when the operator
+      // generates a JPG, so load it lazily to keep it off the first-load path.
+      const { default: html2canvas } = await import('html2canvas');
       const canvas = await html2canvas(cloned, {
         backgroundColor: '#ffffff',
         scale: Math.max(3, Math.min(4, (window.devicePixelRatio || 2) * 2)),
