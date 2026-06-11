@@ -718,8 +718,16 @@ function buildShortUrl(code) {
 // markers stripped (see stripMessageFormatting + synthesizeDelivery
 // MessageIg below).
 function synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
-  const t = String(title ?? 'Ms.').trim() ?? 'Ms.';
+  const t = String(title ?? 'Ms.').trim();
   const n = String(clientName || '').trim();
+  // Mirror _worker.js buildDeliveryMessage: drop the honorific
+  // cleanly when the title is blank (e.g. vendor deliveries, which
+  // are saved with an empty title) so the greeting reads
+  // "Dear *Name*" instead of "Dear * Name*" with a stray leading
+  // space inside the bold markers. Without this the client-facing
+  // copy/share message diverged from the worker's canonical text
+  // for every title-less row.
+  const namePart = t ? `${t} ${n}` : n;
   const f = String(folderName || '').trim() || 'TBA';
   // compactEventDateLabel returns "6 Jun 2026" for a real
   // YYYY-MM-DD and "TBA" for a blank/timestamp value, so the Event
@@ -729,7 +737,7 @@ function synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, s
   const pass = String(password || '').trim() || '(no password)';
 
   if (deliveryDone) {
-    return `Dear *${t} ${n}*,
+    return `Dear *${namePart}*,
 
 Your StarShots files are now ready.
 
@@ -743,7 +751,7 @@ Thank you for your patience.
 With love, StarShots`;
   }
 
-  return `Dear *${t} ${n}*,
+  return `Dear *${namePart}*,
 
 With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
 
