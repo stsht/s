@@ -239,6 +239,22 @@ button{cursor:pointer}
 .gate-status{min-height:18px;margin:14px 0 0;text-align:center;color:var(--muted);font-size:12px;font-weight:800}
 .gate-status.error{color:var(--danger)}
 
+/* Hard opt-out of automatic / OS-driven text scaling for the gate ONLY.
+ * The global rule above uses text-size-adjust:100%, which stops the
+ * "font boosting" heuristic but does NOT stop the OS accessibility font
+ * scale that some browsers still apply (DuckDuckGo on Android, certain
+ * Chromium/WebView builds, and some iOS cases). Pinning the gate
+ * elements to `none` keeps the designed px sizes truly fixed so the
+ * gate reads as a fixed poster regardless of the device text-size
+ * setting. Scoped to .gate-* so the rest of the app keeps its normal
+ * (accessible) text-scaling behavior. */
+.gate-page,
+.gate-card,
+.gate-card *{
+  -webkit-text-size-adjust:none;
+  text-size-adjust:none;
+}
+
 /* ============================================================
  * Apple-style splash → form reveal stage
  * ============================================================
