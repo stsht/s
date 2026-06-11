@@ -4401,8 +4401,8 @@ dd{margin:0;text-align:right;font-weight:800}
   .combobox{
     scroll-margin-top:86px;
   }
-  .composer-page{padding:12px 12px 82px}
-  .composer-shell{height:calc(100dvh - 94px);min-height:0;display:block}
+  .composer-page{padding:12px 12px 76px}
+  .composer-shell{height:calc(100dvh - 88px);min-height:0;display:block}
   .editor-panel,.preview-panel{height:100%;min-height:0}
   .preview-panel{display:none;margin-top:0}
   .composer-shell.show-preview .editor-panel{display:none}
@@ -4416,14 +4416,14 @@ dd{margin:0;text-align:right;font-weight:800}
     display:grid;
     grid-template-columns:1fr 1fr;
     gap:4px;
-    padding:5px;
+    padding:4px;
     border:1px solid var(--line);
     border-radius:999px;
     background:rgba(255,255,255,.88);
     box-shadow:0 20px 50px rgba(15,23,42,.18);
     backdrop-filter:blur(18px);
   }
-  .mobile-tabs button{height:46px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-weight:900}
+  .mobile-tabs button{height:42px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-weight:900}
   .mobile-tabs button.active{background:#1f1a17;color:#fff}
   .workspace-page{padding:18px}
   .workspace-topbar{align-items:flex-start;flex-direction:column;margin-bottom:28px}
