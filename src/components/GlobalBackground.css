@@ -3,60 +3,51 @@
  *
  * Self-contained ambient page background. Two parts:
  *
- *   .ss-bg      a soft, full-screen radial tint (the page colour).
- *   .ss-aurora  a clipping container holding eight .ss-blob pools.
+ *   .ss-bg      a rich, full-screen radial-gradient aurora wash
+ *               (the page colour itself).
+ *   .ss-aurora  a clipping container holding eight .ss-blob pools
+ *               that add depth and smooth colour blending on top
+ *               of the wash.
  *
- * Gemini-app-inspired ambience: instead of one flat wash that
- * fades / hue-shifts in place, the colour lives in many soft,
- * blurred POOLS spread across the WHOLE viewport that drift and
- * orbit through one another, so the viewer reads "the colours are
- * moving across the screen", not "the background is changing
- * colour" and not "blue lives left, purple lives right".
+ * Design — STATIC, richer aurora / rainbow:
+ *   The colour lives in many soft, feathered radial POOLS spread
+ *   across the WHOLE viewport. Earlier builds had every pool ORBIT
+ *   its own infinite keyframe loop ("the colours move across the
+ *   screen"). That continuous, always-on motion (8 blurred layers
+ *   re-composited every frame, never frozen on mobile) was a real
+ *   source of phone heat / battery drain / scroll lag for no
+ *   functional benefit. The motion is now GONE — the field is a
+ *   fixed, premium aurora that is painted ONCE and then just sits
+ *   there.
  *
- * Palette — a cohesive cool aurora, NOT a rainbow and NOT neon:
- *   sky blue · baby blue · aqua · cyan · soft teal · mint green ·
- *   soft lavender · periwinkle · subtle lilac · plus one tiny,
- *   faint clean peach / blush accent. Every pool sits in the
- *   blue→teal→violet family with a single soft mint-green and one
- *   whisper of warmth, so overlaps blend into seafoam / periwinkle
- *   / lilac in-betweens — many tones, never just two.
+ * Palette — a soft, premium aurora / rainbow (NOT neon):
+ *   sky blue · aqua / cyan · soft teal · mint / emerald · periwinkle ·
+ *   violet · a gentle rose / lilac and one whisper of warm peach /
+ *   blush. Pools are INTERLEAVED across the screen (no left/right
+ *   colour split) so overlaps blend into seafoam / periwinkle /
+ *   lilac / blush in-betweens — many tones, smoothly blended, more
+ *   colourful than the old cool-only wash, but still calm enough to
+ *   read through frosted glass.
  *
- * Tuning notes (richer, livelier, full-screen, not two-tone):
- *   - Eight pools spread across the FULL screen (top, middle and
- *     lower bands; left, centre and right), not a single top strip.
- *   - Hues are INTERLEAVED so neither side is mono: blue / lavender
- *     / aqua share the top; periwinkle / teal / mint share the
- *     middle; baby blue anchors the lower centre; a tiny peach
- *     roams. No left/right colour split.
- *   - SATURATION is pushed harder for a vivid, clearly-alive mix
- *     that reads through frosted glass: higher per-pool colour
- *     alpha, a slightly deeper base tint, and a stronger saturate()
- *     filter. It stays biased to the TOP half (top pools brightest)
- *     while lower pools stay softer, so text stays readable.
- *   - Each pool ORBITS its own loop (rotated-diamond / circular
- *     paths) with generous horizontal AND some vertical travel and
- *     a little scale, so even a quick glance shows obvious movement —
- *     the field gently "dances" rather than sitting still.
- *   - Laps are deliberately DESYNCED across a wide range (~3.4s for
- *     the liveliest pool up to ~12.8s for the slow ambient ones —
- *     no two alike and none near 5s) so a fixed-interval comparison
- *     (e.g. a 5s before/after) can never alias to the same frame.
- *     Timing is `linear`, so pools drift continuously instead of
- *     easing to a near-stop at every loop corner.
+ * Performance / cost:
+ *   - No @keyframes, no animation, no will-change — nothing is
+ *     promoted to a perpetual compositor layer, and nothing repaints
+ *     after the first frame.
+ *   - Each pool is a radial-gradient that feathers to fully
+ *     transparent before its box edge, so there is never a hard
+ *     circle. A MODERATE (not heavy) blur softens it further for
+ *     glassy blending; because it is static it is rasterised once.
+ *   - Cheap, static CSS only: radial gradients + a couple of soft
+ *     blurred pools. Glass / transparent panels above this layer are
+ *     unchanged (this file only paints the page background).
  *
- * Motion is pure transform (GPU-friendly); blur/opacity are static
- * per pool (not animated) to stay cheap. Loops return to the start
- * (0% == 100%) so they never jump. No hue-rotate, no opacity-fade
- * driver, no dirty pink/grey — position is what moves.
+ * Reduced motion: there is no motion here at all, so this background
+ * is identical for everyone and inherently satisfies
+ * prefers-reduced-motion (no force-motion override needed).
  *
  * Pairs with GlobalBackground.jsx (renders .ss-bg + .ss-aurora and
  * eight blob spans) and imports this file, so dropping
- * <GlobalBackground /> on any page brings its own styling + motion.
- *
- * StarShots motion is brief, calm and intentional, so it is NOT
- * frozen on the gate intro and is NOT disabled by
- * prefers-reduced-motion (animate.js tags <html class=
- * "ss-force-motion"> to keep the ambience alive everywhere).
+ * <GlobalBackground /> on any page brings its own styling.
  *
  * Both .ss-bg and .ss-aurora are position:fixed at z-index:0 with
  * pointer-events:none, so they always sit behind (and never
@@ -68,22 +59,24 @@
   inset:0;
   z-index:0;
   pointer-events:none;
-  /* Full-screen tint. A bright blue crown up top, aqua / lavender
-   * shoulders, and soft mint / periwinkle glows in the lower
-   * corners so colour reaches the whole viewport without any hard
-   * left/right split. Near-white base keeps it premium and
-   * readable; the drifting pools carry most of the colour. */
+  /* Rich, full-screen static aurora wash. A bright blue crown up
+   * top, aqua / violet shoulders, mint + periwinkle lower corners
+   * and a faint warm peach / rose breath so colour reaches the whole
+   * viewport without any hard left/right split. A near-white base
+   * keeps it premium and readable; the pools above add the depth. */
   background:
-    radial-gradient(1000px 560px at 50% -8%, rgba(72,152,255,.42), transparent 62%),
-    radial-gradient(680px 440px at 22% 6%, rgba(32,198,224,.22), transparent 60%),
-    radial-gradient(680px 440px at 78% 4%, rgba(148,126,252,.22), transparent 60%),
-    radial-gradient(760px 540px at 10% 94%, rgba(104,206,184,.18), transparent 62%),
-    radial-gradient(760px 540px at 90% 96%, rgba(128,150,252,.18), transparent 62%),
-    #eef3fb;
+    radial-gradient(1100px 620px at 50% -10%, rgba(72,150,255,.46), transparent 60%),
+    radial-gradient(820px 560px at 14% 6%, rgba(34,200,224,.30), transparent 60%),
+    radial-gradient(820px 560px at 86% 4%, rgba(150,120,252,.32), transparent 60%),
+    radial-gradient(780px 580px at 6% 88%, rgba(104,210,184,.26), transparent 62%),
+    radial-gradient(840px 620px at 94% 92%, rgba(255,150,196,.24), transparent 62%),
+    radial-gradient(720px 540px at 50% 110%, rgba(128,150,252,.26), transparent 60%),
+    radial-gradient(540px 440px at 72% 40%, rgba(255,196,168,.18), transparent 60%),
+    #eef2fc;
 }
 
 /* ------------------------------------------------------------
- * Aurora container — clips the drifting pools to the viewport so
+ * Aurora container — clips the colour pools to the viewport so
  * they can sit partly off-screen (edge bleed) without creating
  * scrollbars.
  * ------------------------------------------------------------ */
@@ -96,287 +89,199 @@
 }
 
 /* Base pool. The radial-gradient feathers each pool to fully
- * transparent before its box edge, and the blur softens it
- * further, so there is never a visible hard circle — just an
- * atmospheric cloud of colour. Only transform animates. */
+ * transparent before its box edge, and a MODERATE static blur
+ * softens it further, so there is never a visible hard circle —
+ * just an atmospheric cloud of colour. Static: no animation, no
+ * will-change, so it is painted once and never recomposited. */
 .ss-blob{
   position:absolute;
   pointer-events:none;
   border-radius:50%;
-  filter:blur(66px) saturate(188%);
-  will-change:transform;
-  transform:translate3d(0,0,0);
+  filter:blur(58px) saturate(170%);
 }
 
 /* ---- TOP band (highest saturation) ---- */
 
-/* 1 — sky blue, top-left. Orbits right + down into the centre. */
+/* 1 — sky blue, top-left. */
 .ss-blob-1{
-  top:-12%;
-  left:-6%;
+  top:-10%;
+  left:-8%;
+  width:48vmax;
+  height:48vmax;
+  opacity:.82;
+  background:radial-gradient(circle at 50% 50%,
+    rgba(60,140,255,.74) 0%, rgba(60,140,255,.28) 36%, transparent 70%);
+}
+
+/* 2 — soft violet, top-right. */
+.ss-blob-2{
+  top:-14%;
+  left:54%;
   width:46vmax;
   height:46vmax;
-  opacity:.84;
-  background:radial-gradient(circle at 50% 50%,
-    rgba(60,140,255,.72) 0%, rgba(60,140,255,.28) 36%, transparent 68%);
-  animation:ssBlob1 6.1s linear infinite;
-  animation-delay:-2.2s;
-}
-
-/* 2 — soft violet, top-centre. Orbits left, crossing the blue. */
-.ss-blob-2{
-  top:-16%;
-  left:30%;
-  width:44vmax;
-  height:44vmax;
   opacity:.78;
   background:radial-gradient(circle at 50% 50%,
-    rgba(150,124,252,.68) 0%, rgba(150,124,252,.26) 36%, transparent 68%);
-  animation:ssBlob2 7.3s linear infinite;
-  animation-delay:-5.7s;
+    rgba(150,118,252,.70) 0%, rgba(150,118,252,.26) 36%, transparent 70%);
 }
 
-/* 3 — cyan / aqua, top-right. Orbits left toward the centre. */
+/* 3 — cyan / aqua, top-centre. */
 .ss-blob-3{
-  top:-10%;
-  left:60%;
-  width:42vmax;
-  height:42vmax;
-  opacity:.76;
+  top:-6%;
+  left:26%;
+  width:44vmax;
+  height:44vmax;
+  opacity:.74;
   background:radial-gradient(circle at 50% 50%,
-    rgba(28,202,228,.66) 0%, rgba(28,202,228,.26) 36%, transparent 68%);
-  animation:ssBlob3 3.4s linear infinite;
-  animation-delay:-1.3s;
+    rgba(28,202,228,.66) 0%, rgba(28,202,228,.24) 36%, transparent 70%);
 }
 
 /* ---- MIDDLE band (soft) ---- */
 
-/* 4 — richer periwinkle, mid-left. Orbits up-and-right (blue↔violet
- * bridge tone), pulling colour toward the centre. */
+/* 4 — periwinkle, mid-left (blue↔violet bridge tone). */
 .ss-blob-4{
   top:30%;
-  left:-8%;
-  width:44vmax;
-  height:44vmax;
+  left:-6%;
+  width:46vmax;
+  height:46vmax;
   opacity:.64;
   background:radial-gradient(circle at 50% 50%,
-    rgba(116,156,252,.6) 0%, rgba(116,156,252,.24) 38%, transparent 68%);
-  animation:ssBlob4 8.6s linear infinite;
-  animation-delay:-3.9s;
+    rgba(116,150,252,.62) 0%, rgba(116,150,252,.24) 38%, transparent 70%);
 }
 
-/* 5 — mint / teal accent, mid-right. Orbits left toward the centre,
- * the lone green-leaning accent (kept soft, never neon). */
+/* 5 — mint / emerald accent, mid-right (kept soft, never neon). */
 .ss-blob-5{
   top:34%;
-  left:60%;
-  width:42vmax;
-  height:42vmax;
-  opacity:.58;
+  left:58%;
+  width:44vmax;
+  height:44vmax;
+  opacity:.6;
   background:radial-gradient(circle at 50% 50%,
-    rgba(118,212,176,.56) 0%, rgba(118,212,176,.22) 38%, transparent 68%);
-  animation:ssBlob5 10.4s linear infinite;
-  animation-delay:-6.5s;
+    rgba(110,214,170,.58) 0%, rgba(110,214,170,.22) 38%, transparent 70%);
 }
 
-/* 6 — soft teal, mid-centre. Gentle circular orbit; blends the
- * aqua and mint into seafoam in-betweens. */
+/* 6 — soft teal, mid-centre. Blends aqua + mint into seafoam. */
 .ss-blob-6{
-  top:26%;
+  top:28%;
   left:28%;
-  width:40vmax;
-  height:40vmax;
-  opacity:.58;
+  width:42vmax;
+  height:42vmax;
+  opacity:.56;
   background:radial-gradient(circle at 50% 50%,
-    rgba(48,196,210,.56) 0%, rgba(48,196,210,.22) 38%, transparent 68%);
-  animation:ssBlob6 4.2s linear infinite;
-  animation-delay:-0.8s;
+    rgba(48,196,210,.56) 0%, rgba(48,196,210,.22) 38%, transparent 70%);
 }
 
 /* ---- LOWER band (softest) ---- */
 
-/* 7 — baby blue / lilac, lower-centre. Drifts up and sideways so
- * the lower half keeps soft movement too. */
+/* 7 — gentle rose / lilac, lower-centre. Warms the lower half and
+ * pushes the mix toward "rainbow" without ever reading as hot pink. */
 .ss-blob-7{
-  top:54%;
-  left:40%;
-  width:46vmax;
-  height:46vmax;
-  opacity:.56;
+  top:56%;
+  left:38%;
+  width:48vmax;
+  height:48vmax;
+  opacity:.5;
   background:radial-gradient(circle at 50% 50%,
-    rgba(140,180,255,.54) 0%, rgba(162,150,250,.22) 40%, transparent 70%);
-  animation:ssBlob7 12.8s linear infinite;
-  animation-delay:-9.1s;
+    rgba(244,150,210,.5) 0%, rgba(180,150,250,.2) 42%, transparent 72%);
 }
 
-/* 8 — tiny, faint clean peach / blush accent, upper-centre. Roams
- * gently to warm the cool mix without ever reading as pink. Kept
- * low even as the rest gains saturation. */
+/* 8 — tiny, faint warm peach / blush accent, upper-centre. A single
+ * whisper of warmth so the cool field still reads premium, not cold. */
 .ss-blob-8{
-  top:4%;
-  left:48%;
-  width:28vmax;
-  height:28vmax;
-  opacity:.26;
+  top:6%;
+  left:50%;
+  width:30vmax;
+  height:30vmax;
+  opacity:.3;
   background:radial-gradient(circle at 50% 50%,
-    rgba(255,186,170,.42) 0%, rgba(255,186,170,.14) 40%, transparent 66%);
-  animation:ssBlob8 9.5s linear infinite;
-  animation-delay:-4.3s;
-}
-
-/* ============================================================
- * Motion — each pool ORBITS its own loop and returns to its start
- * (0% == 100%) so the loop never jumps. Directions are mixed
- * (some bias right, some left, some up), and durations/delays are
- * desynced across a wide ~3.4s-12.8s range (no two alike, none near
- * 5s), giving a lively, randomised, full-screen "dance" that never
- * aliases to a static-looking before/after. Horizontal swing is
- * generous (obvious at a glance) with some vertical travel and a
- * little scale. `linear` timing keeps the drift continuous (no
- * easing-to-a-stop at the corners). Pure transform = GPU-friendly.
- * (translate %s are relative to each pool's box.)
- * ============================================================ */
-@keyframes ssBlob1{ /* sky blue — right + down */
-  0%{transform:translate3d(-10%,-8%,0) scale(1)}
-  25%{transform:translate3d(25%,-3%,0) scale(1.07)}
-  50%{transform:translate3d(36%,12%,0) scale(1.03)}
-  75%{transform:translate3d(7%,17%,0) scale(1.08)}
-  100%{transform:translate3d(-10%,-8%,0) scale(1)}
-}
-@keyframes ssBlob2{ /* violet — left + down */
-  0%{transform:translate3d(12%,-8%,0) scale(1.02)}
-  25%{transform:translate3d(-23%,-3%,0) scale(1.08)}
-  50%{transform:translate3d(-36%,12%,0) scale(1.03)}
-  75%{transform:translate3d(-5%,17%,0) scale(1.07)}
-  100%{transform:translate3d(12%,-8%,0) scale(1.02)}
-}
-@keyframes ssBlob3{ /* cyan / aqua — left toward centre */
-  0%{transform:translate3d(8%,-9%,0) scale(1)}
-  25%{transform:translate3d(-26%,-3%,0) scale(1.07)}
-  50%{transform:translate3d(-39%,10%,0) scale(1.06)}
-  75%{transform:translate3d(-8%,16%,0) scale(1.08)}
-  100%{transform:translate3d(8%,-9%,0) scale(1)}
-}
-@keyframes ssBlob4{ /* periwinkle — up + right */
-  0%{transform:translate3d(-9%,7%,0) scale(1.02)}
-  25%{transform:translate3d(17%,-8%,0) scale(1.08)}
-  50%{transform:translate3d(29%,-3%,0) scale(1.04)}
-  75%{transform:translate3d(5%,-12%,0) scale(1.07)}
-  100%{transform:translate3d(-9%,7%,0) scale(1.02)}
-}
-@keyframes ssBlob5{ /* mint — left + up */
-  0%{transform:translate3d(8%,-5%,0) scale(1)}
-  25%{transform:translate3d(-18%,5%,0) scale(1.07)}
-  50%{transform:translate3d(-30%,-4%,0) scale(1.04)}
-  75%{transform:translate3d(-5%,10%,0) scale(1.06)}
-  100%{transform:translate3d(8%,-5%,0) scale(1)}
-}
-@keyframes ssBlob6{ /* teal — gentle circle */
-  0%{transform:translate3d(0,-8%,0) scale(1)}
-  25%{transform:translate3d(21%,4%,0) scale(1.07)}
-  50%{transform:translate3d(4%,17%,0) scale(1.04)}
-  75%{transform:translate3d(-20%,5%,0) scale(1.08)}
-  100%{transform:translate3d(0,-8%,0) scale(1)}
-}
-@keyframes ssBlob7{ /* baby blue — drift up + sideways */
-  0%{transform:translate3d(-7%,7%,0) scale(1.02)}
-  25%{transform:translate3d(14%,-4%,0) scale(1.06)}
-  50%{transform:translate3d(23%,5%,0) scale(1.03)}
-  75%{transform:translate3d(3%,-9%,0) scale(1.06)}
-  100%{transform:translate3d(-7%,7%,0) scale(1.02)}
-}
-@keyframes ssBlob8{ /* peach — small gentle drift */
-  0%{transform:translate3d(0,-4%,0) scale(1)}
-  33%{transform:translate3d(-17%,4%,0) scale(1.08)}
-  66%{transform:translate3d(13%,7%,0) scale(1.04)}
-  100%{transform:translate3d(0,-4%,0) scale(1)}
+    rgba(255,184,162,.46) 0%, rgba(255,184,162,.14) 42%, transparent 68%);
 }
 
 /* ============================================================
  * Dark mode — deeper, more saturated jewel tones so each pool
  * stays visible on the near-black canvas without going muddy.
- * Positions / motion are unchanged (palette + intensity only).
+ * Positions are unchanged (palette + intensity only); still static.
  * ============================================================ */
 @media(prefers-color-scheme:dark){
   .ss-bg{
     background:
-      radial-gradient(1000px 600px at 50% -8%, rgba(66,124,255,.62), transparent 60%),
-      radial-gradient(700px 440px at 22% 6%, rgba(26,180,216,.32), transparent 60%),
-      radial-gradient(700px 440px at 78% 4%, rgba(134,108,250,.32), transparent 60%),
-      radial-gradient(760px 540px at 10% 94%, rgba(62,198,178,.22), transparent 62%),
-      radial-gradient(760px 540px at 90% 96%, rgba(112,132,252,.22), transparent 62%),
+      radial-gradient(1100px 660px at 50% -10%, rgba(66,124,255,.62), transparent 60%),
+      radial-gradient(820px 560px at 14% 6%, rgba(26,180,216,.34), transparent 60%),
+      radial-gradient(820px 560px at 86% 4%, rgba(134,108,250,.34), transparent 60%),
+      radial-gradient(780px 580px at 6% 88%, rgba(62,198,178,.24), transparent 62%),
+      radial-gradient(840px 620px at 94% 92%, rgba(232,120,178,.22), transparent 62%),
+      radial-gradient(720px 540px at 50% 110%, rgba(112,132,252,.24), transparent 60%),
       #0a1226;
   }
   .ss-blob{
-    filter:blur(74px) saturate(196%);
+    filter:blur(62px) saturate(180%);
   }
   .ss-blob-1{
     opacity:.9;
     background:radial-gradient(circle at 50% 50%,
-      rgba(66,142,255,.72) 0%, rgba(66,142,255,.3) 36%, transparent 66%);
+      rgba(66,142,255,.72) 0%, rgba(66,142,255,.3) 36%, transparent 68%);
   }
   .ss-blob-2{
     opacity:.86;
     background:radial-gradient(circle at 50% 50%,
-      rgba(150,122,252,.7) 0%, rgba(150,122,252,.28) 36%, transparent 66%);
+      rgba(150,122,252,.7) 0%, rgba(150,122,252,.28) 36%, transparent 68%);
   }
   .ss-blob-3{
     opacity:.82;
     background:radial-gradient(circle at 50% 50%,
-      rgba(30,200,232,.68) 0%, rgba(30,200,232,.28) 36%, transparent 66%);
+      rgba(30,200,232,.68) 0%, rgba(30,200,232,.28) 36%, transparent 68%);
   }
   .ss-blob-4{
     opacity:.66;
     background:radial-gradient(circle at 50% 50%,
-      rgba(116,156,252,.6) 0%, rgba(116,156,252,.26) 38%, transparent 66%);
+      rgba(116,156,252,.6) 0%, rgba(116,156,252,.26) 38%, transparent 68%);
   }
   .ss-blob-5{
     opacity:.6;
     background:radial-gradient(circle at 50% 50%,
-      rgba(104,212,168,.56) 0%, rgba(104,212,168,.24) 38%, transparent 66%);
+      rgba(104,212,168,.56) 0%, rgba(104,212,168,.24) 38%, transparent 68%);
   }
   .ss-blob-6{
     opacity:.6;
     background:radial-gradient(circle at 50% 50%,
-      rgba(44,198,212,.56) 0%, rgba(44,198,212,.24) 38%, transparent 66%);
+      rgba(44,198,212,.56) 0%, rgba(44,198,212,.24) 38%, transparent 68%);
   }
   .ss-blob-7{
-    opacity:.6;
+    opacity:.54;
     background:radial-gradient(circle at 50% 50%,
-      rgba(140,180,255,.56) 0%, rgba(160,148,252,.24) 40%, transparent 68%);
+      rgba(236,128,196,.52) 0%, rgba(168,140,250,.22) 42%, transparent 70%);
   }
   .ss-blob-8{
-    opacity:.28;
+    opacity:.3;
     background:radial-gradient(circle at 50% 50%,
-      rgba(255,178,162,.42) 0%, rgba(255,178,162,.15) 40%, transparent 64%);
+      rgba(255,178,162,.42) 0%, rgba(255,178,162,.15) 42%, transparent 66%);
   }
 }
 
 /* ============================================================
  * Mobile — keep the full-screen spread but enlarge the pools so
- * the mix still reads on a narrow viewport. Homes stay interleaved
- * (no left/right split); motion (the shared keyframes) is
- * unchanged — no device-based freeze.
+ * the mix still reads on a narrow viewport, and trim the blur a
+ * touch (cheaper on phones). Homes stay interleaved (no left/right
+ * split). Still fully static — no device-based motion.
  * ============================================================ */
 @media (max-width:768px){
   .ss-blob{
-    filter:blur(54px) saturate(188%);
+    filter:blur(46px) saturate(168%);
   }
-  .ss-blob-1{ top:-14%; left:-16%; width:64vmax; height:64vmax; }
-  .ss-blob-2{ top:-18%; left:22%;  width:62vmax; height:62vmax; }
-  .ss-blob-3{ top:-12%; left:56%;  width:60vmax; height:60vmax; }
-  .ss-blob-4{ top:28%;  left:-18%; width:62vmax; height:62vmax; }
-  .ss-blob-5{ top:36%;  left:54%;  width:60vmax; height:60vmax; }
-  .ss-blob-6{ top:24%;  left:22%;  width:58vmax; height:58vmax; }
-  .ss-blob-7{ top:58%;  left:30%;  width:64vmax; height:64vmax; }
-  .ss-blob-8{ top:6%;   left:44%;  width:40vmax; height:40vmax; opacity:.28; }
+  .ss-blob-1{ top:-12%; left:-18%; width:64vmax; height:64vmax; }
+  .ss-blob-2{ top:-16%; left:48%;  width:62vmax; height:62vmax; }
+  .ss-blob-3{ top:-10%; left:18%;  width:60vmax; height:60vmax; }
+  .ss-blob-4{ top:28%;  left:-20%; width:62vmax; height:62vmax; }
+  .ss-blob-5{ top:36%;  left:52%;  width:60vmax; height:60vmax; }
+  .ss-blob-6{ top:24%;  left:20%;  width:58vmax; height:58vmax; }
+  .ss-blob-7{ top:58%;  left:28%;  width:64vmax; height:64vmax; }
+  .ss-blob-8{ top:6%;   left:46%;  width:42vmax; height:42vmax; opacity:.3; }
 }
 
 /* ============================================================
- * Motion policy: NO gate freeze, NO reduced-motion freeze.
- * The ambient pools animate on the password gate AND after
- * unlock, on desktop and mobile, and are not disabled by reduced
- * motion (StarShots motion is brief and tasteful; animate.js tags
- * <html class="ss-force-motion"> to neutralise any remaining
- * reduced-motion freezes elsewhere). Keep it this way.
+ * Motion policy: there is intentionally NO motion in this
+ * background. It is a static aurora painted once. prefers-reduced-
+ * motion needs no special handling here because nothing animates;
+ * the look is identical with reduced motion on or off. Keep it
+ * static — the previous infinite drift was the mobile heat / lag
+ * source this layer was rebuilt to remove.
  * ============================================================ */

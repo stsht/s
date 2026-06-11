@@ -5,9 +5,10 @@ export function GlobalBackground() {
     <>
       <div className="ss-bg" aria-hidden="true" />
       {/* Ambient colour pools. Each blob is an independent, blurred
-          radial-gradient that drifts on its own transform path, so
-          the scene reads as colour MOVING through space rather than
-          a background fading/hue-shifting in place. The container
+          radial-gradient placed at a fixed spot, so together they
+          read as a rich, static aurora that adds depth and smooth
+          colour blending (no motion — see GlobalBackground.css for
+          why the old continuous drift was removed). The container
           clips them to the viewport and never intercepts pointers. */}
       <div className="ss-aurora" aria-hidden="true">
         <span className="ss-blob ss-blob-1" />
