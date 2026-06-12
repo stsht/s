@@ -76,6 +76,14 @@ function PaperIcon() {
 // it never accidentally arm a delete; only the explicit X press
 // triggers onDelete.
 //
+// The X is a two-tap (arm → confirm) control: a first press never
+// deletes — it asks the parent to arm this row (`armed` prop flips
+// on, painting the X with a red danger frame). A second press on
+// the same armed X confirms the delete. The arm/disarm bookkeeping
+// (single-armed-row rule + auto-disarm timeout) lives in the
+// ClientDetail parent; RecordRow only reflects `armed` and forwards
+// each press through onDelete.
+//
 // View Links: when the row already has a saved delivery, the action
 // is a button that swaps the right panel to the admin DeliveryDetail
 // view (greeting + folder + password + short link + original GD/DB/
@@ -89,7 +97,7 @@ function PaperIcon() {
 // and a subtle accent on the row border so a row's status reads at
 // a glance. The tone palette mirrors the four tones used on the
 // /db Clients left list so both surfaces stay visually consistent.
-export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, eventVendorDeliveryHref, onDelete, onViewLinks }) {
+export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, eventVendorDeliveryHref, onDelete, onViewLinks, armed = false }) {
   const hasDelivery = !!row.delivery?.id;
   const hasInvoice = !!row.invoice?.id;
   const hasVendorInvoice = !!row.vendorInvoice?.id;
@@ -226,12 +234,17 @@ export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHre
       </div>
       <button
         type="button"
-        className="row-delete-x"
+        className={`row-delete-x${armed ? ' is-armed' : ''}`}
         onClick={(event) => {
           event.stopPropagation();
+          // Two-tap delete: the parent decides whether this press
+          // arms the row or (when already armed) performs the
+          // delete. We never delete on a bare first tap here.
           onDelete?.();
         }}
-        aria-label="Delete event"
+        aria-label={armed ? 'Confirm delete event' : 'Delete event'}
+        aria-pressed={armed}
+        title={armed ? 'Tap again to delete' : 'Delete event'}
       >
         <DeleteIcon />
       </button>

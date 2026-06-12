@@ -414,6 +414,64 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
     setCreateOpen(false);
     setPendingEventKey('');
   };
+  // Two-tap (arm → confirm) delete for the per-event row X. The X
+  // is a small target that used to delete on a single tap — risky
+  // on touch (easy to hit while reaching for the action pills). Now
+  // the first tap only ARMS that row (the X repaints with a red
+  // danger frame) and starts a ~3s auto-disarm timer; a second tap
+  // on the SAME armed X performs the real delete. Tapping a
+  // different row's X arms it and disarms the previous one (the
+  // parent owns the armed id, so only one row can be armed at a
+  // time). No modal / confirm() — the confirm affordance is the
+  // inline armed X itself.
+  const [armedDeleteKey, setArmedDeleteKey] = useState(null);
+  const armedDeleteTimerRef = useRef(null);
+  const clearArmedDeleteTimer = useCallback(() => {
+    if (armedDeleteTimerRef.current) {
+      clearTimeout(armedDeleteTimerRef.current);
+      armedDeleteTimerRef.current = null;
+    }
+  }, []);
+  const handleEventDelete = useCallback((key, row) => {
+    if (!key) return;
+    // Second tap on the already-armed row → delete for real.
+    if (armedDeleteKey === key) {
+      clearArmedDeleteTimer();
+      setArmedDeleteKey(null);
+      onDeleteRecord?.(row);
+      return;
+    }
+    // First tap (or switching to a different row) → arm this row
+    // and (re)start the auto-disarm timer so an accidental first
+    // tap quietly resets after ~3s instead of lingering as a live
+    // delete.
+    clearArmedDeleteTimer();
+    setArmedDeleteKey(key);
+    armedDeleteTimerRef.current = setTimeout(() => {
+      armedDeleteTimerRef.current = null;
+      setArmedDeleteKey(null);
+    }, 3000);
+  }, [armedDeleteKey, clearArmedDeleteTimer, onDeleteRecord]);
+  // Stable signature of the current event rows. Used only to detect
+  // when the event list itself changes (a row added/removed) so we
+  // can drop any armed-delete state that may now point at a row
+  // that no longer exists. Mirrors the recordKey logic in the
+  // render below so the two always agree.
+  const recordsSignature = useMemo(
+    () => records
+      .map((row, index) => row.delivery?.id || row.invoice?.id || row.vendorDelivery?.id || row.vendorInvoice?.id || `${row.date}-${index}`)
+      .join('|'),
+    [records],
+  );
+  // Reset the armed delete whenever the selected client changes or
+  // the event list changes. The unmount cleanup below additionally
+  // covers the detail panel closing entirely.
+  const clientIdentity = String(client?.client_id || client?.id || '');
+  useEffect(() => {
+    clearArmedDeleteTimer();
+    setArmedDeleteKey(null);
+  }, [clientIdentity, recordsSignature, clearArmedDeleteTimer]);
+  useEffect(() => () => clearArmedDeleteTimer(), [clearArmedDeleteTimer]);
   // Thread the parent client's stable id into both Create Events
   // hand-offs. /l + /inv forward it on the API save body so the
   // worker attaches the new delivery / invoice to THIS exact
@@ -590,7 +648,8 @@ function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClie
               eventInvoiceHref={eventInvoiceHref}
               eventVendorInvoiceHref={eventVendorInvoiceHref}
               eventVendorDeliveryHref={eventVendorDeliveryHref}
-              onDelete={() => onDeleteRecord?.(row)}
+              armed={armedDeleteKey === recordKey}
+              onDelete={() => handleEventDelete(recordKey, row)}
               onViewLinks={onViewLinks}
             />
           );

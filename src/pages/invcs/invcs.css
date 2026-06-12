@@ -3866,6 +3866,45 @@ dd{margin:0;text-align:right;font-weight:800}
   .row-delete-x:focus-visible{background:#F2F3F5;color:#1F1A17}
 }
 
+/* ---------------------------------------------------------------
+ * Event-row delete X — two-tap (arm → confirm) affordance.
+ *
+ * Scoped to .record-row so ONLY the /db event-row X picks up this
+ * treatment; the other .row-delete-x controls (Clients list rows,
+ * etc.) keep their compact 22px style untouched.
+ *
+ * StarShots icon-only button rhythm — the baseline for future
+ * icon-only buttons, applied here only (no broad rollout): a
+ * ~40x40 square tap target, ~18px glyph, 14px Apple-style
+ * rounded-square corners, centred icon. The local tokens below
+ * name that rhythm so future icon buttons can reuse it without a
+ * refactor. Idle stays quiet (inherits the grey base); the
+ * armed/confirm state frames the same square in danger-red — red
+ * border + a subtle translucent red fill + a red glyph — so the
+ * second, destructive tap is unmistakable. Still icon-only, no
+ * text, not a pill. */
+.record-row .row-delete-x{
+  --ss-icon-btn-size:40px;
+  --ss-icon-btn-radius:14px;
+  --ss-icon-btn-glyph:18px;
+  width:var(--ss-icon-btn-size);
+  height:var(--ss-icon-btn-size);
+  min-height:var(--ss-icon-btn-size);
+  border-radius:var(--ss-icon-btn-radius);
+}
+.record-row .row-delete-x .row-delete-icon{
+  width:var(--ss-icon-btn-glyph);
+  height:var(--ss-icon-btn-glyph);
+}
+.record-row .row-delete-x.is-armed,
+.record-row .row-delete-x.is-armed:hover,
+.record-row .row-delete-x.is-armed:focus-visible{
+  border:1px solid var(--danger);
+  background:color-mix(in srgb,var(--danger) 14%,transparent);
+  color:var(--danger);
+  outline:none;
+}
+
 /* The "Delete Client" header button keeps its existing red
  * ghost-button treatment — it's a deliberate, prominent control
  * rather than a per-row affordance, and removing the row-level
@@ -4067,12 +4106,14 @@ dd{margin:0;text-align:right;font-weight:800}
    * shrinks below the date pill + price so the rupiah figure can
    * never be clipped or covered by the action buttons. The two
    * middle columns are auto so the action groups size to their
-   * pills, and the trailing 22px column is the quiet
-   * .row-delete-x. Because every piece sits in its own grid track
-   * the actions can never overlap the price at any zoom level —
-   * no transforms or absolute positioning required. */
+   * pills, and the trailing 40px column holds the two-tap
+   * event-delete .row-delete-x — sized to the 40px icon-button
+   * rhythm so its armed red frame sits centred and never clips.
+   * Because every piece sits in its own grid track the actions can
+   * never overlap the price at any zoom level — no transforms or
+   * absolute positioning required. */
   display:grid;
-  grid-template-columns:minmax(min-content,1fr) auto auto 22px;
+  grid-template-columns:minmax(min-content,1fr) auto auto 40px;
   align-items:center;
   gap:10px;
   min-height:56px;
@@ -4529,11 +4570,14 @@ dd{margin:0;text-align:right;font-weight:800}
   .record-row{
     /* Stack vertically on narrow viewports — the X moves out of
      * the trailing column and pins to the top-right corner so it
-     * never overlaps the now full-width action anchors. */
+     * never overlaps the now full-width action anchors. The right
+     * padding reserves room for the 40px two-tap delete X (incl.
+     * its armed red frame) so its larger square never overlaps the
+     * action pills below. */
     grid-template-columns:1fr;
     align-items:start;
     position:relative;
-    padding-right:40px;
+    padding-right:56px;
   }
   .record-row-meta{
     /* First line on mobile: date pill pinned left, price pinned
@@ -4553,8 +4597,8 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .record-row .row-delete-x{
     position:absolute;
-    top:10px;
-    right:10px;
+    top:8px;
+    right:8px;
   }
   .client-form-grid{
     grid-template-columns:1fr;
