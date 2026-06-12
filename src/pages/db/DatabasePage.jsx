@@ -3210,7 +3210,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   />
                 </label>
               </div>
-              <label>Notes (Optional)
+              <label>(Optional)
                 <textarea
                   value={extensionDraft.notes || ''}
                   onChange={(e) => setExtensionField('notes', e.target.value)}
@@ -4431,7 +4431,7 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
             aria-label="Subscription bonus days"
           />
         </label>
-        <label>Notes (Optional)
+        <label>(Optional)
           <textarea
             value={draft.notes || ''}
             onChange={(e) => setField('notes', e.target.value)}
@@ -5248,14 +5248,45 @@ export function DatabasePage() {
       {selected?.type === 'subs-edit' ? (
         <SubscriptionEdit
           subscription={selectedSubscription}
-          onSaved={() => {
+          onSaved={(saved) => {
             // Refresh the list so any changed fields (status, dates,
             // service, etc.) reflect in both the row label and the
-            // tone class, then walk back to the parent subscription
-            // detail. The parent chain guarantees we land on the
-            // same row the operator was editing.
+            // tone class.
             refetch();
-            back();
+            // Merge the freshly-saved row straight back into the
+            // selection so the detail panel's service pill and notes
+            // update IMMEDIATELY — without waiting on the async refetch
+            // and without depending on the row still matching an active
+            // search query. (A service rename can drop the row out of a
+            // filtered /api/db?q= result, which would otherwise leave
+            // getSubscriptionById returning null and the detail falling
+            // back to the stale pre-edit snapshot — the reported "pill
+            // doesn't update until reopen" bug.) Mirrors the subs-create
+            // flow below. We rebuild the parent subscription-detail
+            // selection (so back() still returns to wherever the editor
+            // was launched from) but seed it with the saved subscription
+            // as its bundled record.
+            const parent = selected?.parent || null;
+            const savedId = String(saved?.id || parent?.id || selected?.id || '');
+            if (saved && savedId) {
+              setSelected({
+                type: 'subscription',
+                id: savedId,
+                data: {
+                  ...(parent?.data || {}),
+                  id: savedId,
+                  client_name: String(saved.client_name ?? parent?.data?.client_name ?? ''),
+                  client_title: String(saved.client_title ?? parent?.data?.client_title ?? ''),
+                  client_contact: String(saved.client_contact ?? parent?.data?.client_contact ?? ''),
+                  subscription: saved,
+                },
+                parent: parent?.parent || null,
+              });
+            } else {
+              // No row echoed back (defensive) — fall back to the prior
+              // behaviour of walking back up the parent chain.
+              back();
+            }
           }}
           onCancel={back}
         />

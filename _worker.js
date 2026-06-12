@@ -2209,6 +2209,14 @@ async function handleDbSearch(request, env) {
         sub.expiry_date,
         sub.created_at,
         sub.updated_at,
+        // Searchable "bonus" keyword. Emitted ONLY when this period
+        // carries a real bonus (> 0 stored days), so typing "bonus"
+        // (any case — q is already lowercased upstream) surfaces every
+        // subscription that has a bonus applied. Rows with bonus 0,
+        // blank, null, or a missing column produce no token and never
+        // match the keyword, while name/service searches that happen
+        // to contain "bonus" keep working through the fields above.
+        (Number(sub.bonus) > 0 ? 'bonus' : ''),
         dateSearchTokens(sub.start_date),
         dateSearchTokens(sub.expiry_date),
         dateSearchTokens(sub.invoice_date),
