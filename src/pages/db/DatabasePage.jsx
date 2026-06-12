@@ -2957,12 +2957,19 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
               <PlusIcon />
             </button>
           ) : null}
+          {/* The top card always renders the CURRENT/active period
+              (base + latest extension), so its Edit button edits
+              whatever is shown up top: the latest extension when one
+              exists — so a bonus/date/price/status change lands on the
+              ongoing period and the card + expiry update in lockstep —
+              otherwise the base subscription. The base stays editable
+              via its own Edit button on the "Initial" row below. */}
           {subscription?.id ? (
             <button
               type="button"
               className="toolbar-icon-btn"
-              onClick={() => onEdit?.(subscription)}
-              aria-label="Edit subscription"
+              onClick={() => (latestExtension ? openEditExtension(latestExtension) : onEdit?.(subscription))}
+              aria-label={latestExtension ? 'Edit current period' : 'Edit subscription'}
               title="Edit"
             >
               <EditIcon />
@@ -3353,12 +3360,14 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                         the whole list. Every row gets its OWN Print
                         button so the operator can re-issue the receipt
                         for that exact period (the row's effective
-                        subscription). The base subscription is still
-                        edited via the main "Edit" button at the top of
-                        the panel, so its row exposes Print only — no
-                        edit/delete — keeping the "base is edited up top"
-                        data rule intact. Actions are icon-only and
-                        vertically centered. */}
+                        subscription). The top "Edit" button edits the
+                        CURRENT/active period (the latest extension when
+                        present), so the base/"Initial" row carries its
+                        own Edit button to keep the base subscription
+                        editable. The base exposes Print + Edit but no
+                        Delete — removing the base means deleting the
+                        whole subscription via the top trash action.
+                        Actions are icon-only and vertically centered. */}
                     <div className="subs-extension-row-actions">
                       <button
                         type="button"
@@ -3369,7 +3378,17 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                       >
                         <PrintIcon />
                       </button>
-                      {!ext.isBase ? (
+                      {ext.isBase ? (
+                        <button
+                          type="button"
+                          className="row-icon-btn"
+                          onClick={() => onEdit?.(subscription)}
+                          aria-label="Edit initial subscription"
+                          title="Edit"
+                        >
+                          <EditIcon />
+                        </button>
+                      ) : (
                         <>
                           <button
                             type="button"
@@ -3390,7 +3409,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                             <DeleteIcon />
                           </button>
                         </>
-                      ) : null}
+                      )}
                     </div>
                     {expanded ? (
                       <div className="subs-extension-detail">
