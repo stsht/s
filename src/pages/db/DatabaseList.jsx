@@ -180,8 +180,13 @@ export function DatabaseList({
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
             meta = isHumanReadableContact(contact) ? contact : '';
-          } else if (isSub && subEffective) {
-            meta = formatSubscriptionMeta(subEffective);
+          } else if (isSub && subRecord) {
+            // Service subtitle reflects the BASE subscription identity,
+            // not the latest extension's per-period snapshot. Tone and
+            // the right-aligned expiry pill still read off subEffective
+            // so renewal state stays current; only the service label is
+            // pinned to the base subscription.
+            meta = formatSubscriptionMeta(subRecord);
           }
           const rowId = row.id || `row-${index}`;
           const className = [

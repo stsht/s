@@ -2649,7 +2649,11 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // bubbles. The Expired/Active/Expiring Soon tone badge stays beside
   // the <h2> name (rendered separately above).
   const headingPills = [
-    effective?.service ? String(effective.service).trim() : '',
+    // Service is the subscription's stable identity for the visible
+    // header/list UI, so the top pill reads the BASE subscription
+    // service rather than the latest extension's per-period snapshot.
+    // Extension/history rows keep their own stored service below.
+    subscription?.service ? String(subscription.service).trim() : '',
     // statusLabel intentionally omitted — the colored status badge
     // beside the <h2> name already conveys Paid/Unpaid, so repeating
     // it as a colorless pill in the meta bar below is redundant.
@@ -2891,9 +2895,13 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // when present so the panel stays clean for proof-less records.
   const proofValue = String(effective?.payment_proof || '').trim();
   const proofIsUrl = isProofViewable(proofValue);
-  // Admin-facing note for the current/active period (per-period; the
-  // effective view already resolves the latest extension's own note).
-  const notesValue = String(effective?.notes || '').trim();
+  // Admin-facing note for the current/active period. Prefer the
+  // latest/current extension's own note when it carries one; fall
+  // back to the base subscription note otherwise. (applySubscription
+  // Extension intentionally blanks notes per period, so the fallback
+  // is resolved explicitly here rather than reading effective.notes.)
+  const notesValue = String(latestExtension?.notes || '').trim()
+    || String(subscription?.notes || '').trim();
   // Composed h2 label: "<title> <client_name>" — e.g. "Ms. Linda" or
   // "Mr. Fenny Sofian". Falls back to the client name alone when no
   // title prefix is set, so a row missing a title prefix still reads
@@ -3210,12 +3218,12 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   />
                 </label>
               </div>
-              <label>(Optional)
+              <label>Notes (Optional)
                 <textarea
                   value={extensionDraft.notes || ''}
                   onChange={(e) => setExtensionField('notes', e.target.value)}
                   rows={2}
-                  placeholder="Internal note for this period (optional)"
+                  placeholder="Internal note for this period"
                   aria-label="Extension notes"
                 />
               </label>
@@ -4431,12 +4439,12 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
             aria-label="Subscription bonus days"
           />
         </label>
-        <label>(Optional)
+        <label>Notes (Optional)
           <textarea
             value={draft.notes || ''}
             onChange={(e) => setField('notes', e.target.value)}
             rows={2}
-            placeholder="Internal note for this period (optional)"
+            placeholder="Internal note for this period"
             aria-label="Subscription notes"
           />
         </label>
