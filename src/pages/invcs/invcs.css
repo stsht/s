@@ -4126,12 +4126,22 @@ dd{margin:0;text-align:right;font-weight:800}
    * Because every piece sits in its own grid track the actions can
    * never overlap the price at any zoom level — no transforms or
    * absolute positioning required. */
+  /* --- event-row action-rail spacing ---
+   * One calm, consistent gutter from the card's right edge to the
+   * right-side controls, plus an even gap between rail items. Both
+   * the desktop grid (trailing delete-X column) and the stacked
+   * mobile layout (where the X becomes a vertically-centred right
+   * rail) read from these so the price, the link/invoice icons and
+   * the delete X all line up to one deliberate rail. Local to the
+   * event row — not a global design token. */
+  --evt-rail-gutter:18px;
+  --evt-rail-gap:10px;
   display:grid;
   grid-template-columns:minmax(min-content,1fr) auto auto 40px;
   align-items:center;
-  gap:10px;
+  gap:var(--evt-rail-gap);
   min-height:56px;
-  padding:10px 12px;
+  padding:10px var(--evt-rail-gutter) 10px 12px;
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
@@ -4582,16 +4592,17 @@ dd{margin:0;text-align:right;font-weight:800}
     justify-content:flex-start;
   }
   .record-row{
-    /* Stack vertically on narrow viewports — the X moves out of
-     * the trailing column and pins to the top-right corner so it
-     * never overlaps the now full-width action anchors. The right
-     * padding reserves room for the 40px two-tap delete X (incl.
-     * its armed red frame) so its larger square never overlaps the
-     * action pills below. */
+    /* Stack vertically on narrow viewports. The delete X leaves the
+     * flow and becomes a vertically-centred control on a dedicated
+     * right rail; padding-right reserves that rail (shared gutter +
+     * the ~40px X + an even gap) so the full-width action pills and
+     * the date/price line never run under it, and so the price and
+     * the link/invoice icons stay aligned to one inner content edge
+     * while the X sits on the outer rail with the same gutter. */
     grid-template-columns:1fr;
     align-items:start;
     position:relative;
-    padding-right:56px;
+    padding-right:calc(var(--evt-rail-gutter) + 40px + var(--evt-rail-gap));
   }
   .record-row-meta{
     /* First line on mobile: date pill pinned left, price pinned
@@ -4610,9 +4621,14 @@ dd{margin:0;text-align:right;font-weight:800}
     width:100%;
   }
   .record-row .row-delete-x{
+    /* Centre the delete X on its right rail (no longer pinned to the
+     * top-right corner) using the shared calm gutter from the card
+     * edge, so it reads as deliberately aligned with the price and
+     * the link/invoice icons rather than floating high. */
     position:absolute;
-    top:8px;
-    right:8px;
+    top:50%;
+    right:var(--evt-rail-gutter);
+    transform:translateY(-50%);
   }
   .client-form-grid{
     grid-template-columns:1fr;
