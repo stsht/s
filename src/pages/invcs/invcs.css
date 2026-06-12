@@ -3879,10 +3879,11 @@ dd{margin:0;text-align:right;font-weight:800}
  * rounded-square corners, centred icon. The local tokens below
  * name that rhythm so future icon buttons can reuse it without a
  * refactor. Idle stays quiet (inherits the grey base); the
- * armed/confirm state frames the same square in danger-red — red
- * border + a subtle translucent red fill + a red glyph — so the
- * second, destructive tap is unmistakable. Still icon-only, no
- * text, not a pill. */
+ * armed/confirm state steps down to a softer, slightly smaller
+ * compact square (38x38, 13px radius, ~17px glyph) framed in
+ * danger-red — red border + a subtle translucent red fill + a red
+ * glyph — so the second, destructive tap stays obvious yet light.
+ * Still icon-only, no text, not a pill. */
 .record-row .row-delete-x{
   --ss-icon-btn-size:40px;
   --ss-icon-btn-radius:14px;
@@ -3899,10 +3900,23 @@ dd{margin:0;text-align:right;font-weight:800}
 .record-row .row-delete-x.is-armed,
 .record-row .row-delete-x.is-armed:hover,
 .record-row .row-delete-x.is-armed:focus-visible{
+  /* Softer, lighter confirm chip: a slightly smaller + rounder
+   * Apple-style rounded square than the idle target so the armed
+   * state reads as compact rather than chunky. Red danger border +
+   * a subtle translucent red fill (not a heavy solid) + a red glyph
+   * keep it obvious without shouting. */
+  width:38px;
+  height:38px;
+  min-height:38px;
+  border-radius:13px;
   border:1px solid var(--danger);
-  background:color-mix(in srgb,var(--danger) 14%,transparent);
+  background:color-mix(in srgb,var(--danger) 12%,transparent);
   color:var(--danger);
   outline:none;
+}
+.record-row .row-delete-x.is-armed .row-delete-icon{
+  width:17px;
+  height:17px;
 }
 
 /* The "Delete Client" header button keeps its existing red
