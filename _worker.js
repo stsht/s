@@ -2196,20 +2196,56 @@ async function handleDbSearch(request, env) {
     };
   });
 
+  // Resolve a subscription row's bonus days the SAME way the /db UI
+  // does (frontend resolveBonusDays + inferBonusDaysFromDates): honour
+  // an explicit stored bonus — including a deliberate 0 — and only
+  // when it is genuinely absent (null / undefined / '') fall back to
+  // inferring it from the persisted dates as (expiry - start) -
+  // access_period, clamped to >= 0. This is what keeps the "bonus"
+  // search keyword in lockstep with the value the operator actually
+  // sees: a base/initial period whose `bonus` column was never stored
+  // (stripped on save, or a pre-bonus schema) but whose 31-day span
+  // still renders "Bonus 1 Day" in the detail panel must still match.
+  const plainDateOnly = (v) => {
+    const s = String(v || '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+  };
+  const wholeDaysBetween = (fromIso, toIso) => {
+    const a = plainDateOnly(fromIso);
+    const b = plainDateOnly(toIso);
+    if (!a || !b) return NaN;
+    const [ay, am, ad] = a.split('-').map(Number);
+    const [by, bm, bd] = b.split('-').map(Number);
+    return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
+  };
+  const subscriptionBonusDays = (row) => {
+    const raw = row?.bonus;
+    if (raw !== null && raw !== undefined && raw !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+    const span = wholeDaysBetween(row?.start_date, row?.expiry_date);
+    if (!Number.isFinite(span)) return 0;
+    const periodRaw = Number(row?.access_period);
+    const period = Number.isFinite(periodRaw) && periodRaw > 0 ? periodRaw : 30;
+    const bonus = span - period;
+    return bonus > 0 ? bonus : 0;
+  };
+
   const subscriptionRows = q
     ? allSubscriptions.filter((sub) => {
-        // Bonus search must reflect the VISIBLE/effective bonus, which
-        // can live on the base subscription OR on a renewal period
-        // (extension). The previous base-row-only check missed bonuses
-        // stored on the latest/any extension, so "bonus" returned
-        // nothing for those subscriptions. Resolve the extensions here
-        // (extensionsBySubId + pickLatestExtension are already built
-        // above) so the decision sees the full record before emitting
-        // the keyword.
+        // Bonus search must reflect the VISIBLE bonus, which can live
+        // on the base subscription OR on a renewal period (extension).
+        // The previous base-row-only / raw-column check missed two
+        // cases: a bonus stored on an extension, and a base/initial
+        // bonus that is only inferable from the dates (never stored).
+        // Resolve both surfaces the way the UI renders them — the base
+        // period via stored-or-inferred days (matches the "Initial"
+        // history row + the no-extension top card), and each extension
+        // via its own stored bonus (matches the per-extension rows and
+        // the latest-extension top card) — before emitting the keyword.
         const exts = extensionsBySubId.get(String(sub.id || '')) || [];
-        const latest = pickLatestExtension(exts);
-        const hasBonus = Number(sub.bonus) > 0
-          || Number(latest?.bonus) > 0
+        const hasBonus = subscriptionBonusDays(sub) > 0
           || exts.some((ext) => Number(ext?.bonus) > 0);
         return [
           sub.client_name,
@@ -2223,13 +2259,13 @@ async function handleDbSearch(request, env) {
           sub.expiry_date,
           sub.created_at,
           sub.updated_at,
-          // Searchable "bonus" keyword. Emitted when the base
-          // subscription OR any renewal period carries a real bonus
-          // (> 0 stored days), so typing "bonus" (any case — q is
-          // already lowercased upstream) surfaces every subscription
-          // that has a bonus applied now or in its history. Rows with
-          // bonus 0, blank, null, or a missing column everywhere
-          // produce no token and never match the keyword, while
+          // Searchable "bonus" keyword. Emitted when the base period
+          // (stored-or-inferred days) OR any renewal period (stored
+          // days) carries a real bonus (> 0), so typing "bonus" (any
+          // case — q is already lowercased upstream) surfaces every
+          // subscription that has a bonus applied now or in its
+          // history. Rows with no bonus anywhere — including ones whose
+          // dates imply none — produce no token and never match, while
           // name/service searches that happen to contain "bonus" keep
           // working through the fields above.
           (hasBonus ? 'bonus' : ''),
