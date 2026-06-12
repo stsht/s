@@ -2197,31 +2197,48 @@ async function handleDbSearch(request, env) {
   });
 
   const subscriptionRows = q
-    ? allSubscriptions.filter((sub) => [
-        sub.client_name,
-        sub.client_contact,
-        sub.service,
-        sub.storage_slot,
-        sub.status,
-        sub.invoice_date,
-        sub.payment_date,
-        sub.start_date,
-        sub.expiry_date,
-        sub.created_at,
-        sub.updated_at,
-        // Searchable "bonus" keyword. Emitted ONLY when this period
-        // carries a real bonus (> 0 stored days), so typing "bonus"
-        // (any case — q is already lowercased upstream) surfaces every
-        // subscription that has a bonus applied. Rows with bonus 0,
-        // blank, null, or a missing column produce no token and never
-        // match the keyword, while name/service searches that happen
-        // to contain "bonus" keep working through the fields above.
-        (Number(sub.bonus) > 0 ? 'bonus' : ''),
-        dateSearchTokens(sub.start_date),
-        dateSearchTokens(sub.expiry_date),
-        dateSearchTokens(sub.invoice_date),
-        dateSearchTokens(sub.payment_date)
-      ].join(' ').toLowerCase().includes(q))
+    ? allSubscriptions.filter((sub) => {
+        // Bonus search must reflect the VISIBLE/effective bonus, which
+        // can live on the base subscription OR on a renewal period
+        // (extension). The previous base-row-only check missed bonuses
+        // stored on the latest/any extension, so "bonus" returned
+        // nothing for those subscriptions. Resolve the extensions here
+        // (extensionsBySubId + pickLatestExtension are already built
+        // above) so the decision sees the full record before emitting
+        // the keyword.
+        const exts = extensionsBySubId.get(String(sub.id || '')) || [];
+        const latest = pickLatestExtension(exts);
+        const hasBonus = Number(sub.bonus) > 0
+          || Number(latest?.bonus) > 0
+          || exts.some((ext) => Number(ext?.bonus) > 0);
+        return [
+          sub.client_name,
+          sub.client_contact,
+          sub.service,
+          sub.storage_slot,
+          sub.status,
+          sub.invoice_date,
+          sub.payment_date,
+          sub.start_date,
+          sub.expiry_date,
+          sub.created_at,
+          sub.updated_at,
+          // Searchable "bonus" keyword. Emitted when the base
+          // subscription OR any renewal period carries a real bonus
+          // (> 0 stored days), so typing "bonus" (any case — q is
+          // already lowercased upstream) surfaces every subscription
+          // that has a bonus applied now or in its history. Rows with
+          // bonus 0, blank, null, or a missing column everywhere
+          // produce no token and never match the keyword, while
+          // name/service searches that happen to contain "bonus" keep
+          // working through the fields above.
+          (hasBonus ? 'bonus' : ''),
+          dateSearchTokens(sub.start_date),
+          dateSearchTokens(sub.expiry_date),
+          dateSearchTokens(sub.invoice_date),
+          dateSearchTokens(sub.payment_date)
+        ].join(' ').toLowerCase().includes(q);
+      })
     : allSubscriptions;
 
   // Attach `extensions` and `latest_extension` to each subscription
