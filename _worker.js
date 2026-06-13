@@ -3275,6 +3275,10 @@ async function handleSubscriptionSave(request, env) {
   const writeVariants = [linked, linkedNoBonus, fallback, fallbackNoBonus]
     .flatMap((variant) => [variant, stripNotes(variant), stripProof(variant), stripProof(stripNotes(variant))]);
 
+  // Tracks which write variant actually succeeded so we can tell the
+  // caller when the `notes` column was dropped by the schema-cache
+  // fallback (i.e. db-migration-part-11 hasn't been applied yet).
+  let usedVariant = null;
   async function writeSubscription(url, method) {
     let lastError = null;
     for (const variant of writeVariants) {
@@ -3284,6 +3288,7 @@ async function handleSubscriptionSave(request, env) {
           headers: { Prefer: 'return=representation' },
           body: JSON.stringify(variant)
         });
+        usedVariant = variant;
         return result;
       } catch (error) {
         if (!isSchemaError(error)) throw error;
@@ -3293,15 +3298,21 @@ async function handleSubscriptionSave(request, env) {
     throw lastError || new Error('Subscription write failed for all schema variants.');
   }
 
+  // The operator asked to save a real note, but the variant that
+  // actually wrote had `notes` stripped — surface that instead of
+  // pretending the note persisted. Empty notes never trigger this.
+  const attemptedNotes = !!subscription.notes;
+  const notesMissing = () => attemptedNotes && usedVariant && !('notes' in usedVariant);
+
   if (id) {
     const rows = await writeSubscription(`/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, 'PATCH');
     const saved = Array.isArray(rows) ? rows[0] : rows;
-    return json({ ok: true, subscription: saved });
+    return json({ ok: true, subscription: saved, ...(notesMissing() ? { migrationMissing: 'subscriptions.notes' } : {}) });
   }
 
   const rows = await writeSubscription('/rest/v1/subscriptions', 'POST');
   const saved = Array.isArray(rows) ? rows[0] : rows;
-  return json({ ok: true, subscription: saved });
+  return json({ ok: true, subscription: saved, ...(notesMissing() ? { migrationMissing: 'subscriptions.notes' } : {}) });
 }
 
 async function handleSubscriptionGet(request, env) {
@@ -3499,15 +3510,21 @@ async function handleSubscriptionExtensionSave(request, env) {
     dropKeys(payload, ['notes', 'payment_proof', 'payment_date', 'payment_time', 'bonus'])
   ];
 
+  // Tracks which payload variant actually wrote so we can warn the
+  // caller when `notes` got dropped by the schema fallback (i.e.
+  // db-migration-part-11 hasn't been applied to this table yet).
+  let usedBody = null;
   async function writeExtension(url, method) {
     let lastError = null;
     for (const body of payloadVariants) {
       try {
-        return await supabaseFetch(env, url, {
+        const result = await supabaseFetch(env, url, {
           method,
           headers: { Prefer: 'return=representation' },
           body: JSON.stringify(body)
         });
+        usedBody = body;
+        return result;
       } catch (error) {
         if (!isSchemaError(error)) throw error;
         lastError = error;
@@ -3516,15 +3533,20 @@ async function handleSubscriptionExtensionSave(request, env) {
     throw lastError;
   }
 
+  // Non-empty note requested but the successful write had `notes`
+  // stripped — report it rather than silently dropping the note.
+  const attemptedNotes = !!fields.notes;
+  const notesMissing = () => attemptedNotes && usedBody && !('notes' in usedBody);
+
   try {
     if (id) {
       const rows = await writeExtension(`/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, 'PATCH');
       const saved = Array.isArray(rows) ? rows[0] : rows;
-      return json({ ok: true, extension: saved });
+      return json({ ok: true, extension: saved, ...(notesMissing() ? { migrationMissing: 'subscription_extensions.notes' } : {}) });
     }
     const rows = await writeExtension('/rest/v1/subscription_extensions', 'POST');
     const saved = Array.isArray(rows) ? rows[0] : rows;
-    return json({ ok: true, extension: saved });
+    return json({ ok: true, extension: saved, ...(notesMissing() ? { migrationMissing: 'subscription_extensions.notes' } : {}) });
   } catch (error) {
     if (isSchemaError(error)) {
       return json({

@@ -343,10 +343,11 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
     return () => clearTimeout(id);
   }, [confirmDelete]);
   // Reset the armed state if the parent swaps to a different
-  // subscription while this component stays mounted.
+  // subscription, or when the current/latest extension changes (the
+  // trash target moves with it), while this component stays mounted.
   useEffect(() => {
     setConfirmDelete(false);
-  }, [subscription?.id]);
+  }, [subscription?.id, latestExtension?.id]);
 
   function handleDeleteClick() {
     if (!subscription?.id) return;
@@ -355,8 +356,24 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
       return;
     }
     setConfirmDelete(false);
-    onDeleteSubscription?.(subscription);
+    // When the top card represents the latest extension, the trash
+    // deletes that current period only — deleteExtension refetches
+    // via onChanged and leaves the detail panel open, so the card
+    // falls back to the previous period (or the base subscription
+    // once no extensions remain). With no extension present, it
+    // deletes the whole base subscription as before.
+    if (latestExtension) {
+      deleteExtension(latestExtension);
+    } else {
+      onDeleteSubscription?.(subscription);
+    }
   }
+
+  // Target-aware delete copy for the header trash button so its
+  // label/title/aria match what the click actually removes.
+  const deleteLabel = confirmDelete
+    ? (latestExtension ? 'Confirm delete current period' : 'Confirm delete subscription')
+    : (latestExtension ? 'Delete current period' : 'Delete subscription');
 
   // Req6: which period/extension row is expanded inline. Empty = all
   // collapsed (compact). Toggled by clicking the row body — no arrow
@@ -459,6 +476,7 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
         onPrint={handlePrint}
         confirmDelete={confirmDelete}
         onDelete={handleDeleteClick}
+        deleteLabel={deleteLabel}
         showExpire={!!subscription?.id && tone !== 'expired'}
         onExpire={openExpireConfirm}
         onClose={onClose}

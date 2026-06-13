@@ -28,6 +28,7 @@ export function SubscriptionHeader({
   onPrint,
   confirmDelete,
   onDelete,
+  deleteLabel,
   showExpire,
   onExpire,
   onClose,
@@ -105,8 +106,8 @@ export function SubscriptionHeader({
             className={`toolbar-icon-btn toolbar-icon-btn--danger${confirmDelete ? ' armed' : ''}`}
             onClick={onDelete}
             aria-pressed={confirmDelete}
-            aria-label={confirmDelete ? 'Confirm delete subscription' : 'Delete subscription'}
-            title={confirmDelete ? 'Confirm Delete' : 'Delete'}
+            aria-label={deleteLabel}
+            title={deleteLabel}
           >
             <TrashIcon />
           </button>
