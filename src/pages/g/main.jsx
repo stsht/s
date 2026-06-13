@@ -41,6 +41,15 @@ const CONTACT = {
   instagram: 'https://www.instagram.com/starshots.id/',
 };
 
+// Estimate the real byte size of a base64 data URL. The data-URL string
+// is ~33% larger than the encoded bytes because of base64, so enforcing a
+// size budget on the raw string length would be wrong — we decode the
+// payload length back to bytes instead.
+function dataUrlByteSize(dataUrl) {
+  const payload = String(dataUrl || '').split(',')[1] || '';
+  return Math.ceil((payload.length * 3) / 4);
+}
+
 // Trigger a client-side download for a data/asset URL without leaving
 // the page. Used by the QR payment-card export and the direct-QR
 // fallback.
@@ -751,13 +760,24 @@ function GalleryLinks({ payload }) {
         try { await document.fonts.ready; } catch {}
       }
       try {
-        // Render at a higher raster resolution so the JPG stays sharp when
-        // the client zooms in the fullscreen viewer. Capped at 2x (and at
-        // the device's own pixel ratio) so phones don't render an enormous
-        // canvas — a single invoice sheet at 2x is cheap on desktop and
-        // acceptable on mobile. Design/layout is unchanged; only pixel
-        // density increases.
-        const exportScale = Math.min(2, window.devicePixelRatio || 1.5);
+        // Render the invoice toward a ~4K long edge so the downloaded JPG
+        // stays crisp when the client zooms in the fullscreen viewer. The
+        // export host renders the sheet at a large fixed CSS width (3000px),
+        // so a blind 3x multiplier would create an enormous canvas that
+        // mobile Safari refuses to allocate. Instead we scale toward a 4K
+        // long edge, never below the previous output, and cap by both a hard
+        // 3x ceiling and a safe canvas-area budget for device safety. Output
+        // stays JPEG (PNG would be far larger for this mostly-white sheet).
+        const TARGET_LONG_EDGE = 4096; // 4K-ish long edge target
+        const MAX_CANVAS_AREA = 24 * 1024 * 1024; // ~24M px allocation cap
+        const host = invoiceRenderRef.current;
+        const baseW = host.offsetWidth || 3000;
+        const baseH = host.offsetHeight || 2121;
+        const baseLongEdge = Math.max(baseW, baseH);
+        const legacyScale = Math.min(2, window.devicePixelRatio || 1.5);
+        const fourKScale = TARGET_LONG_EDGE / baseLongEdge;
+        const areaScale = Math.sqrt(MAX_CANVAS_AREA / (baseW * baseH));
+        const exportScale = Math.min(3, areaScale, Math.max(legacyScale, fourKScale));
         // html2canvas is a heavy dependency only needed when the client
         // actually opens the invoice viewer. Load it on demand so it
         // stays out of the public delivery page's initial bundle (faster
@@ -774,7 +794,18 @@ function GalleryLinks({ payload }) {
           windowHeight: 9000,
         });
         if (!alive) return;
-        setInvoiceImage(canvas.toDataURL('image/jpeg', 0.95));
+        // Encode as JPEG starting at high quality, stepping quality down only
+        // if the encoded file would exceed the ~4MB cap. Size is measured
+        // from the decoded base64 payload, not the data-URL string length.
+        const MAX_INVOICE_JPG_BYTES = 4 * 1024 * 1024;
+        const QUALITY_FLOOR = 0.82;
+        let jpegQuality = 0.92;
+        let dataUrl = canvas.toDataURL('image/jpeg', jpegQuality);
+        while (dataUrlByteSize(dataUrl) > MAX_INVOICE_JPG_BYTES && jpegQuality > QUALITY_FLOOR) {
+          jpegQuality = Math.max(QUALITY_FLOOR, Math.round((jpegQuality - 0.03) * 100) / 100);
+          dataUrl = canvas.toDataURL('image/jpeg', jpegQuality);
+        }
+        setInvoiceImage(dataUrl);
         setInvoiceStatus('');
       } catch (error) {
         if (alive) setInvoiceStatus(error.message || 'Could not render invoice.');
@@ -1088,7 +1119,7 @@ function GalleryLinks({ payload }) {
                       onClick={() => track('invoice', 'invoice_download')}
                     >
                       <IconDownload />
-                      <span>Download Full Resolution</span>
+                      <span>Download 4K</span>
                     </a>
                   ) : null}
                 </div>
@@ -1162,7 +1193,7 @@ function GalleryLinks({ payload }) {
                 onClick={() => track('invoice', 'invoice_download')}
               >
                 <IconDownload />
-                <span>Download Full Resolution</span>
+                <span>Download 4K</span>
               </a>
             ) : null}
           </header>
