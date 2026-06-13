@@ -1059,8 +1059,8 @@ function GalleryLinks({ payload }) {
                     )}
                   </div>
                   <div className="public-invoice-mobile-preview-info">
-                    <strong>View Full Invoice</strong>
-                    <span>Pinch to zoom & pan the full sheet</span>
+                    <strong>Preview Invoice</strong>
+                    <span>Open to view, zoom, and pan the full sheet</span>
                   </div>
                   <div className="public-invoice-mobile-preview-arrow">
                     <IconEye />
@@ -1088,7 +1088,7 @@ function GalleryLinks({ payload }) {
                       onClick={() => track('invoice', 'invoice_download')}
                     >
                       <IconDownload />
-                      <span>Download Invoice</span>
+                      <span>Download Full Resolution</span>
                     </a>
                   ) : null}
                 </div>
@@ -1162,7 +1162,7 @@ function GalleryLinks({ payload }) {
                 onClick={() => track('invoice', 'invoice_download')}
               >
                 <IconDownload />
-                <span>Download Invoice</span>
+                <span>Download Full Resolution</span>
               </a>
             ) : null}
           </header>
