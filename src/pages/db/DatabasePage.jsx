@@ -4,7 +4,7 @@ import { DatabaseList } from './DatabaseList.jsx';
 import { RecordRow, DeleteIcon } from './RecordRow.jsx';
 import { Segmented, EmptyState, Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
-import { selectAllIfZero, parseMoneyInput, moneyInputValue } from '../../utils/moneyInput.js';
+import { selectAllIfZero, parseMoneyInput } from '../../utils/moneyInput.js';
 import { readProofFile, isProofViewable, isProofImage } from '../../utils/proofImage.js';
 import { rupiah } from '../../utils/rupiah.js';
 import { useRemoteList } from './useRemoteList.js';
@@ -2644,19 +2644,22 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
     return d || t;
   };
 
-  // Compact pills under the client name: Service · Status · Period.
+  // Compact pills under the client name: Status · Service · Period.
   // Only non-empty values render so a partial row doesn't show empty
-  // bubbles. The Expired/Active/Expiring Soon tone badge stays beside
-  // the <h2> name (rendered separately above).
+  // bubbles. The Expired / Expiring Soon / Paid (Active) tone pill is
+  // prepended to this same row at render time (see the heading JSX
+  // below) so the status reads inline with Service and Period rather
+  // than riding the <h2> name line — keeping long names on their own
+  // line and the pill layout stable across mobile font scaling.
   const headingPills = [
     // Service is the subscription's stable identity for the visible
-    // header/list UI, so the top pill reads the BASE subscription
+    // header/list UI, so this pill reads the BASE subscription
     // service rather than the latest extension's per-period snapshot.
     // Extension/history rows keep their own stored service below.
     subscription?.service ? String(subscription.service).trim() : '',
-    // statusLabel intentionally omitted — the colored status badge
-    // beside the <h2> name already conveys Paid/Unpaid, so repeating
-    // it as a colorless pill in the meta bar below is redundant.
+    // Plain statusLabel intentionally omitted here — the colored tone
+    // pill prepended to this row already conveys Paid/Active/Expiring/
+    // Expired, so repeating it as a neutral pill would duplicate it.
     periodLabel,
   ].filter(Boolean);
 
@@ -2921,14 +2924,12 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
       <div className="detail-heading">
         <div>
           <p className="eyebrow">Subscription</p>
-          <h2>
-            {headingName}
-            {tone && toneLabel ? (
-              <span className={`sub-badge sub-badge-${tone}`}>{toneLabel}</span>
-            ) : null}
-          </h2>
-          {headingPills.length ? (
+          <h2>{headingName}</h2>
+          {(tone && toneLabel) || headingPills.length ? (
             <div className="sub-meta-pills">
+              {tone && toneLabel ? (
+                <span className={`sub-pill sub-pill-${tone}`}>{toneLabel}</span>
+              ) : null}
               {headingPills.map((label) => (
                 <span className="sub-pill" key={label}>{label}</span>
               ))}
@@ -3199,6 +3200,7 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   min="0"
                   step="1"
                   value={extensionDraft.bonus}
+                  onFocus={selectAllIfZero}
                   onChange={(e) => setExtensionField('bonus', Number(e.target.value) || 0)}
                   aria-label="Extension bonus days"
                 />
@@ -3249,8 +3251,13 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
                   <input
                     type="text"
                     inputMode="numeric"
-                    value={moneyInputValue(extensionDraft.price)}
+                    // Show a real "0" when no price is set (not just a
+                    // placeholder); selectAllIfZero selects that "0" on
+                    // focus so the first keystroke replaces it cleanly,
+                    // and parseMoneyInput collapses any leading zero.
+                    value={String(Number(extensionDraft.price) || 0)}
                     placeholder="0"
+                    onFocus={selectAllIfZero}
                     onChange={(e) => setExtensionField('price', parseMoneyInput(e.target.value))}
                     aria-label="Extension price in rupiah"
                   />
@@ -4454,6 +4461,7 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
             min="0"
             step="1"
             value={draft.bonus}
+            onFocus={selectAllIfZero}
             onChange={(e) => setField('bonus', Number(e.target.value) || 0)}
             aria-label="Subscription bonus days"
           />
@@ -4501,8 +4509,14 @@ function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit' }) {
           <input
             type="text"
             inputMode="numeric"
-            value={moneyInputValue(draft.price)}
+            // Show a real "0" when no price is set (not just a
+            // placeholder) so the field reads as a concrete value;
+            // selectAllIfZero selects that "0" on focus so the first
+            // keystroke replaces it cleanly, and parseMoneyInput
+            // collapses any leading zero on the way back in.
+            value={String(Number(draft.price) || 0)}
             placeholder="0"
+            onFocus={selectAllIfZero}
             onChange={(e) => setField('price', parseMoneyInput(e.target.value))}
             aria-label="Subscription price in rupiah"
           />

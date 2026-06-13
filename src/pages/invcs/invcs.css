@@ -3181,10 +3181,13 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 
 /* Compact pill row under the client name on /db Subs detail.
- * Surfaces Service / Status / Period as low-emphasis chips so the
+ * Surfaces Status / Service / Period as low-emphasis chips so the
  * read-only panel reads at a glance without a wall of label/value
- * rows. The expired/active/expiring tone badge stays on the <h2>
- * line — these neutral pills sit on the second line. */
+ * rows. The expired / expiring / paid tone pill leads the row (see
+ * .sub-pill-* below) and the neutral Service / Period pills follow,
+ * so the <h2> name gets its own line and the pill layout stays
+ * stable across mobile font scaling instead of a badge crowding a
+ * long name on the title line. */
 .sub-meta-pills{
   display:flex;
   flex-wrap:wrap;
@@ -3204,6 +3207,26 @@ dd{margin:0;text-align:right;font-weight:800}
   text-transform:uppercase;
   line-height:1.4;
   border:1px solid var(--line);
+}
+/* Status tone pill — same chip shape/size as a neutral .sub-pill so
+ * the row reads as one component, but tinted with the shared
+ * --sub-* tone family (matching the list rows + the legacy
+ * .sub-badge). "Paid"/Active stays green; Expiring Soon and Expired
+ * keep their warning/expired tones. */
+.sub-pill-active{
+  background:color-mix(in srgb,var(--sub-active) 14%,transparent);
+  color:var(--sub-active);
+  border-color:color-mix(in srgb,var(--sub-active) 35%,transparent);
+}
+.sub-pill-warning{
+  background:color-mix(in srgb,var(--sub-warning) 16%,transparent);
+  color:var(--sub-warning);
+  border-color:color-mix(in srgb,var(--sub-warning) 38%,transparent);
+}
+.sub-pill-expired{
+  background:color-mix(in srgb,var(--sub-expired) 14%,transparent);
+  color:var(--sub-expired);
+  border-color:color-mix(in srgb,var(--sub-expired) 32%,transparent);
 }
 
 /* Compact event date pill. Rendered on /db Clients left-list rows
