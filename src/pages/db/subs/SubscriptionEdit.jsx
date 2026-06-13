@@ -77,15 +77,6 @@ export function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit
       if (!response.ok || !json.ok) {
         throw new Error(json.error || `Save failed (${response.status}).`);
       }
-      // The row saved, but the worker dropped the `notes` column
-      // because db-migration-part-11 isn't applied yet. Keep the
-      // editor open and surface a clear warning instead of routing
-      // back as if the note persisted. (Empty notes never hit this.)
-      if (json.migrationMissing && String(json.migrationMissing).includes('notes')) {
-        setStatus('Notes column missing. Run db-migration-part-11.sql.');
-        setStatusTone('error');
-        return;
-      }
       // Hand the freshly-saved row back to the parent so it can
       // refetch the list and route the right panel back to the
       // (now updated) detail view in one transition.
@@ -179,15 +170,6 @@ export function SubscriptionEdit({ subscription, onSaved, onCancel, mode = 'edit
             onFocus={selectAllIfZero}
             onChange={(e) => setField('bonus', Number(e.target.value) || 0)}
             aria-label="Subscription bonus days"
-          />
-        </label>
-        <label>Notes (Optional)
-          <textarea
-            value={draft.notes || ''}
-            onChange={(e) => setField('notes', e.target.value)}
-            rows={2}
-            placeholder="Internal note for this period"
-            aria-label="Subscription notes"
           />
         </label>
         <label>Payment

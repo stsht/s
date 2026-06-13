@@ -65,7 +65,6 @@ export const INITIAL_SUBS_IMPORT_DRAFT = {
   expiry_date: '',
   expiry_time: '',
   payment_proof: '',
-  notes: '',
   start_customized: false,
 };
 
@@ -109,7 +108,6 @@ export function subscriptionToDraft(sub = {}) {
     expiry_date: String(sub.expiry_date || ''),
     expiry_time: padTime(sub.expiry_time),
     payment_proof: String(sub.payment_proof || ''),
-    notes: String(sub.notes || ''),
     // Req2: an existing row with a start already set is treated as
     // customized (editing Payment won't move Start); a fresh draft
     // (no start) lets Start follow Payment until manually edited.
