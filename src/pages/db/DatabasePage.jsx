@@ -2705,7 +2705,17 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // collapsed (compact). Toggled by clicking the row body — no arrow
   // affordance; the whole summary acts as the expand/collapse target.
   const [expandedPeriodId, setExpandedPeriodId] = useState('');
-
+  // Lightbox preview for an image payment proof. Holds the proof
+  // source string while open, '' when closed. Opened by tapping the
+  // detail-card thumbnail; closed via the close button, a backdrop
+  // tap, or the Escape key.
+  const [proofPreview, setProofPreview] = useState('');
+  useEffect(() => {
+    if (!proofPreview) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setProofPreview(''); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [proofPreview]);
   // Reset the extension form whenever the parent swaps to a
   // different subscription so it doesn't carry stale draft state
   // across rows.
@@ -2898,6 +2908,10 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
   // when present so the panel stays clean for proof-less records.
   const proofValue = String(effective?.payment_proof || '').trim();
   const proofIsUrl = isProofViewable(proofValue);
+  // Whether the current-period proof is a displayable image (inline
+  // data URL or an http(s) image link) — drives the thumbnail +
+  // lightbox treatment instead of a plain "View proof" link.
+  const proofIsImage = isProofImage(proofValue);
   // Admin-facing note for the current/active period. Prefer the
   // latest/current extension's own note when it carries one; fall
   // back to the base subscription note otherwise. (applySubscription
@@ -3129,7 +3143,17 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
             <article className="list-row" key="PaymentProof">
               <div>
                 <strong>Payment Proof</strong>
-                {proofIsUrl ? (
+                {proofIsImage ? (
+                  <button
+                    type="button"
+                    className="subs-proof-thumb"
+                    onClick={() => setProofPreview(proofValue)}
+                    aria-label="View payment proof image"
+                    title="View payment proof"
+                  >
+                    <img src={proofValue} alt="Payment proof" loading="lazy" />
+                  </button>
+                ) : proofIsUrl ? (
                   <a
                     className="subs-proof-link"
                     href={proofValue}
@@ -3479,6 +3503,28 @@ function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubscription
           ) : (
             <SubsInvoiceCard cardRef={cardRef} {...cardProps} />
           )}
+        </div>
+      ) : null}
+      {proofPreview ? (
+        <div
+          className="subs-proof-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Payment proof preview"
+          onClick={() => setProofPreview('')}
+        >
+          <div className="subs-proof-lightbox-inner" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="subs-proof-lightbox-close"
+              onClick={() => setProofPreview('')}
+              aria-label="Close preview"
+              title="Close"
+            >
+              &times;
+            </button>
+            <img src={proofPreview} alt="Payment proof" />
+          </div>
         </div>
       ) : null}
     </>

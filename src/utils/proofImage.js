@@ -70,10 +70,16 @@ export async function readProofFile(file) {
   }
 }
 
-// True when a stored proof value is an inline uploaded image (data
-// URL) rather than a pasted link / reference string.
+// True when a stored proof value is a displayable image: an inline
+// uploaded image (data URL) or an http(s) link that points at a
+// common image file extension. Pasted reference strings and
+// non-image links return false.
 export function isProofImage(value) {
-  return /^data:image\//i.test(String(value || ''));
+  const v = String(value || '').trim();
+  if (/^data:image\//i.test(v)) return true;
+  // http(s) URL ending in an image extension, ignoring any ?query
+  // or #hash suffix (e.g. ".../receipt.jpg?token=abc").
+  return /^https?:\/\//i.test(v) && /\.(jpe?g|png|gif|webp|bmp|svg|avif)(?:[?#]|$)/i.test(v);
 }
 
 // True when a stored proof value is an openable URL (uploaded image
