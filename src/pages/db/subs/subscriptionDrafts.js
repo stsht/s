@@ -1,9 +1,9 @@
 // Pure draft helpers for the /db Subs extension form.
 //
-// Extracted verbatim from DatabasePage.jsx as part of the Subs detail
+// Extracted from DatabasePage.jsx as part of the Subs detail
 // structure cleanup. Nothing here renders JSX or touches React state;
-// the logic (price/payment cascades, start-mirror, expiry recompute)
-// is unchanged so the saved extension payload stays identical.
+// the logic owns price/payment cascades, start-mirror, and expiry
+// recompute for the inline extension form.
 import { addDays } from '../../../features/subscriptions/subscriptionUtils.js';
 
 // Build the extension form draft for a subscription period.
@@ -62,9 +62,6 @@ export function makeExtensionDraft(subscription, extension, latestExtension) {
     // its own proof; a brand-new extension starts blank (never
     // inherits the base/prior proof).
     payment_proof: String(ext.payment_proof || ''),
-    // Notes are per-period (admin-facing); an edited extension keeps
-    // its own note, a fresh extension starts blank.
-    notes: String(ext.notes || ''),
     // Req2: an existing extension that already has a start date is
     // treated as "customized" so editing its payment date won't move
     // the start; a brand-new extension (no start yet) lets Start
