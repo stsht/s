@@ -1,3 +1,5 @@
+import { SubscriptionProofRow } from './SubscriptionProofRow.jsx';
+
 export const SubscriptionDetailRows = ({
   tone,
   storageValue,
@@ -9,6 +11,10 @@ export const SubscriptionDetailRows = ({
   bonusLabel,
   contact,
   hasAnyDetailRow,
+  proofValue,
+  proofIsImage,
+  proofIsUrl,
+  onProofPreview,
 }) => (
   <div className={`list-stack${tone ? ` sub-${tone}` : ''}`}>
     {storageValue ? (
@@ -18,14 +24,14 @@ export const SubscriptionDetailRows = ({
     ) : null}
     {(priceLabel || paymentValue) ? (
       <div className="subs-detail-row-group" key="row-price-payment">
-        <article className="list-row"><div><strong>Price</strong><span>{priceLabel || '—'}</span></div></article>
-        <article className="list-row"><div><strong>Payment Date</strong><span>{paymentValue || '—'}</span></div></article>
+        <article className="list-row"><div><strong>Price</strong><span>{priceLabel || '-'}</span></div></article>
+        <article className="list-row"><div><strong>Payment Date</strong><span>{paymentValue || '-'}</span></div></article>
       </div>
     ) : null}
     {(startValue || expiryValue) ? (
       <div className="subs-detail-row-group" key="row-start-expiry">
-        <article className="list-row"><div><strong>Start Date</strong><span>{startValue || '—'}</span></div></article>
-        <article className="list-row"><div><strong>Expiry Date</strong><span>{expiryValue || '—'}</span></div></article>
+        <article className="list-row"><div><strong>Start Date</strong><span>{startValue || '-'}</span></div></article>
+        <article className="list-row"><div><strong>Expiry Date</strong><span>{expiryValue || '-'}</span></div></article>
       </div>
     ) : null}
     <div className="subs-detail-row-group" key="row-period-bonus">
@@ -37,6 +43,7 @@ export const SubscriptionDetailRows = ({
         <div><strong>Contact</strong><span>{contact}</span></div>
       </article>
     ) : null}
+    <SubscriptionProofRow proofValue={proofValue} proofIsImage={proofIsImage} proofIsUrl={proofIsUrl} onPreview={onProofPreview} />
     {!hasAnyDetailRow ? <p className="empty-state">No subscription details available.</p> : null}
   </div>
 );
