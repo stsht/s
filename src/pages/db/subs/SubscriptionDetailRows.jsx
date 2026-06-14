@@ -1,1 +1,3 @@
-export const SubscriptionDetailRows = () => 0;
+export const SubscriptionDetailRows = ({ storageValue }) => (
+  <div>{storageValue}</div>
+);
