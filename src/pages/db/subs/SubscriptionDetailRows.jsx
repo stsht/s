@@ -1,1 +1,1 @@
-export function X() {}
+export default 1;
