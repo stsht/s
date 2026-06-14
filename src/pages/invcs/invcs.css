@@ -1941,6 +1941,76 @@ input.no-spinner::-webkit-inner-spin-button{
 .dtf-popover-foot-btn--ghost{background:transparent;color:var(--muted)}
 .dtf-popover-foot-btn--ghost:hover{background:var(--soft);color:var(--ink)}
 
+/* Time-aware popover. In withTime mode the popover widens and lays
+ * the calendar and a compact hour/minute selector side by side
+ * (calendar left, time right). On narrow viewports the two panes
+ * stack vertically (calendar on top, time below). Date-only mode is
+ * untouched — .dtf-popover-body simply wraps the single calendar
+ * pane at the original 320px width. */
+.dtf-popover-body{
+  display:flex;
+  gap:14px;
+  align-items:stretch;
+}
+.dtf-popover-cal{flex:1 1 auto;min-width:0}
+.dtf-popover--with-time{width:min(560px,calc(100vw - 24px))}
+.dtf-popover-time{
+  flex:0 0 auto;
+  width:188px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding-left:14px;
+  border-left:1px solid var(--line);
+}
+.dtf-time-col{display:flex;flex-direction:column;gap:6px}
+.dtf-time-label{
+  color:var(--muted);
+  font-size:0.6875rem;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.dtf-time-grid{display:grid;gap:4px}
+.dtf-time-grid--hour{grid-template-columns:repeat(4,1fr)}
+.dtf-time-grid--minute{grid-template-columns:repeat(4,1fr)}
+.dtf-time-cell{
+  height:30px;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  cursor:pointer;
+  transition:background .14s ease,color .14s ease;
+}
+.dtf-time-cell:hover{background:var(--soft)}
+.dtf-time-cell.dtf-selected{background:var(--accent);color:#fff}
+.dtf-time-cell.dtf-selected:hover{background:var(--accent-2)}
+.dtf-popover-foot-btn--done{
+  margin-left:auto;
+  background:var(--accent);
+  color:#fff;
+}
+.dtf-popover-foot-btn--done:hover{background:var(--accent-2);color:#fff}
+@media(max-width:520px){
+  .dtf-popover--with-time{width:min(320px,calc(100vw - 24px))}
+  .dtf-popover-body{flex-direction:column}
+  .dtf-popover-time{
+    width:auto;
+    padding-left:0;
+    padding-top:12px;
+    border-left:0;
+    border-top:1px solid var(--line);
+  }
+  .dtf-time-grid--hour{grid-template-columns:repeat(6,1fr)}
+  .dtf-time-grid--minute{grid-template-columns:repeat(6,1fr)}
+}
+
 /* Event Date+time / issued row inside the Details fieldset. The
  * combined DateTimeField (date + HH:mm) is wider than the legacy
  * three-column grid, so the row collapses to two cells: the

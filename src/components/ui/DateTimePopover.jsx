@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import {
   MONTH_NAMES,
   DOW_LABELS,
+  HOUR_OPTIONS,
+  MINUTE_PRESETS,
   todayIso,
   buildMonthGrid,
 } from './dateTimeFieldUtils.js';
@@ -11,18 +13,36 @@ import {
 /**
  * CalendarPopover
  *
- * The custom month-grid popover rendered by DateTimeField when the
- * calendar icon is opened. Extracted verbatim from DateTimeField.jsx
- * — same month grid, prev/next nav, Today/Clear actions, portal
- * positioning, and classNames. No visual or behavioural redesign.
+ * The custom popover rendered by DateTimeField when the calendar
+ * icon (or the field itself) is opened.
  *
- *   - `anchorRef` : ref to the field wrapper used for positioning.
- *   - `anchorIso` : currently selected ISO date ('' when empty),
- *                   drives the initial view month and selected cell.
- *   - `onPick(iso)` : fires with the chosen ISO date, today, or ''
- *                     (Clear).
+ * Date-only mode renders just the month grid plus Today/Clear — the
+ * original picker, unchanged. When `withTime` is true the popover
+ * grows into a two-pane layout: the calendar on the left and a
+ * compact hour/minute selector on the right (stacked vertically on
+ * narrow viewports). A Done button is added so the operator can pick
+ * a date AND a time without the popover closing on the first pick.
+ *
+ * Props:
+ *   - `anchorRef`   : ref to the field wrapper, used for positioning.
+ *   - `anchorIso`   : selected ISO date ('' when empty); drives the
+ *                     initial view month and the selected cell.
+ *   - `onPick(iso)` : fires with the chosen ISO date, today, or ''.
+ *   - `withTime`    : when true, show the time selector + Done.
+ *   - `anchorTime`  : the field's live 'HH:mm' (or partial) string;
+ *                     drives the highlighted hour/minute chips.
+ *   - `onTimePick(hhmm)` : fires with the chosen 'HH:mm' or '' (Clear).
+ *   - `onClose()`   : closes the popover (Done).
  */
-export function CalendarPopover({ anchorRef, anchorIso, onPick }) {
+export function CalendarPopover({
+  anchorRef,
+  anchorIso,
+  onPick,
+  withTime = false,
+  anchorTime = '',
+  onTimePick,
+  onClose,
+}) {
   const today = todayIso();
   const initial = /^\d{4}-\d{2}-\d{2}$/.test(anchorIso) ? anchorIso : today;
   const [yy, mm] = initial.split('-').map(Number);
@@ -35,6 +55,12 @@ export function CalendarPopover({ anchorRef, anchorIso, onPick }) {
     [viewYear, viewMonth],
   );
 
+  // Derive the currently-selected hour/minute from the field's live
+  // time string so the chips stay in sync with manual segment typing.
+  const [rawHour, rawMinute] = String(anchorTime || '').split(':');
+  const selHour = /^\d{1,2}$/.test(rawHour || '') ? String(rawHour).padStart(2, '0') : '';
+  const selMinute = /^\d{1,2}$/.test(rawMinute || '') ? String(rawMinute).padStart(2, '0') : '';
+
   function shiftMonth(delta) {
     let nm = viewMonth + delta;
     let ny = viewYear;
@@ -42,6 +68,22 @@ export function CalendarPopover({ anchorRef, anchorIso, onPick }) {
     while (nm > 12) { nm -= 12; ny += 1; }
     setViewMonth(nm);
     setViewYear(ny);
+  }
+
+  // Picking an hour/minute emits a complete 'HH:mm'. The other half
+  // defaults to '00' when still empty so a single tap yields a valid
+  // time immediately (matching the "update immediately" UX).
+  function pickHour(h) {
+    onTimePick?.(`${h}:${selMinute || '00'}`);
+  }
+  function pickMinute(m) {
+    onTimePick?.(`${selHour || '00'}:${m}`);
+  }
+
+  // Clear wipes the date and, in time mode, the time too.
+  function handleClear() {
+    onPick('');
+    if (withTime) onTimePick?.('');
   }
 
   useEffect(() => {
@@ -75,8 +117,8 @@ export function CalendarPopover({ anchorRef, anchorIso, onPick }) {
     };
   }, [anchorRef]);
 
-  const content = (
-    <div ref={popoverRef} className="dtf-popover" role="dialog" aria-label="Pick date" style={{ position: 'fixed', zIndex: 99999, top: '-999px', left: '-999px' }}>
+  const calendar = (
+    <div className="dtf-popover-cal">
       <header className="dtf-popover-head">
         <button
           type="button"
@@ -129,9 +171,70 @@ export function CalendarPopover({ anchorRef, anchorIso, onPick }) {
           );
         })}
       </div>
+    </div>
+  );
+
+  const timePanel = withTime ? (
+    <div className="dtf-popover-time">
+      <div className="dtf-time-col">
+        <div className="dtf-time-label" id="dtf-hour-label">Hour</div>
+        <div className="dtf-time-grid dtf-time-grid--hour" role="group" aria-labelledby="dtf-hour-label">
+          {HOUR_OPTIONS.map((h) => {
+            const selected = h === selHour;
+            return (
+              <button
+                key={h}
+                type="button"
+                className={`dtf-time-cell${selected ? ' dtf-selected' : ''}`}
+                onClick={() => pickHour(h)}
+                aria-pressed={selected}
+              >
+                {h}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="dtf-time-col">
+        <div className="dtf-time-label" id="dtf-minute-label">Minute</div>
+        <div className="dtf-time-grid dtf-time-grid--minute" role="group" aria-labelledby="dtf-minute-label">
+          {MINUTE_PRESETS.map((m) => {
+            const selected = m === selMinute;
+            return (
+              <button
+                key={m}
+                type="button"
+                className={`dtf-time-cell${selected ? ' dtf-selected' : ''}`}
+                onClick={() => pickMinute(m)}
+                aria-pressed={selected}
+              >
+                {m}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
+  const content = (
+    <div
+      ref={popoverRef}
+      className={`dtf-popover${withTime ? ' dtf-popover--with-time' : ''}`}
+      role="dialog"
+      aria-label={withTime ? 'Pick date and time' : 'Pick date'}
+      style={{ position: 'fixed', zIndex: 99999, top: '-999px', left: '-999px' }}
+    >
+      <div className="dtf-popover-body">
+        {calendar}
+        {timePanel}
+      </div>
       <footer className="dtf-popover-foot">
         <button type="button" className="dtf-popover-foot-btn" onClick={() => onPick(today)}>Today</button>
-        <button type="button" className="dtf-popover-foot-btn dtf-popover-foot-btn--ghost" onClick={() => onPick('')}>Clear</button>
+        <button type="button" className="dtf-popover-foot-btn dtf-popover-foot-btn--ghost" onClick={handleClear}>Clear</button>
+        {withTime ? (
+          <button type="button" className="dtf-popover-foot-btn dtf-popover-foot-btn--done" onClick={() => onClose?.()}>Done</button>
+        ) : null}
       </footer>
     </div>
   );

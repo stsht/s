@@ -282,7 +282,24 @@ export function DateTimeField({
       lastEmittedDateRef.current = '';
       onChange?.('');
     }
-    setPopoverOpen(false);
+    // In time mode the popover stays open so the operator can also
+    // pick an hour/minute; Done (or an outside click) closes it.
+    // Date-only keeps the original close-on-pick behaviour.
+    if (!withTime) setPopoverOpen(false);
+  }
+
+  // Hour/minute chosen from the popover time selector. Mirrors the
+  // segment state and emits 'HH:mm' (or clears) without closing the
+  // popover so date + time can be set in one session.
+  function handleCalendarTimePick(hhmm) {
+    if (hhmm) {
+      const [hh, mm] = hhmm.split(':');
+      setHour(hh); setMinute(mm);
+      emitTime(hh, mm);
+    } else {
+      setHour(''); setMinute('');
+      emitTime('', '');
+    }
   }
 
   return (
@@ -410,6 +427,10 @@ export function DateTimeField({
           anchorRef={wrapRef}
           anchorIso={value || ''}
           onPick={handleCalendarPick}
+          withTime={withTime}
+          anchorTime={withTime ? `${hour}:${minute}` : ''}
+          onTimePick={handleCalendarTimePick}
+          onClose={() => setPopoverOpen(false)}
         />
       ) : null}
     </div>

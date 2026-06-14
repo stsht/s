@@ -15,6 +15,15 @@ export const MONTH_NAMES = [
 ];
 export const DOW_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
+// ── Time selector options ───────────────────────────────────────
+// Full 24h hour list ('00'..'23') for the popover hour grid.
+export const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'));
+// 5-minute presets ('00','05'..'55') for the popover minute grid.
+// Exact minutes outside this set are still supported by typing into
+// the main field's minute segment — the grid is a quick-pick helper,
+// not the only way to set the minute.
+export const MINUTE_PRESETS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
+
 // ── Helpers ──────────────────────────────────────────────────────
 export function todayIso() {
   return new Date().toISOString().slice(0, 10);
