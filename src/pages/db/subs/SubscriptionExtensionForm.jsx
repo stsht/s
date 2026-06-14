@@ -87,15 +87,6 @@ export function SubscriptionExtensionForm({
           />
         </label>
       </div>
-      <label>Notes (Optional)
-        <textarea
-          value={extensionDraft.notes || ''}
-          onChange={(e) => setExtensionField('notes', e.target.value)}
-          rows={2}
-          placeholder="Internal note for this period"
-          aria-label="Extension notes"
-        />
-      </label>
       <div className="two-col">
         <label>Payment Date
           <DateTimeField
