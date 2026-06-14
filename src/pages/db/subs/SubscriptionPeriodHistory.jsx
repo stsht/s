@@ -67,7 +67,6 @@ export function SubscriptionPeriodHistory({
           : '';
         const proofExt = String(ext.payment_proof || '').trim();
         const proofViewableExt = isProofViewable(proofExt);
-        const notesExt = String(ext.notes || '').trim();
         const bonusDetailExt = Number.isFinite(bonusDaysExt) && bonusDaysExt > 0
           ? `${bonusDaysExt} ${bonusDaysExt === 1 ? 'Day' : 'Days'}`
           : '0 Days';
@@ -111,7 +110,7 @@ export function SubscriptionPeriodHistory({
               {meta ? <span className="subs-extension-meta">{meta}</span> : null}
               <span className="subs-extension-toggle">
                 {expanded ? 'Hide details' : 'View details'}
-                {!expanded && (proofExt || notesExt) ? (
+                {!expanded && proofExt ? (
                   <span className="subs-extension-toggle-dot" aria-hidden="true" />
                 ) : null}
               </span>
@@ -202,12 +201,6 @@ export function SubscriptionPeriodHistory({
                     ) : (
                       <strong className="subs-extension-detail-proof-text">{proofExt}</strong>
                     )}
-                  </div>
-                ) : null}
-                {notesExt ? (
-                  <div className="subs-extension-detail-row subs-extension-detail-notes-row">
-                    <span>Notes</span>
-                    <strong className="subs-detail-notes">{notesExt}</strong>
                   </div>
                 ) : null}
               </div>

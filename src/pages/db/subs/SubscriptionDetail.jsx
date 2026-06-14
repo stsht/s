@@ -137,7 +137,6 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
       payment_date: subscription?.payment_date || '',
       payment_time: subscription?.payment_time || '',
       payment_proof: subscription?.payment_proof || '',
-      notes: subscription?.notes || '',
       isBase: true,
     };
     const rawExtensions = Array.isArray(subscription?.extensions) ? subscription.extensions : [];
@@ -438,13 +437,6 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
   // data URL or an http(s) image link) — drives the thumbnail +
   // lightbox treatment instead of a plain "View proof" link.
   const proofIsImage = isProofImage(proofValue);
-  // Admin-facing note for the current/active period. Prefer the
-  // latest/current extension's own note when it carries one; fall
-  // back to the base subscription note otherwise. (applySubscription
-  // Extension intentionally blanks notes per period, so the fallback
-  // is resolved explicitly here rather than reading effective.notes.)
-  const notesValue = String(latestExtension?.notes || '').trim()
-    || String(subscription?.notes || '').trim();
   // Composed h2 label: "<title> <client_name>" — e.g. "Ms. Linda" or
   // "Mr. Fenny Sofian". Falls back to the client name alone when no
   // title prefix is set, so a row missing a title prefix still reads
@@ -456,7 +448,7 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
   // subscription details available." copy so the panel doesn't show
   // a stack of blank label boxes.
   const hasAnyDetailRow = Boolean(
-    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact || proofValue || notesValue
+    storageValue || priceLabel || paymentValue || startValue || expiryValue || periodLabel || contact || proofValue
   );
 
   return (
@@ -514,7 +506,6 @@ export function SubscriptionDetail({ client, subscription, onEdit, onDeleteSubsc
           periodLabel={periodLabel}
           bonusLabel={bonusLabel}
           contact={contact}
-          notesValue={notesValue}
           hasAnyDetailRow={hasAnyDetailRow}
           proofValue={proofValue}
           proofIsImage={proofIsImage}
