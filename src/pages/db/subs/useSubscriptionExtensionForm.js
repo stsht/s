@@ -130,16 +130,6 @@ export function useSubscriptionExtensionForm({ subscription, effective, latestEx
       if (!response.ok || !json.ok) {
         throw new Error(json.error || `Save failed (${response.status}).`);
       }
-      // The row saved, but the worker had to drop the `notes` column
-      // because db-migration-part-11 isn't applied yet. Refetch so the
-      // other saved fields land, but keep the form open and surface a
-      // clear warning instead of pretending the note persisted.
-      if (json.migrationMissing && String(json.migrationMissing).includes('notes')) {
-        onChanged?.();
-        setExtensionStatus('Notes column missing. Run db-migration-part-11.sql.');
-        setExtensionStatusTone('error');
-        return;
-      }
       setExtensionFormOpen(false);
       setEditingExtensionId('');
       setExtensionStatus('');
