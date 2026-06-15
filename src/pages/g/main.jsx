@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
 import '../../../animate.css';
+import '../../styles/app-base.css';
 import '../invcs/inv.css';
 
 /**
