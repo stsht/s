@@ -26,10 +26,19 @@
   gap: 18px;
 }
 
-/* Flat panel surface — matches /inv .panel exactly (no gradient). */
+/* Flat panel surface — matches /inv .panel exactly (no gradient).
+ *
+ * The body is a fully OPAQUE var(--panel) fill (no glass / no
+ * backdrop-filter) so long operator sessions on /db, /l, /subs read
+ * calmly. The outer edge uses the stronger hairline (var(--line-strong)
+ * instead of var(--line)) so each card reads as a defined, solid
+ * surface against the vivid aurora in the page frame / inter-panel gap,
+ * rather than melting softly into the glow. Internal dividers (header,
+ * list-tools, nav, pills) keep the softer var(--line) so the premium
+ * soft look is preserved inside the card. */
 .pf-panel {
   min-width: 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--line-strong);
   border-radius: 28px;
   background: var(--panel);
   box-shadow: var(--shadow);
@@ -392,18 +401,20 @@
     padding: 4px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    /* Mobile performance: this bar is position:fixed and overlaps the
-     * scrolling panel, so a backdrop-filter blur forces a full-bar
-     * recomposite on every scroll frame (jank + device heat on iOS
-     * Safari / tablet Firefox). Use a near-opaque solid background
-     * instead — visually almost identical, far cheaper to paint. */
-    background: rgba(255, 255, 255, 0.96);
+    /* Mobile performance + readability: this bar is position:fixed and
+     * overlaps the scrolling panel, so a backdrop-filter blur forces a
+     * full-bar recomposite on every scroll frame (jank + device heat on
+     * iOS Safari / tablet Firefox). Use a FULLY OPAQUE solid background
+     * — the last ~4% of translucency let panel content faintly bleed
+     * through the switcher; making it solid reads cleaner and is the
+     * cheapest possible paint. No backdrop-filter, no browser branch. */
+    background: #fff;
     box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
   }
   @media (prefers-color-scheme: dark) {
     .pf-mobile-tabs {
       border-color: rgba(255, 255, 255, 0.08);
-      background: rgba(28, 30, 36, 0.96);
+      background: #1c1e24;
     }
   }
   .pf-mobile-tabs button {
