@@ -3,6 +3,8 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { CalendarPopover } from './DateTimePopover.jsx';
 import { normaliseHhmm, parsePastedDateTime } from './dateTimeFieldUtils.js';
 
+import './DateTimeField.css';
+
 /**
  * DateTimeField
  *
