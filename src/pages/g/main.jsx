@@ -4,6 +4,7 @@ import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
 import '../../../animate.css';
 import '../../styles/app-base.css';
+import '../../components/PasswordGate.css';
 import '../invcs/inv.css';
 
 /**

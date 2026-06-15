@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GlobalBackground } from './GlobalBackground.jsx';
 import '../../animate.css';
+import './PasswordGate.css';
 
 const SESSION_MS = 15 * 60 * 1000;
 
