@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
 import '../../../animate.css';
-import '../invcs/invcs.css';
+import '../invcs/inv.css';
 
 /**
  * Gallery (public delivery) entrypoint.

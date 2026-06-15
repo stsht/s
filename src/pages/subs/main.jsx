@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PasswordGate } from '../../components/PasswordGate.jsx';
-import '../invcs/invcs.css';
+import '../invcs/inv.css';
 
 const SubscriptionsPage = lazy(() => import('../../features/subscriptions/SubscriptionsPage.jsx').then((module) => ({
   default: module.SubscriptionsPage,
