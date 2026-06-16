@@ -5,6 +5,7 @@ import '../../styles/app-base.css';
 import '../invcs/inv.css';
 import './subs/subscriptionManagement.css';
 import './DeliveryDetail.css';
+import './DatabaseList.css';
 
 const DatabasePage = lazy(() => import('./DatabasePage.jsx').then((module) => ({
   default: module.DatabasePage,

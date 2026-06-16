@@ -1,0 +1,474 @@
+/* /db list + record-row styles.
+ *
+ * Extracted verbatim from inv.css (Pass 15). Owns the Clients/Subs
+ * left-list rows (.db-list / .db-list-row*), the per-event RecordRow
+ * stack (.record-stack / .record-row*), and the quiet per-row delete
+ * affordance (.row-delete-x / .row-delete-icon). Rendered by /db
+ * components (DatabaseList.jsx, RecordRow.jsx, ClientEventList.jsx,
+ * SubscriptionPeriodHistory.jsx) and imported from db/main.jsx after
+ * inv.css so the effective cascade is unchanged.
+ *
+ * The shared .event-date-pill base/tone palette, the --sub-* / --evt-*
+ * CSS variables, and the .lg-event-date-pill / .delivery-event-date-pill
+ * shared rules intentionally stay in inv.css (shared with /l and the
+ * delivery views). The row-level tone tints below (.db-list-row.* /
+ * .record-row.* and .db-list-row > span.event-date-pill) are /db-only
+ * scoping that reads off those shared tokens. */
+.db-list{
+  min-height:0;
+  display:grid;
+  align-content:start;
+  gap:8px;
+  overflow:auto;
+  padding-right:2px;
+}
+.db-list-row{
+  width:100%;
+  min-height:58px;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 22px;
+  align-items:center;
+  column-gap:10px;
+  border:1px solid transparent;
+  border-radius:18px;
+  padding:10px 14px;
+  background:transparent;
+  color:var(--ink);
+  text-align:left;
+  cursor:pointer;
+}
+/* Clients tab + Subs tab rows render an additional .event-date-pill
+ * column between the row text and the quiet X. The .has-event-pill
+ * marker (added in WorkspacePages.jsx for any row that ships a pill)
+ * widens the grid template by one auto-sized column so the pill sits
+ * flush against the X without squashing the title. Clients show the
+ * representative event date; Subs show the effective expiry (latest
+ * extension wins). Both pills share the same event-tone-* palette. */
+.db-list-row.has-event-pill{
+  grid-template-columns:minmax(0,1fr) auto 22px;
+}
+.db-list-row:hover,
+.db-list-row.active{
+  border-color:var(--line);
+  background:var(--field);
+}
+.db-list-row-text{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+.db-list-row strong{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:0.9375rem;
+  font-weight:700;
+}
+.db-list-row span{
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--muted);
+  font-size:0.75rem;
+  font-weight:650;
+}
+/* Scope the .db-list-row span rule above to the meta-line span
+ * inside .db-list-row-text, so it doesn't bleed onto the
+ * .event-date-pill <span> rendered as a direct child of the row.
+ * Specificity: `.db-list-row span` is (0,1,1); this scoped
+ * override is (0,2,1) so it wins for the layout/font properties.
+ * Colour is intentionally left to the tone-specific rules
+ * (`.event-date-pill.event-tone-*`, also (0,2,0)) which beat the
+ * (0,1,1) muted-text fallback, so the pill renders in its tone
+ * colour rather than the meta-line muted grey. */
+.db-list-row > span.event-date-pill{
+  max-width:none;
+  overflow:visible;
+  text-overflow:clip;
+  font-size:0.6875rem;
+  font-weight:800;
+}
+.db-list-row.sub-active strong{
+  color:var(--sub-active);
+}
+.db-list-row.sub-active{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-active) 70%,transparent);
+}
+.db-list-row.sub-warning strong{
+  color:var(--sub-warning);
+}
+.db-list-row.sub-warning span{
+  color:color-mix(in srgb,var(--sub-warning) 70%,var(--muted) 30%);
+}
+.db-list-row.sub-warning{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-warning) 75%,transparent);
+}
+.db-list-row.sub-expired strong{
+  color:var(--sub-expired);
+}
+.db-list-row.sub-expired span{
+  color:color-mix(in srgb,var(--sub-expired) 70%,var(--muted) 30%);
+}
+.db-list-row.sub-expired{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-expired) 60%,transparent);
+  opacity:.86;
+}
+
+/* Row-level tone tints. Soft, kept to a coloured left edge so the
+ * row's neutral surface is preserved and a list of mixed-tone
+ * rows still scans like a list, not a colour test. The row title
+ * stays in --ink; the muted accent on the left edge is what
+ * carries the status signal alongside the date pill. .past tone
+ * additionally fades the strong text so finished events visibly
+ * recede.
+ *
+ * Implemented as an inset box-shadow rather than border-left so
+ * the tint survives the row's hover state (which rewrites
+ * `border-color` shorthand and would otherwise wipe a coloured
+ * left border). The 3px shadow spans only the left edge so it
+ * reads as a status accent without affecting layout. */
+.db-list-row.event-tone-soon,
+.record-row.event-tone-soon{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-soon) 75%,transparent);
+}
+.db-list-row.event-tone-future,
+.record-row.event-tone-future{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-future) 65%,transparent);
+}
+.db-list-row.event-tone-tba,
+.record-row.event-tone-tba{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-tba) 60%,transparent);
+}
+.db-list-row.event-tone-past,
+.record-row.event-tone-past{
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-past) 55%,transparent);
+  opacity:.86;
+}
+.db-list-row.event-tone-past strong,
+.record-row.event-tone-past strong{
+  color:color-mix(in srgb,var(--evt-past) 70%,var(--muted) 30%);
+}
+
+/* Quiet per-row X delete control. It reserves a tiny grid column so
+ * actions never overlap it, but the grey hit-box only appears when
+ * the operator directly hovers or keyboard-focuses the X. */
+.row-delete-x{
+  width:22px;
+  height:22px;
+  min-height:22px;
+  padding:0;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#8A8F98;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:background .12s ease,color .12s ease;
+}
+.row-delete-x:hover,
+.row-delete-x:focus-visible{
+  background:#F2F3F5;
+  color:#1F1A17;
+  outline:none;
+}
+.row-delete-icon{
+  display:block;
+}
+@media(prefers-color-scheme:dark){
+  .row-delete-x{background:transparent;color:#8A8F98}
+  .row-delete-x:hover,
+  .row-delete-x:focus-visible{background:#F2F3F5;color:#1F1A17}
+}
+
+/* ---------------------------------------------------------------
+ * Event-row delete X — two-tap (arm → confirm) affordance.
+ *
+ * Scoped to .record-row so ONLY the /db event-row X picks up this
+ * treatment; the other .row-delete-x controls (Clients list rows,
+ * etc.) keep their compact 22px style untouched.
+ *
+ * StarShots icon-only button rhythm — the baseline for future
+ * icon-only buttons, applied here only (no broad rollout): a
+ * ~40x40 square tap target, ~18px glyph, 14px Apple-style
+ * rounded-square corners, centred icon. The local tokens below
+ * name that rhythm so future icon buttons can reuse it without a
+ * refactor. Idle stays quiet (inherits the grey base); the
+ * armed/confirm state steps down to a softer, slightly smaller
+ * compact square (38x38, 13px radius, ~17px glyph) framed in
+ * danger-red — red border + a subtle translucent red fill + a red
+ * glyph — so the second, destructive tap stays obvious yet light.
+ * Still icon-only, no text, not a pill. */
+.record-row .row-delete-x{
+  --ss-icon-btn-size:40px;
+  --ss-icon-btn-radius:14px;
+  --ss-icon-btn-glyph:18px;
+  width:var(--ss-icon-btn-size);
+  height:var(--ss-icon-btn-size);
+  min-height:var(--ss-icon-btn-size);
+  border-radius:var(--ss-icon-btn-radius);
+}
+.record-row .row-delete-x .row-delete-icon{
+  width:var(--ss-icon-btn-glyph);
+  height:var(--ss-icon-btn-glyph);
+}
+.record-row .row-delete-x.is-armed,
+.record-row .row-delete-x.is-armed:hover,
+.record-row .row-delete-x.is-armed:focus-visible{
+  /* Softer, lighter confirm chip: a slightly smaller + rounder
+   * Apple-style rounded square than the idle target so the armed
+   * state reads as compact rather than chunky. Red danger border +
+   * a subtle translucent red fill (not a heavy solid) + a red glyph
+   * keep it obvious without shouting. */
+  width:38px;
+  height:38px;
+  min-height:38px;
+  border-radius:13px;
+  border:1px solid var(--danger);
+  background:color-mix(in srgb,var(--danger) 12%,transparent);
+  color:var(--danger);
+  outline:none;
+}
+.record-row .row-delete-x.is-armed .row-delete-icon{
+  width:17px;
+  height:17px;
+}
+.record-stack{
+  display:grid;
+  gap:8px;
+  margin-top:12px;
+}
+.record-row{
+  /* left meta (date pill + price) / View Links / View Invoice / X
+   * The meta column is minmax(min-content,1fr): it grows to fill
+   * the row and pushes the action groups to the right, but never
+   * shrinks below the date pill + price so the rupiah figure can
+   * never be clipped or covered by the action buttons. The two
+   * middle columns are auto so the action groups size to their
+   * pills, and the trailing 40px column holds the two-tap
+   * event-delete .row-delete-x — sized to the 40px icon-button
+   * rhythm so its armed red frame sits centred and never clips.
+   * Because every piece sits in its own grid track the actions can
+   * never overlap the price at any zoom level — no transforms or
+   * absolute positioning required. */
+  /* --- event-row action-rail spacing ---
+   * One calm, consistent gutter from the card's right edge to the
+   * right-side controls, plus an even gap between rail items. Both
+   * the desktop grid (trailing delete-X column) and the stacked
+   * mobile layout (where the X becomes a vertically-centred right
+   * rail) read from these so the price, the link/invoice icons and
+   * the delete X all line up to one deliberate rail. Local to the
+   * event row — not a global design token. */
+  --evt-rail-gutter:18px;
+  --evt-rail-gap:10px;
+  display:grid;
+  grid-template-columns:minmax(min-content,1fr) auto auto 40px;
+  align-items:center;
+  gap:var(--evt-rail-gap);
+  min-height:56px;
+  padding:10px var(--evt-rail-gutter) 10px 12px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:var(--field);
+}
+.record-row-action-group{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.record-row strong{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:0.875rem;
+  font-weight:750;
+}
+.record-row a,
+.record-row button.record-row-link,
+.record-row button.record-row-link-anchor{
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 12px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  /* Subtle liquid-glass: translucent neutral fill + a hairline top
+   * highlight so the pill reads as a light glass control rather than a
+   * heavy solid block. Tinted (is-created / is-complete) states layer
+   * their colour over this same base. */
+  background:color-mix(in srgb,var(--panel) 70%,transparent);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent);
+  color:var(--ink);
+  text-decoration:none;
+  font-size:0.6875rem;
+  font-weight:800;
+}
+.record-row button.record-row-link{
+  /* Reset native button defaults so the pill renders identically
+   * to its <a> sibling. The View Links button only differs in
+   * behaviour (opens DeliveryDetail in /db's right panel instead
+   * of navigating away); visually it's the same pill. */
+  cursor:pointer;
+  font-family:inherit;
+  letter-spacing:inherit;
+  white-space:nowrap;
+}
+
+/* Left meta area inside an event row: the date pill + the price.
+ *
+ * The grid above gives this cell minmax(min-content,1fr) so it
+ * grows to fill the row's left side while never shrinking below
+ * its own content — that floor is what guarantees the price is
+ * always laid out in its own space and can never be covered by
+ * the action buttons (they live in separate grid tracks to the
+ * right). The price is plain text (no pill, no border) per the
+ * spec, with tabular-nums so "Rp 1.850.000" / "Rp 850.000" line
+ * up cleanly across rows.
+ *
+ * On mobile (single-column row, max-width:1023px) this same
+ * wrapper spans the full width and switches to space-between so
+ * the date pill pins left and the price pins right on one line,
+ * with the action pills wrapping cleanly on the lines below. */
+.record-row-meta{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.record-row-price{
+  flex:0 0 auto;
+  color:var(--muted);
+  font-size:0.8125rem;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+
+/* "Already created" pill state for the right-side action buttons.
+ *
+ * View Links / View Invoice (when the underlying delivery or
+ * invoice exists) flip to a soft-green pill so the operator can
+ * tell at a glance which side of the row is already shipped. The
+ * tint is layered through color-mix() against --sub-active —
+ * the same green token used by the Subs tab "active" state — so
+ * light/dark modes pick the right shade automatically without a
+ * second palette. The neutral "Create Links" / "Create Invoice"
+ * pill is unchanged when the row is missing the corresponding
+ * record. */
+.record-row a.is-created,
+.record-row button.record-row-link.is-created,
+.record-row button.record-row-link-anchor.is-created{
+  background:color-mix(in srgb,var(--sub-active) 14%,var(--panel));
+  border-color:color-mix(in srgb,var(--sub-active) 48%,var(--line));
+  color:var(--sub-active);
+}
+.record-row a.is-created:hover,
+.record-row button.record-row-link.is-created:hover,
+.record-row button.record-row-link-anchor.is-created:hover{
+  background:color-mix(in srgb,var(--sub-active) 22%,var(--panel));
+  border-color:var(--sub-active);
+}
+
+/* "Complete" pill state — a delivered Links row (delivery_done) or a
+ * paid invoice flips the green is-created pill to the app's muted
+ * blue (--evt-soon, the same token the "soon" event tone uses), so a
+ * finished side of the row reads blue at a glance without a separate
+ * label. Layered through color-mix() so light/dark modes resolve the
+ * right shade automatically and it never reads as a neon blue. */
+.record-row a.is-complete,
+.record-row button.record-row-link.is-complete,
+.record-row button.record-row-link-anchor.is-complete{
+  background:color-mix(in srgb,var(--evt-soon) 14%,var(--panel));
+  border-color:color-mix(in srgb,var(--evt-soon) 50%,var(--line));
+  color:var(--evt-soon);
+}
+.record-row a.is-complete:hover,
+.record-row button.record-row-link.is-complete:hover,
+.record-row button.record-row-link-anchor.is-complete:hover{
+  background:color-mix(in srgb,var(--evt-soon) 22%,var(--panel));
+  border-color:var(--evt-soon);
+}
+.record-row a.record-row-vendor-addon,
+.record-row button.record-row-vendor-addon{
+  width:34px;
+  min-width:34px;
+  height:34px;
+  min-height:34px;
+  padding:0;
+  border-radius:999px;
+  cursor:pointer;
+  font-family:inherit;
+}
+.record-row a.record-row-vendor-addon .btn-icon,
+.record-row button.record-row-vendor-addon .btn-icon{
+  width:17px;
+  height:17px;
+}
+/* Even action-pill sizing (desktop grid layout only — the mobile
+ * stacked layout below makes pills full-width). Each text pill is
+ * locked to a min-width sized for its longest label state so rows
+ * align cleanly whether the action reads "View Links"/"Create Links"
+ * or "View Client Invoice"/"Create Client Invoice", and whether or
+ * not the vendor add-on is active. The icon-only vendor add-ons are
+ * already a fixed 34px square, so each action group keeps a stable
+ * width across every row. flex:0 0 auto stops the pill shrinking
+ * below its min-width inside the flex action group. */
+@media(min-width:1024px){
+  .record-row .record-row-pill{
+    flex:0 0 auto;
+  }
+  .record-row .record-row-pill--links{
+    min-width:118px;
+  }
+  .record-row .record-row-pill--invoice{
+    min-width:184px;
+  }
+}
+
+@media(max-width:1023px){
+  .record-row{
+    /* Stack vertically on narrow viewports. The delete X leaves the
+     * flow and becomes a vertically-centred control on a dedicated
+     * right rail; padding-right reserves that rail (shared gutter +
+     * the ~40px X + an even gap) so the full-width action pills and
+     * the date/price line never run under it, and so the price and
+     * the link/invoice icons stay aligned to one inner content edge
+     * while the X sits on the outer rail with the same gutter. */
+    grid-template-columns:1fr;
+    align-items:start;
+    position:relative;
+    padding-right:calc(var(--evt-rail-gutter) + 40px + var(--evt-rail-gap));
+  }
+  .record-row-meta{
+    /* First line on mobile: date pill pinned left, price pinned
+     * right, both on one line. The action groups wrap onto the
+     * lines below. */
+    justify-content:space-between;
+    width:100%;
+  }
+  .record-row-action-group{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+    width:100%;
+  }
+  .record-row a:not(.record-row-vendor-addon),
+  .record-row button.record-row-link{
+    width:100%;
+  }
+  .record-row .row-delete-x{
+    /* Centre the delete X on its right rail (no longer pinned to the
+     * top-right corner) using the shared calm gutter from the card
+     * edge, so it reads as deliberately aligned with the price and
+     * the link/invoice icons rather than floating high. */
+    position:absolute;
+    top:50%;
+    right:var(--evt-rail-gutter);
+    transform:translateY(-50%);
+  }
+}
