@@ -537,7 +537,15 @@
   box-shadow:0 14px 44px rgba(0,0,0,.55);
   transform:translate3d(var(--pan-x,0),var(--pan-y,0),0) scale(var(--scale,1));
   transform-origin:center center;
-  will-change:transform;
+  /* Preview sharpness: intentionally NO will-change:transform here.
+   * Pinning a compositor layer makes the browser rasterize the sheet
+   * once at its base CSS size and then GPU-upscale that cached bitmap
+   * for the pinch/zoom transform — so the already ~4K source rendered
+   * by html2canvas looked soft after only a slight zoom. Omitting the
+   * hint lets the browser re-rasterize from the high-res source at the
+   * current zoom level, keeping a slight zoom crisp. Pan only runs while
+   * zoomed, so the modest re-raster cost is worth the sharper read. The
+   * downloaded/exported JPG asset is not touched by this. */
 }
 .public-invoice-fullscreen-img.is-zoomed{
   border-radius:0;
@@ -925,7 +933,9 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     transform: translate3d(var(--pan-x, 0), var(--pan-y, 0), 0) scale(var(--scale, 1));
     transform-origin: center center;
-    will-change: transform;
+    /* Preview sharpness: no will-change:transform (see desktop rule).
+     * Lets the zoomed sheet re-rasterize from the ~4K source instead of
+     * upscaling a base-size cached layer. Download/export JPG untouched. */
   }
   .public-invoice-fullscreen-img.is-zoomed {
     border-radius: 0;

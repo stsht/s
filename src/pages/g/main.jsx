@@ -7,6 +7,7 @@ import '../../styles/app-base.css';
 import '../../components/PasswordGate.css';
 import '../invcs/inv.css';
 import '../../components/PublicInvoiceViewer.css';
+import './g.css';
 
 /**
  * Gallery (public delivery) entrypoint.
