@@ -4,6 +4,7 @@ import { PasswordGate } from '../../components/PasswordGate.jsx';
 import '../../styles/app-base.css';
 import '../invcs/inv.css';
 import './subs/subscriptionManagement.css';
+import './DeliveryDetail.css';
 
 const DatabasePage = lazy(() => import('./DatabasePage.jsx').then((module) => ({
   default: module.DatabasePage,
