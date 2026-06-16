@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { PasswordGate } from '../../components/PasswordGate.jsx';
 import '../../styles/app-base.css';
 import '../invcs/inv.css';
+import './subs/subscriptionManagement.css';
 
 const DatabasePage = lazy(() => import('./DatabasePage.jsx').then((module) => ({
   default: module.DatabasePage,

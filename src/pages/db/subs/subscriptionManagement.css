@@ -1,0 +1,686 @@
+/* /db subscription-management styles.
+ *
+ * Extracted verbatim from src/pages/invcs/inv.css (Pass 12). These
+ * selectors style the /db subscription admin/detail/management UI
+ * rendered by the components under src/pages/db (SubscriptionDetail,
+ * SubscriptionPeriodHistory, SubscriptionDetailRows, ProofField,
+ * SubscriptionProofRow, DatabaseList, SubsImportDropZone / Import):
+ *
+ *   - .subs-list-actions / .subs-import-icon-button (Subs list toolbar)
+ *   - .subs-extension* (extensions section + period/extension rows)
+ *   - .subs-proof*     (payment-proof upload control + lightbox)
+ *   - .subs-detail-notes / .subs-detail-row-group / .subs-detail-actions
+ *   - .subs-drop* / .subs-import-upload (JPG import drop zone)
+ *
+ * Imported from src/pages/db/main.jsx AFTER inv.css so shared tokens
+ * and the remaining /db route styles still apply, and these rules
+ * load on every /db render path that mounts the subscription UI
+ * (the classes render across several /db components, not just
+ * SubscriptionDetail). The shared SubsPaidCard / SubsInvoiceCard
+ * styles live in src/features/subscriptions/subscriptionCards.css and
+ * the /subs live-preview chrome lives in
+ * src/features/subscriptions/subs.css; neither is moved here. */
+
+/* ── Subs list toolbar (New Subscription + Import JPG) ─────────── */
+.subs-list-actions{
+  display:flex;
+  align-items:stretch;
+  gap:10px;
+  width:100%;
+}
+.subs-list-actions > .add-client-button{
+  width:auto;
+  flex:1 1 auto;
+  min-width:0;
+  padding:0 14px;
+}
+.subs-import-icon-button{
+  flex:0 0 52px;
+  width:52px;
+  min-height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:16px;
+  background:transparent;
+  color:var(--muted);
+  box-shadow:none;
+}
+.subs-import-icon-button:hover,
+.subs-import-icon-button:focus-visible{
+  color:var(--ink);
+  background:var(--soft);
+  outline:none;
+}
+.subs-import-icon-button:active{transform:scale(.98)}
+
+/* Subs detail panel — extensions section. Mirrors the visual
+ * weight of the field list above it without competing for the
+ * eye: a subtle eyebrow, an Add Extension trigger on the right,
+ * and a stack of list-row cards underneath. Each extension row
+ * picks up its own sub-* tone class (active/warning/expired) so
+ * a finished extension visibly recedes the same way an expired
+ * subscription does on the Subs list. */
+.subs-extensions{
+  margin-top:18px;
+  display:grid;
+  gap:12px;
+}
+.subs-extensions-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.subs-extensions-head .eyebrow{
+  margin:0;
+  display:flex;
+  align-items:center;
+  /* Match the Add Extension button height so the label and button
+   * share one vertical centre line, and the header height stays
+   * stable when the button is hidden (form open). */
+  min-height:38px;
+}
+.subs-extension-form{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+  background:var(--soft);
+  gap:12px;
+}
+.subs-extension-form-eyebrow{
+  margin:0 0 4px;
+  font-size:0.6875rem;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+
+.subs-extension-list{
+  margin-top:0;
+}
+.subs-extension-row-actions{
+  /* Fixed, always-reserved action column so EVERY row shares the
+   * exact same body width. This keeps the Start/Expiry grid and the
+   * row's right edge aligned across the whole list regardless of how
+   * many controls a row exposes (the base/Initial row shows Print
+   * only; extension rows show Print + Edit + Delete).
+   * Width = three 22px icon buttons + the two 6px gaps between them. */
+  flex:0 0 auto;
+  width:78px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+}
+/* Base subscription row pinned at the bottom of the unified
+ * transaction history (allPeriods). It carries no row-level
+ * edit/delete actions — the operator edits the base via the main
+ * "Edit" button at the top of the panel — so it gets a slightly
+ * recessed, italic-tagged treatment to read as the original
+ * "Initial" purchase rather than a renewal. The trailing "·
+ * Initial" segment in its meta line does the labelling; this just
+ * softens the row so it sits quietly at the bottom of the list. */
+.subs-extension-list > .subs-period-base{
+  /* The Initial row reads as the original purchase, but it must use
+   * the SAME emphasis as every other row — no opacity dimming, no
+   * lighter weight. Tone (red/amber/green) and weight are driven by
+   * the shared rules below so a row is never "randomly" bolder than
+   * its siblings (complaint #5). The "Initial" chip in the meta line
+   * does the labelling. */
+}
+.subs-extensions-empty{
+  margin:0;
+  color:var(--muted);
+  font-size:0.8125rem;
+}
+
+/* Extension/period timeline rows. Each row is a clean ledger entry:
+ * a labelled Start / Expiry pair over a single metadata line. The
+ * pair sits in two aligned columns on desktop and stacks vertically
+ * on mobile, so the range never depends on a "->" arrow to read.
+ * The row centres its content against the icon-only actions so the
+ * Edit / X controls share one vertical centre. */
+.subs-extension-row{
+  align-items:center;
+  gap:12px;
+}
+.subs-extension-body{
+  flex:1 1 auto;
+  min-width:0;
+  display:grid;
+  gap:8px;
+}
+/* Two equal columns. Each column is a label-over-value stack so the
+ * Start and Expiry VALUES share the same top baseline and left edge
+ * regardless of label width — fixes the misaligned Expiry column
+ * (complaint #5). */
+.subs-extension-dates{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px 18px;
+}
+.subs-extension-date{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.subs-extension-date-label{
+  font-size:0.625rem;
+  font-weight:900;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.subs-extension-date-value{
+  font-size:0.9375rem;
+  font-weight:750;
+  color:var(--ink);
+  font-variant-numeric:tabular-nums;
+  line-height:1.25;
+}
+.subs-extension-meta{
+  color:var(--muted);
+  font-size:0.75rem;
+}
+/* Per-extension payment proof — a quiet inline link/reference under
+ * the meta line. Only rendered when the extension carries a proof,
+ * so proof-less rows stay clean. */
+.subs-extension-proof{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  margin-top:2px;
+  width:fit-content;
+  font-size:0.75rem;
+  font-weight:600;
+  color:var(--accent,#2563eb);
+  text-decoration:none;
+}
+.subs-extension-proof:hover,
+.subs-extension-proof:focus-visible{
+  text-decoration:underline;
+}
+.subs-extension-proof--text{
+  color:var(--muted);
+  font-weight:500;
+}
+/* Detail-panel "View proof" link for the current period. */
+.subs-proof-link{
+  color:var(--accent,#2563eb);
+  font-weight:600;
+  text-decoration:none;
+}
+.subs-proof-link:hover,
+.subs-proof-link:focus-visible{
+  text-decoration:underline;
+}
+/* Detail-panel proof thumbnail (current period). A small rounded
+ * preview that opens the full-size lightbox on click/tap. */
+.subs-proof-thumb{
+  appearance:none;
+  padding:0;
+  margin-top:2px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:color-mix(in srgb,var(--panel) 70%,transparent);
+  width:64px;
+  height:64px;
+  overflow:hidden;
+  cursor:pointer;
+  box-shadow:0 1px 3px rgba(15,23,42,.12),inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent);
+  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.subs-proof-thumb img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.subs-proof-thumb:hover{
+  border-color:color-mix(in srgb,var(--accent) 55%,transparent);
+  box-shadow:0 4px 12px rgba(15,23,42,.18);
+  transform:translateY(-1px);
+}
+.subs-proof-thumb:focus-visible{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 28%,transparent);
+}
+/* Full-size proof preview overlay (lightbox). */
+.subs-proof-lightbox{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(15,23,42,.72);
+  backdrop-filter:blur(2px);
+}
+.subs-proof-lightbox-inner{
+  position:relative;
+  max-width:min(92vw,720px);
+  max-height:88vh;
+}
+.subs-proof-lightbox-inner img{
+  display:block;
+  max-width:100%;
+  max-height:88vh;
+  border-radius:12px;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+.subs-proof-lightbox-close{
+  position:absolute;
+  top:-14px;
+  right:-14px;
+  width:36px;
+  height:36px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  border-radius:999px;
+  background:#fff;
+  color:#0f172a;
+  font-size:1.4rem;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
+.subs-proof-lightbox-close:hover,
+.subs-proof-lightbox-close:focus-visible{
+  background:#f1f5f9;
+}
+/* Detail-panel note value (top card + expanded rows). Preserves the
+ * operator's line breaks and wraps cleanly. */
+.subs-detail-notes{
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+/* ── Payment Proof upload control (main + extension forms) ──────── */
+.subs-proof-field{
+  display:grid;
+  gap:6px;
+}
+.subs-proof-field-label{
+  color:var(--muted);
+  font-size:0.8125rem;
+  font-weight:700;
+}
+.subs-proof-field-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.subs-proof-upload{
+  position:relative;
+  display:inline-flex;
+  cursor:pointer;
+}
+.subs-proof-upload input[type="file"]{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  opacity:0;
+  cursor:pointer;
+}
+.subs-proof-upload-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 14px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--panel) 70%,transparent);
+  color:var(--ink);
+  font-size:0.75rem;
+  font-weight:800;
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent);
+  transition:border-color .15s ease,background .15s ease;
+}
+.subs-proof-upload:hover .subs-proof-upload-pill{
+  border-color:color-mix(in srgb,var(--accent) 55%,transparent);
+}
+.subs-proof-upload input[type="file"]:focus-visible + .subs-proof-upload-pill{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 28%,transparent);
+}
+.subs-proof-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+  font-size:0.75rem;
+  font-weight:700;
+  color:var(--muted);
+}
+.subs-proof-chip-tag{
+  padding:2px 8px;
+  border-radius:999px;
+  background:color-mix(in srgb,var(--accent) 14%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 36%,transparent);
+  color:var(--accent,#2563eb);
+  font-size:0.625rem;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.subs-proof-chip-view{
+  color:var(--accent,#2563eb);
+  font-weight:800;
+  text-decoration:none;
+}
+.subs-proof-chip-view:hover,
+.subs-proof-chip-view:focus-visible{
+  text-decoration:underline;
+}
+.subs-proof-chip-text{
+  max-width:220px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.subs-proof-chip-remove{
+  appearance:none;
+  border:0;
+  background:transparent;
+  padding:0;
+  color:var(--sub-expired,#c0392b);
+  font:inherit;
+  font-size:0.75rem;
+  font-weight:800;
+  cursor:pointer;
+}
+.subs-proof-chip-remove:hover{
+  text-decoration:underline;
+}
+.subs-proof-empty{
+  color:var(--muted);
+  font-size:0.75rem;
+  font-weight:600;
+  opacity:.8;
+}
+.subs-proof-error{
+  color:var(--sub-expired,#c0392b);
+  font-size:0.75rem;
+  font-weight:700;
+}
+/* ── Expandable period/extension rows (Req6) ───────────────────── */
+.subs-extension-row{
+  flex-wrap:wrap;
+}
+.subs-extension-body{
+  cursor:pointer;
+}
+.subs-extension-body:focus-visible{
+  outline:2px solid var(--accent,#2563eb);
+  outline-offset:3px;
+  border-radius:10px;
+}
+.subs-extension-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  width:fit-content;
+  font-size:0.6875rem;
+  font-weight:800;
+  letter-spacing:.02em;
+  color:var(--accent,#2563eb);
+}
+.subs-extension-toggle-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--accent,#2563eb);
+  opacity:.7;
+}
+.subs-extension-detail{
+  flex:0 0 100%;
+  width:100%;
+  margin-top:4px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+  gap:8px 18px;
+}
+.subs-extension-detail-row{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.subs-extension-detail-row > span{
+  font-size:0.625rem;
+  font-weight:900;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.subs-extension-detail-row > strong,
+.subs-extension-detail-row > a{
+  font-size:0.875rem;
+  font-weight:750;
+  color:var(--ink);
+  word-break:break-word;
+}
+.subs-extension-detail-notes-row{
+  grid-column:1 / -1;
+}
+.subs-extension-detail-proof-text{
+  font-weight:600 !important;
+  color:var(--muted) !important;
+  word-break:break-all;
+}
+@media (max-width:640px){
+  .subs-extension-dates{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+}
+
+/* Tone parity with the Subs list, applied uniformly to BOTH the
+ * Start and Expiry values of EVERY row in the matching tone —
+ * including the Initial (base) row. An expired row reads red, a
+ * warning row amber, an active row green, exactly like
+ * .db-list-row.sub-* on the Subs list. No row gets a different
+ * weight/emphasis from its siblings (complaint #2 + #5). Scoped to
+ * the extension list so the neutral detail rows above are untouched. */
+.subs-extension-list .list-row.sub-expired .subs-extension-date-value{
+  color:var(--sub-expired);
+}
+.subs-extension-list .list-row.sub-expired .subs-extension-meta{
+  color:color-mix(in srgb,var(--sub-expired) 70%,var(--muted) 30%);
+}
+.subs-extension-list .list-row.sub-warning .subs-extension-date-value{
+  color:var(--sub-warning);
+}
+.subs-extension-list .list-row.sub-warning .subs-extension-meta{
+  color:color-mix(in srgb,var(--sub-warning) 70%,var(--muted) 30%);
+}
+.subs-extension-list .list-row.sub-active .subs-extension-date-value{
+  color:var(--sub-active);
+}
+
+/* Two-column grid wrapper used inside SubscriptionDetail to render
+ * paired detail rows side-by-side on desktop while keeping each
+ * cell as a regular .list-row internally. The pairs grouped by
+ * SubscriptionDetail are: Price + Payment Date, Start Date +
+ * Expiry Date, Access Period + Bonus. On mobile (<= 640px) the
+ * grid collapses to a single column so each row stacks vertically
+ * the same way the unpaired rows (Storage / Contact) do. The gap
+ * is removed on mobile so the stacked rows preserve the visual
+ * rhythm of the surrounding .list-stack — adjacent rows there
+ * already carry their own bottom borders. */
+.subs-detail-row-group{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.subs-detail-row-group > .list-row{
+  border-bottom:1px solid var(--line);
+}
+@media (max-width: 640px){
+  .subs-detail-row-group{
+    grid-template-columns:1fr;
+    gap:0;
+  }
+}
+
+/* Subs detail top toolbar action group (scoped to .subs-detail-actions). */
+.subs-detail-actions{
+  align-items:center;
+  gap:6px;
+}
+
+/* Subs JPG import — drag-and-drop upload zone. Mirrors the
+ * .qr-upload pill aesthetic (dashed border, soft field bg) but
+ * scales up to a multi-line drop target with an icon, headline,
+ * and filename hint. The visually-hidden native <input type="file">
+ * keeps keyboard focus working; pointer events fall through to the
+ * outer wrapper because the input is sized 1x1 and offset off-screen.
+ *
+ *  • idle             → dashed line + muted copy
+ *  • hover/focus      → accent border, ink-coloured copy
+ *  • drag-active      → solid accent border + soft tint to confirm
+ *                       the drop target is live
+ *  • busy (uploading) → reduced opacity, pointer disabled, no hover
+ */
+.subs-drop-wrap{display:grid;gap:8px}
+.subs-drop{
+  position:relative;
+  display:grid;
+  justify-items:center;
+  align-content:center;
+  gap:8px;
+  padding:28px 20px;
+  min-height:168px;
+  border:1.5px dashed var(--line-strong);
+  border-radius:22px;
+  background:var(--field);
+  color:var(--muted);
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .14s ease, background .14s ease, color .14s ease, transform .08s ease;
+  outline:none;
+}
+.subs-drop input[type="file"]{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+  white-space:nowrap;
+  border:0;
+}
+.subs-drop-icon{
+  width:34px;
+  height:34px;
+  color:var(--accent);
+  opacity:.85;
+}
+.subs-drop-title{
+  color:var(--ink);
+  font-size:0.9375rem;
+  font-weight:800;
+  letter-spacing:.01em;
+}
+.subs-drop-hint{
+  font-size:0.75rem;
+  font-weight:700;
+  color:var(--muted);
+  letter-spacing:.02em;
+  max-width:32ch;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.subs-drop:hover{
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--field) 80%, var(--accent) 8%);
+  color:var(--ink);
+}
+.subs-drop:focus-visible{
+  border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(95,149,245,.18);
+}
+.subs-drop:active{transform:scale(.995)}
+.subs-drop--active{
+  border-style:solid;
+  border-color:var(--accent);
+  background:color-mix(in srgb, var(--field) 70%, var(--accent) 14%);
+  color:var(--ink);
+}
+.subs-drop--active .subs-drop-icon{opacity:1}
+.subs-drop--busy{
+  cursor:progress;
+  opacity:.7;
+  pointer-events:none;
+}
+
+/* Import-only adaptive layout. When SubsImportDropZone is rendered
+ * inside the /db Subs Import flow, the surrounding .form-stack is
+ * tagged with .subs-import-upload, which switches the form to a
+ * column flex and grows the drop zone to fill the available
+ * right-panel space. The detail header and action row keep their
+ * intrinsic height; only the drop zone expands.
+ *
+ * On mobile (right panel takes the full viewport) we push the
+ * minimum height higher so the drop target reads as a dedicated
+ * import surface rather than a small card. */
+.subs-import-upload{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  flex:1 1 auto;
+  min-height:0;
+}
+.subs-import-upload .subs-drop-wrap{
+  flex:1 1 auto;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.subs-import-upload .subs-drop{
+  flex:1 1 auto;
+  width:100%;
+  /* clamp() so the zone grows with the panel but never shrinks
+   * below an obviously-tappable target nor balloons past the
+   * sheet's natural reading length. */
+  min-height:clamp(220px, 56vh, 560px);
+  padding:36px 28px;
+}
+.subs-import-upload .subs-drop-icon{
+  width:42px;
+  height:42px;
+}
+.subs-import-upload .subs-drop-title{
+  font-size:1rem;
+}
+.subs-import-upload .subs-drop-hint{
+  max-width:42ch;
+}
+@media(max-width:1023px){
+  .subs-import-upload .subs-drop{
+    /* Right-panel mode = full-page-feel import surface. */
+    min-height:clamp(360px, 78vh, 720px);
+    padding:48px 24px;
+  }
+  .subs-import-upload .subs-drop-icon{
+    width:48px;
+    height:48px;
+  }
+  .subs-import-upload .subs-drop-title{
+    font-size:1.125rem;
+  }
+}
