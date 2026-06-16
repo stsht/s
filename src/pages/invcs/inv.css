@@ -909,64 +909,6 @@ input.no-spinner::-webkit-inner-spin-button{
   color:var(--muted);
   font:650 16px/1.6 var(--font);
 }
-.tool-grid{
-  display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:18px;
-}
-.tool-card,.workspace-panel{
-  border:1px solid var(--line);
-  border-radius:28px;
-  background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 96%,white 4%),var(--panel));
-  box-shadow:var(--shadow);
-}
-.tool-card{
-  min-height:230px;
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  padding:26px;
-  color:var(--ink);
-  text-decoration:none;
-}
-.tool-card:hover{border-color:var(--accent)}
-.tool-card span{
-  margin-bottom:20px;
-  color:var(--muted);
-  font-size:0.6875rem;
-  font-weight:900;
-  letter-spacing:.2em;
-  text-transform:uppercase;
-}
-.tool-card strong{font-size:1.5625rem;line-height:1.08;font-weight:900}
-.tool-card p{margin:18px 0 24px;color:var(--muted);font-size:0.9375rem;line-height:1.55}
-.tool-card em{
-  margin-top:auto;
-  min-height:36px;
-  display:inline-flex;
-  align-items:center;
-  padding:0 16px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  color:var(--ink);
-  font-style:normal;
-  font-size:0.6875rem;
-  font-weight:900;
-  letter-spacing:.18em;
-  text-transform:uppercase;
-}
-.workspace-grid{
-  display:grid;
-  grid-template-columns:minmax(320px,420px) minmax(0,1fr);
-  gap:18px;
-  align-items:start;
-}
-.workspace-panel{
-  min-height:360px;
-  padding:26px;
-}
-.workspace-panel h2{margin:0 0 16px;font-size:2.125rem;line-height:1.05;font-weight:900}
-.side-panel{display:grid;gap:16px;min-height:0}
 .segmented{
   display:grid;
   grid-template-columns:repeat(3,1fr);
@@ -1014,113 +956,6 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .empty-state{margin:0;color:var(--muted);font-weight:750}
 .form-stack{display:grid;gap:16px}
-.preview-note-card{display:grid;align-content:center;gap:12px}
-.preview-note-card h2{margin:0}
-.preview-note-card p{margin:0;color:var(--muted);font-size:1rem;line-height:1.6}
-.preview-note-card strong{font-size:clamp(28px,4vw,46px);line-height:1.05;color:var(--ink);overflow-wrap:anywhere}
-.preview-note-card small{color:var(--muted);font-weight:800}
-.workspace-panel .primary-button{width:max-content;padding:0 22px}
-.workspace-panel input,.workspace-panel select{background:var(--field);color:var(--ink)}
-.db-page{
-  min-height:100dvh;
-  padding:18px;
-  overflow:hidden;
-}
-.db-page .workspace-shell{
-  width:min(100%,1440px);
-  height:calc(100dvh - 36px);
-  min-height:0;
-  display:flex;
-  flex-direction:column;
-}
-.db-page .workspace-topbar{
-  display:none;
-}
-.db-page .workspace-hero{
-  display:none;
-  grid-template-columns:minmax(0,1fr);
-  margin-bottom:22px;
-}
-.db-page .workspace-hero h1{
-  font-size:clamp(42px,5vw,70px);
-  line-height:1;
-  font-weight:800;
-}
-.db-page .hero-eyebrow{
-  font-size:0.6875rem;
-  letter-spacing:.24em;
-}
-.db-grid{
-  flex:1;
-  min-height:0;
-  grid-template-columns:minmax(340px,430px) minmax(0,1fr);
-  gap:18px;
-  align-items:stretch;
-}
-.db-grid .workspace-panel{
-  min-height:0;
-  padding:18px;
-  border-radius:28px;
-  overflow:hidden;
-}
-.db-page .side-panel{
-  display:flex;
-  flex-direction:column;
-}
-.db-panel-header{
-  display:grid;
-  grid-template-columns:minmax(112px,132px) minmax(0,1fr);
-  align-items:center;
-  gap:10px;
-  padding-bottom:16px;
-  border-bottom:1px solid var(--line);
-}
-.db-panel-logo img{
-  width:132px;
-  max-width:100%;
-  height:auto;
-  display:block;
-}
-.db-tool-nav{
-  display:grid;
-  grid-template-columns:repeat(5,minmax(0,1fr));
-  gap:4px;
-}
-.db-tool-nav a{
-  min-height:34px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:var(--soft);
-  color:var(--muted);
-  text-decoration:none;
-  font-size:0.625rem;
-  font-weight:800;
-  letter-spacing:0;
-}
-.db-tool-nav a.active{
-  background:var(--ink);
-  border-color:var(--ink);
-  color:var(--panel);
-}
-.db-page .segmented button,
-.db-page .workspace-nav a{
-  font-weight:800;
-  letter-spacing:.11em;
-}
-.db-page .segmented{
-  min-width:0;
-}
-.db-page .workspace-panel h2{
-  margin:0 0 14px;
-  font-size:clamp(30px,4vw,46px);
-  font-weight:800;
-}
-.db-page .side-panel input{
-  flex:0 0 auto;
-}
 .add-client-button,
 .db-back-button{
   min-height:44px;
@@ -1679,9 +1514,6 @@ input.no-spinner::-webkit-inner-spin-button{
 .db-delete-button:hover{
   background:color-mix(in srgb,var(--danger) 12%,transparent);
 }
-.db-detail-panel{
-  overflow:auto;
-}
 .detail-heading{
   display:flex;
   align-items:flex-start;
@@ -2112,11 +1944,10 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 
 @media(prefers-color-scheme:dark){
-  .tool-card,.workspace-panel,.panel{
+  .panel{
     background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 94%,#26324d 6%),var(--panel));
   }
-  .panel-header img,
-  .db-panel-logo img{
+  .panel-header img{
     filter:invert(1) brightness(1.18);
   }
   /* Pre-password gate logo: the dark variant ships as a real
@@ -2149,7 +1980,6 @@ input.no-spinner::-webkit-inner-spin-button{
     color:#090b10;
     border-color:#edeff5;
   }
-  .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
   /* /inv composer panels match the Gemini-grey treatment used in
    * /db /l /subs (WorkspacePanels). Scoped to .composer-page so
@@ -2205,52 +2035,9 @@ input.no-spinner::-webkit-inner-spin-button{
   .workspace-topbar{align-items:flex-start;flex-direction:column;margin-bottom:28px}
   .workspace-logo img{width:168px}
   .workspace-nav{justify-content:flex-start}
-  .workspace-hero,.workspace-grid,.tool-grid{grid-template-columns:1fr}
+  .workspace-hero{grid-template-columns:1fr}
   .gallery-link-grid{grid-template-columns:1fr}
   .workspace-hero h1{font-size:2.75rem}
-  .tool-card{min-height:190px}
-  .db-page{
-    padding:12px;
-    overflow:auto;
-  }
-  .db-page .workspace-shell{
-    height:auto;
-    min-height:calc(100dvh - 24px);
-    display:block;
-  }
-  .db-page .workspace-hero{
-    margin-bottom:18px;
-  }
-  .db-page .workspace-hero h1{
-    font-size:2.625rem;
-  }
-  .db-grid{
-    display:block;
-    min-height:auto;
-  }
-  .db-grid .workspace-panel{
-    min-height:auto;
-    border-radius:28px;
-  }
-  .db-panel-header{
-    grid-template-columns:116px minmax(0,1fr);
-  }
-  .db-panel-logo img{
-    width:116px;
-  }
-  .db-tool-nav{
-    grid-template-columns:repeat(3,minmax(0,1fr));
-  }
-  .db-detail-panel{
-    display:none;
-    margin-top:0;
-  }
-  .db-page.show-detail .side-panel{
-    display:none;
-  }
-  .db-page.show-detail .db-detail-panel{
-    display:block;
-  }
   .db-back-button{
     display:inline-flex;
     align-items:center;
