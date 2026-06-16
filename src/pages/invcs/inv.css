@@ -2867,55 +2867,12 @@ input.no-spinner::-webkit-inner-spin-button{
  * two large period blocks / footer) but each surface is rebuilt
  * with our current radius, soft pastel-blue tile fill, and weight
  * scale.
+ *
+ * The /subs live-preview chrome (.subs-toolbar* + .subs-canvas) now
+ * lives in the route-owned src/features/subscriptions/subs.css. The
+ * shared card artifacts below stay here because /db re-renders the
+ * same SubsPaidCard / SubsInvoiceCard components for print/export.
  */
-.subs-toolbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  padding:2px 2px 14px;
-}
-.subs-toolbar h2{
-  margin:2px 0 0;
-  font-size:1.75rem;
-  line-height:1.1;
-  font-weight:900;
-  letter-spacing:0;
-}
-/* Toolbar actions row (right side of the preview header) holds the
- * Save button and the Generate JPG button side-by-side. The ghost
- * Save button is sized down with .compact so the primary
- * Generate JPG remains the visual anchor. */
-.subs-toolbar-actions{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:flex-end;
-}
-.subs-toolbar-actions .ghost-button.compact{
-  width:auto;
-  margin:0;
-  padding:0 16px;
-  min-height:38px;
-}
-/* .subs-canvas is the /subs live-preview scroller — the Subs analog
- * of /inv's .preview-canvas. It sits inside the clipped
- * .pf-panel--right shell (WorkspacePanels). Scroll mechanics
- * (overflow + iOS momentum + overscroll containment + hidden
- * scrollbar chrome) come from the shared `scroll-surface-y` class
- * applied in WorkspacePages.jsx — same pattern as .preview-canvas.
- * Only the canvas frame + layout live here. */
-.subs-canvas{
-  flex:1;
-  min-height:0;
-  display:grid;
-  place-items:start center;
-  padding:18px 22px;
-  border:1px solid var(--line);
-  border-radius:24px;
-  background:var(--soft);
-}
 /* Paid subscription receipt — premium landscape digital-pass.
  * Wide card (~960px → ≈8:5 landscape JPG) with a calm white sheet,
  * a single hairline brand accent at the top edge and a very faint
@@ -3332,15 +3289,6 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .subs-export-host .subs-invoice-card{
   width:720px;
-}
-
-@media(prefers-color-scheme:dark){
-  .subs-canvas{
-    background:#16181b;
-    border-color:#2c2f35;
-  }
-  /* The card itself stays white — it's a paid receipt artifact and
-   * should look identical regardless of the surrounding theme. */
 }
 
 @media(max-width:1023px){
