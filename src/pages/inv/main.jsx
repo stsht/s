@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PasswordGate } from '../../components/PasswordGate.jsx';
 import '../../styles/app-base.css';
+import '../../components/InvoiceSheet.css';
 import '../invcs/inv.css';
 
 const InvoiceComposer = lazy(() => import('../invcs/InvoiceComposer.jsx').then((module) => ({
