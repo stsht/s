@@ -1,6 +1,3 @@
-button,input,select,textarea{font:inherit}
-button{cursor:pointer}
-
 .composer-page{
   min-height:100dvh;
   position:relative;
@@ -786,7 +783,6 @@ input.no-spinner::-webkit-inner-spin-button{
   opacity:.55;
   cursor:default;
 }
-.eyebrow{margin:0;color:var(--muted);font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .primary-button{background:#1f1a17;color:#fff;white-space:nowrap}
 .primary-button:hover{background:#302a25}
 /* .preview-canvas is the real scroller inside the clipped
@@ -818,9 +814,6 @@ input.no-spinner::-webkit-inner-spin-button{
   transform:scale(var(--invoice-preview-scale));
   transform-origin:top left;
 }
-dl{display:grid;gap:10px;margin:14px 0 0}
-dt{color:#777;font-size:0.8125rem}
-dd{margin:0;text-align:right;font-weight:800}
 .download-status{min-height:18px;margin:10px 4px 0;text-align:right;color:var(--muted);font-size:0.75rem;font-weight:800}
 .mobile-tabs{display:none}
 .workspace-page{
@@ -2657,7 +2650,7 @@ dd{margin:0;text-align:right;font-weight:800}
 }
 
 @media(prefers-color-scheme:dark){
-  .gate-card,.tool-card,.workspace-panel,.panel{
+  .tool-card,.workspace-panel,.panel{
     background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 94%,#26324d 6%),var(--panel));
   }
   .panel-header img,
@@ -2696,13 +2689,13 @@ dd{margin:0;text-align:right;font-weight:800}
   }
   .db-tool-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .gallery-pill{background:rgba(246,248,255,.08);border-color:var(--line-strong);color:var(--muted)}
-  .invoice-sheet,.invoice-sheet *{color-scheme:light}
   /* /inv composer panels match the Gemini-grey treatment used in
    * /db /l /subs (WorkspacePanels). Scoped to .composer-page so
    * the outer .ss-bg blue glow keeps the page background, and
    * .invoice-sheet keeps its hard-coded #fff (the JPG/export sheet
    * stays untouched — it has its own `background:#fff` and forces
-   * `color-scheme:light` on every descendant via the rule above). */
+   * `color-scheme:light` on every descendant via the dark-mode
+   * `.invoice-sheet` guard, now owned by InvoiceSheet.css). */
   .composer-page{
     --panel:#1e2024;
     --field:#1a1c20;

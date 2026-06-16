@@ -72,3 +72,26 @@ body{
   -webkit-font-smoothing:antialiased;
   overflow:auto;
 }
+
+
+/* Global form/reset + shared utilities relocated from
+ * src/pages/invcs/inv.css (Pass 8) so they live with the other
+ * app-wide base rules instead of the invoice-route stylesheet.
+ * Every route entry imports app-base.css, so these stay available
+ * on all routes (including /g, which no longer imports inv.css).
+ * Selector names and values are byte-identical to the originals. */
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+
+/* Shared eyebrow label utility (used by the invoice sheet, /subs,
+ * and /g's public invoice/delivery markup). Scoped variants such as
+ * `.payment-box .eyebrow` / `.terms-box .eyebrow` remain in their
+ * owner stylesheets and still win by specificity. */
+.eyebrow{margin:0;color:var(--muted);font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+
+/* Bare description-list reset shared across routes. Component-scoped
+ * rules (e.g. `.meta-row dt`, `.bank-details-list dd`) override these
+ * by specificity. */
+dl{display:grid;gap:10px;margin:14px 0 0}
+dt{color:#777;font-size:0.8125rem}
+dd{margin:0;text-align:right;font-weight:800}

@@ -2,10 +2,13 @@
  *
  * Extracted from src/pages/invcs/inv.css (Pass 5) so the /g delivery
  * page owns its own stylesheet. Selectors and values are unchanged —
- * this is a pure move. Load order in src/pages/g/main.jsx keeps
- * app-base.css → PasswordGate.css → inv.css → PublicInvoiceViewer.css
- * → g.css so this layer still inherits the global tokens/base it
- * relied on inside inv.css.
+ * this is a pure move. Load order in src/pages/g/main.jsx is
+ * animate.css → app-base.css → PasswordGate.css → InvoiceSheet.css →
+ * PublicInvoiceViewer.css → g.css. As of Pass 8, /g no longer imports
+ * inv.css — every base/utility rule it relied on now lives in
+ * app-base.css (global resets, `.eyebrow`, `dl/dt/dd`),
+ * PasswordGate.css (dark `.gate-card`), or InvoiceSheet.css (sheet +
+ * dark color-scheme guard).
  *
  * Public invoice viewer styles (.public-invoice-* / .public-pay*)
  * intentionally remain in PublicInvoiceViewer.css and are NOT moved

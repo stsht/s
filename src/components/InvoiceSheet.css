@@ -13,9 +13,11 @@
  * dark-mode theming) still win by source order.
  *
  * Selectors and values are byte-identical to the originals in inv.css.
- * Shared base/utility rules that other routes also rely on (`.eyebrow`,
- * bare `dl/dt/dd`, and the dark-mode `.invoice-sheet` color-scheme:light
- * guard) intentionally stay in inv.css. */
+ * The dark-mode `.invoice-sheet` color-scheme:light guard now also
+ * lives here (relocated in Pass 8) since it is sheet-specific. The
+ * shared base/utility rules `.eyebrow` and bare `dl/dt/dd` were
+ * relocated to src/styles/app-base.css in Pass 8 (they are app-wide,
+ * not sheet-specific). */
 
 .invoice-sheet{
   --invoice-page-width:1000px;
@@ -327,3 +329,16 @@
 .invoice-export-host .paid-stamp{gap:42px}
 .invoice-export-host .paid-stamp-badge{padding:30px 90px;border-width:6px;border-radius:42px;font-size:5.625rem}
 .invoice-export-host .paid-stamp-note{max-width:720px;font-size:2.4375rem}
+
+
+/* Dark-mode color-scheme guard, relocated from
+ * src/pages/invcs/inv.css (Pass 8). The white invoice "sheet" and its
+ * export artboard keep a hard-coded #fff background, so every
+ * descendant must stay on a light color-scheme even when the OS / app
+ * is in dark mode (otherwise UA-styled form controls, scrollbars, etc.
+ * would flip dark inside the sheet and bleed into the JPG export).
+ * Owned here alongside the rest of the sheet styles. Selector and
+ * value are byte-identical to the original. */
+@media(prefers-color-scheme:dark){
+  .invoice-sheet,.invoice-sheet *{color-scheme:light}
+}
