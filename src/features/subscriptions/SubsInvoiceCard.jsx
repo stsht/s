@@ -1,5 +1,6 @@
 import { rupiah } from '../../utils/rupiah.js';
 import { fmtSubsDate } from './subscriptionUtils.js';
+import './subscriptionCards.css';
 
 // Subscription invoice card. Sibling of SubsPaidCard with the same
 // 720px white-sheet design and shared footer. Driven by the same

@@ -1,5 +1,6 @@
 import { rupiah } from '../../utils/rupiah.js';
 import { fmtSubsDate, fmtSubsTime } from './subscriptionUtils.js';
+import './subscriptionCards.css';
 
 // Paid subscription receipt card. Presentational — same DOM tree
 // /subs has always emitted, just driven by props instead of local
