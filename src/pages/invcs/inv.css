@@ -930,30 +930,6 @@ input.no-spinner::-webkit-inner-spin-button{
   text-transform:uppercase;
 }
 .segmented button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-soft)}
-.list-stack{display:grid;gap:10px}
-.list-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  padding:14px 0;
-  border-bottom:1px solid var(--line);
-}
-.list-row strong,.list-row span{display:block}
-.list-row strong{font-size:0.9375rem;color:var(--ink)}
-.list-row span{margin-top:3px;color:var(--muted);font-size:0.75rem}
-.list-row b{color:var(--ink);white-space:nowrap}
-/* URL/anchor values inside list-row spans (e.g. /db DeliveryDetail's
- * short link + original GD/DB/WT/TN URLs) read as clickable text
- * rather than pills. word-break:break-all keeps long URLs inside
- * the panel column so a 100+ char Google Drive link can't push the
- * row past the panel edge. Scoped to .list-row span so anchors
- * inside .record-row keep their pill treatment. */
-.list-row span a{
-  color:var(--ink);
-  text-decoration:underline;
-  word-break:break-all;
-}
 .empty-state{margin:0;color:var(--muted);font-weight:750}
 .form-stack{display:grid;gap:16px}
 .add-client-button,
