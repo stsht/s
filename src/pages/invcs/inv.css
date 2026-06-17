@@ -816,59 +816,6 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .download-status{min-height:18px;margin:10px 4px 0;text-align:right;color:var(--muted);font-size:0.75rem;font-weight:800}
 .mobile-tabs{display:none}
-.workspace-page{
-  min-height:100dvh;
-  position:relative;
-  isolation:isolate;
-  padding:28px;
-}
-.workspace-shell{
-  position:relative;
-  z-index:1;
-  width:min(100%,1460px);
-  margin:0 auto;
-}
-.workspace-topbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:18px;
-  min-height:56px;
-  margin-bottom:40px;
-}
-.workspace-logo img{width:196px;height:auto;display:block}
-.workspace-nav{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.workspace-nav a{
-  min-height:36px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding:0 16px;
-  border:1px solid var(--line);
-  border-radius:999px;
-  background:color-mix(in srgb,var(--panel) 82%,transparent);
-  color:var(--muted);
-  text-decoration:none;
-  font-size:0.6875rem;
-  font-weight:900;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  box-shadow:var(--shadow-soft);
-}
-.workspace-nav a.active{background:var(--ink);border-color:var(--ink);color:var(--panel)}
-.workspace-hero{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) minmax(280px,520px);
-  gap:28px;
-  align-items:end;
-  margin-bottom:30px;
-}
 .hero-eyebrow{
   display:flex;
   align-items:center;
@@ -880,14 +827,6 @@ input.no-spinner::-webkit-inner-spin-button{
   text-transform:uppercase;
 }
 .hero-eyebrow span{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 18%,transparent)}
-.workspace-hero h1{
-  margin:0;
-  color:var(--ink);
-  font-size:clamp(42px,6vw,76px);
-  line-height:.98;
-  font-weight:900;
-  letter-spacing:0;
-}
 .hero-aside{
   margin:0;
   color:var(--muted);
@@ -1166,7 +1105,6 @@ input.no-spinner::-webkit-inner-spin-button{
   /* Pre-password gate logo: the dark variant ships as a real
    * white-on-transparent asset (logo-hero-white.png) swapped via
    * <picture> in PasswordGate.jsx. No filter needed. */
-  .workspace-nav a.active{background:#f6f8ff;color:#090b10;border-color:#f6f8ff}
   .segmented button.active{background:#f6f8ff;color:#090b10}
   /* /inv pills in dark mode: previously the active pill kept color:var(--ink)
    * (light) on a #fff background -> white text on white. Keep active
@@ -1243,12 +1181,6 @@ input.no-spinner::-webkit-inner-spin-button{
   }
   .mobile-tabs button{height:42px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-weight:900}
   .mobile-tabs button.active{background:#1f1a17;color:#fff}
-  .workspace-page{padding:18px}
-  .workspace-topbar{align-items:flex-start;flex-direction:column;margin-bottom:28px}
-  .workspace-logo img{width:168px}
-  .workspace-nav{justify-content:flex-start}
-  .workspace-hero{grid-template-columns:1fr}
-  .workspace-hero h1{font-size:2.75rem}
 }
 
 @media(max-width:640px){
