@@ -1095,60 +1095,6 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 
 
-/* Inline "Create Events" sheet inside ClientDetail. Replaces the
- * earlier full-width "Create Events" pill at the bottom of the
- * client detail panel. Pressing the .create-event-trigger pill
- * expands this sheet inline so the operator never leaves the
- * client context — the two choices inside (Create Links / Create
- * Invoice) share a freshly-generated event_key so whichever side
- * the operator opens first stamps that key on the row, and the
- * other side groups onto the same /db row when it saves later.
- *
- * The dashed border + soft fill (var(--field)) signals "scratchpad"
- * rather than a heavy modal — no backdrop, no z-index escalation.
- * On wide viewports the two action pills sit side-by-side; on
- * narrow screens they wrap to two lines so each remains tappable
- * without horizontal scrolling. */
-.create-event-trigger,
-.create-event-sheet{
-  margin-top:14px;
-}
-.create-event-trigger{
-  width:auto;
-  align-self:flex-start;
-  padding:0 18px;
-}
-.create-event-sheet{
-  display:grid;
-  gap:10px;
-  padding:14px;
-  border:1px dashed var(--line-strong);
-  border-radius:18px;
-  background:var(--field);
-}
-.create-event-eyebrow{
-  margin:0;
-  color:var(--muted);
-  font-size:0.6875rem;
-  font-weight:900;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-}
-.create-event-choices{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-}
-.create-event-choices a{
-  flex:1 1 160px;
-  min-width:0;
-  text-align:center;
-}
-.create-event-cancel{
-  align-self:flex-start;
-  padding:0 14px;
-}
-
 /* The "Delete Client" header button keeps its existing red
  * ghost-button treatment — it's a deliberate, prominent control
  * rather than a per-row affordance, and removing the row-level
