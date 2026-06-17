@@ -9,12 +9,7 @@
  * Rules are unchanged from their previous location — this is a pure
  * relocation, no behavioural or visual edits. */
 /* DateTimeField — the unified date(+time) editor used across /db,
- * /inv, and /subs. Replaces .date-field everywhere; the legacy
- * .date-field* rules above are kept only because a few non-React
- * surfaces still ship those classes inline.
- *
- * Visually identical to .date-field (same border, height, focus
- * ring, segment widths) plus:
+ * /inv, /subs, and /l. Features:
  *   - an optional time half (HH:mm) appearing after a thin divider,
  *   - a trailing calendar button that opens a custom React popover
  *     instead of the OS-native date picker. */
