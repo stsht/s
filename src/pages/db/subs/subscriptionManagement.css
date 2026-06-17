@@ -763,3 +763,54 @@
   color:var(--sub-expired);
   border-color:color-mix(in srgb,var(--sub-expired) 32%,transparent);
 }
+
+
+
+/* Inline confirmation form for "Expire Now" action in SubscriptionDetail. */
+.expire-confirm-form{
+  border:1px solid color-mix(in srgb,var(--sub-expired) 35%,var(--line));
+  border-radius:14px;
+  padding:14px;
+  background:var(--soft);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-bottom:8px;
+}
+.expire-confirm-title{
+  margin:0;
+  font-size:0.875rem;
+  font-weight:700;
+  color:var(--sub-expired);
+}
+
+/* Quiet icon-only action button for the per-row Edit control. Mirrors
+ * the .row-delete-x affordance so Edit + X read as one compact,
+ * vertically-centred icon group with no chunky pencil pill frame
+ * (complaint #3). */
+.row-icon-btn{
+  width:22px;
+  height:22px;
+  min-height:22px;
+  padding:0;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#8A8F98;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:background .12s ease,color .12s ease;
+}
+.row-icon-btn:hover,
+.row-icon-btn:focus-visible{
+  background:#F2F3F5;
+  color:#1F1A17;
+  outline:none;
+}
+.row-icon-btn .btn-icon{
+  width:13px;
+  height:13px;
+}
