@@ -932,8 +932,7 @@ input.no-spinner::-webkit-inner-spin-button{
 .segmented button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-soft)}
 .empty-state{margin:0;color:var(--muted);font-weight:750}
 .form-stack{display:grid;gap:16px}
-.add-client-button,
-.db-back-button{
+.add-client-button{
   min-height:44px;
   border:0;
   border-radius:999px;
@@ -949,17 +948,7 @@ input.no-spinner::-webkit-inner-spin-button{
  * Subscription" + "Import JPG" buttons side-by-side. The pair
  * preserves the same 44-tall pill chrome as a single full-width
  * .add-client-button (so the toolbar height matches Clients) while
- * giving the operator a one-tap route to either create flow.
- *
- * The ghost variant is the tonal muted twin used by Import JPG so
- * the primary "New Subscription" stays the visual anchor without
- * looking like two identical buttons. Both click targets keep the
- * 44px touch height, equal flex widths, and no left-padding-vs-
- * right-padding asymmetry. */
-.add-client-button--ghost{
-  background:var(--soft);
-  color:var(--ink);
-}
+ * giving the operator a one-tap route to either create flow. */
 
 /* Subscription status tones (Subs tab + detail). Driven by
  * subscriptionTone() in WorkspacePages.jsx — applies to both the
@@ -1199,10 +1188,6 @@ input.no-spinner::-webkit-inner-spin-button{
   opacity:.55;
   cursor:default;
 }
-.db-back-button{
-  display:none;
-  margin:0 0 14px;
-}
 .gallery-page .workspace-hero{
   grid-template-columns:minmax(0,1fr) minmax(220px,420px);
 }
@@ -1340,11 +1325,6 @@ input.no-spinner::-webkit-inner-spin-button{
   .workspace-hero{grid-template-columns:1fr}
   .gallery-link-grid{grid-template-columns:1fr}
   .workspace-hero h1{font-size:2.75rem}
-  .db-back-button{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-  }
 }
 
 @media(max-width:640px){
