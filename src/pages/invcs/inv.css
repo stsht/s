@@ -932,23 +932,6 @@ input.no-spinner::-webkit-inner-spin-button{
 .segmented button.active{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-soft)}
 .empty-state{margin:0;color:var(--muted);font-weight:750}
 .form-stack{display:grid;gap:16px}
-.add-client-button{
-  min-height:44px;
-  border:0;
-  border-radius:999px;
-  padding:0 18px;
-  background:var(--ink);
-  color:var(--panel);
-  font-weight:800;
-}
-.add-client-button{
-  width:100%;
-}
-/* Two-up actions row used by /db Subs to host the "New
- * Subscription" + "Import JPG" buttons side-by-side. The pair
- * preserves the same 44-tall pill chrome as a single full-width
- * .add-client-button (so the toolbar height matches Clients) while
- * giving the operator a one-tap route to either create flow. */
 
 /* Subscription status tones (Subs tab + detail). Driven by
  * subscriptionTone() in WorkspacePages.jsx — applies to both the

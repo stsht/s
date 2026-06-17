@@ -472,3 +472,26 @@
     transform:translateY(-50%);
   }
 }
+
+
+/* Add-client / create-action pill. Live and /db-only — rendered by
+ * DatabaseList.jsx (Clients "Add client" + Subs "New Subscription")
+ * and styled here after inv.css so the cascade is unchanged.
+ * Extracted verbatim from inv.css (Pass 23). */
+.add-client-button{
+  min-height:44px;
+  border:0;
+  border-radius:999px;
+  padding:0 18px;
+  background:var(--ink);
+  color:var(--panel);
+  font-weight:800;
+}
+.add-client-button{
+  width:100%;
+}
+/* Two-up actions row used by /db Subs to host the "New
+ * Subscription" + "Import JPG" buttons side-by-side. The pair
+ * preserves the same 44-tall pill chrome as a single full-width
+ * .add-client-button (so the toolbar height matches Clients) while
+ * giving the operator a one-tap route to either create flow. */
