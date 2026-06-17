@@ -1,0 +1,99 @@
+/* /db detail + form chrome.
+ *
+ * Extracted from src/pages/invcs/inv.css (Pass 17). These selectors
+ * are /db-only: the detail header (.detail-heading), the right-panel
+ * action row (.detail-actions + its scoped ghost/delete buttons),
+ * and the client edit form (.client-form*, .client-actions,
+ * .client-status). Loaded after DatabaseList.css from /db/main.jsx,
+ * so it inherits the shared tokens / base button styles that stay in
+ * inv.css (base .db-delete-button, .ghost-button, .toolbar-icon-btn*,
+ * --sub-* / --evt-* tokens). Selectors moved verbatim. */
+
+.detail-heading{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:18px;
+}
+.detail-heading h2{
+  margin:4px 0 6px;
+}
+.detail-heading span{
+  color:var(--muted);
+  font-weight:650;
+}
+.detail-actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.detail-actions .ghost-button,
+.client-actions .ghost-button{
+  width:auto;
+  margin:0;
+}
+
+/* Safe spacing between the destructive Delete button and the
+ * Edit/Print pair so the operator can't accidentally tap Delete
+ * while reaching for Print on a small viewport. */
+.detail-actions .db-delete-button{
+  margin-left:8px;
+}
+
+/* Armed confirm state for the right-panel Delete pill. First click
+ * arms (red fill, white icon/label); a second click within 4s
+ * issues the actual delete via the parent. The base
+ * .db-delete-button keeps its red outline at rest so the armed
+ * fill is a clear escalation, not a colour swap out of nowhere. */
+.detail-actions .db-delete-button.armed{
+  background:var(--danger);
+  color:#fff;
+  border-color:var(--danger);
+}
+.detail-actions .db-delete-button.armed:hover{
+  background:var(--danger);
+  color:#fff;
+}
+/* Brief in-flight state while the delivery delete request resolves
+ * (button label switches to "Deleting…"). Dim + non-interactive so
+ * the operator can't double-fire the request. */
+.detail-actions .db-delete-button:disabled{
+  opacity:.55;
+  cursor:default;
+}
+.client-form{
+  display:grid;
+  gap:14px;
+  max-width:640px;
+}
+.client-form-grid{
+  display:grid;
+  grid-template-columns:160px minmax(0,1fr);
+  gap:12px;
+}
+.client-actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.client-status{
+  margin:0;
+  color:var(--muted);
+  font-size:0.75rem;
+  font-weight:750;
+}
+
+@media(max-width:1023px){
+  .detail-heading{
+    display:grid;
+  }
+  .detail-actions{
+    justify-content:flex-start;
+  }
+  .client-form-grid{
+    grid-template-columns:1fr;
+  }
+}
