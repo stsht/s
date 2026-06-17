@@ -1160,7 +1160,6 @@ input.no-spinner::-webkit-inner-spin-button{
  * styles below are purely presentational. */
 
 /* Locked identity/event recap (Deposit + Paid tabs) */
-.locked-hint{margin:0 0 14px;color:var(--muted);font-size:0.75rem;font-weight:700;line-height:1.55}
 .locked-list{display:grid;gap:8px;margin:0}
 .locked-row{
   display:flex;
