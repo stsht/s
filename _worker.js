@@ -2760,6 +2760,27 @@ async function handleDbUpdateDelivery(request, env) {
     }
   }
 
+  // Optional vendor-name edit. Edit Links exposes a Vendor Name
+  // field ONLY for vendor-scoped deliveries (empty title / type
+  // vendor), so we accept an optional clientName here and apply it
+  // to deliveries.client_name only when (a) the target delivery is
+  // vendor-scoped and (b) the trimmed value is non-empty and changed.
+  // Client deliveries always carry a title, so deliveryInvoiceAudience
+  // returns 'client' for them and this path never renames a client
+  // delivery. base_slug / short_code / public routing are untouched.
+  const isVendorDelivery = deliveryInvoiceAudience(delivery) === 'vendor';
+  const vendorNameRaw = body.clientName ?? body.client_name ?? body.vendorName;
+  const vendorName = (vendorNameRaw === undefined || vendorNameRaw === null)
+    ? ''
+    : String(vendorNameRaw).trim();
+  let updatedClientName = String(delivery.client_name || '');
+  const applyVendorName = isVendorDelivery && !!vendorName
+    && vendorName !== String(delivery.client_name || '').trim();
+  if (applyVendorName) {
+    deliveryPatch.client_name = vendorName;
+    updatedClientName = vendorName;
+  }
+
   if (Object.keys(deliveryPatch).length) {
     try {
       const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
@@ -2862,10 +2883,36 @@ async function handleDbUpdateDelivery(request, env) {
     })))
   }) : [];
 
+  // Best-effort mirror of the vendor name onto the linked vendor
+  // invoice so the two event-scoped copies stay in sync. Only runs
+  // for a vendor delivery whose name actually changed. The invoice
+  // is located using the delivery's PRE-rename fields — the in-memory
+  // `delivery` row still holds the OLD client_name, so the existing
+  // vendor invoice is found via delivery_id cross-ref / event_key /
+  // client_id / old name. We patch ONLY client_name and ONLY when the
+  // matched invoice is itself vendor-scoped, so a client invoice is
+  // never touched. Any failure (no vendor invoice, schema, network)
+  // is logged but never fails the Save Links request.
+  if (applyVendorName) {
+    try {
+      const linkedInvoice = await findInvoiceForDelivery(env, delivery);
+      if (linkedInvoice?.id && invoiceRecordType(linkedInvoice) === 'vendor') {
+        await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(linkedInvoice.id)}`, {
+          method: 'PATCH',
+          headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ client_name: vendorName })
+        });
+      }
+    } catch (error) {
+      console.warn('[db-update-delivery] vendor name mirror to invoice failed:', error?.message || error);
+    }
+  }
+
   return json({
     ok: true,
     delivery: {
       ...delivery,
+      client_name: updatedClientName,
       folder_name: updatedFolderName,
       event_date: updatedEventDate,
       generated_text_whatsapp: generatedText,

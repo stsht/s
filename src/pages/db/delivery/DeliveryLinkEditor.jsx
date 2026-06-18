@@ -8,11 +8,23 @@ export function DeliveryLinkEditor({
   repairStatus,
   handleSaveLinks,
   setEditingLinks,
+  isVendorDelivery = false,
 }) {
   return (
             <form className="dd-link-editor" onSubmit={handleSaveLinks}>
               <p className="eyebrow">Edit Links</p>
               <div className="dd-link-fields">
+                {isVendorDelivery ? (
+                  <label key="clientName">
+                    <span>Vendor Name</span>
+                    <input
+                      type="text"
+                      value={linkDraft.clientName || ''}
+                      onChange={(event) => setLinkDraft((draft) => ({ ...draft, clientName: event.target.value }))}
+                      placeholder="Vendor name"
+                    />
+                  </label>
+                ) : null}
                 <label key="folderName">
                   <span>Folder Name</span>
                   <input

@@ -142,6 +142,15 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
 
   const title = String(currentDelivery?.title ?? 'Ms.').trim() ?? 'Ms.';
   const clientName = String(currentDelivery?.client_name || 'Client').trim() || 'Client';
+  // Vendor deliveries carry an empty title (the /l vendor flow saves
+  // title:'') and the /api/db item also exposes an explicit type.
+  // Either signal marks a vendor delivery, for which Edit Links
+  // exposes a Vendor Name field. Client deliveries always carry a
+  // title and never show that field, so this path never renames a
+  // client delivery.
+  const isVendorDelivery =
+    String(currentDelivery?.type || '').toLowerCase() === 'vendor'
+    || String(currentDelivery?.title ?? '').trim() === '';
   const folder =
     String(currentDelivery?.folder_name || '').trim() ||
     String(currentDelivery?.gallery_code || '').trim() ||
@@ -180,6 +189,10 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     // PATCH in one request.
     next.folderName = String(currentDelivery?.folder_name || '').trim();
     next.eventDate = plainEventDate(currentDelivery?.event_date);
+    // Vendor name (only surfaced/sent for vendor deliveries). Seeded
+    // from the delivery's client_name so a vendor rename is a small
+    // edit; client deliveries never expose this field.
+    next.clientName = String(currentDelivery?.client_name || '').trim();
     setLinkDraft(next);
   }, [currentDelivery]);
 
@@ -349,6 +362,11 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     try {
       const trimmedFolder = String(linkDraft.folderName || '').trim();
       const draftEventDate = String(linkDraft.eventDate || '').trim();
+      // Vendor name is sent ONLY for vendor deliveries and only when
+      // non-empty. The worker further guards that it is applied only
+      // to vendor-scoped deliveries and mirrored only to a linked
+      // vendor invoice, so a client delivery/invoice is never renamed.
+      const trimmedVendorName = String(linkDraft.clientName || '').trim();
       const response = await fetch('/api/db-update-delivery', {
         method: 'POST',
         credentials: 'same-origin',
@@ -361,6 +379,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
           // rename takes effect without requiring fresh data.
           folderName: trimmedFolder,
           eventDate: /^\d{4}-\d{2}-\d{2}$/.test(draftEventDate) ? draftEventDate : '',
+          ...(isVendorDelivery && trimmedVendorName ? { clientName: trimmedVendorName } : {}),
           links: SERVICE_LABELS.map(({ key }) => ({
             service: key,
             originalUrl: linkDraft[key] || '',
@@ -553,6 +572,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
               repairStatus={repairStatus}
               handleSaveLinks={handleSaveLinks}
               setEditingLinks={setEditingLinks}
+              isVendorDelivery={isVendorDelivery}
             />
           ) : null}
           <DeliveryMessageBox
