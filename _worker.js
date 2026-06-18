@@ -1765,21 +1765,47 @@ async function handleSave(request, env) {
   const delivery = Array.isArray(deliveryRows) ? deliveryRows[0] : deliveryRows;
   if (!delivery?.id) return json({ error: 'Delivery was not created.' }, 500);
 
+  // Per-delivery unique link slug. The shared folder-derived
+  // `baseSlug` is intentionally NOT used here: the
+  // `delivery_links_service_slug_uidx` unique index on
+  // (service, slug) would otherwise reject a second delivery that
+  // reuses the same folder/event (e.g. a vendor delivery saved
+  // after the client delivery), surfacing as a PostgREST 23505 and
+  // the opaque "Database request failed" toast on /l. Suffixing the
+  // per-delivery `shortCode` (already unique via
+  // deliveries_short_code_uidx) makes (service, slug) unique per
+  // delivery. `delivery_links.slug` is never used as a lookup or
+  // display key — all link reads are by delivery_id, and public
+  // routing resolves via deliveries.base_slug / short_code — so the
+  // stored value is free to change without affecting any route.
+  const linkSlug = `${baseSlug}-${shortCode}`;
   const rows = cleanLinks.map((link) => ({
     delivery_id: delivery.id,
     service: link.service,
     original_url: link.originalUrl,
-    slug: baseSlug,
+    slug: linkSlug,
     short_path: `/${shortCode}`,
     link_done: link.link_done
   }));
 
   if (rows.length) {
-    await supabaseFetch(env, '/rest/v1/delivery_links', {
-      method: 'POST',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify(rows)
-    });
+    try {
+      await supabaseFetch(env, '/rest/v1/delivery_links', {
+        method: 'POST',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(rows)
+      });
+    } catch (error) {
+      // The per-delivery linkSlug above should prevent the
+      // (service, slug) unique collision, but if a 23505 still
+      // occurs, log an explicit diagnostic server-side (the
+      // generic user-facing message is produced by the global API
+      // catch). Rethrow so behaviour is otherwise unchanged.
+      if (error?.code === '23505') {
+        console.warn('[deliveries-save] delivery_links unique collision (23505) on (service, slug):', linkSlug, error?.message || '');
+      }
+      throw error;
+    }
   }
 
   // Cross-ref fallback: when there is a linked invoice, stamp its
@@ -2825,7 +2851,12 @@ async function handleDbUpdateDelivery(request, env) {
       delivery_id: id,
       service: link.service,
       original_url: link.originalUrl,
-      slug: delivery.base_slug || '',
+      // Per-delivery unique slug (mirrors handleSave): suffix the
+      // unique short_code so the (service, slug) unique index never
+      // collides with another delivery reusing the same base_slug.
+      // Falls back to the bare base_slug only when no short_code is
+      // available (un-repaired legacy row), matching prior behaviour.
+      slug: shortCode ? `${delivery.base_slug || ''}-${shortCode}` : (delivery.base_slug || ''),
       short_path: shortCode ? `/${shortCode}` : '',
       link_done: link.link_done
     })))
