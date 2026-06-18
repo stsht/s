@@ -136,6 +136,7 @@ export function TextPadPage() {
             className="t-download"
             onClick={download}
             title="Download (Ctrl/Cmd+S)"
+            tabIndex={-1}
           >
             <DownloadIcon />
             <span>Download&nbsp;.md</span>
