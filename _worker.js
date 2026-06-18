@@ -4367,6 +4367,11 @@ export default {
         assetUrl.pathname = '/subs/';
         return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
+      if (request.method === 'GET' && ['/t', '/t/', '/t/index.html'].includes(url.pathname)) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/t/';
+        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
+      }
       if (request.method === 'GET' && ['/db', '/db/', '/db/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/db/';
