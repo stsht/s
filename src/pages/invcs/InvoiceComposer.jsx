@@ -14,7 +14,7 @@ import {
   DEPOSIT_PRESETS,
   TITLE_OPTIONS,
 } from './invoiceConstants.js';
-import { cleanPaymentMethod, rupiah, isFullPayment, prettyDate, prettyDateTime } from './invoiceFormat.js';
+import { cleanPaymentMethod, rupiah, isFullPayment, prettyDate, prettyDateTime, clampItemDiscount } from './invoiceFormat.js';
 import { computeDepositDue, inferDepositMode } from './invoiceDeposit.js';
 import { PaymentMethodPicker, PaymentMethodSummary, PaymentMethodFieldset, LockedDetails, PaidSummary, PackageCatalogEditor, DepositLedger } from './invoiceSections.jsx';
 
@@ -78,14 +78,6 @@ function emptyItem(packages) {
     price: Number(option.price) || 0,
     discount: 0,
   };
-}
-
-// Clamp a per-item discount to a non-negative integer that never
-// exceeds the item's gross line total (qty * price). Blank/NaN → 0.
-function clampItemDiscount(rawDiscount, qty, price) {
-  const gross = Math.max(0, Math.round((Number(qty) || 0) * (Number(price) || 0)));
-  const value = Math.max(0, Math.round(Number(rawDiscount) || 0));
-  return Math.min(value, gross);
 }
 
 function cleanPackageRows(rows) {

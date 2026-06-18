@@ -46,3 +46,12 @@ export function prettyDateTime(date, time) {
   if (!match) return datePart;
   return `${datePart} \u2022 ${match[1]}:${match[2]}`;
 }
+
+
+// Clamp a per-item discount to a non-negative integer that never
+// exceeds the item's gross line total (qty * price). Blank/NaN → 0.
+export function clampItemDiscount(rawDiscount, qty, price) {
+  const gross = Math.max(0, Math.round((Number(qty) || 0) * (Number(price) || 0)));
+  const value = Math.max(0, Math.round(Number(rawDiscount) || 0));
+  return Math.min(value, gross);
+}
