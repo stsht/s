@@ -4,6 +4,18 @@ import { Combobox, DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 import { selectAllIfZero, parseMoneyInput } from '../../utils/moneyInput.js';
 import { SaveIcon, PrinterIcon, TrashIcon, PencilIcon, PlusIcon, Fieldset } from './invoicePrimitives.jsx';
+import {
+  DEFAULT_PACKAGES,
+  BANK_DETAILS,
+  PAYMENT_QR_SRC,
+  INVOICE_TYPES,
+  INVOICE_PREVIEW_WIDTH,
+  INVOICE_PREVIEW_MIN_HEIGHT,
+  DEPOSIT_PRESETS,
+  DEPOSIT_MIN_IDR,
+  TITLE_OPTIONS,
+} from './invoiceConstants.js';
+import { cleanPaymentMethod, rupiah, isFullPayment, prettyDate, prettyDateTime } from './invoiceFormat.js';
 
 // Lightweight gated debug logger. Mirrors the helper in
 // WorkspacePages.jsx so /db, /l, and /inv share one ?debug=1 flag
@@ -29,43 +41,12 @@ function dbg(...args) {
   if (dbgEnabled()) console.log('[grouping]', ...args);
 }
 
-// Hardcoded fallback catalogue. The catalogue is normally fetched
-// from the Supabase-backed /api/packages endpoint (see _worker.js
-// handlePackagesGet) and these values are kept as a safety net so
-// /inv keeps working when the API returns empty, fails, or is
-// unreachable. Same shape as the API rows: { id, name, price, note,
-// is_default }.
-const DEFAULT_PACKAGES = [
-  { id: 'school-basic',         name: 'School without Magician', price: 800000,  note: 'school celebration without magician',                is_default: true },
-  { id: 'school-magician',      name: 'School with Magician',    price: 1000000, note: 'school celebration with magician',                   is_default: true },
-  { id: 'studio-special',       name: 'Studio Special',          price: 800000,  note: 'up to 1 hour',                                       is_default: true },
-  { id: 'intimate-party',       name: 'Intimate Party',          price: 1300000, note: 'up to 2 hours, suitable for family celebration',     is_default: true },
-  { id: 'birthday-celebration', name: 'Birthday Celebration',    price: 1650000, note: 'up to 3.5 hours, suitable for Birthday Celebration', is_default: true },
-];
+// Hardcoded fallback catalogue lives in invoiceConstants.js as
+// DEFAULT_PACKAGES; the composer imports it.
 
-// Bank transfer destination shown in the payment block. Centralised
-// here so a future switch is a single-line change with no JSX/CSS
-// edits.
-const BANK_DETAILS = {
-  bank: 'Mandiri',
-  accountName: 'BELLY',
-  accountNumber: '1050023197043',
-  accountHolderLabel: 'BELLY',
-};
-
-const PAYMENT_QR_SRC = '/payment-qr.png';
-const PAYMENT_METHODS = ['bank', 'qr'];
-
-function cleanPaymentMethod(value) {
-  return PAYMENT_METHODS.includes(String(value || '').toLowerCase())
-    ? String(value || '').toLowerCase()
-    : 'bank';
-}
-
-const INVOICE_TYPES = {
-  CLIENT: 'client',
-  VENDOR: 'vendor',
-};
+// Bank transfer destination lives in invoiceConstants.js as
+// BANK_DETAILS, along with PAYMENT_QR_SRC, PAYMENT_METHODS, and
+// INVOICE_TYPES. cleanPaymentMethod moved to invoiceFormat.js.
 
 // Title-case rules (small-words set, preserve list, regex token
 // matcher) live in `src/utils/titleCase.js` so /subs and /inv share
@@ -74,23 +55,15 @@ const INVOICE_TYPES = {
 // in favour of `toTitleCase` from the shared utility.
 
 const today = new Date().toISOString().slice(0, 10);
-// Live Preview is fit-to-width only — the sheet is scaled down so it
-// always fits the preview column, then the panel scrolls vertically.
-// There is intentionally no user-facing zoom (no Fit button, no
-// +/- controls, no ctrl-wheel handler); the preview is stable and
-// non-interactive beyond scrolling.
-const INVOICE_PREVIEW_WIDTH = 1000;
-const INVOICE_PREVIEW_MIN_HEIGHT = 707;
+// Live Preview dimensions (INVOICE_PREVIEW_WIDTH /
+// INVOICE_PREVIEW_MIN_HEIGHT) live in invoiceConstants.js.
 
-// Deposit defaults: 20% of grand total, but never less than IDR
-// 200,000. The 200K floor is the operator's invoicing minimum;
-// it is capped at the grand total so a tiny invoice (smaller than
-// the floor itself) cannot ask for more than 100% deposit. The
-// preset ladder is the short list of common ratios; "custom" lets
-// the operator type a raw IDR override that bypasses the percent
-// calculation entirely (still capped at the grand total).
-const DEPOSIT_PRESETS = [20, 30, 50, 100];
-const DEPOSIT_MIN_IDR = 200000;
+// Deposit defaults (DEPOSIT_PRESETS / DEPOSIT_MIN_IDR) live in
+// invoiceConstants.js. computeDepositDue applies the 20%/IDR-200K
+// rules below: 20% of grand total, never less than the IDR floor,
+// capped at the grand total. Higher presets (30/50/100) skip the
+// floor naturally. "custom" lets the operator type a raw IDR
+// override that bypasses the percent calculation (still capped).
 
 function computeDepositDue(grandTotal, mode, customAmount) {
   const total = Math.max(0, Math.round(Number(grandTotal) || 0));
@@ -148,48 +121,9 @@ function latestPaidDepositAmount(payments) {
   return paid[paid.length - 1].amount;
 }
 
-function rupiah(value) {
-  const number = Number(value) || 0;
-  return `Rp ${Math.round(number).toLocaleString('id-ID')}`;
-}
-
-// Whether the deposit is effectively the full grand total. Drives
-// the "Deposit Due" vs "Payment Due" wording in both the editor's
-// Payment fieldset and the preview/JPG payment caption: a 100%
-// preset (or a custom amount that meets/exceeds the grand total)
-// shouldn't be called a deposit. Returns false when grandTotal is
-// zero so an empty draft never reads "Payment Due Rp 0".
-function isFullPayment(totals) {
-  const grand = Math.max(0, Math.round(Number(totals?.grandTotal) || 0));
-  const due = Math.max(0, Math.round(Number(totals?.depositDue) || 0));
-  return grand > 0 && due >= grand;
-}
-
-function prettyDate(value) {
-  if (!value) return '-';
-  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`));
-}
-
-// Combined "Event Date • Event Time" formatter used by the
-// preview/JPG Details box. Renders `28 May 2026 • 18:30` when both
-// are present, just the date when time is empty, and the existing
-// dash when the date itself is empty so empty drafts don't
-// suddenly read "•".
-function prettyDateTime(date, time) {
-  if (!date) return '-';
-  const datePart = prettyDate(date);
-  const raw = String(time || '').trim();
-  const match = /^(\d{2}):(\d{2})/.exec(raw);
-  if (!match) return datePart;
-  return `${datePart} \u2022 ${match[1]}:${match[2]}`;
-}
-
-// Title options shown in the modernized Bill To selector. Searchable
-// labels via Combobox so a /family/ event still types straight to
-// the option without scrolling. Keeping these as plain strings so
-// the same set works for a future custom title (the Combobox would
-// only need a free-text override; today the catalogue is fixed).
-const TITLE_OPTIONS = ['Ms.', 'Mr.', 'Mrs.', 'Family'];
+// Pure display helpers (rupiah, isFullPayment, prettyDate,
+// prettyDateTime) and TITLE_OPTIONS were moved to invoiceFormat.js /
+// invoiceConstants.js and are imported above.
 
 function emptyItem(packages) {
   const option = (packages && packages[0]) || DEFAULT_PACKAGES[0];
