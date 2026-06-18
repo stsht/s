@@ -1,6 +1,6 @@
 import { Combobox, DateTimeField } from '../../../components/ui/index.js';
 import { selectAllIfZero, parseMoneyInput } from '../../../utils/moneyInput.js';
-import { SUBSCRIPTION_STATUS_OPTIONS, ACCESS_PERIOD_OPTIONS } from '../dbHelpers.js';
+import { SUBSCRIPTION_STATUS_OPTIONS, ACCESS_PERIOD_OPTIONS } from './subscriptionFormOptions.js';
 import { ProofField } from '../ProofField.jsx';
 
 // Inline new/edit extension form for the Subs detail view.

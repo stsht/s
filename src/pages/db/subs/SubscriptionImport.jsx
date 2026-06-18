@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Combobox, DateTimeField } from '../../../components/ui/index.js';
 import { onBlurTitleCase } from '../../../utils/titleCase.js';
 import { selectAllIfZero, parseMoneyInput } from '../../../utils/moneyInput.js';
-import { SUBSCRIPTION_STATUS_OPTIONS } from '../dbHelpers.js';
+import { SUBSCRIPTION_STATUS_OPTIONS } from './subscriptionFormOptions.js';
 import {
   applySubscriptionDraftUpdate,
   INITIAL_SUBS_IMPORT_DRAFT,

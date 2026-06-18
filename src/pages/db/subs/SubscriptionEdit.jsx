@@ -3,7 +3,7 @@ import { Combobox, DateTimeField } from '../../../components/ui/index.js';
 import { onBlurTitleCase } from '../../../utils/titleCase.js';
 import { selectAllIfZero, parseMoneyInput } from '../../../utils/moneyInput.js';
 import { ProofField } from '../ProofField.jsx';
-import { SUBSCRIPTION_STATUS_OPTIONS } from '../dbHelpers.js';
+import { SUBSCRIPTION_STATUS_OPTIONS } from './subscriptionFormOptions.js';
 import {
   applySubscriptionDraftUpdate,
   subscriptionToDraft,
