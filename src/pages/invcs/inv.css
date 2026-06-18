@@ -1060,58 +1060,7 @@ input.no-spinner::-webkit-inner-spin-button{
  * live in src/features/subscriptions/subscriptionCards.css, imported
  * by the card component modules so both /subs (SubscriptionsPage) and
  * /db (SubscriptionDetail) load them. The /subs live-preview chrome
- * (.subs-toolbar* + .subs-canvas) lives in subs.css.
- *
- * The four legacy selectors below (.subs-eyebrow, .subs-tile*,
- * .subs-foot-title, .subs-foot-sub) are not rendered by either card
- * component and are intentionally left here, unchanged, pending a
- * separate dead-code cleanup pass. */
-.subs-eyebrow{
-  margin:6px 0 0;
-  color:#7e94b3;
-  font-size:0.6875rem;
-  font-weight:800;
-  letter-spacing:.22em;
-  text-transform:uppercase;
-}
-.subs-tile{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  padding:18px 20px;
-  border-radius:20px;
-  background:#eaf1fa;
-  text-align:center;
-  align-items:center;
-  justify-content:center;
-  min-height:96px;
-}
-.subs-tile-label{
-  color:#7e94b3;
-  font-size:0.6875rem;
-  font-weight:700;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-}
-.subs-tile strong{
-  font-size:1.125rem;
-  font-weight:800;
-  color:#1f2a3f;
-  letter-spacing:0;
-  font-family:var(--font);
-}
-.subs-foot-title{
-  margin:6px 0 0;
-  font-size:0.875rem;
-  font-weight:800;
-  color:#1f2a3f;
-}
-.subs-foot-sub{
-  margin:0;
-  font-size:0.75rem;
-  font-weight:600;
-  color:#7e94b3;
-}
+ * (.subs-toolbar* + .subs-canvas) lives in subs.css. */
 
 @media(max-width:1023px){
   /* iOS Safari/Brave auto-zoom the page when a focused control's
@@ -1255,7 +1204,7 @@ input.no-spinner::-webkit-inner-spin-button{
 .dp-field{display:grid;gap:7px;color:var(--muted);font-size:0.75rem;font-weight:800}
 .dp-amount-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
 
-/* Paid toggle + balance-due toggle. The global input{height:48px}
+/* Paid toggle. The global input{height:48px}
  * rule must be neutralised for these checkboxes or they balloon to a
  * full-width 48px block — scope a compact native checkbox instead. */
 .dp-paid-toggle{
