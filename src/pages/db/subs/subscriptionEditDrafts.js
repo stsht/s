@@ -1,4 +1,4 @@
-import { resolveBonusDays } from '../dbHelpers.js';
+import { resolveBonusDays } from './subscriptionLogic.js';
 import { addDays } from '../../../features/subscriptions/subscriptionUtils.js';
 
 // Shared field-update helper for the subscription draft (used by

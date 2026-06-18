@@ -1,5 +1,6 @@
 import { EmptyState } from '../../components/ui/index.js';
-import { subscriptionTone, compactEventDateLabel } from './dbHelpers.js';
+import { compactEventDateLabel } from './dbHelpers.js';
+import { subscriptionTone } from './subs/subscriptionLogic.js';
 
 // Whether a string is a contact value worth showing under a client
 // row. Used by /db's left list to scrub raw timestamps (e.g.

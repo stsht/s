@@ -5,7 +5,7 @@ import {
   subscriptionTone,
   resolveBonusDays,
   subscriptionExtensionSortKey,
-} from '../dbHelpers.js';
+} from './subscriptionLogic.js';
 import { dateLabel } from './subscriptionFormatting.js';
 import { toTitleCase } from '../../../utils/titleCase.js';
 import { rupiah } from '../../../utils/rupiah.js';

@@ -1,4 +1,4 @@
-import { applySubscriptionExtension, subscriptionTone } from '../dbHelpers.js';
+import { applySubscriptionExtension, subscriptionTone } from './subscriptionLogic.js';
 import { dateLabel } from './subscriptionFormatting.js';
 import { fmtSubsTime } from '../../../features/subscriptions/subscriptionUtils.js';
 import { rupiah } from '../../../utils/rupiah.js';

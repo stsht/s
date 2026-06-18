@@ -6,10 +6,12 @@ import {
   plainEventDate,
   classifyClientEvents,
   buildClientRecords,
+} from './dbHelpers.js';
+import {
   subscriptionTone,
   applySubscriptionExtension,
   pickLatestSubscriptionExtension,
-} from './dbHelpers.js';
+} from './subs/subscriptionLogic.js';
 
 // Sort raw client list alphabetically by display name.
 export function sortClientsByName(rawClients) {
