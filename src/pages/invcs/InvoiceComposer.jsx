@@ -8,6 +8,7 @@ import {
 } from './invoiceConstants.js';
 import { cleanPaymentMethod, isFullPayment, clampItemDiscount } from './invoiceFormat.js';
 import { computeDepositDue, inferDepositMode } from './invoiceDeposit.js';
+import { emptyItem, cleanPackageRows, nowDateParts, makeDepositPayment } from './invoiceState.js';
 import { EditorPanel } from './invoiceEditorPanel.jsx';
 import { PreviewPanel } from './invoicePreviewPanel.jsx';
 
@@ -60,59 +61,10 @@ const today = new Date().toISOString().slice(0, 10);
 // prettyDateTime) and TITLE_OPTIONS were moved to invoiceFormat.js /
 // invoiceConstants.js and are imported above.
 
-function emptyItem(packages) {
-  const option = (packages && packages[0]) || DEFAULT_PACKAGES[0];
-  return {
-    id: crypto.randomUUID(),
-    packageId: String(option.id || ''),
-    name: option.name,
-    note: option.note || '',
-    qty: 1,
-    price: Number(option.price) || 0,
-    discount: 0,
-  };
-}
-
-function cleanPackageRows(rows) {
-  return (Array.isArray(rows) ? rows : [])
-    .map((row) => ({
-      id: String(row.id || ''),
-      name: String(row.name || '').trim(),
-      note: String(row.note || '').trim(),
-      price: Math.max(0, Math.round(Number(row.price) || 0)),
-      is_default: !!row.is_default,
-    }))
-    .filter((row) => row.name);
-}
-
-// Local-time "YYYY-MM-DD" / "HH:MM" for a freshly created deposit
-// payment row. Uses the operator's system clock (not toISOString,
-// which is UTC) so a deposit recorded at 23:30 local time doesn't
-// roll forward to the next calendar day.
-function nowDateParts() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return {
-    date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
-    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-  };
-}
-
-// Factory for a new deposit instalment row. Each row is a recorded
-// deposit payment: { id, paid, paidAtDate, paidAtTime, amount }.
-// Defaults are "paid now, for the current Invoice-tab deposit due"
-// — a blank/zero due simply lands as 0, which reads like a
-// placeholder via the shared selectAllIfZero focus behaviour.
-function makeDepositPayment(amountDefault) {
-  const { date, time } = nowDateParts();
-  return {
-    id: crypto.randomUUID(),
-    paid: true,
-    paidAtDate: date,
-    paidAtTime: time,
-    amount: Math.max(0, Math.round(Number(amountDefault) || 0)),
-  };
-}
+// Pure invoice container helpers (emptyItem, cleanPackageRows,
+// nowDateParts, makeDepositPayment) moved to invoiceState.js
+// (Pass 62); imported above. They are framework-free and called
+// unchanged below.
 
 // Read the URL search params once on mount. Two flows:
 //   1. invoiceId=<id> -> fetch /api/invoices-get and hydrate the
