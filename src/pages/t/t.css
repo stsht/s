@@ -99,6 +99,31 @@ body {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
+/* Icon-only clear button. Single click wipes the body (no confirm),
+ * sits left of Download, and is out of the tab order. */
+.t-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease, transform .12s ease;
+}
+.t-clear:hover {
+  color: var(--danger, #e5484d);
+  border-color: var(--danger, #e5484d);
+  background: color-mix(in srgb, var(--danger, #e5484d) 10%, transparent);
+}
+.t-clear:active {
+  transform: translateY(1px);
+}
+
 /* ---- Editor body ----------------------------------------------- */
 .t-editor {
   flex: 1;

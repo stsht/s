@@ -44,6 +44,29 @@ function DownloadIcon() {
   );
 }
 
+function ClearIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="17"
+      height="17"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </svg>
+  );
+}
+
 export function TextPadPage() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -51,6 +74,7 @@ export function TextPadPage() {
   // Guards the autosave effect so the first persist can't overwrite
   // stored content with empty defaults before the restore runs.
   const hydrated = useRef(false);
+  const editorRef = useRef(null);
 
   // Restore the last session once on mount.
   useEffect(() => {
@@ -95,17 +119,31 @@ export function TextPadPage() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, [title, body]);
 
-  // Ctrl/Cmd+S downloads instead of invoking the browser's save.
+  // Clear the body in a single action — no confirmation by design.
+  // Title is left intact; focus returns to the editor so typing can
+  // continue immediately. The cleared state autosaves like any edit.
+  const clear = useCallback(() => {
+    setBody('');
+    if (editorRef.current) editorRef.current.focus();
+  }, []);
+
+  // Ctrl/Cmd+S downloads; Ctrl/Cmd+D clears. Both override the
+  // browser defaults (save page / bookmark).
   useEffect(() => {
     function onKeyDown(event) {
-      if ((event.metaKey || event.ctrlKey) && String(event.key).toLowerCase() === 's') {
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = String(event.key).toLowerCase();
+      if (key === 's') {
         event.preventDefault();
         download();
+      } else if (key === 'd') {
+        event.preventDefault();
+        clear();
       }
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [download]);
+  }, [download, clear]);
 
   const counts = useMemo(() => {
     const trimmed = body.trim();
@@ -133,6 +171,16 @@ export function TextPadPage() {
           />
           <button
             type="button"
+            className="t-clear"
+            onClick={clear}
+            title="Clear (Ctrl/Cmd+D)"
+            aria-label="Clear text"
+            tabIndex={-1}
+          >
+            <ClearIcon />
+          </button>
+          <button
+            type="button"
             className="t-download"
             onClick={download}
             title="Download (Ctrl/Cmd+S)"
@@ -144,6 +192,7 @@ export function TextPadPage() {
         </header>
 
         <textarea
+          ref={editorRef}
           className="t-editor scroll-surface-y"
           value={body}
           onChange={(event) => setBody(event.target.value)}
