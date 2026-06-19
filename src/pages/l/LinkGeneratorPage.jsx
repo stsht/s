@@ -3,6 +3,17 @@ import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase } from '../../utils/titleCase.js';
 import { SaveIcon, ServiceField } from './linkPrimitives.jsx';
+import {
+  cleanLinkText,
+  jakartaTodayISO,
+  eventDateTone,
+  compactEventDateLabel,
+  normalizeFolderName,
+  stripBracketed,
+  normalizeLinkUrl,
+  normalizeInvoiceTitleValue,
+  folderCodeFromEventDate,
+} from './linkHelpers.js';
 
 // --- Shared helpers duplicated from WorkspacePages.jsx ---
 // These small utilities are still used by /db inside WorkspacePages.jsx,
@@ -26,56 +37,6 @@ function dbgEnabled() {
 
 function dbg(...args) {
   if (dbgEnabled()) console.log('[grouping]', ...args);
-}
-
-function plainEventDate(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  // Already in YYYY-MM-DD form — pass through unchanged.
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  // Anything with a 'T' time component (ISO timestamp) is a
-  // created_at/updated_at-style metadata field, not an event date.
-  if (/T\d/.test(raw)) return '';
-  return '';
-}
-
-// Today's date in Asia/Jakarta (UTC+7) as a bare YYYY-MM-DD string.
-function jakartaTodayISO() {
-  const now = new Date();
-  const wib = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return wib.toISOString().slice(0, 10);
-}
-
-// Whole-day delta between two YYYY-MM-DD strings (target - reference).
-function daysBetweenIso(referenceIso, targetIso) {
-  const ref = String(referenceIso || '');
-  const tgt = String(targetIso || '');
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(ref) || !/^\d{4}-\d{2}-\d{2}$/.test(tgt)) return NaN;
-  const [ay, am, ad] = ref.split('-').map(Number);
-  const [by, bm, bd] = tgt.split('-').map(Number);
-  const a = Date.UTC(ay, am - 1, ad);
-  const b = Date.UTC(by, bm - 1, bd);
-  return Math.round((b - a) / 86400000);
-}
-
-// Tone class for a single event_date relative to today in WIB.
-function eventDateTone(eventDate, todayIso) {
-  const date = plainEventDate(eventDate);
-  if (!date) return 'tba';
-  const diff = daysBetweenIso(todayIso, date);
-  if (!Number.isFinite(diff)) return 'tba';
-  if (diff < 0) return 'past';
-  if (diff <= 2) return 'soon';
-  return 'future';
-}
-
-// Compact label for the date pill. Examples: "1 Jun 2026", "TBA".
-function compactEventDateLabel(eventDate) {
-  const date = plainEventDate(eventDate);
-  if (!date) return 'TBA';
-  const dt = new Date(`${date}T12:00:00Z`);
-  if (Number.isNaN(dt.getTime())) return 'TBA';
-  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // /l — Link Generator.
@@ -111,10 +72,6 @@ const LINK_SERVICES = [
 
 // Small string helpers used by /l so the client preview matches the
 // payload sent to the worker.
-function cleanLinkText(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
 function sanitizeSlugSegment(value) {
   return String(value || '')
     .normalize('NFKD')
@@ -126,14 +83,6 @@ function sanitizeSlugSegment(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-function normalizeFolderName(value) {
-  return cleanLinkText(String(value || '').replace(/\s*\(/g, ' ( ').replace(/\s*\)/g, ' ) '));
-}
-
-function stripBracketed(value) {
-  return value.replace(/\([^)]*\)|\[[^\]]*\]|\{[^}]*\}/g, ' ');
 }
 
 function extractFolderParts(folder) {
@@ -178,34 +127,6 @@ function buildFolderPassword(folder) {
   if (!/^\d{6}$/.test(date)) return '';
   const checksum = date.split('').reduce((sum, digit) => sum + Number(digit || 0), 0) % 10;
   return date.slice(4, 6) + date.slice(2, 4) + date.slice(0, 2) + String(checksum);
-}
-
-function normalizeLinkUrl(value) {
-  let v = String(value || '').trim();
-  if (!v) return '';
-  if (!/^https?:\/\//i.test(v) && /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/:?#].*)?$/i.test(v)) {
-    v = `https://${v}`;
-  }
-  try {
-    const url = new URL(v);
-    if (!/^https?:$/i.test(url.protocol) || !url.hostname.includes('.')) return '';
-    return url.toString();
-  } catch {
-    return '';
-  }
-}
-
-function normalizeInvoiceTitleValue(value) {
-  return /^mr\.?$/i.test(cleanLinkText(value)) ? 'Mr.' : 'Ms.';
-}
-
-function folderCodeFromEventDate(value) {
-  const raw = String(value || '').trim();
-  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (iso) return iso[1].slice(2) + iso[2] + iso[3];
-  const slash = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (slash) return slash[3].slice(2) + slash[2].padStart(2, '0') + slash[1].padStart(2, '0');
-  return '';
 }
 
 // Read invoice handoff in the same priority the legacy /l used:
