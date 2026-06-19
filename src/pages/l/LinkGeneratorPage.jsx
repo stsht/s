@@ -217,12 +217,6 @@ function normalizeLinkUrl(value) {
   }
 }
 
-function prettyGalleryCode(slug) {
-  const parts = String(slug || '').split('-').filter(Boolean);
-  if (!parts.length) return '';
-  return [parts[0], ...parts.slice(1).map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : word))].join(' ');
-}
-
 function normalizeInvoiceTitleValue(value) {
   return /^mr\.?$/i.test(cleanLinkText(value)) ? 'Mr.' : 'Ms.';
 }
@@ -434,7 +428,6 @@ export function LinkGeneratorPage() {
     const folder = normalizeFolderName(folderName);
     const slug = buildBaseSlug(folder);
     const pass = buildFolderPassword(folder);
-    const galleryCode = prettyGalleryCode(slug);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     // Preview URL shown in the /l output card before the operator
     // hits Save. We intentionally drop the legacy "/g/" prefix so
@@ -452,7 +445,6 @@ export function LinkGeneratorPage() {
       folder,
       slug,
       pass,
-      galleryCode,
       directUrl,
       shortLink: matchesSaved ? saved.shortLink : '',
       // Never surface the folder-derived `pass` as if it were final
