@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase } from '../../utils/titleCase.js';
+import { SaveIcon, ServiceField } from './linkPrimitives.jsx';
 
 // --- Shared helpers duplicated from WorkspacePages.jsx ---
 // These small utilities are still used by /db inside WorkspacePages.jsx,
@@ -75,29 +76,6 @@ function compactEventDateLabel(eventDate) {
   const dt = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(dt.getTime())) return 'TBA';
   return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function SaveIcon({ saving = false }) {
-  return (
-    <svg
-      className={`btn-icon${saving ? ' is-saving' : ''}`}
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M5 3h12l2 2v16H5z" />
-      <path d="M8 3v6h8V3" />
-      <path d="M8 21v-7h8v7" />
-      <path d="M14 6h1" />
-    </svg>
-  );
 }
 
 // /l — Link Generator.
@@ -300,27 +278,6 @@ async function copyToClipboard(text) {
   } catch {
     return false;
   }
-}
-
-function ServiceField({ chip, label, value, placeholder, onChange }) {
-  return (
-    <label className="lg-service">
-      <span className="lg-service-head">
-        <span className="lg-service-chip">{chip}</span>
-        <span className="lg-service-name">{label}</span>
-      </span>
-      <input
-        type="url"
-        inputMode="url"
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        spellCheck="false"
-        autoCapitalize="off"
-        autoComplete="off"
-      />
-    </label>
-  );
 }
 
 export function LinkGeneratorPage() {
