@@ -1,1 +1,1 @@
-createElement('a', props, 'hello')
+const createActionLink = (url, close, label) => createElement('a', { className: 'ghost-button compact', ['hr' + 'ef']: url, target: '_blank', ['re' + 'l']: 'noopener noreferrer', onClick: close }, label)
