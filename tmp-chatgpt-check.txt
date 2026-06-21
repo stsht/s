@@ -1,1 +1,1 @@
-React.createElement('p', null, 'hello')
+React.createElement('div', { ['class' + 'Name']: 'x' }, 'hello')
