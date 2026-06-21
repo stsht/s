@@ -1,1 +1,1 @@
-newEventLinkHref
+target: '_blank'
