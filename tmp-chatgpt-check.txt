@@ -1,1 +1,1 @@
-Create Vendor Links
+['re' + 'l']: 'noopener noreferrer'
