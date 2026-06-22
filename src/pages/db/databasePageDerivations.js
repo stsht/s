@@ -5,7 +5,6 @@
 import {
   plainEventDate,
   classifyClientEvents,
-  buildClientRecords,
 } from './dbHelpers.js';
 import {
   subscriptionTone,
@@ -110,16 +109,15 @@ export function buildSortedCrmClients({ crmClients, eventDatesByClient, invoices
   const annotated = (Array.isArray(crmClients) ? crmClients : []).map((client) => {
     const dates = eventDatesByClient(client);
     const cls = classifyClientEvents(dates, todayIso);
-    const records = buildClientRecords(client, invoices, deliveriesAll, todayIso);
-    const deliveryRecords = records.filter((row) => !!row.delivery?.id);
-    const clientWorkflowComplete =
-      deliveryRecords.length > 0 &&
-      deliveryRecords.every((row) => !!row.delivery?.delivery_done);
     const name = String(client?.name || client?.client_name || '').toLowerCase();
     return {
       client,
       ...cls,
-      tone: clientWorkflowComplete ? '' : cls.tone,
+      // The left Clients list is navigation only. Keep the displayed
+      // event date pill neutral there, even when the representative
+      // event is past/upcoming or only one side of the workflow exists.
+      // Detail rows still carry their event-date tone/action state.
+      tone: '',
       name,
     };
   });
