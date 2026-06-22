@@ -63,3 +63,7 @@ Write for a non-coder. Keep it short, scannable, plain-language. Use this shape:
 - **Notes:** risks or follow-ups, or "none"
 
 No narration before or after unless I ask a question. Skip technical detail unless I request it.
+
+
+## Cleanup status
+- `/l` lane: CLOSED (fully extracted as of Pass 73). Do not propose further `/l` extractions.
