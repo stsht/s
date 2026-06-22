@@ -49,3 +49,17 @@ Standing rules for any task in this repo. Don't re-derive or re-ask these.
 - No narration or filler. Report only what I asked for.
 - Don't re-run commands whose result is already known (e.g. repeat `git status`).
 - Deep analysis of very large files may be delegated to another tool/model. When I'm given the relevant excerpt or conclusion, trust it and act on targeted reads instead of scanning the whole file myself.
+
+
+## Report format (use for every task)
+Write for a non-coder. Keep it short, scannable, plain-language. Use this shape:
+
+- **Status:** Done / Needs you / Blocked
+- **What changed:** 1-2 lines, plain English (no jargon)
+- **Files:** `path/name` - one line each on what changed
+- **Commit:** `<hash>` "<message>"
+- **Pushed to main:** yes/no
+- **Checks:** passed / what failed
+- **Notes:** risks or follow-ups, or "none"
+
+No narration before or after unless I ask a question. Skip technical detail unless I request it.
