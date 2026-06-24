@@ -242,22 +242,3 @@ html.ss-firefox .aurora{
     transition:none !important;
   }
 }
-
-/* Public delivery no-invoice fallback. The final React shape should render
- * a disabled .public-delivery-invoice row, but this keeps deployed public
- * links looking consistent right now: an unavailable invoice slot that
- * visually matches the GD/DB/WT rows, including an INV chip. */
-@supports selector(:has(*)){
-  .public-delivery-card:not(:has(.public-delivery-invoice)) .public-delivery-greeting::after{
-    content:"";
-    display:block;
-    width:100%;
-    height:64px;
-    margin:clamp(22px,3.6vw,28px) 0 0;
-    background-repeat:no-repeat;
-    background-position:center;
-    background-size:100% 64px;
-    background-image:url('/invoice-unavailable-row.svg');
-    opacity:.55;
-  }
-}
