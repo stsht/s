@@ -105,7 +105,7 @@ export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHre
   // Client Invoice handles public-facing retail pricing for the client.
   // Vendor Invoice / Vendor PO (to be implemented) will handle internal
   // cost/vendor pricing separately and must never be exposed on /g.
-  const invoiceLabel = hasInvoice ? 'View Client Invoice' : 'Create Client Invoice';
+  const invoiceLabel = hasInvoice ? 'View Client Invoice' : 'No Client Invoice';
   // Compact date pill on the row. row.eventDate is populated by
   // buildClientRecords from real event_date columns only
   // (plainEventDate strips ISO timestamps), so a created_at /
@@ -132,19 +132,19 @@ export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHre
   //   - delivery exists + done      -> blue   View Links  (is-complete)
   //   - invoice  exists + not paid  -> green  View Invoice(is-created)
   //   - invoice  exists + paid      -> blue   View Invoice(is-complete)
-  //   - missing record              -> neutral Create … pill (unchanged)
+  //   - missing invoice             -> disabled grey invoice chip
   // "done" comes from deliveries.delivery_done (db-migration-part-8);
   // "paid" from the invoice's own status. The two states are mutually
   // exclusive on a button so the CSS never has to fight specificity.
   const deliveryDone = !!row.delivery?.delivery_done;
   const invoicePaid = String(row.invoice?.status || '').toLowerCase() === 'paid';
   const linkStateClass = hasDelivery ? (deliveryDone ? ' is-complete' : ' is-created') : '';
-  const invoiceStateClass = hasInvoice ? (invoicePaid ? ' is-complete' : ' is-created') : '';
+  const invoiceStateClass = hasInvoice ? (invoicePaid ? ' is-complete' : ' is-created') : ' is-disabled';
   const linkClassName = `record-row-link${linkStateClass} record-row-pill record-row-pill--links`;
   const invoiceClassName = `record-row-link-anchor${invoiceStateClass} record-row-pill record-row-pill--invoice`;
   const linkAnchorClass = `record-row-link-anchor${linkStateClass} record-row-pill record-row-pill--links`;
   const vendorInvoicePaid = String(row.vendorInvoice?.status || '').toLowerCase() === 'paid';
-  const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : ' is-neutral';
+  const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : ' is-disabled';
   const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass}`;
 
   const hasVendorDelivery = !!row.vendorDelivery?.id;
@@ -218,19 +218,38 @@ export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHre
         )}
       </div>
       <div className="record-row-action-group">
-        <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
-          {invoiceLabel}
-        </a>
-        <a
-          className={`${vendorInvoiceClassName} record-row-vendor-addon`}
-          href={eventVendorInvoiceHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={hasVendorInvoice ? 'View vendor invoice' : 'Create vendor invoice'}
-          title={hasVendorInvoice ? 'View Vendor Invoice' : 'Create Vendor Invoice'}
-        >
-          <PaperIcon />
-        </a>
+        {hasInvoice ? (
+          <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
+            {invoiceLabel}
+          </a>
+        ) : (
+          <button type="button" className={invoiceClassName} disabled aria-disabled="true" title="No Client Invoice">
+            {invoiceLabel}
+          </button>
+        )}
+        {hasVendorInvoice ? (
+          <a
+            className={`${vendorInvoiceClassName} record-row-vendor-addon`}
+            href={eventVendorInvoiceHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View vendor invoice"
+            title="View Vendor Invoice"
+          >
+            <PaperIcon />
+          </a>
+        ) : (
+          <button
+            type="button"
+            className={`${vendorInvoiceClassName} record-row-vendor-addon`}
+            disabled
+            aria-disabled="true"
+            aria-label="No vendor invoice yet"
+            title="No Vendor Invoice"
+          >
+            <PaperIcon />
+          </button>
+        )}
       </div>
       <button
         type="button"
