@@ -5,6 +5,7 @@ import { SubscriptionEdit } from './subs/SubscriptionEdit.jsx';
 import { SubscriptionImport } from './subs/SubscriptionImport.jsx';
 import { ClientDetail } from './clients/ClientDetail.jsx';
 import { DeliveryDetail } from './delivery/DeliveryDetail.jsx';
+import { ActivityDetail } from './activity/ActivityDetail.jsx';
 
 const TITLE_OPTIONS = ['Mr.', 'Ms.', 'Mrs.', 'Family'];
 
@@ -75,6 +76,12 @@ export function DatabaseRightPanel({
     <>
       {status ? <EmptyState>{status}</EmptyState> : null}
       {!selected && !status ? <h2>{tabHeading}</h2> : null}
+      {selected?.type === 'activity' ? (
+        <ActivityDetail
+          activity={selected.data || {}}
+          onClose={back}
+        />
+      ) : null}
       {selected?.type === 'new' ? (
         <>
           <h2>Create Client</h2>
@@ -265,7 +272,7 @@ export function DatabaseRightPanel({
           onCancel={back}
         />
       ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'subs-create' && selected.type !== 'delivery' ? (
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'subs-create' && selected.type !== 'delivery' && selected.type !== 'activity' ? (
         <>
           <div className="list-stack">
             <ListRow
