@@ -7,6 +7,14 @@ import {
   classifyClientEvents,
 } from './dbHelpers.js';
 import {
+  accessLogEventLabel,
+  accessLogTimeValue,
+  formatAccessLogClock,
+  formatAccessLogDay,
+  groupAccessLogsByVisitor,
+  summarizeAccessLogs,
+} from './delivery/deliveryHelpers.js';
+import {
   subscriptionTone,
   applySubscriptionExtension,
   pickLatestSubscriptionExtension,
@@ -146,6 +154,67 @@ export function buildClientToneByRowId(sortedCrmClients) {
     });
   }
   return map;
+}
+
+function latestLog(logs = []) {
+  return [...(Array.isArray(logs) ? logs : [])].sort(
+    (a, b) => accessLogTimeValue(b?.created_at) - accessLogTimeValue(a?.created_at),
+  )[0] || null;
+}
+
+function activityWhen(value = '') {
+  return [formatAccessLogDay(value), formatAccessLogClock(value)].filter(Boolean).join(' · ');
+}
+
+// Activity rows for the /db Activity tab. They reuse the logs already
+// bundled into /api/db's delivery items, so the tab does not need a new
+// backend read or an N+1 scan over individual deliveries.
+export function buildActivityRows({ deliveriesAll, query }) {
+  const q = String(query || '').trim().toLowerCase();
+  const rows = (Array.isArray(deliveriesAll) ? deliveriesAll : []).map((delivery) => {
+    const logs = Array.isArray(delivery?.stats?.logs) ? delivery.stats.logs : [];
+    if (!logs.length) return null;
+    const last = latestLog(logs);
+    if (!last) return null;
+    const summary = summarizeAccessLogs(logs);
+    const visitors = groupAccessLogsByVisitor(logs);
+    const eventDate = plainEventDate(delivery?.event_date);
+    const folderName = String(delivery?.folder_name || delivery?.base_slug || delivery?.gallery_code || '').trim();
+    const name = String(delivery?.client_name || 'Delivery').trim();
+    const lastActivityLabel = accessLogEventLabel(last.event_type, last.service);
+    const row = {
+      id: `activity:${delivery.id}`,
+      deliveryId: delivery.id,
+      client_name: name,
+      folder_name: folderName,
+      event_date: eventDate,
+      deliveryType: delivery?.type || '',
+      short_code: delivery?.short_code || '',
+      short_url: delivery?.short_url || delivery?.delivery_url || '',
+      logs,
+      visitors: visitors.length,
+      opens: summary.opens,
+      clicks: summary.clicks,
+      lastActivityAt: last.created_at || '',
+      lastActivityDisplay: activityWhen(last.created_at),
+      lastActivityLabel,
+      delivery,
+    };
+    const haystack = [
+      row.client_name,
+      row.folder_name,
+      row.event_date,
+      row.deliveryType,
+      row.short_code,
+      row.lastActivityLabel,
+      String(row.opens),
+      String(row.clicks),
+    ].join(' ').toLowerCase();
+    if (q && !haystack.includes(q)) return null;
+    return row;
+  }).filter(Boolean);
+  rows.sort((a, b) => accessLogTimeValue(b.lastActivityAt) - accessLogTimeValue(a.lastActivityAt));
+  return rows;
 }
 
 
