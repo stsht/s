@@ -11,13 +11,16 @@ function ActivityFolderMarquee({ text }) {
   const outerRef = useRef(null);
   const innerRef = useRef(null);
   const [overflowing, setOverflowing] = useState(false);
+  const [distance, setDistance] = useState(0);
 
   useEffect(() => {
     const measure = () => {
       const outer = outerRef.current;
       const inner = innerRef.current;
       if (!outer || !inner) return;
-      setOverflowing(inner.scrollWidth > outer.clientWidth + 8);
+      const nextDistance = Math.max(0, inner.scrollWidth - outer.clientWidth + 48);
+      setDistance(nextDistance);
+      setOverflowing(nextDistance > 8);
     };
     measure();
     window.addEventListener('resize', measure);
@@ -30,7 +33,7 @@ function ActivityFolderMarquee({ text }) {
       title={text}
       ref={outerRef}
     >
-      <span ref={innerRef}>{text}</span>
+      <span ref={innerRef} style={{ '--activity-marquee-distance': `${distance}px` }}>{text}</span>
     </div>
   );
 }
