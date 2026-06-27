@@ -45,6 +45,17 @@ function formatSubscriptionMeta(sub = {}) {
   return service || 'Subscription';
 }
 
+function formatActivityMeta(row = {}) {
+  const first = [row.folder_name, row.lastActivityLabel].filter(Boolean).join(' · ');
+  const second = [
+    row.lastActivityDisplay ? `Last ${row.lastActivityDisplay}` : '',
+    `${Number(row.visitors || 0)} visitors`,
+    `${Number(row.opens || 0)} opens`,
+    `${Number(row.clicks || 0)} clicks`,
+  ].filter(Boolean).join(' · ');
+  return [first, second].filter(Boolean).join(' — ');
+}
+
 // Inline X glyph used by every list/row delete control on /db.
 // Stroke-only path so the icon picks up `currentColor`, which lets
 // CSS swap idle/hover palettes without touching the SVG markup.
@@ -115,6 +126,7 @@ export function DatabaseList({
   onCreateSubscription,
   onImportSubscription,
 }) {
+  const isActivityTab = tab === 'activity';
   return (
     <>
       <div className="pf-list-tools">
@@ -122,7 +134,7 @@ export function DatabaseList({
           className="pf-search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search"
+          placeholder={isActivityTab ? 'Search activity' : 'Search'}
           type="search"
           aria-label="Search database"
         />
@@ -147,7 +159,10 @@ export function DatabaseList({
         {activeRows.slice(0, 80).map((row, index) => {
           const isClient = tab === 'clients';
           const isSub = tab === 'subs';
-          const title = row.client_name || row.name || row.title || row.slug;
+          const isActivity = tab === 'activity';
+          const title = isActivity
+            ? (row.client_name || row.name || 'Delivery')
+            : row.client_name || row.name || row.title || row.slug;
           // Subs row tone reads off the EFFECTIVE subscription so a
           // recent extension can flip an "expired" base row back to
           // active. row.subscription is the canonical subscription
@@ -188,6 +203,8 @@ export function DatabaseList({
             // so renewal state stays current; only the service label is
             // pinned to the base subscription.
             meta = formatSubscriptionMeta(subRecord);
+          } else if (isActivity) {
+            meta = formatActivityMeta(row);
           }
           const rowId = row.id || `row-${index}`;
           const className = [
@@ -197,6 +214,7 @@ export function DatabaseList({
             clientToneClass,
             isClient ? 'has-event-pill' : '',
             isSub ? 'has-event-pill' : '',
+            isActivity ? 'has-event-pill' : '',
           ]
             .filter(Boolean)
             .join(' ');
@@ -240,18 +258,28 @@ export function DatabaseList({
                   {compactEventDateLabel(subExpiry)}
                 </span>
               ) : null}
-              <button
-                type="button"
-                className="row-delete-x"
-                onClick={handleDelete}
-                aria-label={`Delete ${title || 'record'}`}
-              >
-                <DeleteIcon />
-              </button>
+              {isActivity ? (
+                <span
+                  className="event-date-pill event-tone-tba"
+                  aria-label={`Event ${compactEventDateLabel(row.event_date)}`}
+                >
+                  {compactEventDateLabel(row.event_date)}
+                </span>
+              ) : null}
+              {!isActivity ? (
+                <button
+                  type="button"
+                  className="row-delete-x"
+                  onClick={handleDelete}
+                  aria-label={`Delete ${title || 'record'}`}
+                >
+                  <DeleteIcon />
+                </button>
+              ) : null}
             </div>
           );
         })}
-        {!status && activeRows.length === 0 ? <EmptyState>No records yet.</EmptyState> : null}
+        {!status && activeRows.length === 0 ? <EmptyState>{isActivityTab ? 'No recent activity yet.' : 'No records yet.'}</EmptyState> : null}
       </div>
     </>
   );
