@@ -45,15 +45,13 @@ function formatSubscriptionMeta(sub = {}) {
   return service || 'Subscription';
 }
 
-function formatActivityMeta(row = {}) {
-  const first = [row.folder_name, row.lastActivityLabel].filter(Boolean).join(' · ');
-  const second = [
+function activityStatsLine(row = {}) {
+  return [
     row.lastActivityDisplay ? `Last ${row.lastActivityDisplay}` : '',
     `${Number(row.visitors || 0)} visitors`,
     `${Number(row.opens || 0)} opens`,
     `${Number(row.clicks || 0)} clicks`,
   ].filter(Boolean).join(' · ');
-  return [first, second].filter(Boolean).join(' — ');
 }
 
 // Inline X glyph used by every list/row delete control on /db.
@@ -203,18 +201,16 @@ export function DatabaseList({
             // so renewal state stays current; only the service label is
             // pinned to the base subscription.
             meta = formatSubscriptionMeta(subRecord);
-          } else if (isActivity) {
-            meta = formatActivityMeta(row);
           }
           const rowId = row.id || `row-${index}`;
           const className = [
             'db-list-row',
+            isActivity ? 'activity-row' : '',
             selected?.id === row.id ? 'active' : '',
             subTone ? `sub-${subTone}` : '',
             clientToneClass,
             isClient ? 'has-event-pill' : '',
             isSub ? 'has-event-pill' : '',
-            isActivity ? 'has-event-pill' : '',
           ]
             .filter(Boolean)
             .join(' ');
@@ -240,7 +236,13 @@ export function DatabaseList({
             >
               <div className="db-list-row-text">
                 <strong>{title || 'Untitled'}</strong>
-                {meta ? <span>{meta}</span> : null}
+                {isActivity ? (
+                  <>
+                    {row.folder_name ? <span className="activity-folder-line" title={row.folder_name}>{row.folder_name}</span> : null}
+                    <span className="activity-action-line">{row.lastActivityLabel || 'Latest activity'}</span>
+                    <span className="activity-stats-line">{activityStatsLine(row)}</span>
+                  </>
+                ) : meta ? <span>{meta}</span> : null}
               </div>
               {isClient ? (
                 <span
@@ -256,14 +258,6 @@ export function DatabaseList({
                   aria-label={`Expiry ${compactEventDateLabel(subExpiry)}`}
                 >
                   {compactEventDateLabel(subExpiry)}
-                </span>
-              ) : null}
-              {isActivity ? (
-                <span
-                  className="event-date-pill event-tone-tba"
-                  aria-label={`Event ${compactEventDateLabel(row.event_date)}`}
-                >
-                  {compactEventDateLabel(row.event_date)}
                 </span>
               ) : null}
               {!isActivity ? (
