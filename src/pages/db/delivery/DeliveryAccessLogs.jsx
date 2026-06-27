@@ -20,6 +20,7 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   const network = classifyAccessNetwork(rep);
   const actor = accessActorType(visitor);
   const realApp = isRealInAppBrowser(rep.user_agent || visitor.last?.user_agent || '');
+  const canDelete = typeof onRequestDelete === 'function';
   // Title identity, in priority order:
   //   1. Meta link-preview/scanner  -> "Meta Preview" (never counted
   //      as a real in-app open).
@@ -33,13 +34,13 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   else if (actor.key === 'proxy' && actor.label === 'Crawler') headline = 'Crawler';
   else if (realApp && device) headline = device;
   else headline = network.name || device || 'Unknown device';
-  // Supporting line is always "City, Country \u00b7 Browser/App \u00b7 IP"
+  // Supporting line is always "City, Country · Browser/App · IP"
   // (IP masked here; full IP lives in the expanded rows). Keeping the
   // browser/app here even when it is also the title gives the operator
   // a consistent, scannable identity strip on every card.
   const support = [visitor.place, device, maskIpAddress(visitor.ip)]
     .filter(Boolean)
-    .join(' \u00b7 ');
+    .join(' · ');
   const whenLabel = visitorWhenLabel(visitor);
   // Expanded timeline reads newest-to-oldest to stay consistent with
   // the newest-first card ordering (events are stored chronological,
@@ -76,29 +77,31 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
           </div>
           {support ? <p className="dd-visitor-meta">{support}</p> : null}
           {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
-          {actions.length ? <p className="dd-visitor-actions">{actions.join(' \u00b7 ')}</p> : null}
+          {actions.length ? <p className="dd-visitor-actions">{actions.join(' · ')}</p> : null}
         </div>
         {/* Per-card clear: removes ONLY this visitor/session's log
             rows, immediately (no confirm). stopPropagation on click +
             Enter/Space keeps the whole-card expand/collapse gesture
             from also firing. No separate expand arrow. */}
-        <button
-          type="button"
-          className="dd-visitor-delete"
-          onClick={(event) => {
-            event.stopPropagation();
-            onRequestDelete?.();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+        {canDelete ? (
+          <button
+            type="button"
+            className="dd-visitor-delete"
+            onClick={(event) => {
               event.stopPropagation();
-            }
-          }}
-          title="Clear this log"
-          aria-label="Clear this log"
-        >
-          <DeleteIcon />
-        </button>
+              onRequestDelete?.();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                event.stopPropagation();
+              }
+            }}
+            title="Clear this log"
+            aria-label="Clear this log"
+          >
+            <DeleteIcon />
+          </button>
+        ) : null}
       </div>
       {open ? (
         <ol className="dd-visitor-timeline">
@@ -113,8 +116,8 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
                 key={`${event.id || i}-${event.created_at || ''}`}
               >
                 <span className="dd-visitor-rowhead">
-                  <span className="dd-visitor-stamp">{formatAccessLogStamp(event.created_at) || '\u2014'}</span>
-                  <span className="dd-visitor-dot" aria-hidden="true">{'\u00b7'}</span>
+                  <span className="dd-visitor-stamp">{formatAccessLogStamp(event.created_at) || '—'}</span>
+                  <span className="dd-visitor-dot" aria-hidden="true">{'·'}</span>
                   <span className="dd-visitor-event">{accessLogEventLabel(event.event_type, event.service)}</span>
                 </span>
                 {detail ? <span className="dd-visitor-detail">{detail}</span> : null}
@@ -140,7 +143,7 @@ export function DeliveryAccessLogs({ accessSummaryText, accessVisitors, handleDe
                   <AccessLogVisitorCard
                     key={visitor.key || index}
                     visitor={visitor}
-                    onRequestDelete={() => handleDeleteVisitor(visitor)}
+                    onRequestDelete={handleDeleteVisitor ? () => handleDeleteVisitor(visitor) : undefined}
                   />
                 ))}
               </div>
