@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { compactEventDateLabel } from '../dbHelpers.js';
 import { DeliveryAccessLogs } from '../delivery/DeliveryAccessLogs.jsx';
 import {
@@ -6,6 +6,34 @@ import {
   summarizeAccessLogs,
   pluralCount,
 } from '../delivery/deliveryHelpers.js';
+
+function ActivityFolderMarquee({ text }) {
+  const outerRef = useRef(null);
+  const innerRef = useRef(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const outer = outerRef.current;
+      const inner = innerRef.current;
+      if (!outer || !inner) return;
+      setOverflowing(inner.scrollWidth > outer.clientWidth + 8);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [text]);
+
+  return (
+    <div
+      className={`activity-folder-marquee${overflowing ? ' is-overflowing' : ''}`}
+      title={text}
+      ref={outerRef}
+    >
+      <span ref={innerRef}>{text}</span>
+    </div>
+  );
+}
 
 export function ActivityDetail({ activity, onClose }) {
   const delivery = activity?.delivery || activity || {};
@@ -36,11 +64,7 @@ export function ActivityDetail({ activity, onClose }) {
         <div className="activity-detail-titleblock">
           <p className="eyebrow">Activity Log</p>
           <h2>{name}</h2>
-          {folder ? (
-            <div className="activity-folder-marquee" title={folder}>
-              <span>{folder}</span>
-            </div>
-          ) : null}
+          {folder ? <ActivityFolderMarquee text={folder} /> : null}
           <p className="activity-detail-meta">{[`${type} Delivery`, dateLabel].filter(Boolean).join(' · ')}</p>
         </div>
         <button
