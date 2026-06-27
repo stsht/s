@@ -43,10 +43,13 @@ export function DatabasePage() {
   const tabs = [
     { value: 'clients', label: 'Clients' },
     { value: 'subs', label: 'Subs' },
+    { value: 'activity', label: 'Activity' },
   ];
 
   const tabHeading =
-    tab === 'subs' ? 'Subscriptions' : 'Choose A Client';
+    tab === 'subs' ? 'Subscriptions'
+      : tab === 'activity' ? 'Recent Activity'
+        : 'Choose A Client';
 
   const left = (
     <DatabaseList
