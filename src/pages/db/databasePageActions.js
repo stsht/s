@@ -158,6 +158,8 @@ export function createDatabasePageActions({
   const handleSelectRow = (row) => {
     if (tab === 'subs') {
       setSelected({ type: 'subscription', id: row.id, data: row });
+    } else if (tab === 'activity') {
+      setSelected({ type: 'activity', id: row.id, data: row });
     } else if (tab === 'clients') {
       setSelected({ type: 'client', id: row.id, data: row });
     } else {
