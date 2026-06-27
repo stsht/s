@@ -57,9 +57,16 @@ export function useDatabasePageState() {
     [subRows, effectiveSubscription],
   );
 
+  const activityRows = useMemo(
+    () => buildActivityRows({ deliveriesAll, query }),
+    [deliveriesAll, query],
+  );
+
   const activeRows = tab === 'subs'
     ? sortedSubRows
-    : sortedCrmClients.map((entry) => entry.client);
+    : tab === 'activity'
+      ? activityRows
+      : sortedCrmClients.map((entry) => entry.client);
   const selectedClient = getSelectedClient(selected, clients);
   const selectedSubscription = getSelectedSubscription(selected, subscriptions);
   const selectedDelivery = useMemo(
