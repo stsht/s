@@ -28,38 +28,45 @@ export function ActivityDetail({ activity, onClose }) {
   const type = String(activity?.deliveryType || delivery?.type || '').trim().toLowerCase() === 'vendor' ? 'Vendor' : 'Client';
   const dateLabel = compactEventDateLabel(activity?.event_date || delivery?.event_date || '');
   const shortCode = String(activity?.short_code || delivery?.short_code || '').trim();
+  const shortHref = shortCode ? `/${shortCode}` : '';
 
   return (
     <>
-      <div className="detail-heading">
-        <div>
+      <div className="activity-detail-heading">
+        <div className="activity-detail-titleblock">
           <p className="eyebrow">Activity Log</p>
           <h2>{name}</h2>
-          <span>{[type, folder || 'No folder name', dateLabel].filter(Boolean).join(' · ')}</span>
+          {folder ? (
+            <div className="activity-folder-marquee" title={folder}>
+              <span>{folder}</span>
+            </div>
+          ) : null}
+          <p className="activity-detail-meta">{[`${type} Delivery`, dateLabel].filter(Boolean).join(' · ')}</p>
         </div>
-        <div className="detail-actions">
-          <button
-            type="button"
-            className="db-close-button"
-            onClick={onClose}
-            aria-label="Close activity detail"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+        <button
+          type="button"
+          className="db-close-button activity-close-button"
+          onClick={onClose}
+          aria-label="Close activity detail"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+      <section className="activity-last-card" aria-label="Latest activity summary">
+        <p className="eyebrow">Last Activity</p>
+        <div>
+          <strong>{activity?.lastActivityLabel || 'Latest delivery activity'}</strong>
+          <span>{activity?.lastActivityDisplay || 'No recent time'}</span>
         </div>
-      </div>
-      <div className="list-stack">
-        <article className="list-row">
-          <div>
-            <strong>{activity?.lastActivityDisplay || 'No recent time'}</strong>
-            <span>{activity?.lastActivityLabel || 'Latest delivery activity'}</span>
-          </div>
-          {shortCode ? <b>/{shortCode}</b> : null}
-        </article>
-      </div>
+        {shortHref ? (
+          <a className="activity-short-link" href={shortHref} target="_blank" rel="noopener noreferrer">
+            /{shortCode}
+          </a>
+        ) : null}
+      </section>
       <DeliveryAccessLogs
         accessSummaryText={accessSummaryText}
         accessVisitors={accessVisitors}
