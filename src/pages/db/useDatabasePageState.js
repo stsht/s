@@ -10,6 +10,7 @@ import {
   buildSortedCrmClients,
   buildClientToneByRowId,
   buildSortedSubRows,
+  buildActivityRows,
   getSelectedClient,
   getSelectedSubscription,
   getSelectedDelivery,
