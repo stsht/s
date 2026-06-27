@@ -1,0 +1,176 @@
+/* /db Activity tab polish. Loaded after DatabaseDetail.css so these
+ * focused overrides can refine only the Activity list/detail surfaces. */
+
+.db-list-row.activity-row{
+  grid-template-columns:minmax(0,1fr);
+  min-height:auto;
+  align-items:start;
+  padding:14px 16px;
+}
+.db-list-row.activity-row .db-list-row-text{
+  gap:6px;
+}
+.db-list-row.activity-row strong{
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  line-height:1.18;
+}
+.db-list-row.activity-row span{
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  line-height:1.3;
+}
+.db-list-row.activity-row .activity-folder-line{
+  display:block;
+  color:var(--muted);
+  font-size:.8125rem;
+  font-weight:720;
+  overflow-wrap:anywhere;
+}
+.db-list-row.activity-row .activity-action-line{
+  display:block;
+  color:color-mix(in srgb,var(--ink) 72%,var(--muted) 28%);
+  font-size:.75rem;
+  font-weight:760;
+}
+.db-list-row.activity-row .activity-stats-line{
+  display:block;
+  color:var(--muted);
+  font-size:.6875rem;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+
+.activity-detail-heading{
+  position:relative;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 44px;
+  gap:16px;
+  align-items:start;
+  margin-bottom:24px;
+}
+.activity-detail-titleblock{
+  min-width:0;
+  display:grid;
+  gap:8px;
+}
+.activity-detail-titleblock .eyebrow{
+  margin:0;
+}
+.activity-detail-titleblock h2{
+  margin:0;
+  line-height:.98;
+  letter-spacing:-.045em;
+}
+.activity-detail-meta{
+  margin:0;
+  color:var(--muted);
+  font-size:.875rem;
+  font-weight:800;
+  line-height:1.35;
+}
+.activity-close-button{
+  justify-self:end;
+}
+
+.activity-folder-marquee{
+  position:relative;
+  max-width:100%;
+  overflow:hidden;
+  color:var(--muted);
+  font-size:1rem;
+  font-weight:850;
+  line-height:1.28;
+  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+}
+.activity-folder-marquee span{
+  display:inline-block;
+  max-width:100%;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  vertical-align:top;
+}
+.activity-folder-marquee:hover span,
+.activity-folder-marquee:focus-within span{
+  max-width:none;
+  min-width:100%;
+  animation:ss-activity-marquee 10s linear infinite alternate;
+}
+@keyframes ss-activity-marquee{
+  from{transform:translateX(0)}
+  to{transform:translateX(calc(-100% + min(100%, 520px)))}
+}
+@media (prefers-reduced-motion:reduce){
+  .activity-folder-marquee:hover span,
+  .activity-folder-marquee:focus-within span{animation:none}
+}
+
+.activity-last-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px 14px;
+  align-items:center;
+  padding:14px 0 18px;
+  margin-bottom:18px;
+  border-bottom:1px solid var(--line);
+}
+.activity-last-card .eyebrow{
+  grid-column:1 / -1;
+  margin:0;
+}
+.activity-last-card strong,
+.activity-last-card span{
+  display:block;
+}
+.activity-last-card strong{
+  color:var(--ink);
+  font-size:1rem;
+  font-weight:900;
+}
+.activity-last-card span{
+  margin-top:3px;
+  color:var(--muted);
+  font-size:.8125rem;
+  font-weight:720;
+}
+.activity-short-link{
+  color:var(--ink);
+  font-size:.875rem;
+  font-weight:900;
+  text-decoration:none;
+  white-space:nowrap;
+}
+.activity-short-link:hover{
+  text-decoration:underline;
+}
+
+@media(max-width:640px){
+  .activity-detail-heading{
+    grid-template-columns:minmax(0,1fr) 40px;
+    gap:12px;
+    margin-bottom:22px;
+  }
+  .activity-detail-titleblock h2{
+    font-size:clamp(2.15rem,12vw,3.45rem);
+  }
+  .activity-folder-marquee{
+    white-space:normal;
+    mask-image:none;
+    -webkit-mask-image:none;
+  }
+  .activity-folder-marquee span{
+    white-space:normal;
+    overflow:visible;
+    text-overflow:clip;
+  }
+  .activity-last-card{
+    grid-template-columns:1fr;
+  }
+  .activity-short-link{
+    justify-self:start;
+  }
+}
