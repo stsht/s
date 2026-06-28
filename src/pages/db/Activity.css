@@ -6,6 +6,18 @@
   min-height:auto;
   align-items:start;
   padding:14px 16px;
+  border-color:var(--line);
+  background:color-mix(in srgb,var(--field) 62%,transparent);
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-future) 50%,transparent);
+}
+.db-list-row.activity-row:nth-child(even){
+  background:color-mix(in srgb,var(--panel) 72%,var(--field) 28%);
+  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-tba) 56%,transparent);
+}
+.db-list-row.activity-row:hover,
+.db-list-row.activity-row.active{
+  border-color:var(--line-strong);
+  background:var(--field);
 }
 .db-list-row.activity-row .db-list-row-text{
   gap:6px;
