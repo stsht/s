@@ -18,9 +18,10 @@ function ActivityFolderMarquee({ text }) {
       const outer = outerRef.current;
       const inner = innerRef.current;
       if (!outer || !inner) return;
-      const nextDistance = Math.max(0, inner.scrollWidth - outer.clientWidth + 48);
-      setDistance(nextDistance);
-      setOverflowing(nextDistance > 8);
+      const overflowDistance = Math.max(0, inner.scrollWidth - outer.clientWidth);
+      const nextOverflowing = overflowDistance > 8;
+      setOverflowing(nextOverflowing);
+      setDistance(nextOverflowing ? overflowDistance + 48 : 0);
     };
     measure();
     window.addEventListener('resize', measure);
