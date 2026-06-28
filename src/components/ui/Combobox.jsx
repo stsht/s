@@ -49,6 +49,11 @@ export function Combobox({
 
   const displayValue = open ? query : selected?.label || String(value || '');
 
+  function closeMenu() {
+    setOpen(false);
+    setQuery('');
+  }
+
   function openMenu() {
     setQuery('');
     setActiveIndex(Math.max(0, normalized.findIndex((option) => option.value === value)));
@@ -58,8 +63,7 @@ export function Combobox({
   function choose(option) {
     if (!option) return;
     onChange?.(option.value);
-    setOpen(false);
-    setQuery('');
+    closeMenu();
     inputRef.current?.blur();
   }
 
@@ -85,13 +89,20 @@ export function Combobox({
     } else if (event.key === 'Escape') {
       if (!open) return;
       event.preventDefault();
-      setOpen(false);
-      setQuery('');
+      closeMenu();
     }
   }
 
   return (
-    <div ref={rootRef} className={`combobox${open ? ' is-open' : ''}${className ? ` ${className}` : ''}`}>
+    <div
+      ref={rootRef}
+      className={`combobox${open ? ' is-open' : ''}${className ? ` ${className}` : ''}`}
+      onBlurCapture={() => {
+        window.setTimeout(() => {
+          if (!rootRef.current?.contains(document.activeElement)) closeMenu();
+        }, 0);
+      }}
+    >
       <div className="combobox-control">
         <input
           ref={inputRef}
@@ -130,8 +141,7 @@ export function Combobox({
             event.preventDefault();
             event.stopPropagation();
             if (open) {
-              setOpen(false);
-              setQuery('');
+              closeMenu();
               inputRef.current?.blur();
             } else {
               openMenu();
