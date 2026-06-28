@@ -19,6 +19,7 @@ const JPEG_QUALITY = 0.7;
 // Hard ceiling that matches the worker's payment_proof slice cap, so
 // we never hand the server a value it would silently truncate.
 const MAX_DATA_URL_LENGTH = 800000;
+const MULTI_PROOF_PREFIX = 'proofs:v1:';
 
 function loadImage(file) {
   return new Promise((resolve, reject) => {
@@ -68,6 +69,31 @@ export async function readProofFile(file) {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+export function parseProofList(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return [];
+  if (raw.startsWith(MULTI_PROOF_PREFIX)) {
+    try {
+      const parsed = JSON.parse(raw.slice(MULTI_PROOF_PREFIX.length));
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => String(item || '').trim())
+          .filter(Boolean);
+      }
+    } catch {}
+  }
+  return [raw];
+}
+
+export function serializeProofList(list = []) {
+  const proofs = (Array.isArray(list) ? list : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  if (!proofs.length) return '';
+  if (proofs.length === 1) return proofs[0];
+  return `${MULTI_PROOF_PREFIX}${JSON.stringify(proofs)}`;
 }
 
 // True when a stored proof value is a displayable image: an inline
