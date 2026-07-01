@@ -2,7 +2,8 @@
   const STYLE_ID = 'public-delivery-invoice-slot-style';
   const ROOT_SELECTOR = '.public-delivery-card';
   const INVOICE_SELECTOR = '.public-delivery-invoice';
-  const PROOF_SELECTOR = '.public-delivery-proof';
+  const DELIVERY_PROOF_SELECTOR = '.public-delivery-proof';
+  const MODAL_PROOF_SELECTOR = '.public-invoice-proof';
   const MAX_IMAGES = 3;
   const MAX_DIM = 1100;
   const JPEG_QUALITY = 0.7;
@@ -19,116 +20,21 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      button.public-delivery-invoice {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 100%;
-        font: inherit;
-        text-align: left;
+      button.public-delivery-invoice{appearance:none;-webkit-appearance:none;width:100%;font:inherit;text-align:left}
+      .public-delivery-invoice.is-disabled{cursor:default;pointer-events:none;opacity:.5;background:color-mix(in srgb,var(--soft) 30%,transparent);border-color:var(--line);border-style:dashed;box-shadow:none}
+      .public-delivery-invoice.is-disabled .public-delivery-invoice-icon,.public-delivery-invoice.is-disabled .public-delivery-invoice-label,.public-delivery-invoice.is-disabled .public-delivery-invoice-cta{color:var(--muted)}
+      .public-delivery-proof,.public-invoice-proof{
+        display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:14px;min-height:64px;margin-top:10px;padding:10px 16px;border:1px solid color-mix(in srgb,var(--line) 78%,transparent);border-radius:18px;background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 38%,transparent),color-mix(in srgb,var(--panel) 28%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),0 8px 20px -16px rgba(20,22,30,.26);color:var(--ink)
       }
-      .public-delivery-invoice.is-disabled {
-        cursor: default;
-        pointer-events: none;
-        opacity: .5;
-        background: color-mix(in srgb, var(--soft) 30%, transparent);
-        border-color: var(--line);
-        border-style: dashed;
-        box-shadow: none;
-      }
-      .public-delivery-invoice.is-disabled .public-delivery-invoice-icon,
-      .public-delivery-invoice.is-disabled .public-delivery-invoice-label,
-      .public-delivery-invoice.is-disabled .public-delivery-invoice-cta {
-        color: var(--muted);
-      }
-      .public-delivery-proof {
-        display: grid;
-        grid-template-columns: 44px minmax(0,1fr) auto;
-        align-items: center;
-        gap: 14px;
-        min-height: 64px;
-        margin-top: 10px;
-        padding: 10px 16px;
-        border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
-        border-radius: 18px;
-        background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 38%, transparent), color-mix(in srgb, var(--panel) 28%, transparent));
-        box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 50%, transparent), 0 8px 20px -16px rgba(20,22,30,.26);
-        color: var(--ink);
-      }
-      .public-delivery-proof.is-locked,
-      .public-delivery-proof.is-pending {
-        background: color-mix(in srgb, var(--soft) 14%, transparent);
-      }
-      .public-delivery-proof.is-confirmed {
-        border-color: color-mix(in srgb, var(--sub-active) 36%, transparent);
-        background: color-mix(in srgb, var(--sub-active) 10%, transparent);
-      }
-      .public-delivery-proof-icon {
-        display: inline-grid;
-        place-items: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 12px;
-        background: color-mix(in srgb, var(--field) 55%, transparent);
-        box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 32%, transparent);
-        color: var(--ink);
-        font-size: 11px;
-        font-weight: 900;
-        letter-spacing: .06em;
-      }
-      .public-delivery-proof-copy { min-width: 0; }
-      .public-delivery-proof-label {
-        display: block;
-        font-size: 15px;
-        font-weight: 900;
-      }
-      .public-delivery-proof-note {
-        display: block;
-        margin-top: 2px;
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 650;
-        line-height: 1.35;
-      }
-      .public-delivery-proof-action {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 34px;
-        padding: 0 12px;
-        border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-        border-radius: 999px;
-        background: color-mix(in srgb, var(--accent) 12%, transparent);
-        color: var(--accent);
-        font: 900 10px/1 inherit;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        cursor: pointer;
-        white-space: nowrap;
-      }
-      .public-delivery-proof-action input {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-      }
-      .public-delivery-proof.is-locked .public-delivery-proof-action,
-      .public-delivery-proof.is-pending .public-delivery-proof-action,
-      .public-delivery-proof.is-confirmed .public-delivery-proof-action {
-        border-color: var(--line);
-        background: transparent;
-        color: var(--muted);
-        cursor: default;
-        pointer-events: none;
-      }
-      @media(max-width:1023px){
-        .public-delivery-proof{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}
-        .public-delivery-proof-icon{width:32px;height:32px;border-radius:10px;font-size:10px}
-        .public-delivery-proof-label{font-size:14px}
-        .public-delivery-proof-action{font-size:10px;letter-spacing:.10em;padding:0 10px}
-      }
+      .public-invoice-proof{margin-top:14px;background:color-mix(in srgb,var(--field) 60%,transparent)}
+      .public-delivery-proof.is-locked,.public-delivery-proof.is-pending,.public-invoice-proof.is-locked,.public-invoice-proof.is-pending{background:color-mix(in srgb,var(--soft) 14%,transparent)}
+      .public-delivery-proof.is-confirmed,.public-invoice-proof.is-confirmed{border-color:color-mix(in srgb,var(--sub-active) 36%,transparent);background:color-mix(in srgb,var(--sub-active) 10%,transparent)}
+      .public-delivery-proof-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:color-mix(in srgb,var(--field) 55%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 32%,transparent);color:var(--ink);font-size:11px;font-weight:900;letter-spacing:.06em}
+      .public-delivery-proof-copy{min-width:0}.public-delivery-proof-label{display:block;font-size:15px;font-weight:900}.public-delivery-proof-note{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-weight:650;line-height:1.35}
+      .public-delivery-proof-action{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:999px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent);font:900 10px/1 inherit;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+      .public-delivery-proof-action input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+      .public-delivery-proof.is-locked .public-delivery-proof-action,.public-delivery-proof.is-pending .public-delivery-proof-action,.public-delivery-proof.is-confirmed .public-delivery-proof-action,.public-invoice-proof.is-locked .public-delivery-proof-action,.public-invoice-proof.is-pending .public-delivery-proof-action,.public-invoice-proof.is-confirmed .public-delivery-proof-action{border-color:var(--line);background:transparent;color:var(--muted);cursor:default;pointer-events:none}
+      @media(max-width:1023px){.public-delivery-proof,.public-invoice-proof{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}.public-delivery-proof-icon{width:32px;height:32px;border-radius:10px;font-size:10px}.public-delivery-proof-label{font-size:14px}.public-delivery-proof-action{font-size:10px;letter-spacing:.10em;padding:0 10px}}
     `;
     document.head.appendChild(style);
   }
@@ -139,20 +45,16 @@
     row.disabled = true;
     row.setAttribute('aria-disabled', 'true');
     row.className = 'public-delivery-invoice is-disabled';
-
     const icon = document.createElement('span');
     icon.className = 'public-delivery-invoice-icon';
     icon.setAttribute('aria-hidden', 'true');
     icon.textContent = 'INV';
-
     const label = document.createElement('span');
     label.className = 'public-delivery-invoice-label';
     label.textContent = 'Invoice';
-
     const cta = document.createElement('span');
     cta.className = 'public-delivery-invoice-cta';
     cta.textContent = 'Unavailable';
-
     row.append(icon, label, cta);
     return row;
   }
@@ -197,8 +99,16 @@
   function setProofState(row, state, note, actionText) {
     row.classList.remove('is-locked', 'is-pending', 'is-confirmed');
     if (state) row.classList.add(state);
-    row.querySelector('.public-delivery-proof-note').textContent = note;
-    row.querySelector('.public-delivery-proof-action-text').textContent = actionText;
+    const noteEl = row.querySelector('.public-delivery-proof-note');
+    const actionEl = row.querySelector('.public-delivery-proof-action-text');
+    if (noteEl) noteEl.textContent = note;
+    if (actionEl) actionEl.textContent = actionText;
+  }
+
+  function syncMatchingProofRows(note, actionText, state = 'is-pending') {
+    document.querySelectorAll(`${DELIVERY_PROOF_SELECTOR},${MODAL_PROOF_SELECTOR}`).forEach((row) => {
+      setProofState(row, state, note, actionText);
+    });
   }
 
   async function uploadProof(row, files) {
@@ -218,7 +128,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Could not upload proof.');
-      setProofState(row, 'is-pending', 'Proof received. Waiting for admin review.', 'Pending');
+      syncMatchingProofRows('Proof received. Waiting for admin review.', 'Pending', 'is-pending');
     } catch (error) {
       setProofState(row, '', error?.message || 'Could not upload proof.', 'Upload');
     } finally {
@@ -228,24 +138,21 @@
     }
   }
 
-  function createProofRow(invoiceRow) {
+  function createProofRow(invoiceRow, { modal = false } = {}) {
     const row = document.createElement('div');
-    row.className = 'public-delivery-proof';
-
+    row.className = modal ? 'public-invoice-proof' : 'public-delivery-proof';
     const icon = document.createElement('span');
     icon.className = 'public-delivery-proof-icon';
     icon.setAttribute('aria-hidden', 'true');
     icon.textContent = 'PRF';
-
     const copy = document.createElement('span');
     copy.className = 'public-delivery-proof-copy';
     const label = document.createElement('span');
     label.className = 'public-delivery-proof-label';
-    label.textContent = 'Payment Proof';
+    label.textContent = modal ? 'Upload Transfer Proof' : 'Payment Proof';
     const note = document.createElement('span');
     note.className = 'public-delivery-proof-note';
     copy.append(label, note);
-
     const action = document.createElement('label');
     action.className = 'public-delivery-proof-action';
     const input = document.createElement('input');
@@ -256,7 +163,6 @@
     const actionText = document.createElement('span');
     actionText.className = 'public-delivery-proof-action-text';
     action.append(input, actionText);
-
     row.append(icon, copy, action);
     if (invoiceRow?.classList.contains('is-paid')) {
       setProofState(row, 'is-confirmed', 'Payment confirmed. Upload is closed.', 'Done');
@@ -268,8 +174,7 @@
     return row;
   }
 
-  function syncInvoiceSlot() {
-    ensureStyle();
+  function syncDeliveryProofSlot() {
     const card = document.querySelector(ROOT_SELECTOR);
     if (!card) return;
     let invoiceRow = card.querySelector(INVOICE_SELECTOR);
@@ -279,16 +184,29 @@
       invoiceRow = createDisabledInvoiceRow();
       greeting.insertAdjacentElement('afterend', invoiceRow);
     }
-    if (!card.querySelector(PROOF_SELECTOR)) {
+    if (!card.querySelector(DELIVERY_PROOF_SELECTOR)) {
       invoiceRow.insertAdjacentElement('afterend', createProofRow(invoiceRow));
     }
   }
 
+  function syncInvoiceModalProofSlot() {
+    const pay = document.querySelector('.public-invoice-viewer .public-pay');
+    if (!pay || document.querySelector(MODAL_PROOF_SELECTOR)) return;
+    pay.insertAdjacentElement('afterend', createProofRow(document.querySelector(INVOICE_SELECTOR), { modal: true }));
+  }
+
+  function syncAll() {
+    ensureStyle();
+    syncDeliveryProofSlot();
+    syncInvoiceModalProofSlot();
+  }
+
   function boot() {
-    syncInvoiceSlot();
+    syncAll();
     const root = document.getElementById('root') || document.body;
-    const observer = new MutationObserver(syncInvoiceSlot);
+    const observer = new MutationObserver(syncAll);
     observer.observe(root, { childList: true, subtree: true });
+    window.addEventListener('hashchange', syncAll);
   }
 
   if (document.readyState === 'loading') {
