@@ -16,18 +16,6 @@
  */
 
 @media(prefers-color-scheme:dark){
-  /* Dark-mode logo fallback for the public client delivery card.
-   * The component already ships a <picture> source-media swap to
-   * /logo-hero-white.png — this CSS filter is a belt-and-suspenders
-   * so the brand still inverts to white when the picture swap doesn't
-   * fire (some Firefox Android builds, stale <img> caches).
-   * brightness(0) flattens both PNG variants to black, invert(1)
-   * flips them to white; the result is identical whether the picture
-   * loaded the dark or the white asset, so the two mechanisms compose
-   * cleanly without conflicting. Pattern mirrors the existing
-   * _worker.js / index.html dark-mode rule already used for .logo /
-   * .ss-logo-hero. The matching password-gate .gate-logo fallback now
-   * lives in src/components/PasswordGate.css. */
   .public-delivery-logo{
     filter:brightness(0) invert(1) sepia(.08) saturate(.7);
     opacity:.92;
@@ -40,18 +28,8 @@
   display:grid;
   place-items:center;
   padding:clamp(18px,4vw,54px);
-  /* Client-facing surface: disable accidental text selection so the
-   * card reads as a polished app screen, not selectable copy. Taps,
-   * buttons and links are unaffected (user-select only governs text
-   * selection). No copyable text fields live on this page. */
   -webkit-user-select:none;
   user-select:none;
-  /* No overflow:hidden here. The aurora/.ss-bg layers are
-   * position:fixed and unaffected by the page wrapper, so clipping
-   * here only ever cropped the card on tall content — and it was
-   * the trigger for the Firefox Android scroll-lock report. The
-   * outer body{overflow:auto} (set above) is the canonical scroll
-   * surface. */
 }
 .public-delivery-card{
   position:relative;
@@ -64,57 +42,21 @@
   padding:clamp(24px,4.4vw,46px);
   border:1px solid color-mix(in srgb,var(--line) 72%,transparent);
   border-radius:28px;
-  background:
-    linear-gradient(180deg,color-mix(in srgb,var(--panel) 98%,white 2%),var(--panel));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 98%,white 2%),var(--panel));
   box-shadow:0 28px 70px rgba(31,26,23,.14);
-  /* Hide the scrollbar chrome on the public delivery card without
-   * disabling scroll. The desktop rule below keeps overflow-y:auto
-   * so short viewports / long content still scroll — only the rail
-   * is visually suppressed. Scoped to this card so admin (/db,/inv)
-   * and invoice preview modals keep their native scrollbars. */
-  scrollbar-width:none;            /* Firefox */
-  -ms-overflow-style:none;         /* legacy Edge/IE */
+  scrollbar-width:none;
+  -ms-overflow-style:none;
 }
-.public-delivery-card::-webkit-scrollbar{
-  width:0;
-  height:0;
-  display:none;                    /* Chrome/Safari/WebKit */
-}
-/* Liquid-glass treatment for the public client delivery canvas.
- * Matches the gate card: translucent frosted surface so the live
- * aurora shows through, premium blur + saturate, softened border.
- * @supports-gated (solid fallback) and color-mix keeps light/dark
- * correct. Mobile-safe — moderate blur, no layout change. */
+.public-delivery-card::-webkit-scrollbar{width:0;height:0;display:none}
 @supports ((-webkit-backdrop-filter:blur(8px)) or (backdrop-filter:blur(8px))){
   .public-delivery-card{
-    /* Frosted Apple-style liquid glass: a thin translucent surface so
-     * the live aurora visibly refracts THROUGH the canvas. The fill is
-     * kept low (≈35% in light, dark-tinted in dark via --panel) to drop
-     * the milky/opaque look, with only a gentle neutral white wash +
-     * top specular bloom so it stays lit and neutral — never a blue
-     * plastic slab. Higher blur + saturate make the background read as
-     * soft refracted colour rather than a flat tint. */
     background:
       radial-gradient(120% 78% at 50% -12%,color-mix(in srgb,#fff 26%,transparent),transparent 56%),
-      linear-gradient(180deg,
-        color-mix(in srgb,#fff 9%,transparent),
-        color-mix(in srgb,#fff 3%,transparent)),
-      linear-gradient(180deg,
-        color-mix(in srgb,var(--panel) 34%,transparent),
-        color-mix(in srgb,var(--panel) 26%,transparent));
+      linear-gradient(180deg,color-mix(in srgb,#fff 9%,transparent),color-mix(in srgb,#fff 3%,transparent)),
+      linear-gradient(180deg,color-mix(in srgb,var(--panel) 34%,transparent),color-mix(in srgb,var(--panel) 26%,transparent));
     border-color:rgba(255,255,255,.5);
-    /* Frost radius tuned for paint cost: blur() compositing scales with
-     * the radius, and 40px on this large, scrolling card (overflow-y:auto
-     * on desktop) sitting over the fixed aurora is the dominant repaint
-     * cost in Firefox. 24px keeps the surface clearly frosted/refracted
-     * while materially cutting per-frame blur work — universal, no
-     * browser-specific branch, no visual-identity change. */
     -webkit-backdrop-filter:blur(24px) saturate(150%);
     backdrop-filter:blur(24px) saturate(150%);
-    /* Layered glass: bright top edge highlight + a faint inner glow for
-     * liquid depth + a whisper-thin bottom inner shadow, over a hairline
-     * dark outer ring (keeps the rim visible on light areas of the
-     * aurora) and a soft, diffuse bottom lift shadow. */
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,.65),
       inset 0 0 36px rgba(255,255,255,.08),
@@ -122,9 +64,6 @@
       0 0 0 1px rgba(20,22,30,.04),
       0 30px 80px -30px rgba(20,22,30,.30);
   }
-  /* Subtle top/left edge sheen — a soft diagonal specular streak so the
-   * glass catches light along its upper-left rim. Scoped to the card,
-   * non-interactive (pointer-events:none) so it never affects clicks. */
   .public-delivery-card::before{
     content:"";
     position:absolute;
@@ -132,32 +71,12 @@
     border-radius:inherit;
     pointer-events:none;
     z-index:0;
-    background:linear-gradient(135deg,
-      rgba(255,255,255,.22),
-      rgba(255,255,255,.04) 26%,
-      transparent 52%);
+    background:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,.04) 26%,transparent 52%);
   }
-  /* Keep the card's own content above the sheen layer. */
-  .public-delivery-card > *{
-    position:relative;
-    z-index:1;
-  }
+  .public-delivery-card > *{position:relative;z-index:1}
 }
-/* Desktop: fit the card to the viewport height. The page uses
- * vertical padding of 5vh per side and the card is capped to
- * 100dvh minus 10vh (i.e. exactly that padding), so the card plus
- * its margins always equals the viewport — no awkward page scroll
- * when the content already fits. Vertical rhythm (header/divider/
- * subcopy/invoice/list/signoff) is compressed with vh-based clamps
- * so the whole card, including the sign-off footer, stays visible
- * on normal laptop heights, expanding back to roomy spacing on tall
- * displays. Only a genuinely short window falls back to internal
- * card scroll. Mobile keeps its natural full-height flow (base rule
- * above untouched on small screens). */
 @media (min-width:768px){
-  .public-delivery-page{
-    padding:clamp(20px,5vh,48px) clamp(18px,4vw,54px);
-  }
+  .public-delivery-page{padding:clamp(20px,5vh,48px) clamp(18px,4vw,54px)}
   .public-delivery-card{
     min-height:min(560px,calc(100dvh - clamp(40px,10vh,120px)));
     max-height:calc(100dvh - clamp(40px,10vh,120px));
@@ -172,80 +91,13 @@
   .public-delivery-list{gap:clamp(8px,1.4vh,12px)}
   .public-delivery-signoff{padding-top:clamp(16px,2.8vh,34px)}
 }
-.public-delivery-logo{
-  width:min(224px,62vw);
-  height:auto;
-  align-self:center;
-  margin-bottom:0;
-}
-/* Brand header column: logo on top, folder name centered just
- * below it. Both stack horizontally centered above the divider
- * line. The folder name uses uppercase tracking so it reads as a
- * label, not a title. */
-.public-delivery-header{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:14px;
-  margin-bottom:18px;
-}
-.public-delivery-folder{
-  margin:0;
-  color:var(--muted);
-  font-size:12px;
-  font-weight:900;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-  text-align:center;
-}
-.public-delivery-divider{
-  height:1px;
-  margin:0 0 22px;
-  background:var(--line);
-  border:0;
-}
-/* Legacy kicker — retained for backwards compatibility with any
- * still-rendered subtitle, but the new layout drives the brand
- * label through .public-delivery-folder above the divider. */
-.public-delivery-kicker{
-  margin:0 0 12px;
-  padding-top:12px;
-  border-top:1px solid var(--line);
-  color:var(--muted);
-  font-size:0.75rem;
-  font-weight:900;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-}
-.public-delivery-greeting,
-.public-delivery-card h1{
-  margin:0;
-  color:var(--ink);
-  font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;
-  /* Locked, balanced scale. vw clamp (not rem) keeps it independent of
-   * iOS Dynamic Type, and the 30px cap avoids an oversized desktop
-   * "Hello" while staying readable on phones. */
-  font-size:clamp(24px,3.1vw,30px);
-  font-weight:500;
-  line-height:1.16;
-  letter-spacing:-0.005em;
-  text-align:center;
-}
-.public-delivery-subcopy{
-  margin:14px 0 22px;
-  color:var(--muted);
-  font-size:13px;
-  font-weight:500;
-  letter-spacing:.01em;
-  text-align:center;
-}
-/* Primary invoice action. Echoes the delivery-row geometry (same
- * icon-chip / label / state three-column grid) so it sits in the
- * card's vertical rhythm, but is filled with the accent colour to
- * read as the lead call-to-action above the outlined delivery
- * options. min-height keeps it a comfortable tap target on mobile;
- * the grid + minmax(0,1fr) label column stops a long label from
- * pushing the row past the card edge. */
+.public-delivery-logo{width:min(224px,62vw);height:auto;align-self:center;margin-bottom:0}
+.public-delivery-header{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:18px}
+.public-delivery-folder{margin:0;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-align:center}
+.public-delivery-divider{height:1px;margin:0 0 22px;background:var(--line);border:0}
+.public-delivery-kicker{margin:0 0 12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.public-delivery-greeting,.public-delivery-card h1{margin:0;color:var(--ink);font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;font-size:clamp(24px,3.1vw,30px);font-weight:500;line-height:1.16;letter-spacing:-.005em;text-align:center}
+.public-delivery-subcopy{margin:14px 0 22px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.01em;text-align:center}
 .public-delivery-invoice{
   display:grid;
   grid-template-columns:44px minmax(0,1fr) auto;
@@ -254,281 +106,79 @@
   min-height:64px;
   margin:clamp(22px,3.6vw,28px) 0 0;
   padding:10px 16px;
-  /* Liquid-glass CTA: a soft translucent accent tint over the frosted
-   * card with a hairline tinted border + top sheen — a light glass
-   * control, not a heavy solid block. No own backdrop blur: like the
-   * delivery rows below it rides the card's frost, which avoids a nested
-   * backdrop-filter layer stacked on the scrolling card (an extra
-   * per-frame compositing/readback pass that is expensive in Firefox)
-   * while keeping the label crisp and the tint glassy. */
   border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
-  border-radius:18px;
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--accent) 17%,transparent),
-    color-mix(in srgb,var(--accent) 10%,transparent));
+  border-radius:18px 18px 0 0;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 17%,transparent),color-mix(in srgb,var(--accent) 10%,transparent));
   color:var(--ink);
   text-decoration:none;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
-    0 12px 26px -18px color-mix(in srgb,var(--accent) 58%,transparent);
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),0 12px 26px -18px color-mix(in srgb,var(--accent) 58%,transparent);
   transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
 }
-.public-delivery-invoice:hover{
-  transform:translateY(-1px);
-  border-color:color-mix(in srgb,var(--accent) 50%,transparent);
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--accent) 23%,transparent),
-    color-mix(in srgb,var(--accent) 14%,transparent));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),
-    0 16px 34px -18px color-mix(in srgb,var(--accent) 64%,transparent);
-}
-.public-delivery-invoice:active{
-  transform:translateY(0) scale(.995);
-}
-.public-delivery-invoice.is-paid{
-  /* Paid: a light translucent emerald glass tint (stays semantically
-   * green) — clearly glassy, never a heavy solid green slab. */
-  border-color:color-mix(in srgb,var(--sub-active) 36%,transparent);
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--sub-active) 18%,transparent),
-    color-mix(in srgb,var(--sub-active) 11%,transparent));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),
-    0 12px 26px -18px color-mix(in srgb,var(--sub-active) 50%,transparent);
-}
-.public-delivery-invoice.is-paid:hover{
-  border-color:color-mix(in srgb,var(--sub-active) 52%,transparent);
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--sub-active) 24%,transparent),
-    color-mix(in srgb,var(--sub-active) 15%,transparent));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),
-    0 16px 34px -18px color-mix(in srgb,var(--sub-active) 56%,transparent);
-}
-.public-delivery-invoice-icon{
-  display:inline-grid;
-  place-items:center;
-  width:36px;
-  height:36px;
-  border-radius:12px;
-  background:color-mix(in srgb,var(--accent) 30%,transparent);
-  color:color-mix(in srgb,var(--accent) 78%,var(--ink));
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.06em;
-}
-.public-delivery-invoice.is-paid .public-delivery-invoice-icon{
-  background:color-mix(in srgb,var(--sub-active) 30%,transparent);
-  color:color-mix(in srgb,var(--sub-active) 82%,var(--ink));
-}
-.public-delivery-invoice-label{
-  min-width:0;
-  font-size:15px;
-  font-weight:900;
-}
-.public-delivery-invoice-cta{
-  color:color-mix(in srgb,var(--accent) 82%,var(--ink));
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.18em;
-  text-transform:uppercase;
-  opacity:.9;
-}
-.public-delivery-invoice.is-paid .public-delivery-invoice-cta{
-  color:color-mix(in srgb,var(--sub-active) 84%,var(--ink));
-}
-.public-delivery-list{
-  display:grid;
-  gap:12px;
-}
-.public-delivery-row{
+.public-delivery-invoice:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 23%,transparent),color-mix(in srgb,var(--accent) 14%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),0 16px 34px -18px color-mix(in srgb,var(--accent) 64%,transparent)}
+.public-delivery-invoice:active{transform:translateY(0) scale(.995)}
+.public-delivery-invoice.is-paid{border-color:color-mix(in srgb,var(--sub-active) 36%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--sub-active) 18%,transparent),color-mix(in srgb,var(--sub-active) 11%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),0 12px 26px -18px color-mix(in srgb,var(--sub-active) 50%,transparent)}
+.public-delivery-invoice.is-paid:hover{border-color:color-mix(in srgb,var(--sub-active) 52%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--sub-active) 24%,transparent),color-mix(in srgb,var(--sub-active) 15%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),0 16px 34px -18px color-mix(in srgb,var(--sub-active) 56%,transparent)}
+.public-delivery-invoice::after{
+  content:"Payment Proof\A Not uploaded yet";
+  white-space:pre-line;
+  grid-column:1 / -1;
   display:grid;
   grid-template-columns:44px minmax(0,1fr) auto;
   align-items:center;
   gap:14px;
-  min-height:64px;
+  min-height:60px;
+  margin:10px -16px -10px;
   padding:10px 16px;
-  /* Glassy option tile: a subtle frosted fill defined by a crisp
-   * hairline border + soft lift shadow (Apple-style) so each row reads
-   * as a raised glass control over the card rather than a flat panel.
-   * No own backdrop blur — it rides the card's frost so small controls
-   * stay crisp. */
-  border:1px solid color-mix(in srgb,var(--line) 78%,transparent);
-  border-radius:18px;
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--panel) 38%,transparent),
-    color-mix(in srgb,var(--panel) 28%,transparent));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),
-    0 8px 20px -16px rgba(20,22,30,.26);
-  color:var(--ink);
-  text-decoration:none;
-  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease;
-}
-
-.public-delivery-row.is-active:hover{
-  border-color:color-mix(in srgb,var(--accent) 50%,transparent);
-  transform:translateY(-1px);
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--panel) 46%,transparent),
-    color-mix(in srgb,var(--panel) 34%,transparent));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),
-    0 14px 30px -18px rgba(20,22,30,.30);
-}
-/* Inactive delivery option. Rendered (as a disabled <button>) for
- * every missing service so the row set stays consistent, but greyed
- * out, dashed, and non-interactive — never a dead link. */
-button.public-delivery-row{
-  appearance:none;
-  width:100%;
-  font:inherit;
-  background:transparent;
-  text-align:left;
-}
-.public-delivery-row.is-active{
-  cursor:pointer;
-}
-.public-delivery-row.is-disabled{
-  cursor:default;
-  opacity:.5;
-  background:color-mix(in srgb,var(--soft) 30%,transparent);
-  border-style:dashed;
-  box-shadow:none;
-}
-.public-delivery-row.is-disabled .public-delivery-icon,
-.public-delivery-row.is-disabled .public-delivery-name,
-.public-delivery-row.is-disabled .public-delivery-state{
+  border-top:1px solid color-mix(in srgb,var(--line) 80%,transparent);
+  border-radius:0 0 18px 18px;
+  background:color-mix(in srgb,var(--soft) 22%,transparent);
   color:var(--muted);
-}
-.public-delivery-icon{
-  display:inline-grid;
-  place-items:center;
-  width:36px;
-  height:36px;
-  border-radius:12px;
-  background:color-mix(in srgb,var(--field) 55%,transparent);
-  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 32%,transparent);
-  color:var(--ink);
   font-size:11px;
-  font-weight:900;
-  letter-spacing:.06em;
-}
-.public-delivery-name{
-  min-width:0;
-  font-size:15px;
-  font-weight:900;
-}
-.public-delivery-state{
-  color:var(--accent);
-  font-size:11px;
-  font-weight:900;
-  letter-spacing:.18em;
-  text-transform:uppercase;
-}
-/* Preview rows stay fully clickable (they reuse .is-active) but the
- * badge reads in a muted, non-final tone so the client understands
- * the files may still change before the delivery is completed. */
-.public-delivery-row.is-preview .public-delivery-state{
-  color:var(--muted);
-  letter-spacing:.14em;
-}
-.public-delivery-signoff{
-  margin:auto 0 0;
-  padding-top:34px;
-  color:var(--muted);
-  font-size:13px;
   font-weight:900;
   letter-spacing:.08em;
-  text-align:center;
+  text-transform:uppercase;
+  opacity:.8;
 }
-
-/* Responsive (max-width:1023px) delivery polish — extracted from the
- * shared mobile media block in inv.css. Only the /g delivery rules
- * moved; the iOS font-size:16px zoom guard and the /l (.lg-*) / /db
- * (.dd-link-fields) rules stay in inv.css. */
+.public-delivery-invoice.is-paid::after{
+  content:"Payment Proof\A Payment confirmed";
+  border-top-color:color-mix(in srgb,var(--sub-active) 28%,transparent);
+  background:color-mix(in srgb,var(--sub-active) 10%,transparent);
+  color:color-mix(in srgb,var(--sub-active) 78%,var(--ink));
+  opacity:1;
+}
+.public-delivery-invoice-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:color-mix(in srgb,var(--accent) 30%,transparent);color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-size:11px;font-weight:900;letter-spacing:.06em}
+.public-delivery-invoice.is-paid .public-delivery-invoice-icon{background:color-mix(in srgb,var(--sub-active) 30%,transparent);color:color-mix(in srgb,var(--sub-active) 82%,var(--ink))}
+.public-delivery-invoice-label{min-width:0;font-size:15px;font-weight:900}
+.public-delivery-invoice-cta{color:color-mix(in srgb,var(--accent) 82%,var(--ink));font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;opacity:.9}
+.public-delivery-invoice.is-paid .public-delivery-invoice-cta{color:color-mix(in srgb,var(--sub-active) 84%,var(--ink))}
+.public-delivery-list{display:grid;gap:12px}
+.public-delivery-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border:1px solid color-mix(in srgb,var(--line) 78%,transparent);border-radius:18px;background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 38%,transparent),color-mix(in srgb,var(--panel) 28%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 50%,transparent),0 8px 20px -16px rgba(20,22,30,.26);color:var(--ink);text-decoration:none;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease}
+.public-delivery-row.is-active:hover{border-color:color-mix(in srgb,var(--accent) 50%,transparent);transform:translateY(-1px);background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 46%,transparent),color-mix(in srgb,var(--panel) 34%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),0 14px 30px -18px rgba(20,22,30,.30)}
+button.public-delivery-row{appearance:none;width:100%;font:inherit;background:transparent;text-align:left}
+.public-delivery-row.is-active{cursor:pointer}
+.public-delivery-row.is-disabled{cursor:default;opacity:.5;background:color-mix(in srgb,var(--soft) 30%,transparent);border-style:dashed;box-shadow:none}
+.public-delivery-row.is-disabled .public-delivery-icon,.public-delivery-row.is-disabled .public-delivery-name,.public-delivery-row.is-disabled .public-delivery-state{color:var(--muted)}
+.public-delivery-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:color-mix(in srgb,var(--field) 55%,transparent);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 32%,transparent);color:var(--ink);font-size:11px;font-weight:900;letter-spacing:.06em}
+.public-delivery-name{min-width:0;font-size:15px;font-weight:900}
+.public-delivery-state{color:var(--accent);font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+.public-delivery-row.is-preview .public-delivery-state{color:var(--muted);letter-spacing:.14em}
+.public-delivery-signoff{margin:auto 0 0;padding-top:34px;color:var(--muted);font-size:13px;font-weight:900;letter-spacing:.08em;text-align:center}
 @media(max-width:1023px){
-  .public-delivery-page{
-    /* Top-aligned on mobile so a tall card never pushes its header
-     * above the viewport. The body keeps its overflow:auto so the
-     * card can scroll past the fold normally — no overflow:hidden
-     * trap on Firefox Android. */
-    align-items:start;
-    padding:14px;
-  }
-  .public-delivery-card{
-    /* Drop the rigid 760px / 100svh-72px floor on mobile. Cards
-     * grow to fit content and the page scrolls naturally — same
-     * design language as desktop, just unconstrained. */
-    min-height:auto;
-    border-radius:24px;
-    padding:clamp(22px,5vw,32px);
-  }
-  .public-delivery-logo{
-    width:min(196px,58vw);
-  }
-  .public-delivery-header{
-    gap:12px;
-    margin-bottom:14px;
-  }
-  .public-delivery-divider{
-    margin:0 0 18px;
-  }
-  .public-delivery-greeting,
-  .public-delivery-card h1{
-    /* Keep the greeting centered on mobile too so it stays visually
-     * aligned with the centered logo + folder label above the divider.
-     * vw clamp stays controlled (no Dynamic Type inflation) and the
-     * 27px cap keeps a long "Hello, Mr. Billy Regal" on one line on
-     * narrow phones without shrinking to unreadable. */
-    text-align:center;
-    font-size:clamp(21px,5.4vw,27px);
-    line-height:1.18;
-  }
-  .public-delivery-subcopy{
-    text-align:center;
-    margin:12px 0 20px;
-  }
-  /* Keep the desktop 3-column row layout (icon → name → state)
-   * on mobile too. The previous override stacked the "Click"
-   * badge under the name, which read as the older delivery UI.
-   * The single-line modern row keeps mobile and desktop visually
-   * unified — just with a slightly smaller icon and tighter gap. */
-  .public-delivery-row{
-    grid-template-columns:40px minmax(0,1fr) auto;
-    gap:12px;
-    min-height:60px;
-    padding:10px 14px;
-  }
-  .public-delivery-icon{
-    width:32px;
-    height:32px;
-    border-radius:10px;
-    font-size:10px;
-  }
-  .public-delivery-name{
-    font-size:14px;
-  }
-  .public-delivery-state{
-    font-size:10px;
-    letter-spacing:.14em;
-  }
-  .public-delivery-signoff{
-    padding-top:24px;
-  }
+  .public-delivery-page{align-items:start;padding:14px}
+  .public-delivery-card{min-height:auto;border-radius:24px;padding:clamp(22px,5vw,32px)}
+  .public-delivery-logo{width:min(196px,58vw)}
+  .public-delivery-header{gap:12px;margin-bottom:14px}
+  .public-delivery-divider{margin:0 0 18px}
+  .public-delivery-greeting,.public-delivery-card h1{text-align:center;font-size:clamp(21px,5.4vw,27px);line-height:1.18}
+  .public-delivery-subcopy{text-align:center;margin:12px 0 20px}
+  .public-delivery-row{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}
+  .public-delivery-icon{width:32px;height:32px;border-radius:10px;font-size:10px}
+  .public-delivery-name{font-size:14px}
+  .public-delivery-state{font-size:10px;letter-spacing:.14em}
+  .public-delivery-signoff{padding-top:24px}
 }
-
-/* Extra-narrow phones: tighten the row state to a tap-friendly
- * abbreviation slot. The badge stays right-aligned (modern feel)
- * but its column collapses to a small chevron-style label so a
- * 3-column row never wraps below ~340px wide. */
 @media(max-width:380px){
-  .public-delivery-row{
-    grid-template-columns:36px minmax(0,1fr) auto;
-    gap:10px;
-    padding:10px 12px;
-  }
+  .public-delivery-row{grid-template-columns:36px minmax(0,1fr) auto;gap:10px;padding:10px 12px}
   .public-delivery-icon{width:30px;height:30px}
   .public-delivery-state{letter-spacing:.10em}
 }
