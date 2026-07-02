@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { compactEventDateLabel } from './dbHelpers.js';
 import { rupiah } from '../../utils/rupiah.js';
 
@@ -66,6 +67,53 @@ function PaperIcon() {
   );
 }
 
+function invoicePaymentProofs(invoice = {}) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const entries = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
+  return entries
+    .map((entry, entryIndex) => ({
+      id: String(entry?.id || `payment-${entryIndex + 1}`),
+      status: String(entry?.status || 'pending').toLowerCase(),
+      createdAt: String(entry?.createdAt || entry?.created_at || ''),
+      images: Array.isArray(entry?.images) ? entry.images.map((image) => String(image || '').trim()).filter(Boolean) : [],
+    }))
+    .filter((entry) => entry.images.length);
+}
+
+function PaymentProofViewer({ entries, onClose }) {
+  return (
+    <div className="payment-proof-viewer" role="dialog" aria-modal="true" aria-label="Payment proofs" onClick={onClose}>
+      <div className="payment-proof-viewer-card" onClick={(event) => event.stopPropagation()}>
+        <header className="payment-proof-viewer-head">
+          <div>
+            <p>Payment Proof</p>
+            <strong>{entries.length} payment{entries.length > 1 ? 's' : ''}</strong>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close payment proofs">×</button>
+        </header>
+        <div className="payment-proof-viewer-body">
+          {entries.map((entry, entryIndex) => (
+            <section className="payment-proof-entry" key={entry.id || entryIndex}>
+              <div className="payment-proof-entry-head">
+                <strong>Payment {entryIndex + 1}</strong>
+                <span className={`payment-proof-status is-${entry.status || 'pending'}`}>{entry.status || 'pending'}</span>
+              </div>
+              {entry.createdAt ? <p className="payment-proof-entry-date">Uploaded {entry.createdAt.slice(0, 10)}</p> : null}
+              <div className="payment-proof-image-grid">
+                {entry.images.map((image, imageIndex) => (
+                  <a key={`${entry.id || entryIndex}-${imageIndex}`} href={image} target="_blank" rel="noopener noreferrer" className="payment-proof-image-link">
+                    <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                  </a>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // One event row inside the client detail. The delete control is a
 // permanent X glyph at the far right of the row — no hover/tap-to-
 // reveal flow. The row's grid lays out date+price (left meta) /
@@ -98,6 +146,7 @@ function PaperIcon() {
 // a glance. The tone palette mirrors the four tones used on the
 // /db Clients left list so both surfaces stay visually consistent.
 export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHref, eventVendorInvoiceHref, eventVendorDeliveryHref, onDelete, onViewLinks, armed = false }) {
+  const [proofViewerOpen, setProofViewerOpen] = useState(false);
   const hasDelivery = !!row.delivery?.id;
   const hasInvoice = !!row.invoice?.id;
   const hasVendorInvoice = !!row.vendorInvoice?.id;
@@ -143,6 +192,11 @@ export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHre
   const linkClassName = `record-row-link${linkStateClass} record-row-pill record-row-pill--links`;
   const invoiceClassName = `record-row-link-anchor${invoiceStateClass} record-row-pill record-row-pill--invoice`;
   const linkAnchorClass = `record-row-link-anchor${linkStateClass} record-row-pill record-row-pill--links`;
+  const paymentProofs = hasInvoice ? invoicePaymentProofs(row.invoice) : [];
+  const hasPaymentProofs = paymentProofs.length > 0;
+  const latestPaymentStatus = paymentProofs[paymentProofs.length - 1]?.status || 'pending';
+  const paymentStateClass = latestPaymentStatus === 'confirmed' ? ' is-complete' : ' is-created';
+  const paymentClassName = `record-row-link-anchor${paymentStateClass} record-row-pill record-row-pill--payments`;
   const vendorInvoicePaid = String(row.vendorInvoice?.status || '').toLowerCase() === 'paid';
   const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : ' is-disabled';
   const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass}`;
@@ -169,104 +223,119 @@ export function RecordRow({ recordKey, row, tone, eventLinkHref, eventInvoiceHre
   const toneClass = rowTone ? `event-tone-${rowTone}` : '';
 
   return (
-    <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
-      <div className="record-row-meta">
-        <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
-        {priceText ? <span className="record-row-price">{priceText}</span> : null}
-      </div>
-      <div className="record-row-action-group">
-        {hasDelivery ? (
-          <button
-            type="button"
-            className={linkClassName}
-            onClick={(event) => {
-              event.stopPropagation();
-              onViewLinks?.(row.delivery);
-            }}
-          >
-            {linkLabel}
-          </button>
-        ) : (
-          <a className={linkAnchorClass} href={eventLinkHref} target="_blank" rel="noopener noreferrer">
-            {linkLabel}
-          </a>
-        )}
-        {hasVendorDelivery ? (
-          <button
-            type="button"
-            className={`${vendorDeliveryClassName} record-row-vendor-addon`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onViewLinks?.(row.vendorDelivery);
-            }}
-            aria-label="View vendor links"
-            title="View Vendor Links"
-          >
-            <LinkIcon />
-          </button>
-        ) : (
-          <a
-            className={`${vendorDeliveryClassName} record-row-vendor-addon`}
-            href={eventVendorDeliveryHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Create vendor links"
-            title="Create Vendor Links"
-          >
-            <LinkIcon />
-          </a>
-        )}
-      </div>
-      <div className="record-row-action-group">
-        {hasInvoice ? (
-          <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
-            {invoiceLabel}
-          </a>
-        ) : (
-          <button type="button" className={invoiceClassName} disabled aria-disabled="true" title="No Client Invoice">
-            {invoiceLabel}
-          </button>
-        )}
-        {hasVendorInvoice ? (
-          <a
-            className={`${vendorInvoiceClassName} record-row-vendor-addon`}
-            href={eventVendorInvoiceHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="View vendor invoice"
-            title="View Vendor Invoice"
-          >
-            <PaperIcon />
-          </a>
-        ) : (
-          <button
-            type="button"
-            className={`${vendorInvoiceClassName} record-row-vendor-addon`}
-            disabled
-            aria-disabled="true"
-            aria-label="No vendor invoice yet"
-            title="No Vendor Invoice"
-          >
-            <PaperIcon />
-          </button>
-        )}
-      </div>
-      <button
-        type="button"
-        className={`row-delete-x${armed ? ' is-armed' : ''}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          // Two-tap delete: the parent decides whether this press
-          // arms the row or (when already armed) performs the
-          // delete. We never delete on a bare first tap here.
-          onDelete?.();
-        }}
-        aria-label={armed ? 'Confirm delete event' : 'Delete event'}
-        aria-pressed={armed}
-        title={armed ? 'Tap again to delete' : 'Delete event'}
-      >
-        <DeleteIcon />
-      </button>
-    </article>
+    <>
+      <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
+        <div className="record-row-meta">
+          <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
+          {priceText ? <span className="record-row-price">{priceText}</span> : null}
+        </div>
+        <div className="record-row-action-group">
+          {hasDelivery ? (
+            <button
+              type="button"
+              className={linkClassName}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewLinks?.(row.delivery);
+              }}
+            >
+              {linkLabel}
+            </button>
+          ) : (
+            <a className={linkAnchorClass} href={eventLinkHref} target="_blank" rel="noopener noreferrer">
+              {linkLabel}
+            </a>
+          )}
+          {hasVendorDelivery ? (
+            <button
+              type="button"
+              className={`${vendorDeliveryClassName} record-row-vendor-addon`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewLinks?.(row.vendorDelivery);
+              }}
+              aria-label="View vendor links"
+              title="View Vendor Links"
+            >
+              <LinkIcon />
+            </button>
+          ) : (
+            <a
+              className={`${vendorDeliveryClassName} record-row-vendor-addon`}
+              href={eventVendorDeliveryHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Create vendor links"
+              title="Create Vendor Links"
+            >
+              <LinkIcon />
+            </a>
+          )}
+        </div>
+        <div className="record-row-action-group record-row-action-group--invoice">
+          {hasPaymentProofs ? (
+            <button
+              type="button"
+              className={paymentClassName}
+              onClick={(event) => {
+                event.stopPropagation();
+                setProofViewerOpen(true);
+              }}
+            >
+              See Payments
+            </button>
+          ) : null}
+          {hasInvoice ? (
+            <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
+              {invoiceLabel}
+            </a>
+          ) : (
+            <button type="button" className={invoiceClassName} disabled aria-disabled="true" title="No Client Invoice">
+              {invoiceLabel}
+            </button>
+          )}
+          {hasVendorInvoice ? (
+            <a
+              className={`${vendorInvoiceClassName} record-row-vendor-addon`}
+              href={eventVendorInvoiceHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View vendor invoice"
+              title="View Vendor Invoice"
+            >
+              <PaperIcon />
+            </a>
+          ) : (
+            <button
+              type="button"
+              className={`${vendorInvoiceClassName} record-row-vendor-addon`}
+              disabled
+              aria-disabled="true"
+              aria-label="No vendor invoice yet"
+              title="No Vendor Invoice"
+            >
+              <PaperIcon />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          className={`row-delete-x${armed ? ' is-armed' : ''}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            // Two-tap delete: the parent decides whether this press
+            // arms the row or (when already armed) performs the
+            // delete. We never delete on a bare first tap here.
+            onDelete?.();
+          }}
+          aria-label={armed ? 'Confirm delete event' : 'Delete event'}
+          aria-pressed={armed}
+          title={armed ? 'Tap again to delete' : 'Delete event'}
+        >
+          <DeleteIcon />
+        </button>
+      </article>
+      {proofViewerOpen ? <PaymentProofViewer entries={paymentProofs} onClose={() => setProofViewerOpen(false)} /> : null}
+    </>
   );
 }
