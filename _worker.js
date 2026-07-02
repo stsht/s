@@ -562,16 +562,8 @@ function dateSearchTokens(value) {
   ].join(' ');
 }
 
-function buildDeliveryMessage(title, clientName, folderName, eventDate, shortCode, password, deliveryDone) {
-  const t = String(title ?? 'Ms.').trim();
-  const c = String(clientName || '').trim();
-  const f = String(folderName || '').trim() || 'TBA';
-  const ev = formatEventDateLabel(eventDate);
-  const namePart = t ? `${t} ${c}` : c;
-  const pass = String(password || '').trim() || '(no password)';
-
-  if (deliveryDone) {
-    return `Dear *${namePart.trim()}*,
+function buildDoneDeliveryMessage(namePart, f, ev, shortCode, pass) {
+  return `Dear *${namePart.trim()}*,
 
 Your StarShots files are now ready.
 
@@ -583,27 +575,41 @@ You may access them here:
 
 Thank you for your patience.
 With love, StarShots`;
-  }
+}
 
+function buildPendingDeliveryMessage(namePart, f, ev, shortCode, pass) {
   return `Dear *${namePart.trim()}*,
 
-With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
+With sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.
 
-Your *Delivery Files* and *Invoice* may be accessed through the details below:
+You may access your *Delivery Page* and *Invoice* through the details below:
 
 *Folder:* ${f}
 *Event Date:* ${ev}
 *Link:* ${PUBLIC_SITE}/${shortCode}
 *Password:* \`${pass}\`
 
-Should you prefer a different password, please let us know and we will update it for you.
+Should you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.
 
-Kindly download the files within the stated availability period.
+Kindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.
 
-It has been our pleasure to serve you, and we look forward to welcoming you again.
+Thank you once again for allowing StarShots ID to be part of your special moment.
 
 Warm Regards,
 StarShots ID`;
+}
+
+function buildDeliveryMessage(title, clientName, folderName, eventDate, shortCode, password, deliveryDone) {
+  const t = String(title ?? 'Ms.').trim();
+  const c = String(clientName || '').trim();
+  const f = String(folderName || '').trim() || 'TBA';
+  const ev = formatEventDateLabel(eventDate);
+  const namePart = t ? `${t} ${c}` : c;
+  const pass = String(password || '').trim() || '(no password)';
+
+  return deliveryDone
+    ? buildDoneDeliveryMessage(namePart, f, ev, shortCode, pass)
+    : buildPendingDeliveryMessage(namePart, f, ev, shortCode, pass);
 }
 
 // Strip WhatsApp markdown markers (*bold*, _italic_, ~strike~,
