@@ -113,7 +113,7 @@ With love, StarShots`;
 
   return `Dear *${namePart}*,
 
-With sincere appreciation, your private StarShots delivery page has been thoughtfully prepared for your kind attention.
+With sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.
 
 You may access your *Delivery Page* and *Invoice* through the details below:
 
