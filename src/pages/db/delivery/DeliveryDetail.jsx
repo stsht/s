@@ -10,7 +10,7 @@ import {
   pluralCount,
   copyToClipboard,
   SERVICE_LABELS,
-} from './deliveryHelpers.js';
+} from './deliveryHelpers.js?v=pending-message-20260702';
 import { DeliveryHeader } from './DeliveryHeader.jsx';
 import { DeliveryLinkCards } from './DeliveryLinkCards.jsx';
 import { DeliveryPasswordTools } from './DeliveryPasswordTools.jsx';
@@ -216,7 +216,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   const accessVisitors = useMemo(() => groupAccessLogsByVisitor(accessLogs), [accessLogs]);
   const accessStats = useMemo(() => summarizeAccessLogs(accessLogs), [accessLogs]);
   // Compact header summary. Always rendered (even at zero) so the
-  // header reads "0 visitors \u00b7 0 opens \u00b7 0 clicks" both on a
+  // header reads "0 visitors · 0 opens · 0 clicks" both on a
   // delivery with no public activity yet AND immediately after the
   // operator deletes the logs. Last activity is appended only when
   // there is real public activity to point at.
@@ -225,7 +225,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
         pluralCount(accessStats.opens, 'open'),
         pluralCount(accessStats.clicks, 'click'),
         accessStats.lastActivity ? `Last activity ${accessStats.lastActivity}` : '',
-      ].filter(Boolean).join(' \u00b7 ');
+      ].filter(Boolean).join(' · ');
 
   const flashTarget = (target) => {
     setFlash(target);
@@ -259,7 +259,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   async function handleRefresh() {
     if (refreshing || !currentDelivery?.id) return;
     setRefreshing(true);
-    setRepairStatus('Refreshing\u2026');
+    setRepairStatus('Refreshing…');
     try {
       await onRefresh?.();
       setRepairStatus('Delivery refreshed.');
@@ -273,7 +273,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   async function handleRepairDelivery(options = {}) {
     if (!currentDelivery?.id) return;
     const rotatePassword = Boolean(options.rotatePassword);
-    const customPassword = typeof options.customPassword === 'string' ? options.customPassword.trim() : '';
+    const customPassword = typeof options.customPassword === 'string' ? customPassword.trim() : '';
     if (rotatePassword || customPassword) setRotatingPassword(true);
     else setRepairing(true);
     setRepairStatus('');
@@ -327,268 +327,3 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   // current password so a small tweak is a one-character edit.
   function startEditPassword() {
     setCustomPasswordValue(password);
-    setPasswordEditError('');
-    setEditingPassword(true);
-  }
-
-  function cancelEditPassword() {
-    setEditingPassword(false);
-    setCustomPasswordValue('');
-    setPasswordEditError('');
-  }
-
-  // Validate then submit a custom password. Mirrors the worker's
-  // bounds (trim, non-empty, <= 72 chars) so the operator gets
-  // immediate feedback instead of a round-trip error.
-  function submitCustomPassword() {
-    const value = String(customPasswordValue || '').trim();
-    if (!value) {
-      setPasswordEditError('Password cannot be empty.');
-      return;
-    }
-    if (value.length > 72) {
-      setPasswordEditError('Use 72 characters or fewer.');
-      return;
-    }
-    setPasswordEditError('');
-    handleRepairDelivery({ customPassword: value });
-  }
-
-  async function handleSaveLinks(event) {
-    event.preventDefault();
-    if (!currentDelivery?.id) return;
-    setSavingLinks(true);
-    setRepairStatus('');
-    try {
-      const trimmedFolder = String(linkDraft.folderName || '').trim();
-      const draftEventDate = String(linkDraft.eventDate || '').trim();
-      // Vendor name is sent ONLY for vendor deliveries and only when
-      // non-empty. The worker further guards that it is applied only
-      // to vendor-scoped deliveries and mirrored only to a linked
-      // vendor invoice, so a client delivery/invoice is never renamed.
-      const trimmedVendorName = String(linkDraft.clientName || '').trim();
-      const response = await fetch('/api/db-update-delivery', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: currentDelivery.id,
-          // folderName is optional on the wire — when omitted the
-          // worker leaves deliveries.folder_name untouched. We send
-          // it whenever the operator left a non-empty value so a
-          // rename takes effect without requiring fresh data.
-          folderName: trimmedFolder,
-          eventDate: /^\d{4}-\d{2}-\d{2}$/.test(draftEventDate) ? draftEventDate : '',
-          ...(isVendorDelivery && trimmedVendorName ? { clientName: trimmedVendorName } : {}),
-          links: SERVICE_LABELS.map(({ key }) => ({
-            service: key,
-            originalUrl: linkDraft[key] || '',
-            link_done: !!currentDelivery?.delivery_done,
-          })),
-        }),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok || !json.ok) throw new Error(json.error || `Save failed (${response.status}).`);
-      const updated = {
-        ...currentDelivery,
-        ...(json.delivery || {}),
-        links: Array.isArray(json.delivery?.links) ? json.delivery.links : currentDelivery.links,
-      };
-      setCurrentDelivery(updated);
-      setEditingLinks(false);
-      setRepairStatus('Delivery links updated.');
-      onRepaired?.(updated);
-    } catch (error) {
-      setRepairStatus(error?.message || 'Save failed.');
-    } finally {
-      setSavingLinks(false);
-    }
-  }
-
-  // Delete ONLY this delivery row (links + access logs) via the
-  // existing /api/db-delete endpoint, which is keyed on the
-  // delivery id and never touches the paired invoice. First click
-  // arms the button; the second click within ~4s performs the
-  // delete. On success we hand back to the parent client detail
-  // (onDeleted -> back() + refetch) so the event row stays put when
-  // an invoice still exists, now showing "Create Links" again.
-  async function handleDeleteLinks() {
-    if (!currentDelivery?.id || deleting) return;
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    setConfirmDelete(false);
-    setDeleting(true);
-    setRepairStatus('');
-    try {
-      const response = await fetch('/api/db-delete', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id }),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok || !json.ok) throw new Error(json.error || `Delete failed (${response.status}).`);
-      // Parent pops back to the client detail and refetches /api/db.
-      onDeleted?.(currentDelivery);
-    } catch (error) {
-      setRepairStatus(error?.message || 'Delete failed.');
-      setDeleting(false);
-    }
-  }
-
-  // Permanently clear the access-log rows for ONE visitor/session
-  // card via /api/db-clear-logs. Fires immediately on the card's X —
-  // no confirm dialog, no native alert. We pass the explicit log ids
-  // for that group; the worker scopes the delete to BOTH those ids AND
-  // this delivery_id, so it can never touch another visitor card,
-  // another delivery, or any invoice/client/subscription record. On
-  // success we drop just those rows from the in-panel stats so the
-  // card disappears and the summary counts recompute with no refetch.
-  async function handleDeleteVisitor(target) {
-    const logIds = (target?.events || []).map((event) => event.id).filter(Boolean);
-    if (!currentDelivery?.id || !logIds.length) return;
-    if (deletingVisitor) return;
-    setDeletingVisitor(true);
-    setRepairStatus('');
-    try {
-      const response = await fetch('/api/db-clear-logs', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id, logIds }),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok || !json.ok) throw new Error(json.error || `Delete failed (${response.status}).`);
-      const removeSet = new Set(logIds);
-      setCurrentDelivery((prev) => {
-        const logs = Array.isArray(prev?.stats?.logs) ? prev.stats.logs : [];
-        return { ...prev, stats: { ...(prev?.stats || {}), logs: logs.filter((log) => !removeSet.has(log.id)) } };
-      });
-    } catch (error) {
-      setRepairStatus(error?.message || 'Delete failed.');
-    } finally {
-      setDeletingVisitor(false);
-    }
-  }
-
-  // Toggle this delivery's completion flag via /api/db-update-delivery.
-  // The worker mirrors the same state onto every existing delivery
-  // link, so one top-level checkmark controls whether public links
-  // show as CLICK or IN PROGRESS.
-  async function handleToggleDone() {
-    if (!currentDelivery?.id || markingDone) return;
-    const nextDone = !currentDelivery.delivery_done;
-    setMarkingDone(true);
-    setRepairStatus('');
-    try {
-      const response = await fetch('/api/db-update-delivery', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentDelivery.id, deliveryDone: nextDone }),
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok || !json.ok) throw new Error(json.error || `Update failed (${response.status}).`);
-      const updated = {
-        ...currentDelivery,
-        ...(json.delivery || {}),
-        delivery_done: json.delivery?.delivery_done ?? nextDone,
-        links: Array.isArray(json.delivery?.links) ? json.delivery.links : currentDelivery.links,
-      };
-      setCurrentDelivery(updated);
-      setRepairStatus(updated.delivery_done ? 'Delivery marked done.' : 'Delivery reopened.');
-      // Refresh /db so the client event row reflects the new state.
-      onRepaired?.(updated);
-    } catch (error) {
-      setRepairStatus(error?.message || 'Update failed.');
-    } finally {
-      setMarkingDone(false);
-    }
-  }
-
-
-  return (
-    <>
-      <DeliveryHeader
-        title={title}
-        clientName={clientName}
-        folder={folder}
-        currentDelivery={currentDelivery}
-        deliveryDone={deliveryDone}
-        handleRefresh={handleRefresh}
-        refreshing={refreshing}
-        handleToggleDone={handleToggleDone}
-        markingDone={markingDone}
-        editingLinks={editingLinks}
-        setEditingLinks={setEditingLinks}
-        handleDeleteLinks={handleDeleteLinks}
-        confirmDelete={confirmDelete}
-        deleting={deleting}
-        onClose={onClose}
-      />
-      {!hasAnyDetail ? (
-        <p className="empty-state">No delivery details available.</p>
-      ) : (
-        <div className="dd-stack">
-          <DeliveryLinkCards
-            shortUrl={shortUrl}
-            shortDisplay={shortDisplay}
-            flash={flash}
-            handleShortLinkClick={handleShortLinkClick}
-            currentDelivery={currentDelivery}
-            handleRepairDelivery={handleRepairDelivery}
-            repairing={repairing}
-            repairStatus={repairStatus}
-            services={services}
-            editingLinks={editingLinks}
-            passwordTools={(
-              <DeliveryPasswordTools
-                password={password}
-                flash={flash}
-                editingPassword={editingPassword}
-                customPasswordValue={customPasswordValue}
-                setCustomPasswordValue={setCustomPasswordValue}
-                submitCustomPassword={submitCustomPassword}
-                cancelEditPassword={cancelEditPassword}
-                rotatingPassword={rotatingPassword}
-                handlePasswordClick={handlePasswordClick}
-                startEditPassword={startEditPassword}
-                setConfirmRotatePassword={setConfirmRotatePassword}
-                confirmRotatePassword={confirmRotatePassword}
-                noButtonRef={noButtonRef}
-                handleRepairDelivery={handleRepairDelivery}
-                currentDelivery={currentDelivery}
-                passwordEditError={passwordEditError}
-              />
-            )}
-          />
-          {editingLinks ? (
-            <DeliveryLinkEditor
-              linkDraft={linkDraft}
-              setLinkDraft={setLinkDraft}
-              savingLinks={savingLinks}
-              repairStatus={repairStatus}
-              handleSaveLinks={handleSaveLinks}
-              setEditingLinks={setEditingLinks}
-              isVendorDelivery={isVendorDelivery}
-            />
-          ) : null}
-          <DeliveryMessageBox
-            variant={variant}
-            setVariant={setVariant}
-            messageText={messageText}
-            flash={flash}
-            handleCopyMessage={handleCopyMessage}
-          />
-          <DeliveryAccessLogs
-            accessSummaryText={accessSummaryText}
-            accessVisitors={accessVisitors}
-            handleDeleteVisitor={handleDeleteVisitor}
-          />
-        </div>
-      )}
-    </>
-  );
-}
