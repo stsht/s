@@ -7,18 +7,18 @@ export function buildPreviewMessage(title, clientName, info) {
   const namePart = t ? `${t} ${c}` : c;
   return `Dear ${namePart},
 
-With sincere appreciation, your StarShots delivery files have been prepared and are now ready for your kind attention.
+With sincere appreciation, your private StarShots delivery page has been thoughtfully prepared for your kind attention.
 
-Your Delivery Files and Invoice may be accessed through the details below:
+You may access your Delivery Page and Invoice through the details below:
 
-\u2022 Link: ${link}
-\u2022 Password: ${info.pass}
+• Link: ${link}
+• Password: ${info.pass}
 
-Should you prefer a different password, please let us know and we will update it for you.
+Should you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.
 
-Kindly download the files within the stated availability period.
+Kindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.
 
-It has been our pleasure to serve you, and we look forward to welcoming you again.
+Thank you once again for allowing StarShots ID to be part of your special moment.
 
 Warm Regards,
 StarShots ID`;
