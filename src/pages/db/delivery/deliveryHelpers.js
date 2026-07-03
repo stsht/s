@@ -1,5 +1,3 @@
-import { compactEventDateLabel } from '../dbHelpers.js';
-
 export const SERVICE_LABELS = [
   { key: 'gd', label: 'Google Drive' },
   { key: 'db', label: 'Dropbox' },
@@ -71,81 +69,6 @@ export function buildShortUrl(code) {
   } catch {
     return `/${code}`;
   }
-}
-
-// Synthesise a delivery message when the worker payload doesn't
-// carry a stored generated_text_whatsapp / generated_text_instagram
-// (e.g. older rows that pre-date the message-template change). Mirrors
-// buildDeliveryMessage() / buildDeliveryMessageIg() in _worker.js so
-// the operator-facing text is identical regardless of which path
-// produced it. WhatsApp keeps the *bold* markdown; the Instagram
-// variant is the exact same wording/order with the formatting
-// markers stripped (see stripMessageFormatting + synthesizeDelivery
-// MessageIg below).
-export function synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
-  const t = String(title ?? 'Ms.').trim();
-  const n = String(clientName || '').trim();
-  // Mirror _worker.js buildDeliveryMessage: drop the honorific
-  // cleanly when the title is blank (e.g. vendor deliveries, which
-  // are saved with an empty title) so the greeting reads
-  // "Dear *Name*" instead of "Dear * Name*" with a stray leading
-  // space inside the bold markers. Without this the client-facing
-  // copy/share message diverged from the worker's canonical text
-  // for every title-less row.
-  const namePart = t ? `${t} ${n}` : n;
-  const f = String(folderName || '').trim() || 'TBA';
-  // compactEventDateLabel returns "6 Jun 2026" for a real
-  // YYYY-MM-DD and "TBA" for a blank/timestamp value, so the Event
-  // Date line always renders and never leaks a bookkeeping date.
-  const ev = compactEventDateLabel(eventDate);
-  const link = shortUrl || '(link unavailable)';
-  const pass = String(password || '').trim() || '(no password)';
-
-  if (deliveryDone) {
-    return `Dear *${namePart}*,
-
-Your StarShots files are now ready.
-
-You may access them here:
-*Folder:* ${f}
-*Event Date:* ${ev}
-*Link:* ${link}
-*Password:* \`${pass}\`
-
-Thank you for your patience.
-With love, StarShots`;
-  }
-
-  return `Dear *${namePart}*,
-
-With sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.
-
-You may access your *Delivery Page* and *Invoice* through the details below:
-
-*Folder:* ${f}
-*Event Date:* ${ev}
-*Link:* ${link}
-*Password:* \`${pass}\`
-
-Should you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.
-
-Kindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.
-
-Thank you once again for allowing StarShots ID to be part of your special moment.
-
-Warm Regards,
-StarShots ID`;
-}
-
-// Strip WhatsApp markdown markers (*bold*, _italic_, ~strike~,
-// `mono`) so the Instagram DM is plain text with identical wording
-// and order. Only the markers are removed, never the words.
-export function stripMessageFormatting(text) {
-  return String(text || '').replace(/[*_~`]/g, '');
-}
-
-export function synthesizeDeliveryMessageIg(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
-  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone));
 }
 
 export function accessLogEventLabel(type = '', service = '') {

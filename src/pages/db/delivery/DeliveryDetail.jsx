@@ -1,22 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { plainEventDate } from '../dbHelpers.js';
+import { compactEventDateLabel, plainEventDate } from '../dbHelpers.js';
 import {
   resolveDeliveryShortCode,
   buildShortUrl,
-  synthesizeDeliveryMessageWa,
-  synthesizeDeliveryMessageIg,
   groupAccessLogsByVisitor,
   summarizeAccessLogs,
   pluralCount,
   copyToClipboard,
   SERVICE_LABELS,
-} from './deliveryHelpers.js?v=pending-message-20260702';
+} from './deliveryHelpers.js';
 import { DeliveryHeader } from './DeliveryHeader.jsx';
 import { DeliveryLinkCards } from './DeliveryLinkCards.jsx';
 import { DeliveryPasswordTools } from './DeliveryPasswordTools.jsx';
 import { DeliveryLinkEditor } from './DeliveryLinkEditor.jsx';
 import { DeliveryMessageBox } from './DeliveryMessageBox.jsx';
 import { DeliveryAccessLogs } from './DeliveryAccessLogs.jsx';
+import { buildDeliveryMessageWa, buildDeliveryMessageIg } from '../../../features/deliveries/deliveryMessages.js';
 
 export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
@@ -113,8 +112,17 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   }, [currentDelivery]);
 
   const deliveryDone = !!currentDelivery?.delivery_done;
-  const messageWa = synthesizeDeliveryMessageWa(title, clientName, folder, currentDelivery?.event_date, shortUrl, password, deliveryDone);
-  const messageIg = synthesizeDeliveryMessageIg(title, clientName, folder, currentDelivery?.event_date, shortUrl, password, deliveryDone);
+  const messageInput = {
+    title,
+    clientName,
+    folderName: folder || 'TBA',
+    eventDateLabel: compactEventDateLabel(currentDelivery?.event_date),
+    link: shortUrl || '(link unavailable)',
+    password,
+    deliveryDone,
+  };
+  const messageWa = buildDeliveryMessageWa(messageInput);
+  const messageIg = buildDeliveryMessageIg(messageInput);
   const messageText = variant === 'instagram' ? messageIg : messageWa;
   const hasAnyDetail = !!password || !!shortUrl || services.length > 0;
 
