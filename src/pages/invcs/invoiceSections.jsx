@@ -366,7 +366,11 @@ export function DepositLedger({ mode, payments, addPayment, updatePayment, remov
               <input
                 type="checkbox"
                 checked={!!payment.paid}
-                onChange={(event) => updatePayment(payment.id, { paid: event.target.checked })}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  updatePayment(payment.id, { paid: checked });
+                  if (checked) setDepositAskOpen(false);
+                }}
               />
               <span>DP Paid</span>
             </label>
