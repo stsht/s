@@ -34,6 +34,35 @@ const GALLERY_HASH_ITERATIONS = 100000;
 const IP_INFO_CACHE = new Map();
 const RATE_LIMITS = new Map();
 let lastRateLimitSweep = 0;
+const PUBLIC_PAYMENT_PROOF_MAX_IMAGES = 3;
+const PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS = 790000;
+
+function cleanPublicProofImages(images = []) {
+  const list = (Array.isArray(images) ? images : [])
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .slice(0, PUBLIC_PAYMENT_PROOF_MAX_IMAGES);
+  if (!list.length) throw new Error('Please upload at least one payment proof.');
+  if (list.some((value) => !/^data:image\/(png|jpe?g|webp);base64,/i.test(value))) throw new Error('Payment proof must be an image.');
+  if (list.reduce((sum, value) => sum + value.length, 0) > PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS) {
+    throw new Error('Payment proof images are too large.');
+  }
+  return list;
+}
+
+function appendPendingPaymentProof(invoiceData = {}, images = []) {
+  const proofs = Array.isArray(invoiceData.paymentProofs) ? invoiceData.paymentProofs : [];
+  if (proofs.some((proof) => String(proof?.status || '').toLowerCase() === 'pending')) {
+    throw new Error('A payment proof is already pending review.');
+  }
+  return {
+    ...invoiceData,
+    paymentProofs: [
+      ...proofs,
+      { id: `proof-${Date.now().toString(36)}`, images, status: 'pending', createdAt: new Date().toISOString() }
+    ]
+  };
+}
 
 function escapeHtml(value = '') {
   return String(value)
@@ -3198,6 +3227,35 @@ async function handlePublicInvoiceGet(request, env) {
   return json({ ok: true, invoice });
 }
 
+async function handlePaymentProofSubmit(request, env) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const images = cleanPublicProofImages(body.images);
+    const delivery = await getDeliveryByLookup(env, body.slug || body.shortCode);
+    if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+    const password = String(body.password || '').trim();
+    const authorized = await verifyGallerySessionCookie(request, env, delivery.id)
+      || (password && await verifyGalleryPassword(delivery, password));
+    if (!authorized) return json({ error: 'Unauthorized.' }, 401);
+
+    const invoice = await findInvoiceForDelivery(env, delivery);
+    if (!invoice?.id) return json({ error: 'Invoice not found.' }, 404);
+    if (String(invoice.status || '').toLowerCase() === 'paid') return json({ error: 'Payment is already confirmed.' }, 409);
+
+    const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+    const rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({ invoice_data: appendPendingPaymentProof(data, images) })
+    });
+    const updated = Array.isArray(rows) ? rows[0] : rows;
+    return json({ ok: true, invoice: invoiceSummary(updated) });
+  } catch (error) {
+    return json({ error: error?.message || 'Could not upload payment proof.' }, 500);
+  }
+}
+
 async function handleInvoiceDelete(request, env) {
   const body = await request.json();
   const password = String(body.password || '').trim();
@@ -4405,6 +4463,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/packages-delete') return await handlePackageDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
       if (request.method === 'GET' && url.pathname === '/api/open-link') return await handleOpenLink(request, env);
 	      if (request.method === 'GET' && url.pathname === '/api/db') return await handleDbSearch(request, env);
