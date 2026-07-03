@@ -7,7 +7,7 @@
 // inline catalogue-edit UX; its save/delete actions remain
 // prop-driven. Markup, class names, and props are unchanged.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Fieldset, TrashIcon, PencilIcon, PlusIcon } from './invoicePrimitives.jsx';
 import { BANK_DETAILS, PAYMENT_QR_SRC, DEPOSIT_PRESETS } from './invoiceConstants.js';
 import { cleanPaymentMethod, rupiah, isFullPayment, prettyDate, prettyDateTime } from './invoiceFormat.js';
@@ -270,6 +270,11 @@ export function DepositLedger({ mode, payments, addPayment, updatePayment, remov
     ? 'Full Payment'
     : (fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due');
   const paidRows = payments.filter((payment) => payment.paid);
+
+  useEffect(() => {
+    if (depositAskOpen && paidRows.length) setDepositAskOpen(false);
+  }, [depositAskOpen, paidRows.length, setDepositAskOpen]);
+
   // Opening "Ask DP" auto-follows the requested deposit due to the
   // latest recorded paid DP, so the amount we ask for matches what
   // the client most recently paid. With no paid DP yet it falls back
