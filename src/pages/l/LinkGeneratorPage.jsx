@@ -18,30 +18,7 @@ import {
   buildFolderPassword,
 } from './linkSlug.js';
 import { buildPreviewMessage } from './linkMessage.js';
-
-// --- Shared helpers duplicated from WorkspacePages.jsx ---
-// These small utilities are still used by /db inside WorkspacePages.jsx,
-// so they are intentionally duplicated here (not moved) to let /l stand
-// alone without importing the large WorkspacePages module. Keep behaviour
-// identical to the originals.
-
-function dbgEnabled() {
-  if (typeof window === 'undefined') return false;
-  try {
-    const url = new URLSearchParams(window.location.search);
-    if (url.get('debug') === '1') {
-      try { window.sessionStorage?.setItem('starshots_debug_grouping', '1'); } catch {}
-      return true;
-    }
-    return window.sessionStorage?.getItem('starshots_debug_grouping') === '1';
-  } catch {
-    return false;
-  }
-}
-
-function dbg(...args) {
-  if (dbgEnabled()) console.log('[grouping]', ...args);
-}
+import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
 
 // /l — Link Generator.
 //
