@@ -11,30 +11,7 @@ import { computeDepositDue, inferDepositMode } from './invoiceDeposit.js';
 import { emptyItem, cleanPackageRows, nowDateParts, makeDepositPayment } from './invoiceState.js';
 import { EditorPanel } from './invoiceEditorPanel.jsx';
 import { PreviewPanel } from './invoicePreviewPanel.jsx';
-
-// Lightweight gated debug logger. Mirrors the helper in
-// WorkspacePages.jsx so /db, /l, and /inv share one ?debug=1 flag
-// (sticky for the tab via sessionStorage). Used to trace the
-// event-grouping handoff: rowEventKey → URL ?eventKey= → composer
-// state → /api/invoices-save body → /db row. No-op when the flag
-// is off so the calls are safe to leave in production code paths.
-function dbgEnabled() {
-  if (typeof window === 'undefined') return false;
-  try {
-    const url = new URLSearchParams(window.location.search);
-    if (url.get('debug') === '1') {
-      try { window.sessionStorage?.setItem('starshots_debug_grouping', '1'); } catch {}
-      return true;
-    }
-    return window.sessionStorage?.getItem('starshots_debug_grouping') === '1';
-  } catch {
-    return false;
-  }
-}
-
-function dbg(...args) {
-  if (dbgEnabled()) console.log('[grouping]', ...args);
-}
+import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
 
 // Hardcoded fallback catalogue lives in invoiceConstants.js as
 // DEFAULT_PACKAGES; the composer imports it.

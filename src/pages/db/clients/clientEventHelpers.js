@@ -1,37 +1,13 @@
+import { dbg, dbgEnabled } from '../../../utils/debugLogger.js';
+
+export { dbg, dbgEnabled };
+
 // Local display / URL helpers used only by the /db Clients detail +
 // event-row UI. These were lifted verbatim out of DatabasePage.jsx as
 // part of the Clients split (mirroring the earlier Subs split) so the
 // main page no longer carries client/event-only utilities. Behaviour
 // is unchanged — same debug namespace, same URL building, same event
 // key generation.
-
-// Lightweight gated debug logger.
-//
-// Off by default in production. To enable: append ?debug=1 to any
-// /db, /l, or /inv URL — the flag is sticky for the tab via
-// sessionStorage so navigations between the three pages keep it
-// hot. Used to trace the event-grouping handoff (rowEventKey →
-// URL params → composer state → /api save body → /db row) when
-// "Create Invoice from existing Links event" still produces a
-// duplicate /db row. The function is a no-op when the flag is off
-// so the calls are safe to leave in production code paths.
-export function dbgEnabled() {
-  if (typeof window === 'undefined') return false;
-  try {
-    const url = new URLSearchParams(window.location.search);
-    if (url.get('debug') === '1') {
-      try { window.sessionStorage?.setItem('starshots_debug_grouping', '1'); } catch {}
-      return true;
-    }
-    return window.sessionStorage?.getItem('starshots_debug_grouping') === '1';
-  } catch {
-    return false;
-  }
-}
-
-export function dbg(...args) {
-  if (dbgEnabled()) console.log('[grouping]', ...args);
-}
 
 export function createRecordUrl(path, params) {
   const url = new URL(path, window.location.origin);
