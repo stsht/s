@@ -214,7 +214,6 @@ export function InvoiceComposer() {
   const [deletingInvoice, setDeletingInvoice] = useState(false);
   const documentRef = useRef(null);
   const previousModeRef = useRef(mode);
-  const preservedInvoiceDataRef = useRef({});
 
   useEffect(() => {
     if (!confirmDeleteInvoice) return undefined;
@@ -288,7 +287,6 @@ export function InvoiceComposer() {
         const row = payload?.invoice;
         if (!row || cancelled) return;
         const data = (row.invoice_data && typeof row.invoice_data === 'object') ? row.invoice_data : {};
-        preservedInvoiceDataRef.current = { ...data };
 
         if (row.invoice_type === INVOICE_TYPES.VENDOR || data.invoiceType === INVOICE_TYPES.VENDOR) {
           setTitle('');
@@ -635,45 +633,6 @@ export function InvoiceComposer() {
       // typed columns it expects, plus the loose invoice_data blob
       // that the hydrate effect at the top of this component reads
       // back via /api/invoices-get.
-      const invoiceData = {
-        ...preservedInvoiceDataRef.current,
-        invoiceType,
-        discount: Math.max(0, Math.round(Number(totals.discount) || 0)),
-        items: items.map((item) => ({
-          id: String(item.id || ''),
-          packageId: String(item.packageId || ''),
-          name: String(item.name || ''),
-          note: String(item.note || ''),
-          qty: Number(item.qty) || 1,
-          price: Math.max(0, Math.round(Number(item.price) || 0)),
-          discount: clampItemDiscount(item.discount, item.qty, item.price),
-        })),
-        depositMode: String(depositMode || ''),
-        depositCustomAmount: String(depositCustomAmount || ''),
-        depositAskOpen: !!depositAskOpen,
-        paymentMethod: cleanPaymentMethod(paymentMethod),
-        venue: String(venue || ''),
-        eventTime: String(eventTime || ''),
-        folderName: String(folderName || ''),
-        // Deposit-mode workflow state — read back by the hydrate
-        // effect. Persisted in every mode so switching invoice ↔
-        // deposit ↔ paid never silently drops a recorded ledger
-        // (e.g. a paid invoice keeps the deposits that led to it).
-        depositPayments: depositPayments.map((payment) => ({
-          id: String(payment.id || ''),
-          paid: !!payment.paid,
-          paidAtDate: String(payment.paidAtDate || ''),
-          paidAtTime: String(payment.paidAtTime || ''),
-          amount: Math.max(0, Math.round(Number(payment.amount) || 0)),
-        })),
-        paidReceipt: {
-          paid: !!paidConfirmed,
-          paidAtDate: String(paidAtDate || ''),
-          paidAtTime: String(paidAtTime || ''),
-          amount: grandTotal,
-        },
-        requestBalanceDue: !!requestBalanceDue,
-      };
       const invoice = {
         client_title: invoiceType === 'vendor' ? String(title || '') : String(title || 'Ms.'),
         client_name: trimmedName,
@@ -689,7 +648,44 @@ export function InvoiceComposer() {
         deposit_amount: depositDue,
         paid_amount: paidAmount,
         balance_due: balanceDueAmount,
-        invoice_data: invoiceData,
+        invoice_data: {
+          invoiceType,
+          discount: Math.max(0, Math.round(Number(totals.discount) || 0)),
+          items: items.map((item) => ({
+            id: String(item.id || ''),
+            packageId: String(item.packageId || ''),
+            name: String(item.name || ''),
+            note: String(item.note || ''),
+            qty: Number(item.qty) || 1,
+            price: Math.max(0, Math.round(Number(item.price) || 0)),
+            discount: clampItemDiscount(item.discount, item.qty, item.price),
+          })),
+          depositMode: String(depositMode || ''),
+          depositCustomAmount: String(depositCustomAmount || ''),
+          depositAskOpen: !!depositAskOpen,
+          paymentMethod: cleanPaymentMethod(paymentMethod),
+          venue: String(venue || ''),
+          eventTime: String(eventTime || ''),
+          folderName: String(folderName || ''),
+          // Deposit-mode workflow state — read back by the hydrate
+          // effect. Persisted in every mode so switching invoice ↔
+          // deposit ↔ paid never silently drops a recorded ledger
+          // (e.g. a paid invoice keeps the deposits that led to it).
+          depositPayments: depositPayments.map((payment) => ({
+            id: String(payment.id || ''),
+            paid: !!payment.paid,
+            paidAtDate: String(payment.paidAtDate || ''),
+            paidAtTime: String(payment.paidAtTime || ''),
+            amount: Math.max(0, Math.round(Number(payment.amount) || 0)),
+          })),
+          paidReceipt: {
+            paid: !!paidConfirmed,
+            paidAtDate: String(paidAtDate || ''),
+            paidAtTime: String(paidAtTime || ''),
+            amount: grandTotal,
+          },
+          requestBalanceDue: !!requestBalanceDue,
+        },
       };
       if (savedId) invoice.id = savedId;
       dbg('/inv save body', {
@@ -720,9 +716,6 @@ export function InvoiceComposer() {
       }
       const newId = String(json.invoice?.id || savedId || '');
       if (newId) setSavedId(newId);
-      preservedInvoiceDataRef.current = (json.invoice?.invoice_data && typeof json.invoice.invoice_data === 'object')
-        ? { ...json.invoice.invoice_data }
-        : invoiceData;
       dbg('/inv save response', {
         invoiceId: newId,
         savedEventKey: json.invoice?.event_key || '',
