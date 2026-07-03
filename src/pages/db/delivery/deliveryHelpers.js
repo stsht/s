@@ -1,5 +1,8 @@
-import { compactEventDateLabel } from '../dbHelpers.js';
-
+export const SERVICE_LABELS = [
+  { key: 'gd', label: 'Google Drive' },
+  { key: 'db', label: 'Dropbox' },
+  { key: 'wt', label: 'WeTransfer' },
+];
 
 // Robust short-code resolver. Old delivery rows shipped with a
 // variety of field names depending on which version of /l saved
@@ -66,81 +69,6 @@ export function buildShortUrl(code) {
   } catch {
     return `/${code}`;
   }
-}
-
-// Synthesise a delivery message when the worker payload doesn't
-// carry a stored generated_text_whatsapp / generated_text_instagram
-// (e.g. older rows that pre-date the message-template change). Mirrors
-// buildDeliveryMessage() / buildDeliveryMessageIg() in _worker.js so
-// the operator-facing text is identical regardless of which path
-// produced it. WhatsApp keeps the *bold* markdown; the Instagram
-// variant is the exact same wording/order with the formatting
-// markers stripped (see stripMessageFormatting + synthesizeDelivery
-// MessageIg below).
-export function synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
-  const t = String(title ?? 'Ms.').trim();
-  const n = String(clientName || '').trim();
-  // Mirror _worker.js buildDeliveryMessage: drop the honorific
-  // cleanly when the title is blank (e.g. vendor deliveries, which
-  // are saved with an empty title) so the greeting reads
-  // "Dear *Name*" instead of "Dear * Name*" with a stray leading
-  // space inside the bold markers. Without this the client-facing
-  // copy/share message diverged from the worker's canonical text
-  // for every title-less row.
-  const namePart = t ? `${t} ${n}` : n;
-  const f = String(folderName || '').trim() || 'TBA';
-  // compactEventDateLabel returns "6 Jun 2026" for a real
-  // YYYY-MM-DD and "TBA" for a blank/timestamp value, so the Event
-  // Date line always renders and never leaks a bookkeeping date.
-  const ev = compactEventDateLabel(eventDate);
-  const link = shortUrl || '(link unavailable)';
-  const pass = String(password || '').trim() || '(no password)';
-
-  if (deliveryDone) {
-    return `Dear *${namePart}*,
-
-Your StarShots files are now ready.
-
-You may access them here:
-*Folder:* ${f}
-*Event Date:* ${ev}
-*Link:* ${link}
-*Password:* \`${pass}\`
-
-Thank you for your patience.
-With love, StarShots`;
-  }
-
-  return `Dear *${namePart}*,
-
-With sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.
-
-You may access your *Delivery Page* and *Invoice* through the details below:
-
-*Folder:* ${f}
-*Event Date:* ${ev}
-*Link:* ${link}
-*Password:* \`${pass}\`
-
-Should you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.
-
-Kindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.
-
-Thank you once again for allowing StarShots ID to be part of your special moment.
-
-Warm Regards,
-StarShots ID`;
-}
-
-// Strip WhatsApp markdown markers (*bold*, _italic_, ~strike~,
-// `mono`) so the Instagram DM is plain text with identical wording
-// and order. Only the markers are removed, never the words.
-export function stripMessageFormatting(text) {
-  return String(text || '').replace(/[*_~`]/g, '');
-}
-
-export function synthesizeDeliveryMessageIg(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone) {
-  return stripMessageFormatting(synthesizeDeliveryMessageWa(title, clientName, folderName, eventDate, shortUrl, password, deliveryDone));
 }
 
 export function accessLogEventLabel(type = '', service = '') {
@@ -326,4 +254,188 @@ export function isRealInAppBrowser(userAgent = '') {
   if (!ua) return false;
   if (/facebookexternalhit|facebot|meta-externalagent/i.test(ua)) return false;
   return /Instagram|WhatsApp|FBAN|FBAV|FB_IAB|FBIOS|FB4A|\bLine\/|TikTok|musical_ly|Bytedance/i.test(ua);
+}
+
+// Generic crawler / link-preview scanner detection straight from the
+// user-agent string. This complements classifyAccessNetwork (which
+// works off IP/ASN ranges): a crawler hitting from an unrecognized IP
+// would otherwise fall through to "Unknown". Returns a label key so
+// the actor pill can read "Meta preview" / "WhatsApp preview" /
+// "Crawler" without us ever blocking or dropping the log.
+export function crawlerUserAgentLabel(userAgent = '') {
+  const ua = String(userAgent || '');
+  if (!ua) return '';
+  if (/facebookexternalhit|facebookcatalog|facebot|meta-externalagent/i.test(ua)) return 'Meta preview';
+  if (/WhatsApp/i.test(ua) && !/Instagram|FBAN|FBAV|FB_IAB|FBIOS|FB4A/i.test(ua) && /bot|preview|link/i.test(ua)) {
+    return 'WhatsApp preview';
+  }
+  if (/\bbot\b|crawler|spider|crawl|preview|scrap|fetch|monitor|slurp|bingpreview|embedly|telegrambot|twitterbot|linkedinbot|discordbot|pinterest|googlebot|applebot/i.test(ua)) {
+    return 'Crawler';
+  }
+  return '';
+}
+
+// Conservative actor classification for a grouped visitor/session.
+// Strong human signals are an unlock (password_success) or a link
+// click; a bare page view is weak. Known Meta infrastructure paired
+// with a non-app (scanner/generic) UA reads as a preview, never as a
+// confident client open.
+export function accessActorType(visitor = {}) {
+  const rep = visitor.first || visitor.last || {};
+  const net = classifyAccessNetwork(rep);
+  const ua = rep.user_agent || visitor.last?.user_agent || '';
+  const realApp = isRealInAppBrowser(ua);
+  const types = new Set((visitor.events || []).map((e) => String(e.event_type || '').toLowerCase()));
+  const strongSignal = types.has('password_success') || types.has('service_click') || types.has('button_click');
+  if (net.key === 'meta' && !realApp) return { key: 'meta', label: 'Meta Preview' };
+  if (net.key === 'apple_relay') return { key: 'relay', label: 'Private Relay' };
+  if (net.key === 'cloudflare' || net.key === 'google' || net.key === 'aws' || net.key === 'datacenter') {
+    return { key: 'proxy', label: 'Proxy / Datacenter' };
+  }
+  if (!strongSignal && !realApp) {
+    const crawler = crawlerUserAgentLabel(ua);
+    if (crawler === 'Meta preview') return { key: 'meta', label: 'Meta preview' };
+    if (crawler === 'WhatsApp preview') return { key: 'meta', label: 'WhatsApp preview' };
+    if (crawler === 'Crawler') return { key: 'proxy', label: 'Crawler' };
+  }
+  if (strongSignal) return { key: 'client', label: 'Likely Client' };
+  return { key: 'unknown', label: 'Unknown' };
+}
+
+export function accessLogRowDetail(event = {}) {
+  const ip = String(event.ip_address || '').trim();
+  const net = classifyAccessNetwork(event);
+  const place = accessLogPlace(event);
+  const device = accessLogDevice(event.user_agent);
+  return [ip, net.name, place, device].filter(Boolean).join(' · ');
+}
+
+export function formatAccessLogClock(value = '') {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+export function formatAccessLogDay(value = '') {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+export function formatAccessLogStamp(value = '') {
+  return [formatAccessLogDay(value), formatAccessLogClock(value)].filter(Boolean).join(' ');
+}
+
+const ACCESS_OPEN_TYPES = new Set(['page_view', 'password_success', 'invoice_view', 'invoice_fullscreen']);
+const ACCESS_CLICK_TYPES = new Set(['service_click', 'button_click']);
+
+export function accessLogTimeValue(value) {
+  const t = new Date(value || 0).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function accessLogVisitorKey(log = {}) {
+  const ip = String(log.ip_address || '').trim().toLowerCase();
+  const device = accessLogDevice(log.user_agent).toLowerCase();
+  return `${ip}|${device}`;
+}
+
+export function groupAccessLogsByVisitor(logs = []) {
+  const groups = new Map();
+  for (const log of Array.isArray(logs) ? logs : []) {
+    const key = accessLogVisitorKey(log);
+    if (!groups.has(key)) {
+      groups.set(key, { key, ip: String(log.ip_address || '').trim(), logs: [] });
+    }
+    groups.get(key).logs.push(log);
+  }
+  const visitors = [...groups.values()].map((group) => {
+    const events = [...group.logs].sort(
+      (a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at)
+    );
+    const first = events[0] || {};
+    const last = events[events.length - 1] || {};
+    return {
+      key: group.key,
+      ip: group.ip,
+      events,
+      first,
+      last,
+      place: accessLogPlace(first) || accessLogPlace(last),
+      device: accessLogDevice(first.user_agent) || accessLogDevice(last.user_agent),
+      isp: accessLogIsp(first) || accessLogIsp(last),
+    };
+  });
+  visitors.sort((a, b) => accessLogTimeValue(b.last.created_at) - accessLogTimeValue(a.last.created_at));
+  return visitors;
+}
+
+export function summarizeAccessLogs(logs = []) {
+  let opens = 0;
+  let clicks = 0;
+  let last = 0;
+  for (const log of Array.isArray(logs) ? logs : []) {
+    const type = String(log.event_type || '').toLowerCase();
+    if (ACCESS_OPEN_TYPES.has(type)) opens += 1;
+    else if (ACCESS_CLICK_TYPES.has(type)) clicks += 1;
+    const ts = accessLogTimeValue(log.created_at);
+    if (ts > last) last = ts;
+  }
+  return {
+    opens,
+    clicks,
+    lastActivity: last ? formatAccessLogClock(new Date(last).toISOString()) : '',
+  };
+}
+
+export function pluralCount(n, word) {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
+}
+
+export function visitorActionSummary(events = []) {
+  const seen = new Set();
+  const out = [];
+  for (const event of Array.isArray(events) ? events : []) {
+    const type = String(event.event_type || '').toLowerCase();
+    if (type === 'page_view') continue;
+    const label = accessLogEventLabel(event.event_type, event.service);
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push(label);
+  }
+  return out;
+}
+
+export function visitorWhenLabel(visitor = {}) {
+  const first = visitor.first || {};
+  const last = visitor.last || {};
+  const fDay = formatAccessLogDay(first.created_at);
+  const fClock = formatAccessLogClock(first.created_at);
+  const lDay = formatAccessLogDay(last.created_at);
+  const lClock = formatAccessLogClock(last.created_at);
+  if (!fDay && !fClock) return '';
+  const singleMoment = (visitor.events?.length || 0) <= 1
+    || accessLogTimeValue(first.created_at) === accessLogTimeValue(last.created_at);
+  if (singleMoment) {
+    return [fDay, fClock].filter(Boolean).join(' · ');
+  }
+  if (fDay === lDay) {
+    const range = [fClock, lClock].filter(Boolean).join('-');
+    return [fDay, range].filter(Boolean).join(' · ');
+  }
+  const start = [fDay, fClock].filter(Boolean).join(' ');
+  const end = [lDay, lClock].filter(Boolean).join(' ');
+  return [start, end].filter(Boolean).join(' - ');
+}
+
+export async function copyToClipboard(text) {
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(String(text));
+    return true;
+  } catch {
+    return false;
+  }
 }
