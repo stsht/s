@@ -1,0 +1,502 @@
+name: Apply persistent payment proof patch
+
+on:
+  push:
+    branches:
+      - feature/persistent-payment-proofs
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    if: ${{ !contains(github.event.head_commit.message, '[payment-proof-bot]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/persistent-payment-proofs
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply focused patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly 1 match, found {count}')
+              file.write_text(text.replace(old, new, 1))
+
+          worker = '_worker.js'
+
+          replace_once(worker, """const PUBLIC_PAYMENT_PROOF_MAX_IMAGES = 3;
+          const PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS = 790000;
+
+          function cleanPublicProofImages(images = []) {
+            const list = (Array.isArray(images) ? images : [])
+              .map((value) => String(value || '').trim())
+              .filter(Boolean)
+              .slice(0, PUBLIC_PAYMENT_PROOF_MAX_IMAGES);
+            if (!list.length) throw new Error('Please upload at least one payment proof.');
+            if (list.some((value) => !/^data:image\/(png|jpe?g|webp);base64,/i.test(value))) throw new Error('Payment proof must be an image.');
+            if (list.reduce((sum, value) => sum + value.length, 0) > PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS) {
+              throw new Error('Payment proof images are too large.');
+            }
+            return list;
+          }
+
+          function appendPendingPaymentProof(invoiceData = {}, images = []) {
+            const proofs = Array.isArray(invoiceData.paymentProofs) ? invoiceData.paymentProofs : [];
+            if (proofs.some((proof) => String(proof?.status || '').toLowerCase() === 'pending')) {
+              throw new Error('A payment proof is already pending review.');
+            }
+            return {
+              ...invoiceData,
+              paymentProofs: [
+                ...proofs,
+                { id: `proof-${Date.now().toString(36)}`, images, status: 'pending', createdAt: new Date().toISOString() }
+              ]
+            };
+          }
+          """, """const PUBLIC_PAYMENT_PROOF_MAX_IMAGES = 3;
+          const PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS = 790000;
+          const PAYMENT_PROOF_BUCKET = 'payment-proofs';
+
+          function cleanPublicProofImages(images = []) {
+            const list = (Array.isArray(images) ? images : [])
+              .map((value) => String(value || '').trim())
+              .filter(Boolean)
+              .slice(0, PUBLIC_PAYMENT_PROOF_MAX_IMAGES);
+            if (!list.length) throw new Error('Please upload at least one payment proof.');
+            if (list.some((value) => !/^data:image\/(png|jpe?g|webp);base64,/i.test(value))) throw new Error('Payment proof must be an image.');
+            if (list.reduce((sum, value) => sum + value.length, 0) > PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS) {
+              throw new Error('Payment proof images are too large.');
+            }
+            return list;
+          }
+
+          function parsePaymentProofDataUrl(value) {
+            const match = /^data:image\/(png|jpe?g|webp);base64,([a-z0-9+/=\s]+)$/i.exec(String(value || '').trim());
+            if (!match) throw new Error('Payment proof must be an image.');
+            const subtype = match[1].toLowerCase();
+            const extension = subtype === 'jpg' || subtype === 'jpeg' ? 'jpg' : subtype;
+            const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+            const binary = atob(match[2].replace(/\s+/g, ''));
+            const bytes = new Uint8Array(binary.length);
+            for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+            return { bytes, extension, mimeType };
+          }
+
+          function storageObjectPath(path = '') {
+            return String(path || '').split('/').filter(Boolean).map((part) => encodeURIComponent(part)).join('/');
+          }
+
+          async function paymentProofStorageRequest(env, objectPath, options = {}) {
+            const { url, key } = getSupabase(env);
+            const target = `${url}/storage/v1/object/${storageObjectPath(`${PAYMENT_PROOF_BUCKET}/${objectPath}`)}`;
+            const response = await fetch(target, {
+              ...options,
+              headers: {
+                apikey: key,
+                Authorization: `Bearer ${key}`,
+                ...(options.headers || {})
+              }
+            });
+            if (!response.ok) {
+              const text = await response.text();
+              throw new Error(text || `Payment proof storage error ${response.status}`);
+            }
+            return response;
+          }
+          """)
+
+          replace_once(worker, """  const [allDeliveries, allInvoices, allSubscriptions, clientRows] = await Promise.all([
+              supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200')
+                .then((rows) => Array.isArray(rows) ? rows : []),
+              tolerantSupabase('/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
+              tolerantSupabase('/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
+              fetchClients(env),
+            ]);
+          """, """  const [allDeliveries, allInvoices, allSubscriptions, clientRows, allPaymentProofs] = await Promise.all([
+              supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200')
+                .then((rows) => Array.isArray(rows) ? rows : []),
+              tolerantSupabase('/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
+              tolerantSupabase('/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
+              fetchClients(env),
+              tolerantSupabase('/rest/v1/payment_proofs?select=*&order=uploaded_at.asc&limit=1000'),
+            ]);
+          """)
+
+          replace_once(worker, """  const logsByDelivery = new Map();
+            for (const log of logs) {
+              const id = String(log?.delivery_id || '');
+              if (!id) continue;
+              let bucket = logsByDelivery.get(id);
+              if (!bucket) { bucket = []; logsByDelivery.set(id, bucket); }
+              bucket.push(log);
+            }
+
+            const invoiceRows = q
+          """, """  const logsByDelivery = new Map();
+            for (const log of logs) {
+              const id = String(log?.delivery_id || '');
+              if (!id) continue;
+              let bucket = logsByDelivery.get(id);
+              if (!bucket) { bucket = []; logsByDelivery.set(id, bucket); }
+              bucket.push(log);
+            }
+
+            const paymentProofsByInvoice = new Map();
+            for (const proof of allPaymentProofs) {
+              const invoiceId = String(proof?.invoice_id || '').trim();
+              if (!invoiceId) continue;
+              let bucket = paymentProofsByInvoice.get(invoiceId);
+              if (!bucket) { bucket = []; paymentProofsByInvoice.set(invoiceId, bucket); }
+              bucket.push({
+                ...proof,
+                image_url: `/api/payment-proof-image?id=${encodeURIComponent(proof.id)}`
+              });
+            }
+
+            const invoiceRows = q
+          """)
+
+          replace_once(worker, """    return {
+                ...inv,
+                event_key: effectiveEventKey,
+                invoice_type: String(inv.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client',
+                related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
+              };
+          """, """    return {
+                ...inv,
+                event_key: effectiveEventKey,
+                invoice_type: String(inv.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client',
+                payment_proofs: paymentProofsByInvoice.get(String(inv.id || '')) || [],
+                related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
+              };
+          """)
+
+          replace_once(worker, """async function handlePaymentProofSubmit(request, env) {
+            try {
+              const body = await request.json().catch(() => ({}));
+              const images = cleanPublicProofImages(body.images);
+              const delivery = await getDeliveryByLookup(env, body.slug || body.shortCode);
+              if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+              const password = String(body.password || '').trim();
+              const authorized = await verifyGallerySessionCookie(request, env, delivery.id)
+                || (password && await verifyGalleryPassword(delivery, password));
+              if (!authorized) return json({ error: 'Unauthorized.' }, 401);
+
+              const invoice = await findInvoiceForDelivery(env, delivery);
+              if (!invoice?.id) return json({ error: 'Invoice not found.' }, 404);
+              if (String(invoice.status || '').toLowerCase() === 'paid') return json({ error: 'Payment is already confirmed.' }, 409);
+
+              const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+              const rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`, {
+                method: 'PATCH',
+                headers: { Prefer: 'return=representation' },
+                body: JSON.stringify({ invoice_data: appendPendingPaymentProof(data, images) })
+              });
+              const updated = Array.isArray(rows) ? rows[0] : rows;
+              return json({ ok: true, invoice: invoiceSummary(updated) });
+            } catch (error) {
+              return json({ error: error?.message || 'Could not upload payment proof.' }, 500);
+            }
+          }
+          """, """async function handlePaymentProofSubmit(request, env) {
+            const uploadedPaths = [];
+            try {
+              const body = await request.json().catch(() => ({}));
+              const images = cleanPublicProofImages(body.images);
+              const delivery = await getDeliveryByLookup(env, body.slug || body.shortCode);
+              if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+              const password = String(body.password || '').trim();
+              const authorized = await verifyGallerySessionCookie(request, env, delivery.id)
+                || (password && await verifyGalleryPassword(delivery, password));
+              if (!authorized) return json({ error: 'Unauthorized.' }, 401);
+
+              const invoice = await findInvoiceForDelivery(env, delivery);
+              if (!invoice?.id) return json({ error: 'Invoice not found.' }, 404);
+              if (String(invoice.status || '').toLowerCase() === 'paid') return json({ error: 'Payment is already confirmed.' }, 409);
+
+              const pendingRows = await supabaseFetch(
+                env,
+                `/rest/v1/payment_proofs?select=id&invoice_id=eq.${encodeURIComponent(invoice.id)}&status=eq.pending&limit=1`
+              ).catch((error) => {
+                if (isSchemaError(error)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
+                throw error;
+              });
+              if (Array.isArray(pendingRows) && pendingRows.length) {
+                return json({ error: 'A payment proof is already pending review.' }, 409);
+              }
+
+              const uploadedAt = new Date().toISOString();
+              const proofRows = [];
+              for (let index = 0; index < images.length; index += 1) {
+                const parsed = parsePaymentProofDataUrl(images[index]);
+                const proofId = crypto.randomUUID();
+                const imagePath = `${invoice.id}/${proofId}.${parsed.extension}`;
+                await paymentProofStorageRequest(env, imagePath, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': parsed.mimeType,
+                    'x-upsert': 'false'
+                  },
+                  body: parsed.bytes
+                });
+                uploadedPaths.push(imagePath);
+                proofRows.push({
+                  id: proofId,
+                  invoice_id: invoice.id,
+                  delivery_id: delivery.id,
+                  client_id: invoice.client_id || delivery.client_id || null,
+                  event_key: invoice.event_key || delivery.event_key || '',
+                  event_date: invoice.event_date || delivery.event_date || '',
+                  image_path: imagePath,
+                  original_filename: `payment-proof-${index + 1}.${parsed.extension}`,
+                  mime_type: parsed.mimeType,
+                  status: 'pending',
+                  uploaded_at: uploadedAt
+                });
+              }
+
+              const saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
+                method: 'POST',
+                headers: { Prefer: 'return=representation' },
+                body: JSON.stringify(proofRows)
+              });
+              return json({ ok: true, proofs: Array.isArray(saved) ? saved : [saved].filter(Boolean) });
+            } catch (error) {
+              await Promise.allSettled(uploadedPaths.map((path) => paymentProofStorageRequest(env, path, { method: 'DELETE' })));
+              const status = Number(error?.status) || 500;
+              return json({ error: error?.message || 'Could not upload payment proof.' }, status);
+            }
+          }
+
+          async function handlePaymentProofImageGet(request, env) {
+            const url = new URL(request.url);
+            const password = String(url.searchParams.get('password') || '').trim();
+            if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+            const id = String(url.searchParams.get('id') || '').trim();
+            if (!id) return json({ error: 'Missing payment proof id.' }, 400);
+
+            const rows = await supabaseFetch(
+              env,
+              `/rest/v1/payment_proofs?select=id,image_path,mime_type,original_filename&id=eq.${encodeURIComponent(id)}&limit=1`
+            );
+            const proof = Array.isArray(rows) ? rows[0] : rows;
+            if (!proof?.image_path) return json({ error: 'Payment proof not found.' }, 404);
+
+            const stored = await paymentProofStorageRequest(env, proof.image_path, { method: 'GET' });
+            return new Response(stored.body, {
+              status: 200,
+              headers: {
+                'Content-Type': proof.mime_type || stored.headers.get('Content-Type') || 'image/jpeg',
+                'Content-Disposition': `inline; filename=\"${String(proof.original_filename || 'payment-proof.jpg').replace(/[\"\\]/g, '')}\"`,
+                'Cache-Control': 'private, no-store'
+              }
+            });
+          }
+          """)
+
+          replace_once(worker, """async function handleInvoiceDelete(request, env) {
+            const body = await request.json();
+            const password = String(body.password || '').trim();
+            const id = String(body.id || '').trim();
+            if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+            if (!id) return json({ error: 'Missing invoice id.' }, 400);
+            await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+              method: 'DELETE',
+              headers: { Prefer: 'return=minimal' }
+            });
+            return json({ ok: true });
+          }
+          """, """async function handleInvoiceDelete(request, env) {
+            const body = await request.json();
+            const password = String(body.password || '').trim();
+            const id = String(body.id || '').trim();
+            if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+            if (!id) return json({ error: 'Missing invoice id.' }, 400);
+
+            const proofs = await supabaseFetch(
+              env,
+              `/rest/v1/payment_proofs?select=image_path&invoice_id=eq.${encodeURIComponent(id)}`
+            ).catch((error) => isSchemaError(error) ? [] : Promise.reject(error));
+            await Promise.allSettled((Array.isArray(proofs) ? proofs : [])
+              .map((proof) => String(proof?.image_path || '').trim())
+              .filter(Boolean)
+              .map((path) => paymentProofStorageRequest(env, path, { method: 'DELETE' })));
+
+            await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+              method: 'DELETE',
+              headers: { Prefer: 'return=minimal' }
+            });
+            return json({ ok: true });
+          }
+          """)
+
+          replace_once(worker, """      if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
+                if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
+          """, """      if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
+                if (request.method === 'GET' && url.pathname === '/api/payment-proof-image') return await handlePaymentProofImageGet(request, env);
+                if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
+          """)
+
+          record = 'src/pages/db/RecordRow.jsx'
+          replace_once(record, """function invoicePaymentProofs(invoice = {}) {
+            const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+            const entries = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
+            return entries
+              .map((entry, entryIndex) => ({
+                id: String(entry?.id || `payment-${entryIndex + 1}`),
+                status: String(entry?.status || 'pending').toLowerCase(),
+                createdAt: String(entry?.createdAt || entry?.created_at || ''),
+                images: Array.isArray(entry?.images) ? entry.images.map((image) => String(image || '').trim()).filter(Boolean) : [],
+              }))
+              .filter((entry) => entry.images.length);
+          }
+          """, """function invoicePaymentProofs(invoice = {}) {
+            const storedEntries = Array.isArray(invoice?.payment_proofs) ? invoice.payment_proofs : [];
+            const stored = storedEntries
+              .map((entry, entryIndex) => ({
+                id: String(entry?.id || `stored-payment-${entryIndex + 1}`),
+                status: String(entry?.status || 'pending').toLowerCase(),
+                createdAt: String(entry?.uploaded_at || entry?.created_at || ''),
+                filename: String(entry?.original_filename || `payment-proof-${entryIndex + 1}.jpg`),
+                images: [String(entry?.image_url || '').trim()].filter(Boolean),
+              }))
+              .filter((entry) => entry.images.length);
+            if (stored.length) return stored;
+
+            const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+            const legacyEntries = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
+            return legacyEntries
+              .map((entry, entryIndex) => ({
+                id: String(entry?.id || `legacy-payment-${entryIndex + 1}`),
+                status: String(entry?.status || 'pending').toLowerCase(),
+                createdAt: String(entry?.createdAt || entry?.created_at || ''),
+                filename: `payment-proof-${entryIndex + 1}.jpg`,
+                images: Array.isArray(entry?.images) ? entry.images.map((image) => String(image || '').trim()).filter(Boolean) : [],
+              }))
+              .filter((entry) => entry.images.length);
+          }
+          """)
+
+          replace_once(record, """            <strong>{entries.length} payment{entries.length > 1 ? 's' : ''}</strong>
+          """, """            <strong>{entries.length} image{entries.length > 1 ? 's' : ''}</strong>
+          """)
+
+          replace_once(record, """                {entry.images.map((image, imageIndex) => (
+                              <a key={`${entry.id || entryIndex}-${imageIndex}`} href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+                                <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                              </a>
+                            ))}
+          """, """                {entry.images.map((image, imageIndex) => (
+                              <div className=\"payment-proof-image-item\" key={`${entry.id || entryIndex}-${imageIndex}`}>
+                                <a href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+                                  <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                                </a>
+                                <a className=\"payment-proof-save\" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+                                  Save Image
+                                </a>
+                              </div>
+                            ))}
+          """)
+
+          css = Path('src/pages/db/DatabaseList.css')
+          css_text = css.read_text()
+          css_marker = """.payment-proof-image-link img{
+            display:block;
+            width:100%;
+            height:100%;
+            max-height:360px;
+            object-fit:contain;
+            background:#fff;
+          }
+          """
+          css_add = css_marker + """.payment-proof-image-item{
+            display:grid;
+            gap:8px;
+          }
+          .payment-proof-save{
+            min-height:38px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            border:1px solid var(--line);
+            border-radius:999px;
+            background:var(--panel);
+            color:var(--ink);
+            font-size:.78rem;
+            font-weight:850;
+            text-decoration:none;
+          }
+          """
+          if css_text.count(css_marker) != 1:
+              raise SystemExit(f'DatabaseList.css: expected exactly 1 image marker, found {css_text.count(css_marker)}')
+          css.write_text(css_text.replace(css_marker, css_add, 1))
+
+          Path('db-migration-part-12.sql').write_text("""-- Persistent client-uploaded payment proof history.
+          -- Safe to run repeatedly.
+
+          create extension if not exists pgcrypto;
+
+          create table if not exists public.payment_proofs (
+            id uuid primary key default gen_random_uuid(),
+            invoice_id uuid not null references public.invoices(id) on delete cascade,
+            delivery_id uuid references public.deliveries(id) on delete set null,
+            client_id uuid,
+            event_key text,
+            event_date text,
+            image_path text not null,
+            original_filename text,
+            mime_type text,
+            status text not null default 'pending',
+            uploaded_at timestamptz not null default now(),
+            reviewed_at timestamptz,
+            notes text
+          );
+
+          create index if not exists payment_proofs_invoice_id_idx on public.payment_proofs(invoice_id);
+          create index if not exists payment_proofs_delivery_id_idx on public.payment_proofs(delivery_id);
+          create index if not exists payment_proofs_event_key_idx on public.payment_proofs(event_key);
+          create index if not exists payment_proofs_uploaded_at_idx on public.payment_proofs(uploaded_at desc);
+
+          alter table public.payment_proofs enable row level security;
+          grant select, insert, update, delete on public.payment_proofs to service_role;
+
+          insert into storage.buckets (id, name, public)
+          values ('payment-proofs', 'payment-proofs', false)
+          on conflict (id) do update set public = false;
+
+          notify pgrst, 'reload schema';
+          """)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          rm -f .github/workflows/apply-payment-proof-storage.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add _worker.js src/pages/db/RecordRow.jsx src/pages/db/DatabaseList.css db-migration-part-12.sql .github/workflows/apply-payment-proof-storage.yml
+          git commit -m "[payment-proof-bot] Store payment proofs persistently"
+          git push origin HEAD:feature/persistent-payment-proofs
