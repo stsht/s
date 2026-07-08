@@ -24,9 +24,12 @@ jobs:
           cache: npm
 
       - name: Apply focused patch
+        id: patch
+        continue-on-error: true
         shell: bash
         run: |
-          python3 <<'PY'
+          set -o pipefail
+          python3 <<'PY' 2>&1 | tee patch-output.txt
           from pathlib import Path
           import textwrap
 
@@ -38,13 +41,27 @@ jobs:
           exec(compile(textwrap.dedent(script), 'payment-proof-patch.py', 'exec'))
           PY
 
+      - name: Upload patch diagnostics
+        if: steps.patch.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: payment-proof-patch-output
+          path: patch-output.txt
+
+      - name: Stop after patch failure
+        if: steps.patch.outcome == 'failure'
+        run: exit 1
+
       - name: Install dependencies
+        if: steps.patch.outcome == 'success'
         run: npm ci
 
       - name: Build
+        if: steps.patch.outcome == 'success'
         run: npm run build
 
       - name: Commit verified patch
+        if: steps.patch.outcome == 'success'
         shell: bash
         run: |
           rm -f .github/workflows/apply-payment-proof-storage.yml
