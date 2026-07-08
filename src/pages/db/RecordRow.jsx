@@ -68,13 +68,26 @@ function PaperIcon() {
 }
 
 function invoicePaymentProofs(invoice = {}) {
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  const entries = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
-  return entries
+  const storedEntries = Array.isArray(invoice?.payment_proofs) ? invoice.payment_proofs : [];
+  const stored = storedEntries
     .map((entry, entryIndex) => ({
-      id: String(entry?.id || `payment-${entryIndex + 1}`),
+      id: String(entry?.id || `stored-payment-${entryIndex + 1}`),
+      status: String(entry?.status || 'pending').toLowerCase(),
+      createdAt: String(entry?.uploaded_at || entry?.created_at || ''),
+      filename: String(entry?.original_filename || `payment-proof-${entryIndex + 1}.jpg`),
+      images: [String(entry?.image_url || '').trim()].filter(Boolean),
+    }))
+    .filter((entry) => entry.images.length);
+  if (stored.length) return stored;
+
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const legacyEntries = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
+  return legacyEntries
+    .map((entry, entryIndex) => ({
+      id: String(entry?.id || `legacy-payment-${entryIndex + 1}`),
       status: String(entry?.status || 'pending').toLowerCase(),
       createdAt: String(entry?.createdAt || entry?.created_at || ''),
+      filename: `payment-proof-${entryIndex + 1}.jpg`,
       images: Array.isArray(entry?.images) ? entry.images.map((image) => String(image || '').trim()).filter(Boolean) : [],
     }))
     .filter((entry) => entry.images.length);
@@ -87,7 +100,7 @@ function PaymentProofViewer({ entries, onClose }) {
         <header className="payment-proof-viewer-head">
           <div>
             <p>Payment Proof</p>
-            <strong>{entries.length} payment{entries.length > 1 ? 's' : ''}</strong>
+            <strong>{entries.length} image{entries.length > 1 ? 's' : ''}</strong>
           </div>
           <button type="button" onClick={onClose} aria-label="Close payment proofs">×</button>
         </header>
@@ -101,10 +114,15 @@ function PaymentProofViewer({ entries, onClose }) {
               {entry.createdAt ? <p className="payment-proof-entry-date">Uploaded {entry.createdAt.slice(0, 10)}</p> : null}
               <div className="payment-proof-image-grid">
                 {entry.images.map((image, imageIndex) => (
-                  <a key={`${entry.id || entryIndex}-${imageIndex}`} href={image} target="_blank" rel="noopener noreferrer" className="payment-proof-image-link">
-                    <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
-                  </a>
-                ))}
+        <div className="payment-proof-image-item" key={`${entry.id || entryIndex}-${imageIndex}`}>
+          <a href={image} target="_blank" rel="noopener noreferrer" className="payment-proof-image-link">
+            <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+          </a>
+          <a className="payment-proof-save" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+            Save Image
+          </a>
+        </div>
+      ))}
               </div>
             </section>
           ))}
