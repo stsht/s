@@ -38,7 +38,101 @@ jobs:
           if marker not in workflow:
               raise SystemExit('Embedded patch script not found.')
           script = workflow.split(marker, 1)[1].split('\n          PY', 1)[0]
-          exec(compile(textwrap.dedent(script), 'payment-proof-patch.py', 'exec'))
+
+          try:
+              exec(compile(textwrap.dedent(script), 'payment-proof-patch.py', 'exec'))
+          except SystemExit as error:
+              expected = 'src/pages/db/RecordRow.jsx: expected exactly 1 match, found 0'
+              if str(error) != expected:
+                  raise
+
+              record = Path('src/pages/db/RecordRow.jsx')
+              record_text = record.read_text()
+              marker_start = '{entry.images.map((image, imageIndex) => ('
+              start = record_text.index(marker_start)
+              line_start = record_text.rfind('\n', 0, start) + 1
+              end_marker = '                ))}'
+              end = record_text.index(end_marker, start) + len(end_marker)
+              replacement = """                {entry.images.map((image, imageIndex) => (
+                  <div className=\"payment-proof-image-item\" key={`${entry.id || entryIndex}-${imageIndex}`}>
+                    <a href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+                      <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                    </a>
+                    <a className=\"payment-proof-save\" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+                      Save Image
+                    </a>
+                  </div>
+                ))}"""
+              record.write_text(record_text[:line_start] + replacement + record_text[end:])
+
+              css = Path('src/pages/db/DatabaseList.css')
+              css_text = css.read_text()
+              css_marker = """.payment-proof-image-link img{
+            display:block;
+            width:100%;
+            height:100%;
+            max-height:360px;
+            object-fit:contain;
+            background:#fff;
+          }
+          """
+              css_add = css_marker + """.payment-proof-image-item{
+            display:grid;
+            gap:8px;
+          }
+          .payment-proof-save{
+            min-height:38px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            border:1px solid var(--line);
+            border-radius:999px;
+            background:var(--panel);
+            color:var(--ink);
+            font-size:.78rem;
+            font-weight:850;
+            text-decoration:none;
+          }
+          """
+              if css_text.count(css_marker) != 1:
+                  raise SystemExit(f'DatabaseList.css: expected exactly 1 image marker, found {css_text.count(css_marker)}')
+              css.write_text(css_text.replace(css_marker, css_add, 1))
+
+              Path('db-migration-part-12.sql').write_text("""-- Persistent client-uploaded payment proof history.
+          -- Safe to run repeatedly.
+
+          create extension if not exists pgcrypto;
+
+          create table if not exists public.payment_proofs (
+            id uuid primary key default gen_random_uuid(),
+            invoice_id uuid not null references public.invoices(id) on delete cascade,
+            delivery_id uuid references public.deliveries(id) on delete set null,
+            client_id uuid,
+            event_key text,
+            event_date text,
+            image_path text not null,
+            original_filename text,
+            mime_type text,
+            status text not null default 'pending',
+            uploaded_at timestamptz not null default now(),
+            reviewed_at timestamptz,
+            notes text
+          );
+
+          create index if not exists payment_proofs_invoice_id_idx on public.payment_proofs(invoice_id);
+          create index if not exists payment_proofs_delivery_id_idx on public.payment_proofs(delivery_id);
+          create index if not exists payment_proofs_event_key_idx on public.payment_proofs(event_key);
+          create index if not exists payment_proofs_uploaded_at_idx on public.payment_proofs(uploaded_at desc);
+
+          alter table public.payment_proofs enable row level security;
+          grant select, insert, update, delete on public.payment_proofs to service_role;
+
+          insert into storage.buckets (id, name, public)
+          values ('payment-proofs', 'payment-proofs', false)
+          on conflict (id) do update set public = false;
+
+          notify pgrst, 'reload schema';
+          """)
           PY
 
       - name: Upload patch diagnostics
