@@ -618,6 +618,23 @@
   object-fit:contain;
   background:#fff;
 }
+.payment-proof-image-item{
+  display:grid;
+  gap:8px;
+}
+.payment-proof-save{
+  min-height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:var(--panel);
+  color:var(--ink);
+  font-size:.78rem;
+  font-weight:850;
+  text-decoration:none;
+}
 
 
 /* Add-client / create-action pill. Live and /db-only — rendered by

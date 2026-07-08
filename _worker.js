@@ -36,6 +36,7 @@ const RATE_LIMITS = new Map();
 let lastRateLimitSweep = 0;
 const PUBLIC_PAYMENT_PROOF_MAX_IMAGES = 3;
 const PUBLIC_PAYMENT_PROOF_MAX_DATA_CHARS = 790000;
+const PAYMENT_PROOF_BUCKET = 'payment-proofs';
 
 function cleanPublicProofImages(images = []) {
   const list = (Array.isArray(images) ? images : [])
@@ -50,18 +51,38 @@ function cleanPublicProofImages(images = []) {
   return list;
 }
 
-function appendPendingPaymentProof(invoiceData = {}, images = []) {
-  const proofs = Array.isArray(invoiceData.paymentProofs) ? invoiceData.paymentProofs : [];
-  if (proofs.some((proof) => String(proof?.status || '').toLowerCase() === 'pending')) {
-    throw new Error('A payment proof is already pending review.');
+function parsePaymentProofDataUrl(value) {
+  const match = /^data:image\/(png|jpe?g|webp);base64,([a-z0-9+/=\s]+)$/i.exec(String(value || '').trim());
+  if (!match) throw new Error('Payment proof must be an image.');
+  const subtype = match[1].toLowerCase();
+  const extension = subtype === 'jpg' || subtype === 'jpeg' ? 'jpg' : subtype;
+  const mimeType = extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
+  const binary = atob(match[2].replace(/\s+/g, ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return { bytes, extension, mimeType };
+}
+
+function storageObjectPath(path = '') {
+  return String(path || '').split('/').filter(Boolean).map((part) => encodeURIComponent(part)).join('/');
+}
+
+async function paymentProofStorageRequest(env, objectPath, options = {}) {
+  const { url, key } = getSupabase(env);
+  const target = `${url}/storage/v1/object/${storageObjectPath(`${PAYMENT_PROOF_BUCKET}/${objectPath}`)}`;
+  const response = await fetch(target, {
+    ...options,
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      ...(options.headers || {})
+    }
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Payment proof storage error ${response.status}`);
   }
-  return {
-    ...invoiceData,
-    paymentProofs: [
-      ...proofs,
-      { id: `proof-${Date.now().toString(36)}`, images, status: 'pending', createdAt: new Date().toISOString() }
-    ]
-  };
+  return response;
 }
 
 function escapeHtml(value = '') {
@@ -2026,12 +2047,13 @@ async function handleDbSearch(request, env) {
     }
   };
 
-  const [allDeliveries, allInvoices, allSubscriptions, clientRows] = await Promise.all([
+  const [allDeliveries, allInvoices, allSubscriptions, clientRows, allPaymentProofs] = await Promise.all([
     supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200')
       .then((rows) => Array.isArray(rows) ? rows : []),
     tolerantSupabase('/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
     tolerantSupabase('/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
     fetchClients(env),
+    tolerantSupabase('/rest/v1/payment_proofs?select=*&order=uploaded_at.asc&limit=1000'),
   ]);
 
   // Subscription extensions for the loaded subscriptions. Fetched
@@ -2122,6 +2144,18 @@ async function handleDbSearch(request, env) {
     let bucket = logsByDelivery.get(id);
     if (!bucket) { bucket = []; logsByDelivery.set(id, bucket); }
     bucket.push(log);
+  }
+
+  const paymentProofsByInvoice = new Map();
+  for (const proof of allPaymentProofs) {
+    const invoiceId = String(proof?.invoice_id || '').trim();
+    if (!invoiceId) continue;
+    let bucket = paymentProofsByInvoice.get(invoiceId);
+    if (!bucket) { bucket = []; paymentProofsByInvoice.set(invoiceId, bucket); }
+    bucket.push({
+      ...proof,
+      image_url: `/api/payment-proof-image?id=${encodeURIComponent(proof.id)}`
+    });
   }
 
   const invoiceRows = q
@@ -2253,6 +2287,7 @@ async function handleDbSearch(request, env) {
       ...inv,
       event_key: effectiveEventKey,
       invoice_type: String(inv.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client',
+      payment_proofs: paymentProofsByInvoice.get(String(inv.id || '')) || [],
       related_delivery: deliverySummary(relatedByClientKey(inv, latestDeliveryByClient))
     };
   });
@@ -3228,6 +3263,7 @@ async function handlePublicInvoiceGet(request, env) {
 }
 
 async function handlePaymentProofSubmit(request, env) {
+  const uploadedPaths = [];
   try {
     const body = await request.json().catch(() => ({}));
     const images = cleanPublicProofImages(body.images);
@@ -3243,17 +3279,83 @@ async function handlePaymentProofSubmit(request, env) {
     if (!invoice?.id) return json({ error: 'Invoice not found.' }, 404);
     if (String(invoice.status || '').toLowerCase() === 'paid') return json({ error: 'Payment is already confirmed.' }, 409);
 
-    const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-    const rows = await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`, {
-      method: 'PATCH',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify({ invoice_data: appendPendingPaymentProof(data, images) })
+    const pendingRows = await supabaseFetch(
+      env,
+      `/rest/v1/payment_proofs?select=id&invoice_id=eq.${encodeURIComponent(invoice.id)}&status=eq.pending&limit=1`
+    ).catch((error) => {
+      if (isSchemaError(error)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
+      throw error;
     });
-    const updated = Array.isArray(rows) ? rows[0] : rows;
-    return json({ ok: true, invoice: invoiceSummary(updated) });
+    if (Array.isArray(pendingRows) && pendingRows.length) {
+      return json({ error: 'A payment proof is already pending review.' }, 409);
+    }
+
+    const uploadedAt = new Date().toISOString();
+    const proofRows = [];
+    for (let index = 0; index < images.length; index += 1) {
+      const parsed = parsePaymentProofDataUrl(images[index]);
+      const proofId = crypto.randomUUID();
+      const imagePath = `${invoice.id}/${proofId}.${parsed.extension}`;
+      await paymentProofStorageRequest(env, imagePath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': parsed.mimeType,
+          'x-upsert': 'false'
+        },
+        body: parsed.bytes
+      });
+      uploadedPaths.push(imagePath);
+      proofRows.push({
+        id: proofId,
+        invoice_id: invoice.id,
+        delivery_id: delivery.id,
+        client_id: invoice.client_id || delivery.client_id || null,
+        event_key: invoice.event_key || delivery.event_key || '',
+        event_date: invoice.event_date || delivery.event_date || '',
+        image_path: imagePath,
+        original_filename: `payment-proof-${index + 1}.${parsed.extension}`,
+        mime_type: parsed.mimeType,
+        status: 'pending',
+        uploaded_at: uploadedAt
+      });
+    }
+
+    const saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify(proofRows)
+    });
+    return json({ ok: true, proofs: Array.isArray(saved) ? saved : [saved].filter(Boolean) });
   } catch (error) {
-    return json({ error: error?.message || 'Could not upload payment proof.' }, 500);
+    await Promise.allSettled(uploadedPaths.map((path) => paymentProofStorageRequest(env, path, { method: 'DELETE' })));
+    const status = Number(error?.status) || 500;
+    return json({ error: error?.message || 'Could not upload payment proof.' }, status);
   }
+}
+
+async function handlePaymentProofImageGet(request, env) {
+  const url = new URL(request.url);
+  const password = String(url.searchParams.get('password') || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  const id = String(url.searchParams.get('id') || '').trim();
+  if (!id) return json({ error: 'Missing payment proof id.' }, 400);
+
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/payment_proofs?select=id,image_path,mime_type,original_filename&id=eq.${encodeURIComponent(id)}&limit=1`
+  );
+  const proof = Array.isArray(rows) ? rows[0] : rows;
+  if (!proof?.image_path) return json({ error: 'Payment proof not found.' }, 404);
+
+  const stored = await paymentProofStorageRequest(env, proof.image_path, { method: 'GET' });
+  return new Response(stored.body, {
+    status: 200,
+    headers: {
+      'Content-Type': proof.mime_type || stored.headers.get('Content-Type') || 'image/jpeg',
+      'Content-Disposition': `inline; filename="${String(proof.original_filename || 'payment-proof.jpg').replace(/["\]/g, '')}"`,
+      'Cache-Control': 'private, no-store'
+    }
+  });
 }
 
 async function handleInvoiceDelete(request, env) {
@@ -3262,6 +3364,16 @@ async function handleInvoiceDelete(request, env) {
   const id = String(body.id || '').trim();
   if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
   if (!id) return json({ error: 'Missing invoice id.' }, 400);
+
+  const proofs = await supabaseFetch(
+    env,
+    `/rest/v1/payment_proofs?select=image_path&invoice_id=eq.${encodeURIComponent(id)}`
+  ).catch((error) => isSchemaError(error) ? [] : Promise.reject(error));
+  await Promise.allSettled((Array.isArray(proofs) ? proofs : [])
+    .map((proof) => String(proof?.image_path || '').trim())
+    .filter(Boolean)
+    .map((path) => paymentProofStorageRequest(env, path, { method: 'DELETE' })));
+
   await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: { Prefer: 'return=minimal' }
@@ -4464,6 +4576,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
       if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/payment-proof-image') return await handlePaymentProofImageGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
       if (request.method === 'GET' && url.pathname === '/api/open-link') return await handleOpenLink(request, env);
 	      if (request.method === 'GET' && url.pathname === '/api/db') return await handleDbSearch(request, env);
