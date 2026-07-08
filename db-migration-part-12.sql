@@ -31,4 +31,36 @@ insert into storage.buckets (id, name, public)
 values ('payment-proofs', 'payment-proofs', false)
 on conflict (id) do update set public = false;
 
+-- Recording a deposit or final payment is the admin review action.
+-- Confirm pending proofs only when payment status/amount actually changes,
+-- so unrelated invoice edits never alter proof history.
+create or replace function public.confirm_pending_payment_proofs()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.payment_proofs
+  set status = 'confirmed',
+      reviewed_at = now()
+  where invoice_id = new.id
+    and status = 'pending';
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_confirm_pending_payment_proofs on public.invoices;
+create trigger trg_confirm_pending_payment_proofs
+after update of status, paid_amount on public.invoices
+for each row
+when (
+  new.status in ('deposit', 'paid')
+  and (
+    old.status is distinct from new.status
+    or old.paid_amount is distinct from new.paid_amount
+  )
+)
+execute function public.confirm_pending_payment_proofs();
+
 notify pgrst, 'reload schema';
