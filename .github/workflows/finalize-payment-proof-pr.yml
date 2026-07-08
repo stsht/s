@@ -1,0 +1,91 @@
+name: Finalize persistent payment proof PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.head_ref == 'feature/persistent-payment-proofs'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/persistent-payment-proofs
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Finalize code
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          worker = Path('_worker.js')
+          text = worker.read_text()
+          pending = """    const pendingRows = await supabaseFetch(
+              env,
+              `/rest/v1/payment_proofs?select=id&invoice_id=eq.${encodeURIComponent(invoice.id)}&status=eq.pending&limit=1`
+            ).catch((error) => {
+              if (isSchemaError(error)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
+              throw error;
+            });
+            if (Array.isArray(pendingRows) && pendingRows.length) {
+              return json({ error: 'A payment proof is already pending review.' }, 409);
+            }
+
+          """
+          if text.count(pending) != 1:
+              raise SystemExit(f'_worker.js pending guard match count: {text.count(pending)}')
+          worker.write_text(text.replace(pending, '', 1))
+
+          record = Path('src/pages/db/RecordRow.jsx')
+          text = record.read_text()
+          ugly = """                {entry.images.map((image, imageIndex) => (
+          <div className=\"payment-proof-image-item\" key={`${entry.id || entryIndex}-${imageIndex}`}>
+            <a href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+              <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+            </a>
+            <a className=\"payment-proof-save\" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+              Save Image
+            </a>
+          </div>
+        ))}
+          """
+          clean = """                {entry.images.map((image, imageIndex) => (
+                  <div className=\"payment-proof-image-item\" key={`${entry.id || entryIndex}-${imageIndex}`}>
+                    <a href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+                      <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                    </a>
+                    <a className=\"payment-proof-save\" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+                      Save Image
+                    </a>
+                  </div>
+                ))}
+          """
+          if text.count(ugly) != 1:
+              raise SystemExit(f'RecordRow.jsx cleanup match count: {text.count(ugly)}')
+          record.write_text(text.replace(ugly, clean, 1))
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit final verified patch
+        run: |
+          rm -f .github/workflows/finalize-payment-proof-pr.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add _worker.js src/pages/db/RecordRow.jsx .github/workflows/finalize-payment-proof-pr.yml
+          git commit -m "Finalize persistent payment proof flow"
+          git push origin HEAD:feature/persistent-payment-proofs
