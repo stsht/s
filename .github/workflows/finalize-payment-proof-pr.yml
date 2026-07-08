@@ -10,12 +10,12 @@ permissions:
 
 jobs:
   finalize:
-    if: github.head_ref == 'feature/persistent-payment-proofs'
+    if: github.head_ref == 'feature/persistent-payment-proofs-final'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feature/persistent-payment-proofs
+          ref: feature/persistent-payment-proofs-final
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -88,4 +88,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add _worker.js src/pages/db/RecordRow.jsx .github/workflows/finalize-payment-proof-pr.yml
           git commit -m "Finalize persistent payment proof flow"
-          git push origin HEAD:feature/persistent-payment-proofs
+          git push origin HEAD:feature/persistent-payment-proofs-final
