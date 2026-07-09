@@ -1,0 +1,316 @@
+name: Apply event row polish
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-build:
+    if: github.head_ref == 'improve-event-payment-history'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: improve-event-payment-history
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply focused UI and history patch
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly 1 match, found {count}')
+              file.write_text(text.replace(old, new, 1))
+
+          client_detail = 'src/pages/db/clients/ClientDetail.jsx'
+          replace_once(
+              client_detail,
+              """  const todayIso = useMemo(() => jakartaTodayISO(), []);
+            const records = buildClientRecords(client, invoices, deliveries, todayIso);
+          """,
+              """  const todayIso = useMemo(() => jakartaTodayISO(), []);
+            const records = useMemo(() => {
+              const baseRecords = buildClientRecords(client, invoices, deliveries, todayIso);
+              const clientId = String(client?.client_id || client?.id || '').trim();
+              const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
+              const clientInvoices = (Array.isArray(invoices) ? invoices : []).filter((invoice) => {
+                const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+                const type = String(invoice?.invoice_type || data.invoiceType || '').trim().toLowerCase();
+                if (type === 'vendor') return false;
+                const invoiceClientId = String(invoice?.client_id || '').trim();
+                const invoiceName = String(invoice?.client_name || '').trim().toLowerCase();
+                if (clientId && invoiceClientId) return clientId === invoiceClientId;
+                return !!clientName && clientName === invoiceName;
+              });
+
+              return baseRecords.map((row) => {
+                const rowEventKey = String(row?.eventKey || row?.invoice?.event_key || row?.delivery?.event_key || '').trim();
+                const rowEventDate = String(row?.eventDate || '').trim();
+                const rowDeliveryId = String(row?.delivery?.id || '').trim();
+                const currentInvoiceId = String(row?.invoice?.id || '').trim();
+                const candidates = clientInvoices.filter((invoice) => {
+                  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+                  const invoiceId = String(invoice?.id || '').trim();
+                  const invoiceEventKey = String(invoice?.event_key || data.event_key || '').trim();
+                  const invoiceEventDate = String(invoice?.event_date || '').trim();
+                  const invoiceDeliveryId = String(data.delivery_id || '').trim();
+                  if (currentInvoiceId && invoiceId === currentInvoiceId) return true;
+                  if (rowDeliveryId && invoiceDeliveryId === rowDeliveryId) return true;
+                  if (rowEventKey && invoiceEventKey) return rowEventKey === invoiceEventKey;
+                  return !!rowEventDate && rowEventDate === invoiceEventDate && (!rowEventKey || !invoiceEventKey);
+                }).sort((a, b) => (Date.parse(b?.updated_at || b?.created_at || '') || 0) - (Date.parse(a?.updated_at || a?.created_at || '') || 0));
+
+                return {
+                  ...row,
+                  invoice: candidates[0] || row.invoice || null,
+                  paymentInvoices: candidates.length ? candidates : (row.invoice ? [row.invoice] : []),
+                };
+              });
+            }, [client, invoices, deliveries, todayIso]);
+          """,
+          )
+
+          record_path = Path('src/pages/db/RecordRow.jsx')
+          record = record_path.read_text()
+
+          marker = '\nfunction PaymentProofViewer({ entries, onClose }) {'
+          if record.count(marker) != 1:
+              raise SystemExit('RecordRow.jsx: payment viewer marker not found exactly once')
+          event_helper = """
+          
+          function eventPaymentProofs(row = {}) {
+            const sourceInvoices = Array.isArray(row?.paymentInvoices) && row.paymentInvoices.length
+              ? row.paymentInvoices
+              : (row?.invoice ? [row.invoice] : []);
+            const seen = new Set();
+            return sourceInvoices
+              .flatMap((invoice) => invoicePaymentProofs(invoice))
+              .filter((entry) => {
+                const key = String(entry?.id || entry?.images?.[0] || '').trim();
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              })
+              .sort((a, b) => (Date.parse(a?.createdAt || '') || 0) - (Date.parse(b?.createdAt || '') || 0));
+          }
+          """
+          record = record.replace(marker, event_helper + marker, 1)
+
+          record = record.replace(
+              """                {entry.images.map((image, imageIndex) => (
+          <div className=\"payment-proof-image-item\" key={`${entry.id || entryIndex}-${imageIndex}`}>
+            <a href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+              <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+            </a>
+            <a className=\"payment-proof-save\" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+              Save Image
+            </a>
+          </div>
+        ))}
+          """,
+              """                {entry.images.map((image, imageIndex) => (
+                  <div className=\"payment-proof-image-item\" key={`${entry.id || entryIndex}-${imageIndex}`}>
+                    <a href={image} target=\"_blank\" rel=\"noopener noreferrer\" className=\"payment-proof-image-link\">
+                      <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                    </a>
+                    <a className=\"payment-proof-save\" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+                      Save Image
+                    </a>
+                  </div>
+                ))}
+          """,
+              1,
+          )
+
+          old_state = """  const [proofViewerOpen, setProofViewerOpen] = useState(false);
+            const hasDelivery = !!row.delivery?.id;
+          """
+          new_state = """  const [proofViewerOpen, setProofViewerOpen] = useState(false);
+            const [vendorOpen, setVendorOpen] = useState(false);
+            const hasDelivery = !!row.delivery?.id;
+          """
+          if record.count(old_state) != 1:
+              raise SystemExit('RecordRow.jsx: state marker mismatch')
+          record = record.replace(old_state, new_state, 1)
+
+          record = record.replace("const invoiceLabel = hasInvoice ? 'View Client Invoice' : 'No Client Invoice';", "const invoiceLabel = hasInvoice ? 'View Invoice' : 'No Invoice';", 1)
+
+          old_payment = """  const paymentProofs = hasInvoice ? invoicePaymentProofs(row.invoice) : [];
+            const hasPaymentProofs = paymentProofs.length > 0;
+            const latestPaymentStatus = paymentProofs[paymentProofs.length - 1]?.status || 'pending';
+            const paymentStateClass = latestPaymentStatus === 'confirmed' ? ' is-complete' : ' is-created';
+            const paymentClassName = `record-row-link-anchor${paymentStateClass} record-row-pill record-row-pill--payments`;
+          """
+          new_payment = """  const paymentProofs = eventPaymentProofs(row);
+            const hasPaymentProofs = paymentProofs.length > 0;
+            const latestPaymentStatus = paymentProofs[paymentProofs.length - 1]?.status || 'pending';
+            const paymentStateClass = hasPaymentProofs
+              ? (latestPaymentStatus === 'confirmed' ? ' is-complete' : ' is-created')
+              : ' is-disabled';
+            const paymentClassName = `record-row-link-anchor${paymentStateClass} record-row-pill record-row-pill--payments`;
+          """
+          if record.count(old_payment) != 1:
+              raise SystemExit('RecordRow.jsx: payment state marker mismatch')
+          record = record.replace(old_payment, new_payment, 1)
+
+          link_group_start = record.index('        <div className="record-row-action-group">')
+          invoice_group_start = record.index('        <div className="record-row-action-group record-row-action-group--invoice">', link_group_start)
+          link_group = record[link_group_start:invoice_group_start]
+          vendor_link_start = link_group.find('          {hasVendorDelivery ? (')
+          if vendor_link_start < 0:
+              raise SystemExit('RecordRow.jsx: vendor link addon block not found')
+          link_group = link_group[:vendor_link_start] + '        </div>\n'
+
+          invoice_group_end = record.index('        <button\n          type="button"\n          className={`row-delete-x', invoice_group_start)
+          new_invoice_and_vendor = """        <div className=\"record-row-action-group record-row-action-group--invoice\">
+            {hasInvoice ? (
+              <a className={invoiceClassName} href={eventInvoiceHref} target=\"_blank\" rel=\"noopener noreferrer\">
+                {invoiceLabel}
+              </a>
+            ) : (
+              <button type=\"button\" className={invoiceClassName} disabled aria-disabled=\"true\" title=\"No Invoice\">
+                {invoiceLabel}
+              </button>
+            )}
+            <button
+              type=\"button\"
+              className={paymentClassName}
+              disabled={!hasPaymentProofs}
+              aria-disabled={!hasPaymentProofs}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (hasPaymentProofs) setProofViewerOpen(true);
+              }}
+              title={hasPaymentProofs ? 'View payment history' : 'No payment proofs uploaded'}
+            >
+              {hasPaymentProofs ? `View Payments (${paymentProofs.length})` : 'No Payments'}
+            </button>
+            <button
+              type=\"button\"
+              className={`record-row-link-anchor record-row-pill record-row-vendor-toggle${hasVendorDelivery || hasVendorInvoice ? ' is-created' : ''}`}
+              aria-expanded={vendorOpen}
+              onClick={(event) => {
+                event.stopPropagation();
+                setVendorOpen((open) => !open);
+              }}
+            >
+              Vendor <span aria-hidden=\"true\">{vendorOpen ? '▴' : '▾'}</span>
+            </button>
+          </div>
+          {vendorOpen ? (
+            <div className=\"record-row-vendor-panel\" role=\"group\" aria-label=\"Vendor actions\">
+              {hasVendorDelivery ? (
+                <button
+                  type=\"button\"
+                  className={`${vendorDeliveryClassName} record-row-vendor-action`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onViewLinks?.(row.vendorDelivery);
+                  }}
+                >
+                  <LinkIcon /> View Vendor Links
+                </button>
+              ) : (
+                <a className={`${vendorDeliveryClassName} record-row-vendor-action`} href={eventVendorDeliveryHref} target=\"_blank\" rel=\"noopener noreferrer\">
+                  <LinkIcon /> Create Vendor Links
+                </a>
+              )}
+              {hasVendorInvoice ? (
+                <a className={`${vendorInvoiceClassName} record-row-vendor-action`} href={eventVendorInvoiceHref} target=\"_blank\" rel=\"noopener noreferrer\">
+                  <PaperIcon /> View Vendor Invoice
+                </a>
+              ) : (
+                <button type=\"button\" className={`${vendorInvoiceClassName} record-row-vendor-action`} disabled aria-disabled=\"true\">
+                  <PaperIcon /> No Vendor Invoice
+                </button>
+              )}
+            </div>
+          ) : null}
+          """
+          record = record[:link_group_start] + link_group + new_invoice_and_vendor + record[invoice_group_end:]
+          record_path.write_text(record)
+
+          css_path = Path('src/pages/db/DatabaseList.css')
+          css = css_path.read_text()
+          css = css.replace('    min-width:184px;\n', '    min-width:124px;\n', 1)
+          insert_before = '@media(min-width:1024px){'
+          vendor_css = """
+          .record-row .row-delete-x{
+            grid-column:4;
+            grid-row:1;
+          }
+          .record-row-vendor-toggle{
+            gap:7px;
+            min-width:82px;
+          }
+          .record-row-vendor-panel{
+            grid-column:2 / 4;
+            grid-row:2;
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:8px;
+            padding:8px;
+            border:1px solid var(--line);
+            border-radius:16px;
+            background:color-mix(in srgb,var(--panel) 58%,transparent);
+          }
+          .record-row .record-row-vendor-panel .record-row-vendor-action{
+            width:100%;
+            min-height:36px;
+            gap:7px;
+          }
+          """
+          if css.count(insert_before) != 1:
+              raise SystemExit('DatabaseList.css: desktop media marker mismatch')
+          css = css.replace(insert_before, vendor_css + '\n' + insert_before, 1)
+
+          mobile_marker = """  .record-row-action-group--invoice{
+              grid-template-columns:minmax(0,1fr);
+            }
+          """
+          mobile_replacement = """  .record-row-action-group--invoice{
+              grid-template-columns:minmax(0,1fr);
+            }
+            .record-row-vendor-panel{
+              grid-column:1;
+              grid-row:auto;
+              grid-template-columns:1fr;
+              width:100%;
+            }
+          """
+          if css.count(mobile_marker) != 1:
+              raise SystemExit('DatabaseList.css: mobile invoice marker mismatch')
+          css = css.replace(mobile_marker, mobile_replacement, 1)
+          css_path.write_text(css)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          rm -f .github/workflows/apply-event-row-polish.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/db/clients/ClientDetail.jsx src/pages/db/RecordRow.jsx src/pages/db/DatabaseList.css .github/workflows/apply-event-row-polish.yml
+          git commit -m "Polish event payments and vendor actions"
+          git push origin HEAD:improve-event-payment-history
