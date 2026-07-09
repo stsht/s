@@ -16,3 +16,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Check Pages worker syntax
+        run: node --check _worker.js
+      - name: Report Pages worker size
+        run: wc -c _worker.js dist/_worker.js
