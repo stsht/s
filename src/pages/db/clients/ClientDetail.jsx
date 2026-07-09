@@ -11,7 +11,7 @@ function invoiceType(invoice = {}) {
 }
 
 function eventInvoicesForRow(row, invoices, client) {
-  const clientId = String(client?.client_id || client?.id || '').trim();
+  const clientId = String(client?.client_id || '').trim();
   const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
   const rowEventKey = String(row?.eventKey || row?.invoice?.event_key || row?.delivery?.event_key || '').trim();
   const rowEventDate = String(row?.eventDate || '').trim();
