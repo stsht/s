@@ -1,0 +1,45 @@
+.record-row .row-delete-x{
+  grid-column:4;
+  grid-row:1;
+}
+
+.record-row-vendor-toggle{
+  gap:7px;
+  min-width:82px;
+}
+
+.record-row-vendor-panel{
+  grid-column:2 / 4;
+  grid-row:2;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:color-mix(in srgb,var(--panel) 58%,transparent);
+}
+
+.record-row .record-row-vendor-panel .record-row-vendor-action{
+  width:100%;
+  min-height:36px;
+  gap:7px;
+}
+
+@media(min-width:1024px){
+  .record-row .record-row-pill--invoice{
+    min-width:124px;
+  }
+  .record-row .record-row-pill--payments{
+    min-width:132px;
+  }
+}
+
+@media(max-width:1023px){
+  .record-row-vendor-panel{
+    grid-column:1;
+    grid-row:auto;
+    grid-template-columns:1fr;
+    width:100%;
+  }
+}
