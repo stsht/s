@@ -13,7 +13,7 @@ export function DeleteIcon() {
 
 function LinkIcon() {
   return (
-    <svg className="btn-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <svg className="btn-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
     </svg>
@@ -22,9 +22,19 @@ function LinkIcon() {
 
 function PaperIcon() {
   return (
-    <svg className="btn-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <svg className="btn-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
       <path d="M14 3v5h5" />
+    </svg>
+  );
+}
+
+function PaymentIcon() {
+  return (
+    <svg className="btn-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M7 15h3" />
     </svg>
   );
 }
@@ -73,13 +83,19 @@ function eventPaymentProofs(row = {}) {
     .sort((a, b) => (Date.parse(a?.createdAt || '') || 0) - (Date.parse(b?.createdAt || '') || 0));
 }
 
-function PaymentProofViewer({ entries, onClose }) {
+function paymentState(entries = []) {
+  if (!entries.length) return '';
+  const latest = entries[entries.length - 1];
+  return String(latest?.status || '').toLowerCase() === 'confirmed' ? ' is-complete' : ' is-created';
+}
+
+function PaymentProofViewer({ entries, title = 'Payment Proof', onClose }) {
   return (
-    <div className="payment-proof-viewer" role="dialog" aria-modal="true" aria-label="Payment proofs" onClick={onClose}>
+    <div className="payment-proof-viewer" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <div className="payment-proof-viewer-card" onClick={(event) => event.stopPropagation()}>
         <header className="payment-proof-viewer-head">
           <div>
-            <p>Payment Proof</p>
+            <p>{title}</p>
             <strong>{entries.length} image{entries.length > 1 ? 's' : ''}</strong>
           </div>
           <button type="button" onClick={onClose} aria-label="Close payment proofs">×</button>
@@ -124,7 +140,7 @@ export function RecordRow({
   onViewLinks,
   armed = false,
 }) {
-  const [proofViewerOpen, setProofViewerOpen] = useState(false);
+  const [proofViewer, setProofViewer] = useState(null);
   const [vendorOpen, setVendorOpen] = useState(false);
 
   const hasDelivery = !!row.delivery?.id;
@@ -143,26 +159,16 @@ export function RecordRow({
   const vendorInvoicePaid = String(row.vendorInvoice?.status || '').toLowerCase() === 'paid';
 
   const linkStateClass = hasDelivery ? (deliveryDone ? ' is-complete' : ' is-created') : '';
-  const invoiceStateClass = hasInvoice ? (invoicePaid ? ' is-complete' : ' is-created') : ' is-disabled';
-  const vendorDeliveryStateClass = hasVendorDelivery ? (vendorDeliveryDone ? ' is-complete' : ' is-created') : '';
+  const invoiceStateClass = hasInvoice ? (invoicePaid ? ' is-complete' : ' is-created') : '';
+  const vendorLinkStateClass = hasVendorDelivery ? (vendorDeliveryDone ? ' is-complete' : ' is-created') : '';
   const vendorInvoiceStateClass = hasVendorInvoice ? (vendorInvoicePaid ? ' is-complete' : ' is-created') : '';
 
-  const linkClassName = `record-row-link${linkStateClass} record-row-pill record-row-pill--links`;
-  const linkAnchorClass = `record-row-link-anchor${linkStateClass} record-row-pill record-row-pill--links`;
-  const invoiceClassName = `record-row-link-anchor${invoiceStateClass} record-row-pill record-row-pill--invoice`;
-
   const paymentProofs = eventPaymentProofs(row);
-  const hasPaymentProofs = paymentProofs.length > 0;
-  const latestPaymentStatus = paymentProofs[paymentProofs.length - 1]?.status || 'pending';
-  const paymentStateClass = hasPaymentProofs
-    ? (latestPaymentStatus === 'confirmed' ? ' is-complete' : ' is-created')
-    : ' is-disabled';
-  const paymentClassName = `record-row-link-anchor${paymentStateClass} record-row-pill record-row-pill--payments`;
+  const vendorPaymentProofs = hasVendorInvoice ? invoicePaymentProofs(row.vendorInvoice) : [];
+  const paymentStateClass = paymentState(paymentProofs);
+  const vendorPaymentStateClass = paymentState(vendorPaymentProofs);
 
-  const vendorHasData = hasVendorDelivery || hasVendorInvoice;
-  const vendorToggleClassName = `record-row-link-anchor record-row-pill record-row-vendor-toggle${vendorHasData ? ' is-created' : ''}`;
-  const vendorDeliveryClassName = `record-row-link-anchor${vendorDeliveryStateClass} record-row-vendor-action`;
-  const vendorInvoiceClassName = `record-row-link-anchor${vendorInvoiceStateClass} record-row-vendor-action`;
+  const actionClass = (stateClass = '') => `record-row-link-anchor${stateClass} record-row-pill record-row-status-pill`;
 
   let rowTone = tone;
   if (deliveryDone) rowTone = '';
@@ -177,60 +183,59 @@ export function RecordRow({
           {priceText ? <span className="record-row-price">{priceText}</span> : null}
         </div>
 
-        <div className="record-row-action-group">
+        <div className="record-row-action-group record-row-primary-actions" aria-label="Client actions">
           {hasDelivery ? (
             <button
               type="button"
-              className={linkClassName}
+              className={actionClass(linkStateClass)}
+              title={deliveryDone ? 'Links complete' : 'View Links'}
               onClick={(event) => {
                 event.stopPropagation();
                 onViewLinks?.(row.delivery);
               }}
             >
-              View Links
+              <LinkIcon /> <span>Links</span>
             </button>
           ) : (
-            <a className={linkAnchorClass} href={eventLinkHref} target="_blank" rel="noopener noreferrer">
-              Create Links
+            <a className={actionClass()} href={eventLinkHref} target="_blank" rel="noopener noreferrer" title="Create Links">
+              <LinkIcon /> <span>Links</span>
             </a>
           )}
-        </div>
 
-        <div className="record-row-action-group record-row-action-group--invoice">
-          {hasInvoice ? (
-            <a className={invoiceClassName} href={eventInvoiceHref} target="_blank" rel="noopener noreferrer">
-              View Invoice
-            </a>
-          ) : (
-            <button type="button" className={invoiceClassName} disabled aria-disabled="true" title="No Invoice">
-              No Invoice
-            </button>
-          )}
+          <a
+            className={actionClass(invoiceStateClass)}
+            href={eventInvoiceHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={hasInvoice ? (invoicePaid ? 'Invoice fully paid' : 'View Invoice') : 'Create Invoice'}
+          >
+            <PaperIcon /> <span>Invoice</span>
+          </a>
 
           <button
             type="button"
-            className={paymentClassName}
-            disabled={!hasPaymentProofs}
-            aria-disabled={!hasPaymentProofs}
-            title={hasPaymentProofs ? 'View payment history' : 'No payment proofs uploaded'}
+            className={actionClass(paymentStateClass)}
+            disabled={!paymentProofs.length}
+            aria-disabled={!paymentProofs.length}
+            title={paymentProofs.length ? 'View Payments' : 'No payment proofs'}
             onClick={(event) => {
               event.stopPropagation();
-              if (hasPaymentProofs) setProofViewerOpen(true);
+              if (paymentProofs.length) setProofViewer({ title: 'Client Payment Proof', entries: paymentProofs });
             }}
           >
-            {hasPaymentProofs ? `View Payments (${paymentProofs.length})` : 'No Payments'}
+            <PaymentIcon /> <span>Payments</span>
           </button>
 
           <button
             type="button"
-            className={vendorToggleClassName}
+            className="record-row-link-anchor record-row-pill record-row-vendor-toggle"
             aria-expanded={vendorOpen}
             onClick={(event) => {
               event.stopPropagation();
               setVendorOpen((open) => !open);
             }}
           >
-            Vendor <span aria-hidden="true">{vendorOpen ? '▴' : '▾'}</span>
+            <span>Vendor</span> <span aria-hidden="true">{vendorOpen ? '▴' : '▾'}</span>
           </button>
         </div>
 
@@ -239,29 +244,44 @@ export function RecordRow({
             {hasVendorDelivery ? (
               <button
                 type="button"
-                className={vendorDeliveryClassName}
+                className={actionClass(vendorLinkStateClass)}
+                title={vendorDeliveryDone ? 'Vendor links complete' : 'View Vendor Links'}
                 onClick={(event) => {
                   event.stopPropagation();
                   onViewLinks?.(row.vendorDelivery);
                 }}
               >
-                <LinkIcon /> View Vendor Links
+                <LinkIcon /> <span>Links</span>
               </button>
             ) : (
-              <a className={vendorDeliveryClassName} href={eventVendorDeliveryHref} target="_blank" rel="noopener noreferrer">
-                <LinkIcon /> Create Vendor Links
+              <a className={actionClass()} href={eventVendorDeliveryHref} target="_blank" rel="noopener noreferrer" title="Create Vendor Links">
+                <LinkIcon /> <span>Links</span>
               </a>
             )}
 
-            {hasVendorInvoice ? (
-              <a className={vendorInvoiceClassName} href={eventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
-                <PaperIcon /> View Vendor Invoice
-              </a>
-            ) : (
-              <a className={vendorInvoiceClassName} href={eventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
-                <PaperIcon /> Create Vendor Invoice
-              </a>
-            )}
+            <a
+              className={actionClass(vendorInvoiceStateClass)}
+              href={eventVendorInvoiceHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={hasVendorInvoice ? (vendorInvoicePaid ? 'Vendor invoice fully paid' : 'View Vendor Invoice') : 'Create Vendor Invoice'}
+            >
+              <PaperIcon /> <span>Invoice</span>
+            </a>
+
+            <button
+              type="button"
+              className={actionClass(vendorPaymentStateClass)}
+              disabled={!vendorPaymentProofs.length}
+              aria-disabled={!vendorPaymentProofs.length}
+              title={vendorPaymentProofs.length ? 'View Vendor Payments' : 'No vendor payment proofs'}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (vendorPaymentProofs.length) setProofViewer({ title: 'Vendor Payment Proof', entries: vendorPaymentProofs });
+              }}
+            >
+              <PaymentIcon /> <span>Payments</span>
+            </button>
           </div>
         ) : null}
 
@@ -280,7 +300,9 @@ export function RecordRow({
         </button>
       </article>
 
-      {proofViewerOpen ? <PaymentProofViewer entries={paymentProofs} onClose={() => setProofViewerOpen(false)} /> : null}
+      {proofViewer ? (
+        <PaymentProofViewer title={proofViewer.title} entries={proofViewer.entries} onClose={() => setProofViewer(null)} />
+      ) : null}
     </>
   );
 }
