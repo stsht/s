@@ -19,4 +19,6 @@ jobs:
       - name: Check Pages worker syntax
         run: node --check _worker.js
       - name: Report Pages worker size
-        run: wc -c _worker.js dist/_worker.js
+        run: |
+          echo "Worker bytes:"
+          wc -c _worker.js dist/_worker.js
