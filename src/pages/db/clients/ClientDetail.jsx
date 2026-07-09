@@ -5,9 +5,59 @@ import { ClientHeader } from './ClientHeader.jsx';
 import { ClientDetailRows } from './ClientDetailRows.jsx';
 import { ClientEventList } from './ClientEventList.jsx';
 
+function invoiceType(invoice = {}) {
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  return String(invoice?.invoice_type || data.invoiceType || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
+}
+
+function eventInvoicesForRow(row, invoices, client) {
+  const clientId = String(client?.client_id || client?.id || '').trim();
+  const clientName = String(client?.name || client?.client_name || '').trim().toLowerCase();
+  const rowEventKey = String(row?.eventKey || row?.invoice?.event_key || row?.delivery?.event_key || '').trim();
+  const rowEventDate = String(row?.eventDate || '').trim();
+  const rowDeliveryId = String(row?.delivery?.id || '').trim();
+  const currentInvoiceId = String(row?.invoice?.id || '').trim();
+
+  return (Array.isArray(invoices) ? invoices : [])
+    .filter((invoice) => {
+      if (invoiceType(invoice) === 'vendor') return false;
+      const invoiceClientId = String(invoice?.client_id || '').trim();
+      const invoiceName = String(invoice?.client_name || '').trim().toLowerCase();
+      if (clientId && invoiceClientId) return clientId === invoiceClientId;
+      return !!clientName && clientName === invoiceName;
+    })
+    .filter((invoice) => {
+      const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+      const invoiceId = String(invoice?.id || '').trim();
+      const invoiceEventKey = String(invoice?.event_key || data.event_key || '').trim();
+      const invoiceEventDate = String(invoice?.event_date || '').trim();
+      const invoiceDeliveryId = String(data.delivery_id || '').trim();
+
+      if (currentInvoiceId && invoiceId === currentInvoiceId) return true;
+      if (rowDeliveryId && invoiceDeliveryId === rowDeliveryId) return true;
+      if (rowEventKey && invoiceEventKey) return rowEventKey === invoiceEventKey;
+      return !!rowEventDate && rowEventDate === invoiceEventDate && (!rowEventKey || !invoiceEventKey);
+    })
+    .sort((a, b) => (
+      (Date.parse(b?.updated_at || b?.created_at || '') || 0)
+      - (Date.parse(a?.updated_at || a?.created_at || '') || 0)
+    ));
+}
+
 export function ClientDetail({ client, invoices, deliveries, onDeleteClient, onEditClient, onDeleteRecord, onViewLinks, onRefresh, onClose }) {
   const todayIso = useMemo(() => jakartaTodayISO(), []);
-  const records = buildClientRecords(client, invoices, deliveries, todayIso);
+  const records = useMemo(() => {
+    const baseRecords = buildClientRecords(client, invoices, deliveries, todayIso);
+    return baseRecords.map((row) => {
+      const matchingInvoices = eventInvoicesForRow(row, invoices, client);
+      return {
+        ...row,
+        invoice: matchingInvoices[0] || row.invoice || null,
+        paymentInvoices: matchingInvoices.length ? matchingInvoices : (row.invoice ? [row.invoice] : []),
+      };
+    });
+  }, [client, invoices, deliveries, todayIso]);
+
   const title = client?.title ?? 'Ms.';
   const name = client?.name || client?.client_name || 'Client';
   const contact = client?.contact || client?.client_contact || '';
