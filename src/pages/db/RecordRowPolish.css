@@ -3,43 +3,87 @@
   grid-row:1;
 }
 
-.record-row-vendor-toggle{
+.record-row-primary-actions{
+  grid-column:2 / 4;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(78px,auto));
   gap:7px;
-  min-width:82px;
+}
+
+.record-row .record-row-status-pill,
+.record-row .record-row-vendor-toggle{
+  min-width:0;
+  min-height:34px;
+  gap:6px;
+  padding-inline:10px;
+  white-space:nowrap;
+}
+
+.record-row .record-row-status-pill .btn-icon{
+  flex:0 0 auto;
+}
+
+.record-row .record-row-status-pill:disabled{
+  cursor:default;
+  opacity:1;
+}
+
+.record-row-vendor-toggle{
+  justify-content:center;
 }
 
 .record-row-vendor-panel{
   grid-column:2 / 4;
   grid-row:2;
   display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:8px;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
   padding:8px;
   border:1px solid var(--line);
   border-radius:16px;
   background:color-mix(in srgb,var(--panel) 58%,transparent);
 }
 
-.record-row .record-row-vendor-panel .record-row-vendor-action{
+.record-row .record-row-vendor-panel .record-row-status-pill{
   width:100%;
-  min-height:36px;
-  gap:7px;
-}
-
-@media(min-width:1024px){
-  .record-row .record-row-pill--invoice{
-    min-width:124px;
-  }
-  .record-row .record-row-pill--payments{
-    min-width:132px;
-  }
 }
 
 @media(max-width:1023px){
+  .record-row-primary-actions{
+    grid-column:1;
+    grid-row:auto;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    width:100%;
+  }
+
+  .record-row-primary-actions .record-row-vendor-toggle{
+    grid-column:1 / -1;
+  }
+
+  .record-row .record-row-status-pill,
+  .record-row .record-row-vendor-toggle{
+    width:100%;
+    padding-inline:8px;
+  }
+
   .record-row-vendor-panel{
     grid-column:1;
     grid-row:auto;
-    grid-template-columns:1fr;
+    grid-template-columns:repeat(3,minmax(0,1fr));
     width:100%;
+  }
+}
+
+@media(max-width:420px){
+  .record-row .record-row-status-pill,
+  .record-row .record-row-vendor-toggle{
+    gap:5px;
+    padding-inline:6px;
+    font-size:.64rem;
+  }
+
+  .record-row .record-row-status-pill .btn-icon{
+    width:14px;
+    height:14px;
   }
 }
