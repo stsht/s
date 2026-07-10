@@ -191,11 +191,20 @@ export function PackageCatalogEditor({ packages, savePackage, deletePackage }) {
               <PlusIcon /> New Package
             </button>
             {editingId === '__new__' ? (
-              <div className="package-catalog-row">
+              <div className="package-catalog-row is-editing">
                 <div className="package-catalog-edit" onKeyDown={handleEditKeyDown}>
-                  <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
-                  <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
-                  <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+                  <label>
+                    <span>Package Name</span>
+                    <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
+                  </label>
+                  <label>
+                    <span>Default Note</span>
+                    <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
+                  </label>
+                  <label>
+                    <span>Price</span>
+                    <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+                  </label>
                   <div className="package-catalog-edit-actions">
                     <button className="package-catalog-save" type="button" onClick={commitEdit}>Save</button>
                     <button type="button" onClick={cancelEdit}>Cancel</button>
@@ -208,12 +217,21 @@ export function PackageCatalogEditor({ packages, savePackage, deletePackage }) {
           {packages.map((pkg) => {
             const editing = editingId === pkg.id;
             return (
-              <div className="package-catalog-row" key={pkg.id || pkg.name}>
+              <div className={`package-catalog-row${editing ? ' is-editing' : ''}`} key={pkg.id || pkg.name}>
                 {editing ? (
                   <div className="package-catalog-edit" onKeyDown={handleEditKeyDown}>
-                    <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
-                    <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
-                    <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+                    <label>
+                      <span>Package Name</span>
+                      <input value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} placeholder="Package name" />
+                    </label>
+                    <label>
+                      <span>Default Note</span>
+                      <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Default note" />
+                    </label>
+                    <label>
+                      <span>Price</span>
+                      <input className="no-spinner" type="number" min="0" value={draft.price} onFocus={selectAllIfZero} onChange={(event) => setDraft((current) => ({ ...current, price: event.target.value }))} placeholder="Price" />
+                    </label>
                     <div className="package-catalog-edit-actions">
                       <button className="package-catalog-save" type="button" onClick={commitEdit}>Save</button>
                       <button type="button" onClick={cancelEdit}>Cancel</button>
