@@ -3238,7 +3238,7 @@ async function handleInvoiceSave(request, env) {
     if (eventKeyColumnMissing) {
       console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
     }
-    await confirmPendingPaymentProofsForInvoice(env, saved);
+    await confirmPendingPaymentProofsForInvoice(env, saved, existingInvoice);
     return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
   }
 
@@ -3264,7 +3264,7 @@ async function handleInvoiceSave(request, env) {
   if (eventKeyColumnMissing) {
     console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
   }
-  await confirmPendingPaymentProofsForInvoice(env, saved);
+  await confirmPendingPaymentProofsForInvoice(env, saved, existingInvoice);
   return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
 }
 
@@ -3296,19 +3296,99 @@ async function handlePublicInvoiceGet(request, env) {
 }
 
 
-async function confirmPendingPaymentProofsForInvoice(env, invoice = {}) {
+function cleanPaymentProofDate(value = '') {
+  const raw = String(value || '').trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!match) return '';
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (date.getUTCFullYear() !== Number(match[1])
+    || date.getUTCMonth() !== Number(match[2]) - 1
+    || date.getUTCDate() !== Number(match[3])) return '';
+  return raw;
+}
+
+function cleanPaymentProofTime(value = '') {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(String(value || '').trim());
+  return match ? `${match[1]}:${match[2]}` : '';
+}
+
+function cleanPaymentProofTimezoneOffset(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const offset = Number(value);
+  return Number.isInteger(offset) && offset >= -840 && offset <= 840 ? offset : null;
+}
+
+function authoritativeInvoicePayment(invoice = {}, previousInvoice = null) {
+  const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const status = String(invoice.status || '').toLowerCase();
+  let candidate = null;
+  let linkedPaymentId = '';
+
+  if (status === 'paid') {
+    const receipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : null;
+    if (receipt && receipt.paid !== false) candidate = receipt;
+  } else if (status === 'deposit') {
+    const payments = (Array.isArray(data.depositPayments) ? data.depositPayments : [])
+      .filter((payment) => payment?.paid);
+    const previousData = previousInvoice?.invoice_data && typeof previousInvoice.invoice_data === 'object'
+      ? previousInvoice.invoice_data
+      : {};
+    const previousById = new Map((Array.isArray(previousData.depositPayments) ? previousData.depositPayments : [])
+      .map((payment) => [String(payment?.id || ''), payment]));
+    const changed = payments.filter((payment) => {
+      const id = String(payment?.id || '');
+      const previous = id ? previousById.get(id) : null;
+      if (!previous || previous?.paid !== true) return true;
+      return String(previous.paidAtDate || '') !== String(payment.paidAtDate || '')
+        || String(previous.paidAtTime || '') !== String(payment.paidAtTime || '')
+        || Math.round(Number(previous.amount) || 0) !== Math.round(Number(payment.amount) || 0);
+    });
+    candidate = changed.length === 1 ? changed[0] : (changed.length === 0 && payments.length === 1 ? payments[0] : null);
+    linkedPaymentId = candidate ? String(candidate.id || '').trim() : '';
+  }
+
+  const paymentDate = cleanPaymentProofDate(candidate?.paidAtDate);
+  return {
+    paymentDate,
+    paymentTime: paymentDate ? cleanPaymentProofTime(candidate?.paidAtTime) : '',
+    linkedPaymentId
+  };
+}
+
+async function confirmPendingPaymentProofsForInvoice(env, invoice = {}, previousInvoice = null) {
   const invoiceId = String(invoice?.id || '').trim();
   if (!invoiceId) return;
   const status = String(invoice?.status || '').toLowerCase();
   const paidAmount = Math.max(0, Math.round(Number(invoice?.paid_amount) || 0));
   if (status !== 'paid' && !(status === 'deposit' && paidAmount > 0)) return;
-  await supabaseFetch(env, `/rest/v1/payment_proofs?invoice_id=eq.${encodeURIComponent(invoiceId)}&status=eq.pending`, {
-    method: 'PATCH',
-    headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({ status: 'confirmed', reviewed_at: new Date().toISOString() })
-  }).catch((error) => {
+  const reviewedAt = new Date().toISOString();
+  const authority = authoritativeInvoicePayment(invoice, previousInvoice);
+  const richPatch = {
+    status: 'confirmed',
+    reviewed_at: reviewedAt,
+    ...(authority.paymentDate ? {
+      payment_date: authority.paymentDate,
+      payment_time: authority.paymentTime || null
+    } : {}),
+    ...(authority.linkedPaymentId ? { linked_payment_id: authority.linkedPaymentId } : {})
+  };
+  const path = `/rest/v1/payment_proofs?invoice_id=eq.${encodeURIComponent(invoiceId)}&status=eq.pending`;
+  try {
+    await supabaseFetch(env, path, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify(richPatch)
+    });
+  } catch (error) {
     if (!isSchemaError(error)) throw error;
-  });
+    await supabaseFetch(env, path, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ status: 'confirmed', reviewed_at: reviewedAt })
+    }).catch((fallbackError) => {
+      if (!isSchemaError(fallbackError)) throw fallbackError;
+    });
+  }
 }
 
 const CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES = new Set(['pending', 'rejected']);
@@ -3357,9 +3437,13 @@ function paymentProofBelongsToDeliveryInvoice(proof = {}, delivery = {}, invoice
 }
 
 function sanitizePublicPaymentProof(proof = {}) {
+  const status = publicPaymentProofStatus(proof.status);
   return {
     id: String(proof.id || ''),
-    status: publicPaymentProofStatus(proof.status),
+    status,
+    payment_date: String(proof.payment_date || proof.reported_payment_date || ''),
+    payment_time: cleanPaymentProofTime(proof.payment_time || proof.reported_payment_time),
+    payment_provisional: CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(status),
     uploaded_at: String(proof.uploaded_at || ''),
     reviewed_at: proof.reviewed_at ? String(proof.reviewed_at) : null
   };
@@ -3381,13 +3465,23 @@ async function authorizePublicPaymentProofRequest(request, env, lookup = '') {
 }
 
 async function loadPublicPaymentProofRows(env, delivery, invoice) {
-  const rows = await supabaseFetch(
-    env,
-    `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,status,uploaded_at,reviewed_at&invoice_id=eq.${encodeURIComponent(invoice.id)}&delivery_id=eq.${encodeURIComponent(delivery.id)}&order=uploaded_at.asc`
-  ).catch((error) => {
-    if (isSchemaError(error)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
-    throw error;
-  });
+  const suffix = `&invoice_id=eq.${encodeURIComponent(invoice.id)}&delivery_id=eq.${encodeURIComponent(delivery.id)}&order=uploaded_at.asc`;
+  let rows;
+  try {
+    rows = await supabaseFetch(
+      env,
+      `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,status,reported_payment_date,reported_payment_time,reported_timezone_offset_minutes,payment_date,payment_time,linked_payment_id,uploaded_at,reviewed_at${suffix}`
+    );
+  } catch (error) {
+    if (!isSchemaError(error)) throw error;
+    rows = await supabaseFetch(
+      env,
+      `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,status,uploaded_at,reviewed_at${suffix}`
+    ).catch((fallbackError) => {
+      if (isSchemaError(fallbackError)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
+      throw fallbackError;
+    });
+  }
   return (Array.isArray(rows) ? rows : [])
     .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, delivery, invoice));
 }
@@ -3491,6 +3585,19 @@ async function handlePaymentProofSubmit(request, env) {
   try {
     const body = await request.json().catch(() => ({}));
     const images = cleanPublicProofImages(body.images);
+    const paymentDateRaw = String(body.paymentDate || body.payment_date || '').trim();
+    const paymentTimeRaw = String(body.paymentTime || body.payment_time || '').trim();
+    const paymentDate = cleanPaymentProofDate(paymentDateRaw);
+    const paymentTime = cleanPaymentProofTime(paymentTimeRaw);
+    const timezoneOffset = cleanPaymentProofTimezoneOffset(
+      body.paymentTimezoneOffsetMinutes ?? body.payment_timezone_offset_minutes
+    );
+    if (paymentDateRaw && !paymentDate) return json({ error: 'Payment date is invalid.' }, 400);
+    if (paymentTimeRaw && !paymentTime) return json({ error: 'Payment time is invalid.' }, 400);
+    if (paymentTime && !paymentDate) return json({ error: 'Payment date is required when payment time is provided.' }, 400);
+    if ((body.paymentTimezoneOffsetMinutes ?? body.payment_timezone_offset_minutes) != null && timezoneOffset == null) {
+      return json({ error: 'Payment timezone offset is invalid.' }, 400);
+    }
     const auth = await authorizePublicPaymentProofRequest(request, env, body.slug || body.shortCode || '');
     if (auth.error) return auth.error;
     const { delivery, invoice } = auth;
@@ -3529,15 +3636,41 @@ async function handlePaymentProofSubmit(request, env) {
         original_filename: `payment-proof-${index + 1}.${parsed.extension}`,
         mime_type: parsed.mimeType,
         status: 'pending',
+        reported_payment_date: paymentDate || null,
+        reported_payment_time: paymentDate && paymentTime ? paymentTime : null,
+        reported_timezone_offset_minutes: paymentDate ? timezoneOffset : null,
+        payment_date: paymentDate || null,
+        payment_time: paymentDate && paymentTime ? paymentTime : null,
         uploaded_at: uploadedAt
       });
     }
 
-    const saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(proofRows)
-    });
+    let saved;
+    try {
+      saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(proofRows)
+      });
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      const legacyRows = proofRows.map((proof) => {
+        const {
+          reported_payment_date: _reportedDate,
+          reported_payment_time: _reportedTime,
+          reported_timezone_offset_minutes: _reportedOffset,
+          payment_date: _paymentDate,
+          payment_time: _paymentTime,
+          ...legacyProof
+        } = proof;
+        return legacyProof;
+      });
+      saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(legacyRows)
+      });
+    }
     const safeSaved = (Array.isArray(saved) ? saved : [saved].filter(Boolean))
       .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, delivery, invoice))
       .map(sanitizePublicPaymentProof);

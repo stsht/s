@@ -240,13 +240,13 @@ function PublicInvoiceDocument({ invoice }) {
         <p><span>Discount</span><strong>{rupiah(discount)}</strong></p>
         {paidDeposits.map((payment, index) => (
           <p className="deposit-paid" key={payment.id || index}>
-            <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+            <span>Deposit Paid on {prettyDateTime(payment.paidAtDate, payment.paidAtTime)}</span>
             <strong>{rupiah(payment.amount)}</strong>
           </p>
         ))}
         <p className="grand"><span>Grand Total</span><strong>{rupiah(grandTotal)}</strong></p>
         {status === 'paid' && paidReceipt.paid !== false ? (
-          <p className="paid-in-full-row"><span>{paidDeposits.length ? 'Full Payment on' : 'Fully Paid on'} {prettyDate(paidReceipt.paidAtDate || invoice?.invoice_date)}</span><strong>{rupiah(paidDeposits.length ? remainingPaid : grandTotal)}</strong></p>
+          <p className="paid-in-full-row"><span>{paidDeposits.length ? 'Full Payment on' : 'Fully Paid on'} {prettyDateTime(paidReceipt.paidAtDate || invoice?.invoice_date, paidReceipt.paidAtDate ? paidReceipt.paidAtTime : '')}</span><strong>{rupiah(paidDeposits.length ? remainingPaid : grandTotal)}</strong></p>
         ) : null}
         {status === 'deposit' ? (
           <p className="balance-due"><span>Balance Due</span><strong>{rupiah(invoice?.balance_due)}</strong></p>
