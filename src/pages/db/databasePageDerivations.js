@@ -5,6 +5,8 @@
 import {
   plainEventDate,
   classifyClientEvents,
+  daysBetweenIso,
+  buildClientRecords,
 } from './dbHelpers.js';
 import {
   accessLogEventLabel,
@@ -111,21 +113,61 @@ export function getEventDatesByClient(client, invoices, deliveriesAll) {
 }
 
 
+// Apply the left Clients-list status rules to a date classification. Event
+// groups come from buildClientRecords(), so invoice/delivery settlement is
+// evaluated within the existing client-id + event_key/date grouping rather
+// than by picking a newest invoice or matching a client name alone.
+export function applyClientListStatus({ classification, groups, todayIso }) {
+  const cls = classification || {
+    bucket: 'tba',
+    tone: 'tba',
+    sortKey: '',
+    representativeDate: '',
+  };
+
+  if (cls.bucket === 'upcoming') {
+    const diff = daysBetweenIso(todayIso, cls.representativeDate);
+    return {
+      ...cls,
+      tone: Number.isFinite(diff) && diff >= 0 && diff <= 3 ? 'soon' : 'future',
+    };
+  }
+
+  if (cls.bucket !== 'past') return cls;
+
+  const relevantPastEvents = (Array.isArray(groups) ? groups : []).filter((group) => {
+    // Vendor-only groups do not determine client settlement.
+    if (!group?.delivery && !group?.invoice) return false;
+    const eventDate = plainEventDate(group?.eventDate);
+    return !!eventDate && eventDate < todayIso;
+  });
+  const fullySettled = relevantPastEvents.length > 0 && relevantPastEvents.every((group) => (
+    group?.delivery?.delivery_done === true
+    && String(group?.invoice?.status || '').trim() === 'paid'
+  ));
+
+  return {
+    ...cls,
+    // Past/incomplete clients stay blue; fully settled clients are neutral.
+    tone: fullySettled ? '' : 'soon',
+  };
+}
+
+
 // Annotate and sort CRM clients by event bucket / recency.
 export function buildSortedCrmClients({ crmClients, eventDatesByClient, invoices, deliveriesAll, todayIso }) {
   const bucketOrder = { upcoming: 0, tba: 1, past: 2 };
   const annotated = (Array.isArray(crmClients) ? crmClients : []).map((client) => {
     const dates = eventDatesByClient(client);
-    const cls = classifyClientEvents(dates, todayIso);
+    const classification = classifyClientEvents(dates, todayIso);
+    const groups = classification.bucket === 'past'
+      ? buildClientRecords(client, invoices, deliveriesAll, todayIso)
+      : [];
+    const cls = applyClientListStatus({ classification, groups, todayIso });
     const name = String(client?.name || client?.client_name || '').toLowerCase();
     return {
       client,
       ...cls,
-      // The left Clients list is navigation only. Keep the displayed
-      // event date pill neutral there, even when the representative
-      // event is past/upcoming or only one side of the workflow exists.
-      // Detail rows still carry their event-date tone/action state.
-      tone: '',
       name,
     };
   });
