@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { compactEventDateLabel } from './dbHelpers.js';
-import { vendorSummaryState } from './vendorStatus.js';
+import { invoicePaymentProofs, paymentState, vendorSummaryState } from './vendorStatus.js';
 import { rupiah } from '../../utils/rupiah.js';
 import './RecordRowPolish.css';
 
@@ -58,42 +58,6 @@ function proofAuditLabel(value) {
   }).format(date);
 }
 
-function invoicePaymentProofs(invoice = {}) {
-  const storedEntries = Array.isArray(invoice?.payment_proofs) ? invoice.payment_proofs : [];
-  const stored = storedEntries
-    .map((entry, entryIndex) => ({
-      id: String(entry?.id || `stored-payment-${entryIndex + 1}`),
-      status: String(entry?.status || 'pending').toLowerCase(),
-      paymentDate: String(entry?.payment_date || entry?.reported_payment_date || ''),
-      paymentTime: String(entry?.payment_time || entry?.reported_payment_time || ''),
-      paymentProvisional: ['pending', 'rejected'].includes(String(entry?.status || 'pending').toLowerCase()),
-      uploadedAt: String(entry?.uploaded_at || entry?.created_at || ''),
-      reviewedAt: String(entry?.reviewed_at || ''),
-      filename: String(entry?.original_filename || `payment-proof-${entryIndex + 1}.jpg`),
-      images: [String(entry?.image_url || '').trim()].filter(Boolean),
-    }))
-    .filter((entry) => entry.images.length);
-  if (stored.length) return stored;
-
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  const legacyEntries = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
-  return legacyEntries
-    .map((entry, entryIndex) => ({
-      id: String(entry?.id || `legacy-payment-${entryIndex + 1}`),
-      status: String(entry?.status || 'pending').toLowerCase(),
-      paymentDate: '',
-      paymentTime: '',
-      paymentProvisional: true,
-      uploadedAt: String(entry?.createdAt || entry?.created_at || ''),
-      reviewedAt: String(entry?.confirmedAt || entry?.confirmed_at || ''),
-      filename: `payment-proof-${entryIndex + 1}.jpg`,
-      images: Array.isArray(entry?.images)
-        ? entry.images.map((image) => String(image || '').trim()).filter(Boolean)
-        : [],
-    }))
-    .filter((entry) => entry.images.length);
-}
-
 function eventPaymentProofs(row = {}) {
   const sourceInvoices = Array.isArray(row?.paymentInvoices) && row.paymentInvoices.length
     ? row.paymentInvoices
@@ -108,12 +72,6 @@ function eventPaymentProofs(row = {}) {
       return true;
     })
     .sort((a, b) => (Date.parse(a?.uploadedAt || '') || 0) - (Date.parse(b?.uploadedAt || '') || 0));
-}
-
-function paymentState(entries = []) {
-  if (!entries.length) return '';
-  const latest = entries[entries.length - 1];
-  return String(latest?.status || '').toLowerCase() === 'confirmed' ? ' is-complete' : ' is-created';
 }
 
 function PaymentProofViewer({ entries, title = 'Payment Proof', onClose }) {
