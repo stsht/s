@@ -933,7 +933,7 @@ input.no-spinner::-webkit-inner-spin-button{
 /* Delivery "done" toggle in the detail header — an icon-only check
  * button. Neutral/muted at rest ("Mark Done"); once complete it
  * flips to the subtle app blue ("Done"), matching the blue
- * "View Links" complete pill on the client event row. The blue ring
+ * "Links" complete pill on the client event row. The blue ring
  * is drawn with an inset box-shadow so toggling never shifts the
  * 38px icon button's box, and it layers on the same --evt-soon token
  * as the row pill so the two surfaces read as one blue (not a loud

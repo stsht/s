@@ -3207,6 +3207,7 @@ async function handleInvoiceSave(request, env) {
     if (eventKeyColumnMissing) {
       console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
     }
+    await confirmPendingPaymentProofsForInvoice(env, saved);
     return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
   }
 
@@ -3232,6 +3233,7 @@ async function handleInvoiceSave(request, env) {
   if (eventKeyColumnMissing) {
     console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
   }
+  await confirmPendingPaymentProofsForInvoice(env, saved);
   return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
 }
 
@@ -3260,6 +3262,22 @@ async function handlePublicInvoiceGet(request, env) {
   const invoice = await findInvoiceForDelivery(env, delivery);
   if (!invoice?.id) return json({ error: 'Invoice not found for this delivery.' }, 404);
   return json({ ok: true, invoice });
+}
+
+
+async function confirmPendingPaymentProofsForInvoice(env, invoice = {}) {
+  const invoiceId = String(invoice?.id || '').trim();
+  if (!invoiceId) return;
+  const status = String(invoice?.status || '').toLowerCase();
+  const paidAmount = Math.max(0, Math.round(Number(invoice?.paid_amount) || 0));
+  if (status !== 'paid' && !(status === 'deposit' && paidAmount > 0)) return;
+  await supabaseFetch(env, `/rest/v1/payment_proofs?invoice_id=eq.${encodeURIComponent(invoiceId)}&status=eq.pending`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ status: 'confirmed', reviewed_at: new Date().toISOString() })
+  }).catch((error) => {
+    if (!isSchemaError(error)) throw error;
+  });
 }
 
 async function handlePaymentProofSubmit(request, env) {
@@ -3352,7 +3370,7 @@ async function handlePaymentProofImageGet(request, env) {
     status: 200,
     headers: {
       'Content-Type': proof.mime_type || stored.headers.get('Content-Type') || 'image/jpeg',
-      'Content-Disposition': `inline; filename="${String(proof.original_filename || 'payment-proof.jpg').replace(/["\]/g, '')}"`,
+      'Content-Disposition': `inline; filename="${String(proof.original_filename || 'payment-proof.jpg').replace(/[\"\\]/g, '')}"`,
       'Cache-Control': 'private, no-store'
     }
   });

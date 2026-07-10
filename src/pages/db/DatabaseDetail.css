@@ -103,7 +103,7 @@
  * earlier full-width "Create Events" pill at the bottom of the
  * client detail panel. Pressing the .create-event-trigger pill
  * expands this sheet inline so the operator never leaves the
- * client context — the two choices inside (Create Links / Create
+ * client context — the two choices inside (Links / Create
  * Invoice) share a freshly-generated event_key so whichever side
  * the operator opens first stamps that key on the row, and the
  * other side groups onto the same /db row when it saves later.

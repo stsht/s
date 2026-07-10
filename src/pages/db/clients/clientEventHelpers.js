@@ -18,7 +18,7 @@ export function createRecordUrl(path, params) {
 }
 
 // Generate a fresh per-event grouping key. Used by the /db Create
-// Events sheet so the "Create Links" and "Create Invoice" choices
+// Events sheet so the "Links" and "Invoice" choices
 // inside the same sheet land on the same /db row regardless of
 // which one the operator opens first. Falls back to a timestamp +
 // random suffix when crypto.randomUUID is unavailable (older
