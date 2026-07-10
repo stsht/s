@@ -1164,12 +1164,11 @@ function isClientInvoiceRecord(invoice = {}) {
 
 function deliveryInvoiceAudience(delivery = {}, exactRows = []) {
   const explicit = String(delivery.type || '').trim().toLowerCase();
-  if (explicit === 'vendor') return 'vendor';
-  const title = String(delivery.title || '').trim();
+  if (explicit === 'vendor' || explicit === 'client') return explicit;
   const hasVendorExact = (Array.isArray(exactRows) ? exactRows : []).some((row) => invoiceRecordType(row) === 'vendor');
   const hasClientExact = (Array.isArray(exactRows) ? exactRows : []).some((row) => invoiceRecordType(row) !== 'vendor');
-  if (!title) return 'vendor';
   if (hasVendorExact && !hasClientExact) return 'vendor';
+  if (hasClientExact && !hasVendorExact) return 'client';
   return 'client';
 }
 
@@ -2859,16 +2858,19 @@ async function handleDbUpdateDelivery(request, env) {
     }
   }
 
-  // Optional vendor-name edit. Edit Links exposes a Vendor Name
-  // field ONLY for vendor-scoped deliveries (empty title / type
-  // vendor), so we accept an optional clientName here and apply it
-  // to deliveries.client_name only when (a) the target delivery is
-  // vendor-scoped and (b) the trimmed value is non-empty and changed.
-  // Client deliveries always carry a title, so deliveryInvoiceAudience
-  // returns 'client' for them and this path never renames a client
-  // delivery. base_slug / short_code / public routing are untouched.
-  const isVendorDelivery = deliveryInvoiceAudience(delivery) === 'vendor';
+  // Optional vendor-name edit. Edit Links exposes a Vendor Name field
+  // only for vendor-scoped deliveries. Older delivery rows do not carry
+  // an explicit type, so use the exact linked invoice when available;
+  // an empty honorific alone is never enough to classify a delivery as
+  // vendor. base_slug / short_code / public routing are untouched.
   const vendorNameRaw = body.clientName ?? body.client_name ?? body.vendorName;
+  const linkedInvoiceForEdit = vendorNameRaw === undefined || vendorNameRaw === null
+    ? null
+    : await findInvoiceForDelivery(env, delivery).catch(() => null);
+  const isVendorDelivery = deliveryInvoiceAudience(
+    delivery,
+    linkedInvoiceForEdit ? [linkedInvoiceForEdit] : []
+  ) === 'vendor';
   const vendorName = (vendorNameRaw === undefined || vendorNameRaw === null)
     ? ''
     : String(vendorNameRaw).trim();
@@ -2994,7 +2996,7 @@ async function handleDbUpdateDelivery(request, env) {
   // is logged but never fails the Save Links request.
   if (applyVendorName) {
     try {
-      const linkedInvoice = await findInvoiceForDelivery(env, delivery);
+      const linkedInvoice = linkedInvoiceForEdit || await findInvoiceForDelivery(env, delivery);
       if (linkedInvoice?.id && invoiceRecordType(linkedInvoice) === 'vendor') {
         await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(linkedInvoice.id)}`, {
           method: 'PATCH',

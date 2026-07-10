@@ -261,6 +261,10 @@ input.no-spinner::-webkit-inner-spin-button{
 .package-catalog-row.is-editing{
   grid-template-columns:1fr;
   align-items:stretch;
+  align-content:start;
+  width:100%;
+  height:auto;
+  min-width:0;
   min-height:0;
   padding:0;
   overflow:visible;
@@ -287,9 +291,11 @@ input.no-spinner::-webkit-inner-spin-button{
 .package-catalog-edit{
   grid-column:1 / -1;
   display:grid;
-  grid-template-columns:minmax(0,1.1fr) minmax(0,1.2fr) minmax(120px,.6fr);
-  align-items:end;
+  grid-template-columns:minmax(0,1fr);
+  align-items:stretch;
   gap:10px;
+  width:100%;
+  height:auto;
   min-width:0;
   padding:10px;
   border:1px solid var(--line);
@@ -311,9 +317,9 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 .package-catalog-edit-actions{
   grid-column:1 / -1;
-  display:flex;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:8px;
-  justify-content:flex-end;
 }
 .package-catalog-edit-actions button,
 .package-catalog-add{
@@ -329,6 +335,10 @@ input.no-spinner::-webkit-inner-spin-button{
   color:var(--ink);
   font-weight:900;
 }
+.package-catalog-edit-actions button{
+  width:100%;
+  min-width:0;
+}
 .package-catalog-edit-actions .package-catalog-save{
   background:var(--ink);
   color:white;
@@ -337,26 +347,6 @@ input.no-spinner::-webkit-inner-spin-button{
 .package-catalog-actions{
   display:grid;
   gap:8px;
-}
-@media(max-width:760px){
-  .package-catalog-edit{
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  }
-  .package-catalog-edit label:nth-child(2){
-    grid-column:1 / -1;
-  }
-}
-@media(max-width:560px){
-  .package-catalog-edit{
-    grid-template-columns:1fr;
-  }
-  .package-catalog-edit label:nth-child(2){
-    grid-column:auto;
-  }
-  .package-catalog-edit-actions{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-  }
 }
 .invoice-item-controls{
   display:grid;
