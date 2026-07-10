@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { compactEventDateLabel } from './dbHelpers.js';
+import { vendorSummaryState } from './vendorStatus.js';
 import { rupiah } from '../../utils/rupiah.js';
 import './RecordRowPolish.css';
 
@@ -211,6 +212,7 @@ export function RecordRow({
   const vendorPaymentProofs = hasVendorInvoice ? invoicePaymentProofs(row.vendorInvoice) : [];
   const paymentStateClass = paymentState(paymentProofs);
   const vendorPaymentStateClass = paymentState(vendorPaymentProofs);
+  const vendorSummaryStateClass = vendorSummaryState(row).stateClass;
 
   const actionClass = (stateClass = '') => `record-row-link-anchor${stateClass} record-row-pill record-row-status-pill`;
 
@@ -272,7 +274,7 @@ export function RecordRow({
 
           <button
             type="button"
-            className="record-row-link-anchor record-row-pill record-row-vendor-toggle"
+            className={`record-row-link-anchor${vendorSummaryStateClass} record-row-pill record-row-vendor-toggle`}
             aria-expanded={vendorOpen}
             onClick={(event) => {
               event.stopPropagation();
