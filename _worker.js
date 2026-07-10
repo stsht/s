@@ -3311,32 +3311,195 @@ async function confirmPendingPaymentProofsForInvoice(env, invoice = {}) {
   });
 }
 
+const CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES = new Set(['pending', 'rejected']);
+
+function publicPaymentProofStatus(value = '') {
+  return String(value || '').trim().toLowerCase() || 'pending';
+}
+
+function invoiceLocksPublicPaymentProofs(invoice = {}) {
+  const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const status = String(invoice.status || '').trim().toLowerCase();
+  const paidAmount = Math.max(0, Math.round(Number(invoice.paid_amount) || 0));
+  const hasRecordedDeposit = Array.isArray(data.depositPayments)
+    && data.depositPayments.some((payment) => payment?.paid);
+  return status === 'paid'
+    || (status === 'deposit' && (paidAmount > 0 || data.depositAskOpen === false || hasRecordedDeposit));
+}
+
+function paymentProofBelongsToDeliveryInvoice(proof = {}, delivery = {}, invoice = {}) {
+  const deliveryId = String(delivery.id || '').trim();
+  const invoiceId = String(invoice.id || '').trim();
+  if (!deliveryId || !invoiceId || invoiceRecordType(invoice) !== 'client') return false;
+  if (invoiceDeliveryScore(invoice, delivery) < 70) return false;
+  if (String(proof.invoice_id || '').trim() !== invoiceId) return false;
+  if (String(proof.delivery_id || '').trim() !== deliveryId) return false;
+
+  const proofClientId = String(proof.client_id || '').trim();
+  const expectedClientIds = new Set([invoice.client_id, delivery.client_id]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean));
+  if (proofClientId && expectedClientIds.size && !expectedClientIds.has(proofClientId)) return false;
+
+  const proofEventKey = String(proof.event_key || '').trim();
+  const invoiceData = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const expectedEventKeys = new Set([invoice.event_key, invoiceData.event_key, delivery.event_key]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean));
+  if (proofEventKey && expectedEventKeys.size && !expectedEventKeys.has(proofEventKey)) return false;
+
+  const proofEventDate = String(proof.event_date || '').slice(0, 10);
+  const expectedEventDates = new Set([invoice.event_date, delivery.event_date]
+    .map((value) => String(value || '').slice(0, 10))
+    .filter(Boolean));
+  if (proofEventDate && expectedEventDates.size && !expectedEventDates.has(proofEventDate)) return false;
+  return true;
+}
+
+function sanitizePublicPaymentProof(proof = {}) {
+  return {
+    id: String(proof.id || ''),
+    status: publicPaymentProofStatus(proof.status),
+    uploaded_at: String(proof.uploaded_at || ''),
+    reviewed_at: proof.reviewed_at ? String(proof.reviewed_at) : null
+  };
+}
+
+async function authorizePublicPaymentProofRequest(request, env, lookup = '') {
+  const delivery = await getDeliveryByLookup(env, lookup);
+  if (!delivery?.id) return { error: json({ error: 'Delivery not found.' }, 404) };
+
+  const authorized = await verifyAdminSessionCookie(request, env)
+    || await verifyGallerySessionCookie(request, env, delivery.id);
+  if (!authorized) return { error: json({ error: 'Unlock the delivery first.' }, 401) };
+
+  const invoice = await findInvoiceForDelivery(env, delivery);
+  if (!invoice?.id || invoiceRecordType(invoice) !== 'client' || invoiceDeliveryScore(invoice, delivery) < 70) {
+    return { error: json({ error: 'Payment proof is unavailable for this delivery.' }, 404) };
+  }
+  return { delivery, invoice };
+}
+
+async function loadPublicPaymentProofRows(env, delivery, invoice) {
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,status,uploaded_at,reviewed_at&invoice_id=eq.${encodeURIComponent(invoice.id)}&delivery_id=eq.${encodeURIComponent(delivery.id)}&order=uploaded_at.asc`
+  ).catch((error) => {
+    if (isSchemaError(error)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
+    throw error;
+  });
+  return (Array.isArray(rows) ? rows : [])
+    .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, delivery, invoice));
+}
+
+async function handlePublicPaymentProofsGet(request, env) {
+  try {
+    const url = new URL(request.url);
+    const auth = await authorizePublicPaymentProofRequest(request, env, url.searchParams.get('slug') || '');
+    if (auth.error) return auth.error;
+    const proofs = await loadPublicPaymentProofRows(env, auth.delivery, auth.invoice);
+    const processed = proofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)));
+    return json({
+      ok: true,
+      proofs: proofs.map(sanitizePublicPaymentProof),
+      locked: invoiceLocksPublicPaymentProofs(auth.invoice) || processed
+    }, 200, { 'Cache-Control': 'private, no-store' });
+  } catch (error) {
+    return json({ error: error?.message || 'Could not load payment proofs.' }, 500);
+  }
+}
+
+async function handlePublicPaymentProofImageGet(request, env) {
+  try {
+    const url = new URL(request.url);
+    const id = String(url.searchParams.get('id') || '').trim();
+    if (!id) return json({ error: 'Missing payment proof id.' }, 400);
+    const auth = await authorizePublicPaymentProofRequest(request, env, url.searchParams.get('slug') || '');
+    if (auth.error) return auth.error;
+
+    const rows = await supabaseFetch(
+      env,
+      `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,image_path,mime_type,original_filename,status,uploaded_at,reviewed_at&id=eq.${encodeURIComponent(id)}&limit=1`
+    );
+    const proof = Array.isArray(rows) ? rows[0] : rows;
+    if (!proof?.image_path || !paymentProofBelongsToDeliveryInvoice(proof, auth.delivery, auth.invoice)) {
+      return json({ error: 'Payment proof not found.' }, 404);
+    }
+
+    const stored = await paymentProofStorageRequest(env, proof.image_path, { method: 'GET' });
+    return new Response(stored.body, {
+      status: 200,
+      headers: {
+        'Content-Type': proof.mime_type || stored.headers.get('Content-Type') || 'image/jpeg',
+        'Content-Disposition': `inline; filename="${String(proof.original_filename || 'payment-proof.jpg').replace(/["\\]/g, '')}"`,
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
+  } catch (error) {
+    return json({ error: error?.message || 'Could not load payment proof.' }, 500);
+  }
+}
+
+async function handlePublicPaymentProofDelete(request, env) {
+  try {
+    const body = await request.json().catch(() => ({}));
+    const proofId = String(body.proofId || '').trim();
+    if (!proofId) return json({ error: 'Missing payment proof id.' }, 400);
+    const auth = await authorizePublicPaymentProofRequest(request, env, body.slug || '');
+    if (auth.error) return auth.error;
+    if (invoiceLocksPublicPaymentProofs(auth.invoice)) {
+      return json({ error: 'Confirmed payment proofs are read-only.' }, 409);
+    }
+
+    const allProofs = await supabaseFetch(
+      env,
+      `/rest/v1/payment_proofs?select=*&invoice_id=eq.${encodeURIComponent(auth.invoice.id)}&delivery_id=eq.${encodeURIComponent(auth.delivery.id)}&order=uploaded_at.asc`
+    );
+    const ownedProofs = (Array.isArray(allProofs) ? allProofs : [])
+      .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, auth.delivery, auth.invoice));
+    if (ownedProofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))) {
+      return json({ error: 'Confirmed payment proofs are read-only.' }, 409);
+    }
+
+    const proof = ownedProofs.find((row) => String(row.id || '') === proofId);
+    if (!proof?.image_path) return json({ error: 'Payment proof not found.' }, 404);
+    const status = publicPaymentProofStatus(proof.status);
+    if (!CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(status)) {
+      return json({ error: 'This payment proof cannot be deleted.' }, 409);
+    }
+
+    // Delete the private object first. If the following conditional row
+    // deletion fails, surface the failure instead of claiming success.
+    await paymentProofStorageRequest(env, proof.image_path, { method: 'DELETE' });
+    const deleted = await supabaseFetch(
+      env,
+      `/rest/v1/payment_proofs?id=eq.${encodeURIComponent(proof.id)}&invoice_id=eq.${encodeURIComponent(auth.invoice.id)}&delivery_id=eq.${encodeURIComponent(auth.delivery.id)}&status=eq.${encodeURIComponent(status)}`,
+      { method: 'DELETE', headers: { Prefer: 'return=representation' } }
+    );
+    if (!Array.isArray(deleted) || deleted.length !== 1) {
+      return json({ error: 'The proof image was removed, but its record could not be deleted. Please contact support.' }, 500);
+    }
+    return json({ ok: true, deletedId: String(proof.id) });
+  } catch (error) {
+    return json({ error: error?.message || 'Could not delete payment proof.' }, 500);
+  }
+}
+
 async function handlePaymentProofSubmit(request, env) {
   const uploadedPaths = [];
   try {
     const body = await request.json().catch(() => ({}));
     const images = cleanPublicProofImages(body.images);
-    const delivery = await getDeliveryByLookup(env, body.slug || body.shortCode);
-    if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
-
-    const password = String(body.password || '').trim();
-    const authorized = await verifyAdminSessionCookie(request, env)
-      || await verifyGallerySessionCookie(request, env, delivery.id)
-      || (password && await verifyGalleryPassword(delivery, password));
-    if (!authorized) return json({ error: 'Unauthorized.' }, 401);
-
-    const invoice = await findInvoiceForDelivery(env, delivery);
-    if (!invoice?.id) return json({ error: 'Invoice not found.' }, 404);
-    if (String(invoice.status || '').toLowerCase() === 'paid') return json({ error: 'Payment is already confirmed.' }, 409);
-
-    const pendingRows = await supabaseFetch(
-      env,
-      `/rest/v1/payment_proofs?select=id&invoice_id=eq.${encodeURIComponent(invoice.id)}&status=eq.pending&limit=1`
-    ).catch((error) => {
-      if (isSchemaError(error)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
-      throw error;
-    });
-    if (Array.isArray(pendingRows) && pendingRows.length) {
+    const auth = await authorizePublicPaymentProofRequest(request, env, body.slug || body.shortCode || '');
+    if (auth.error) return auth.error;
+    const { delivery, invoice } = auth;
+    const existingProofs = await loadPublicPaymentProofRows(env, delivery, invoice);
+    if (invoiceLocksPublicPaymentProofs(invoice)
+      || existingProofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))) {
+      return json({ error: 'Payment is already confirmed.' }, 409);
+    }
+    if (existingProofs.some((proof) => publicPaymentProofStatus(proof.status) === 'pending')) {
       return json({ error: 'A payment proof is already pending review.' }, 409);
     }
 
@@ -3375,7 +3538,10 @@ async function handlePaymentProofSubmit(request, env) {
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify(proofRows)
     });
-    return json({ ok: true, proofs: Array.isArray(saved) ? saved : [saved].filter(Boolean) });
+    const safeSaved = (Array.isArray(saved) ? saved : [saved].filter(Boolean))
+      .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, delivery, invoice))
+      .map(sanitizePublicPaymentProof);
+    return json({ ok: true, proofs: safeSaved });
   } catch (error) {
     await Promise.allSettled(uploadedPaths.map((path) => paymentProofStorageRequest(env, path, { method: 'DELETE' })));
     const status = Number(error?.status) || 500;
@@ -4626,6 +4792,9 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/admin-open-delivery') return await handleAdminOpenDelivery(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/public-payment-proofs') return await handlePublicPaymentProofsGet(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/public-payment-proof-image') return await handlePublicPaymentProofImageGet(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/public-payment-proof-delete') return await handlePublicPaymentProofDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
       if (request.method === 'GET' && url.pathname === '/api/payment-proof-image') return await handlePaymentProofImageGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
