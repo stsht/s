@@ -8,6 +8,7 @@ import {
   daysBetweenIso,
   buildClientRecords,
 } from './dbHelpers.js';
+import { eventGroupIsSettled } from './vendorStatus.js';
 import {
   accessLogEventLabel,
   accessLogTimeValue,
@@ -114,9 +115,9 @@ export function getEventDatesByClient(client, invoices, deliveriesAll) {
 
 
 // Apply the left Clients-list status rules to a date classification. Event
-// groups come from buildClientRecords(), so invoice/delivery settlement is
-// evaluated within the existing client-id + event_key/date grouping rather
-// than by picking a newest invoice or matching a client name alone.
+// groups come from buildClientRecords(), so settlement stays within the
+// existing client-id + event_key/date grouping instead of using newest-record
+// or client-name-only shortcuts.
 export function applyClientListStatus({ classification, groups, todayIso }) {
   const cls = classification || {
     bucket: 'tba',
@@ -136,15 +137,11 @@ export function applyClientListStatus({ classification, groups, todayIso }) {
   if (cls.bucket !== 'past') return cls;
 
   const relevantPastEvents = (Array.isArray(groups) ? groups : []).filter((group) => {
-    // Vendor-only groups do not determine client settlement.
-    if (!group?.delivery && !group?.invoice) return false;
     const eventDate = plainEventDate(group?.eventDate);
     return !!eventDate && eventDate < todayIso;
   });
-  const fullySettled = relevantPastEvents.length > 0 && relevantPastEvents.every((group) => (
-    group?.delivery?.delivery_done === true
-    && String(group?.invoice?.status || '').trim() === 'paid'
-  ));
+  const fullySettled = relevantPastEvents.length > 0
+    && relevantPastEvents.every((group) => eventGroupIsSettled(group));
 
   return {
     ...cls,
