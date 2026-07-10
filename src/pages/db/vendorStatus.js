@@ -54,7 +54,7 @@ export function vendorSummaryState(row = {}) {
 
   if (vendorDelivery?.id) artifactCompletion.push(vendorDelivery.delivery_done === true);
   if (vendorInvoice?.id) {
-    artifactCompletion.push(String(vendorInvoice.status || '').trim().toLowerCase() === 'paid');
+    artifactCompletion.push(String(vendorInvoice.status || '').trim() === 'paid');
   }
   if (paymentProofs.length) artifactCompletion.push(paymentState(paymentProofs) === ' is-complete');
 
@@ -73,7 +73,7 @@ export function eventGroupIsSettled(group = {}) {
   const hasClientArtifacts = !!group?.delivery || !!group?.invoice;
   if (hasClientArtifacts) {
     return group?.delivery?.delivery_done === true
-      && String(group?.invoice?.status || '').trim().toLowerCase() === 'paid';
+      && String(group?.invoice?.status || '').trim() === 'paid';
   }
   return vendorSummaryState(group).stateClass === ' is-complete';
 }
