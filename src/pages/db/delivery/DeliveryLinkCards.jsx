@@ -1,5 +1,6 @@
 export function DeliveryLinkCards({
   shortUrl,
+  adminOpenUrl,
   shortDisplay,
   flash,
   handleShortLinkClick,
@@ -38,7 +39,7 @@ export function DeliveryLinkCards({
                 </button>
                 <a
                   className="dd-icon-button dd-open-button"
-                  href={shortUrl}
+                  href={adminOpenUrl || shortUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(event) => event.stopPropagation()}

@@ -89,6 +89,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   const password = String(currentDelivery?.password || '').trim();
   const shortCode = resolveDeliveryShortCode(currentDelivery);
   const shortUrl = buildShortUrl(shortCode);
+  const adminOpenUrl = currentDelivery?.id ? `/api/admin-open-delivery?id=${encodeURIComponent(currentDelivery.id)}` : shortUrl;
   const shortDisplay = shortUrl.replace(/^https?:\/\//, '');
 
   const linkRows = Array.isArray(currentDelivery?.links) ? currentDelivery.links : [];
@@ -396,6 +397,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
         <div className="dd-stack">
           <DeliveryLinkCards
             shortUrl={shortUrl}
+            adminOpenUrl={adminOpenUrl}
             shortDisplay={shortDisplay}
             flash={flash}
             handleShortLinkClick={handleShortLinkClick}

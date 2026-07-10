@@ -699,6 +699,16 @@ async function getDeliveryByShortCode(env, code) {
   return deliveries.find((d) => deliveryMatchesShortCode(d, target, env)) || null;
 }
 
+async function getDeliveryById(env, id) {
+  const deliveryId = String(id || '').trim();
+  if (!deliveryId) return null;
+  const rows = await supabaseFetch(
+    env,
+    `/rest/v1/deliveries?select=*&id=eq.${encodeURIComponent(deliveryId)}&limit=1`
+  );
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
 function cleanService(value) {
   const service = String(value || '').toLowerCase();
   return SERVICES.some((item) => item.key === service) ? service : '';
@@ -1182,6 +1192,24 @@ async function findInvoiceForDelivery(env, delivery = {}) {
   }
 
   const audience = deliveryInvoiceAudience(delivery, exactRows);
+  const deliveryEventKey = String(delivery.event_key || '').trim();
+  if (deliveryEventKey) {
+    const eventKeyRows = [];
+    const addEventKeyRows = (rows) => {
+      (Array.isArray(rows) ? rows : [rows].filter(Boolean)).forEach((row) => eventKeyRows.push(row));
+    };
+    addEventKeyRows(await supabaseFetch(
+      env,
+      `/rest/v1/invoices?select=*&event_key=eq.${encodeURIComponent(deliveryEventKey)}&order=updated_at.desc&limit=10`
+    ).catch(() => []));
+    addEventKeyRows(await supabaseFetch(
+      env,
+      `/rest/v1/invoices?select=*&invoice_data->>event_key=eq.${encodeURIComponent(deliveryEventKey)}&order=updated_at.desc&limit=10`
+    ).catch(() => []));
+    const exactEvent = eventKeyRows.find((row) => invoiceRecordType(row) === audience);
+    if (exactEvent) return exactEvent;
+  }
+
   const candidates = [];
   const seen = new Set();
   const addRows = (rows) => {
@@ -1221,32 +1249,11 @@ async function findInvoiceForDelivery(env, delivery = {}) {
     .sort((a, b) => b.score - a.score)[0]?.invoice;
   if (confident) return confident;
 
-  // Legacy fallback for records created before delivery_id/event_key
-  // linkage (and sometimes without a stored or matching event_date). The
-  // /db CRM already associates these by client_id or normalized
-  // client_name with no date required (see clientMatchKeys); we mirror
-  // that association here, but ONLY when it is unambiguous so one
-  // client's invoice can never surface on another client's page:
-  //   - candidate must belong to THIS client (client_id match when both
-  //     sides have one, otherwise normalized client_name match),
-  //   - candidate must not be explicitly linked to a *different* delivery
-  //     (its invoice_data.delivery_id is empty or equals this delivery),
-  //   - and there must be exactly ONE such candidate (zero ambiguity).
-  // candidates are already restricted to the resolved audience
-  // (client vs vendor), so a normal client delivery never matches a
-  // vendor invoice through this path.
-  const legacyMatches = candidates.filter((row) => {
-    const sameClientId = clientId && String(row.client_id || '').trim() === clientId;
-    const sameName = clientName
-      && normalizeClientName(row.client_name || '') === normalizeClientName(clientName);
-    if (!sameClientId && !sameName) return false;
-    const data = row.invoice_data && typeof row.invoice_data === 'object' ? row.invoice_data : {};
-    const linkedDeliveryId = String(data.delivery_id || '').trim();
-    if (linkedDeliveryId && linkedDeliveryId !== deliveryId) return false;
-    return true;
-  });
-
-  return legacyMatches.length === 1 ? legacyMatches[0] : null;
+  // Do not fall back to "newest invoice for this client" or to a
+  // client-only match. When clients have multiple event dates, public
+  // delivery pages must either match the delivery_id/event_key or agree
+  // on client_id/name plus event_date.
+  return null;
 }
 
 function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], subscriptions = [], q = '') {
@@ -1909,6 +1916,28 @@ async function handleSave(request, env) {
     generatedText,
     savedLinks: rows.length,
     ...(eventColumnsMissing ? { migrationMissing: 'deliveries.event_key' } : {})
+  });
+}
+
+async function handleAdminOpenDelivery(request, env) {
+  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
+  const url = new URL(request.url);
+  const id = String(url.searchParams.get('id') || '').trim();
+  if (!id) return json({ error: 'Missing delivery id.' }, 400);
+
+  const delivery = await getDeliveryById(env, id);
+  if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
+
+  const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
+  if (!shortCode) return json({ error: 'Delivery short link is unavailable.' }, 404);
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `/${encodeURIComponent(shortCode)}`,
+      'Set-Cookie': await createGallerySessionCookie(env, delivery.id),
+      'Cache-Control': 'no-store'
+    }
   });
 }
 
@@ -3289,7 +3318,8 @@ async function handlePaymentProofSubmit(request, env) {
     if (!delivery?.id) return json({ error: 'Delivery not found.' }, 404);
 
     const password = String(body.password || '').trim();
-    const authorized = await verifyGallerySessionCookie(request, env, delivery.id)
+    const authorized = await verifyAdminSessionCookie(request, env)
+      || await verifyGallerySessionCookie(request, env, delivery.id)
       || (password && await verifyGalleryPassword(delivery, password));
     if (!authorized) return json({ error: 'Unauthorized.' }, 401);
 
@@ -4592,6 +4622,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/packages-save') return await handlePackageSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-delete') return await handlePackageDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/admin-open-delivery') return await handleAdminOpenDelivery(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
       if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
       if (request.method === 'GET' && url.pathname === '/api/payment-proof-image') return await handlePaymentProofImageGet(request, env);
