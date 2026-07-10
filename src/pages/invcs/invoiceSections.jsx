@@ -131,7 +131,7 @@ export function PaidSummary({ totals, paidConfirmed, setPaidConfirmed, paidAtDat
         <div className="dp-total-row"><span>Grand Total</span><strong>{rupiah(totals.grandTotal)}</strong></div>
         {paidConfirmed ? (
           <div className="dp-total-row paid-in-full-row">
-            <span>Fully Paid on {prettyDate(paidAtDate)}</span>
+            <span>Fully Paid on {prettyDateTime(paidAtDate, paidAtTime)}</span>
             <strong>{rupiah(totals.grandTotal)}</strong>
           </div>
         ) : null}
@@ -437,7 +437,7 @@ export function DepositLedger({ mode, payments, addPayment, updatePayment, remov
           <p className="dp-context-label">{paidRows.length > 1 ? 'Deposits paid' : 'Deposit paid'}</p>
           {paidRows.map((payment) => (
             <div className="dp-readonly-row" key={payment.id}>
-              <span>Deposit Paid on {prettyDate(payment.paidAtDate)}</span>
+              <span>Deposit Paid on {prettyDateTime(payment.paidAtDate, payment.paidAtTime)}</span>
               <strong>{rupiah(payment.amount)}</strong>
             </div>
           ))}

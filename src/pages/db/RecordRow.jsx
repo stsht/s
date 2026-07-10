@@ -39,13 +39,35 @@ function PaymentIcon() {
   );
 }
 
+function proofPaymentLabel(date, time) {
+  const rawDate = String(date || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) return '';
+  const dateLabel = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  }).format(new Date(`${rawDate}T12:00:00`));
+  const timeMatch = /^(\d{2}):(\d{2})/.exec(String(time || ''));
+  return timeMatch ? `${dateLabel} · ${timeMatch[1]}:${timeMatch[2]}` : dateLabel;
+}
+
+function proofAuditLabel(value) {
+  const date = new Date(value || '');
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  }).format(date);
+}
+
 function invoicePaymentProofs(invoice = {}) {
   const storedEntries = Array.isArray(invoice?.payment_proofs) ? invoice.payment_proofs : [];
   const stored = storedEntries
     .map((entry, entryIndex) => ({
       id: String(entry?.id || `stored-payment-${entryIndex + 1}`),
       status: String(entry?.status || 'pending').toLowerCase(),
-      createdAt: String(entry?.uploaded_at || entry?.created_at || ''),
+      paymentDate: String(entry?.payment_date || entry?.reported_payment_date || ''),
+      paymentTime: String(entry?.payment_time || entry?.reported_payment_time || ''),
+      paymentProvisional: ['pending', 'rejected'].includes(String(entry?.status || 'pending').toLowerCase()),
+      uploadedAt: String(entry?.uploaded_at || entry?.created_at || ''),
+      reviewedAt: String(entry?.reviewed_at || ''),
       filename: String(entry?.original_filename || `payment-proof-${entryIndex + 1}.jpg`),
       images: [String(entry?.image_url || '').trim()].filter(Boolean),
     }))
@@ -58,7 +80,11 @@ function invoicePaymentProofs(invoice = {}) {
     .map((entry, entryIndex) => ({
       id: String(entry?.id || `legacy-payment-${entryIndex + 1}`),
       status: String(entry?.status || 'pending').toLowerCase(),
-      createdAt: String(entry?.createdAt || entry?.created_at || ''),
+      paymentDate: '',
+      paymentTime: '',
+      paymentProvisional: true,
+      uploadedAt: String(entry?.createdAt || entry?.created_at || ''),
+      reviewedAt: String(entry?.confirmedAt || entry?.confirmed_at || ''),
       filename: `payment-proof-${entryIndex + 1}.jpg`,
       images: Array.isArray(entry?.images)
         ? entry.images.map((image) => String(image || '').trim()).filter(Boolean)
@@ -80,7 +106,7 @@ function eventPaymentProofs(row = {}) {
       seen.add(key);
       return true;
     })
-    .sort((a, b) => (Date.parse(a?.createdAt || '') || 0) - (Date.parse(b?.createdAt || '') || 0));
+    .sort((a, b) => (Date.parse(a?.uploadedAt || '') || 0) - (Date.parse(b?.uploadedAt || '') || 0));
 }
 
 function paymentState(entries = []) {
@@ -90,6 +116,7 @@ function paymentState(entries = []) {
 }
 
 function PaymentProofViewer({ entries, title = 'Payment Proof', onClose }) {
+  const [previewImage, setPreviewImage] = useState('');
   return (
     <div className="payment-proof-viewer" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <div className="payment-proof-viewer-card" onClick={(event) => event.stopPropagation()}>
@@ -107,13 +134,24 @@ function PaymentProofViewer({ entries, title = 'Payment Proof', onClose }) {
                 <strong>Payment {entryIndex + 1}</strong>
                 <span className={`payment-proof-status is-${entry.status || 'pending'}`}>{entry.status || 'pending'}</span>
               </div>
-              {entry.createdAt ? <p className="payment-proof-entry-date">Uploaded {entry.createdAt.slice(0, 10)}</p> : null}
+              <dl className="payment-proof-entry-times">
+                {proofPaymentLabel(entry.paymentDate, entry.paymentTime) ? (
+                  <div>
+                    <dt>Payment</dt>
+                    <dd>{proofPaymentLabel(entry.paymentDate, entry.paymentTime)}{entry.paymentProvisional ? ' · Client reported' : ''}</dd>
+                  </div>
+                ) : null}
+                {proofAuditLabel(entry.uploadedAt) ? <div><dt>Uploaded</dt><dd>{proofAuditLabel(entry.uploadedAt)}</dd></div> : null}
+                {entry.reviewedAt && !entry.paymentProvisional && proofAuditLabel(entry.reviewedAt) ? (
+                  <div><dt>Confirmed</dt><dd>{proofAuditLabel(entry.reviewedAt)}</dd></div>
+                ) : null}
+              </dl>
               <div className="payment-proof-image-grid">
                 {entry.images.map((image, imageIndex) => (
                   <div className="payment-proof-image-item" key={`${entry.id || entryIndex}-${imageIndex}`}>
-                    <a href={image} target="_blank" rel="noopener noreferrer" className="payment-proof-image-link">
+                    <button type="button" className="payment-proof-image-link" onClick={() => setPreviewImage(image)} aria-label={`View payment proof ${entryIndex + 1}.${imageIndex + 1}`}>
                       <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
-                    </a>
+                    </button>
                     <a className="payment-proof-save" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
                       Save Image
                     </a>
@@ -123,6 +161,12 @@ function PaymentProofViewer({ entries, title = 'Payment Proof', onClose }) {
             </section>
           ))}
         </div>
+        {previewImage ? (
+          <div className="payment-proof-full-preview" role="dialog" aria-modal="true" aria-label="Payment proof full image" onClick={() => setPreviewImage('')}>
+            <button type="button" onClick={() => setPreviewImage('')} aria-label="Close full payment proof">×</button>
+            <img src={previewImage} alt="Payment proof full preview" onClick={(event) => event.stopPropagation()} />
+          </div>
+        ) : null}
       </div>
     </div>
   );

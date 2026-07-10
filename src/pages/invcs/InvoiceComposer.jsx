@@ -914,6 +914,7 @@ export function InvoiceComposer() {
           paymentMethod={paymentMethod}
           paidConfirmed={paidConfirmed}
           paidAtDate={paidAtDate}
+          paidAtTime={paidAtTime}
           status={status}
           documentRef={documentRef}
           downloadJpg={downloadJpg}

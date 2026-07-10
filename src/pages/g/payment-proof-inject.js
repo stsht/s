@@ -14,6 +14,7 @@ const proofStore = {
   error: '',
   modal: null,
   previousFocus: null,
+  uploadDraft: null,
 };
 
 function slugFromPath() {
@@ -52,18 +53,20 @@ function ensureStyle() {
     .public-payment-proof-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid var(--line)}
     .public-payment-proof-head p{margin:0 0 3px;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.public-payment-proof-head strong{font-size:20px}
     .public-payment-proof-close{display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:22px;cursor:pointer}
-    .public-payment-proof-body{display:grid;gap:14px;padding:18px 20px;overflow:auto}.public-payment-proof-empty{margin:18px 0;text-align:center;color:var(--muted)}
-    .public-payment-proof-entry{display:grid;grid-template-columns:112px minmax(0,1fr) auto;align-items:center;gap:14px;padding:12px;border:1px solid var(--line);border-radius:16px;background:color-mix(in srgb,var(--field) 52%,transparent)}
-    .public-payment-proof-thumb{width:112px;height:82px;padding:0;overflow:hidden;border:0;border-radius:12px;background:var(--soft);cursor:zoom-in}.public-payment-proof-thumb img{width:100%;height:100%;display:block;object-fit:cover}
-    .public-payment-proof-meta{min-width:0}.public-payment-proof-meta strong{display:block;margin-bottom:5px}.public-payment-proof-meta time{display:block;margin-top:7px;color:var(--muted);font-size:12px;line-height:1.4}
+    .public-payment-proof-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px 20px;overflow:auto}.public-payment-proof-empty{grid-column:1/-1;margin:18px 0;text-align:center;color:var(--muted)}
+    .public-payment-proof-entry{display:flex;min-width:0;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--line);border-radius:18px;background:color-mix(in srgb,var(--field) 52%,transparent)}
+    .public-payment-proof-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:0;border-radius:13px;background:var(--soft);cursor:zoom-in}.public-payment-proof-thumb img{width:100%;height:100%;display:block;object-fit:cover}
+    .public-payment-proof-meta{min-width:0}.public-payment-proof-meta-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.public-payment-proof-meta strong{display:block}
+    .public-payment-proof-times{display:grid;gap:7px;margin:10px 0 0}.public-payment-proof-times div{display:grid;gap:2px}.public-payment-proof-times dt,.public-payment-proof-times dd{margin:0}.public-payment-proof-times dt{color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.public-payment-proof-times dd{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35}.public-payment-proof-times small{color:var(--muted);font-size:10px;font-weight:650}
     .public-payment-proof-status{display:inline-flex;padding:5px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
     .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--sub-active) 20%,transparent);color:color-mix(in srgb,var(--sub-active) 78%,var(--ink))}.public-payment-proof-status.is-rejected{background:rgba(190,58,68,.12);color:#b32939}
-    .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:900;cursor:pointer}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
+    .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:900;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
     .public-payment-proof-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.public-payment-proof-error{margin:0 20px 16px;color:#b32939;font-size:12px;font-weight:700}
+    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.public-payment-proof-upload-fields label{display:grid;gap:7px;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}.public-payment-proof-upload-fields input{min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;color-scheme:light dark}.public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
     .public-payment-proof-lightbox{position:absolute;inset:0;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr);padding:18px;background:rgba(4,7,14,.94)}.public-payment-proof-lightbox-head{display:flex;justify-content:flex-end;padding-bottom:12px}.public-payment-proof-lightbox-image{width:100%;height:100%;min-height:0;object-fit:contain}
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
     @media(max-width:1023px){.public-payment-proof-card{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}.public-payment-proof-icon{width:32px;height:32px;border-radius:10px;font-size:10px}.public-payment-proof-label{font-size:14px}.public-payment-proof-action{font-size:10px;letter-spacing:.14em}}
-    @media(max-width:600px){.public-payment-proof-overlay{place-items:end center;padding:0}.public-payment-proof-sheet{max-height:88dvh;border-radius:24px 24px 0 0}.public-payment-proof-entry{grid-template-columns:88px minmax(0,1fr);align-items:start}.public-payment-proof-thumb{width:88px;height:76px}.public-payment-proof-entry>.public-payment-proof-button{grid-column:1/-1;width:100%}.public-payment-proof-actions{display:grid;grid-template-columns:1fr}.public-payment-proof-actions .public-payment-proof-button{width:100%}}
+    @media(max-width:600px){.public-payment-proof-overlay{place-items:end center;padding:0}.public-payment-proof-sheet{max-height:88dvh;border-radius:24px 24px 0 0}.public-payment-proof-body,.public-payment-proof-upload-grid{grid-template-columns:minmax(0,1fr)}.public-payment-proof-thumb,.public-payment-proof-upload-thumb{height:210px}.public-payment-proof-upload-fields{grid-template-columns:minmax(0,1fr)}.public-payment-proof-actions{display:grid;grid-template-columns:1fr}.public-payment-proof-actions .public-payment-proof-button{width:100%}}
   `;
   document.head.appendChild(style);
 }
@@ -129,6 +132,41 @@ function uploadedLabel(value = '') {
   }).format(date);
 }
 
+function paymentLabel(dateValue = '', timeValue = '') {
+  const date = String(dateValue || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'Not provided';
+  const dateLabel = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
+  }).format(new Date(`${date}T12:00:00`));
+  const time = /^(\d{2}):(\d{2})/.exec(String(timeValue || ''));
+  return time ? `${dateLabel} · ${time[1]}:${time[2]}` : dateLabel;
+}
+
+function localPaymentParts() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, '0');
+  return {
+    date: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    timezoneOffsetMinutes: -now.getTimezoneOffset()
+  };
+}
+
+function timezoneOffsetLabel(offsetValue) {
+  const offset = Number(offsetValue);
+  if (!Number.isInteger(offset)) return 'Timezone unavailable';
+  const sign = offset >= 0 ? '+' : '-';
+  const absolute = Math.abs(offset);
+  return `UTC${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`;
+}
+
+function timezoneOffsetForLocalPayment(date, time, fallback) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return fallback;
+  const clock = /^\d{2}:\d{2}$/.test(String(time || '')) ? time : '12:00';
+  const local = new Date(`${date}T${clock}:00`);
+  return Number.isNaN(local.getTime()) ? fallback : -local.getTimezoneOffset();
+}
+
 function cardMode() {
   const statuses = proofStore.proofs.map((proof) => String(proof.status || '').toLowerCase());
   if (proofStore.locked || statuses.includes('confirmed')) {
@@ -192,6 +230,29 @@ async function fetchProofs({ force = false } = {}) {
   return proofStore.loading;
 }
 
+function clearUploadDraft() {
+  if (!proofStore.uploadDraft) return;
+  proofStore.uploadDraft.previews.forEach((url) => URL.revokeObjectURL(url));
+  proofStore.uploadDraft = null;
+}
+
+function openUploadDetails(files) {
+  const selected = Array.from(files || []).slice(0, MAX_IMAGES);
+  if (!selected.length) return;
+  clearUploadDraft();
+  const local = localPaymentParts();
+  proofStore.uploadDraft = {
+    files: selected,
+    previews: selected.map((file) => URL.createObjectURL(file)),
+    paymentDate: local.date,
+    paymentTime: local.time,
+    timezoneOffsetMinutes: local.timezoneOffsetMinutes
+  };
+  proofStore.error = '';
+  if (proofStore.modal) renderModal();
+  else openModal(document.activeElement);
+}
+
 function chooseFiles() {
   if (proofStore.busy || proofStore.locked) return;
   const input = document.createElement('input');
@@ -200,7 +261,7 @@ function chooseFiles() {
   input.accept = 'image/*';
   input.multiple = true;
   input.addEventListener('change', () => {
-    uploadProof(input.files);
+    openUploadDetails(input.files);
     input.remove();
   }, { once: true });
   window.addEventListener('focus', () => {
@@ -210,8 +271,8 @@ function chooseFiles() {
   input.click();
 }
 
-async function uploadProof(files) {
-  const selected = Array.from(files || []).slice(0, MAX_IMAGES);
+async function uploadProof(draft = proofStore.uploadDraft) {
+  const selected = Array.from(draft?.files || []).slice(0, MAX_IMAGES);
   if (!selected.length || proofStore.busy) return;
   proofStore.busy = true;
   proofStore.error = '';
@@ -224,10 +285,17 @@ async function uploadProof(files) {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: slugFromPath(), images }),
+      body: JSON.stringify({
+        slug: slugFromPath(),
+        images,
+        paymentDate: String(draft.paymentDate || ''),
+        paymentTime: String(draft.paymentTime || ''),
+        paymentTimezoneOffsetMinutes: draft.timezoneOffsetMinutes
+      }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || !data.ok) throw new Error(data.error || 'Could not upload proof.');
+    clearUploadDraft();
     await fetchProofs({ force: true });
   } catch (error) {
     proofStore.error = error?.message || 'Could not upload proof.';
@@ -249,6 +317,7 @@ function createButton(label, className = '', onClick = null) {
 
 function closeModal() {
   if (!proofStore.modal) return;
+  clearUploadDraft();
   proofStore.modal.remove();
   proofStore.modal = null;
   document.body.style.removeProperty('overflow');
@@ -256,7 +325,7 @@ function closeModal() {
   proofStore.previousFocus = null;
 }
 
-function openLightbox(proof) {
+function openLightboxUrl(src, alt = 'Payment proof full preview') {
   if (!proofStore.modal) return;
   const overlay = document.createElement('div');
   overlay.className = 'public-payment-proof-lightbox';
@@ -269,11 +338,15 @@ function openLightbox(proof) {
   head.appendChild(close);
   const image = document.createElement('img');
   image.className = 'public-payment-proof-lightbox-image';
-  image.src = imageUrl(proof);
-  image.alt = 'Payment proof full preview';
+  image.src = src;
+  image.alt = alt;
   overlay.append(head, image);
   proofStore.modal.querySelector('.public-payment-proof-sheet').appendChild(overlay);
   close.focus();
+}
+
+function openLightbox(proof) {
+  openLightboxUrl(imageUrl(proof));
 }
 
 function showDeleteConfirmation(proof) {
@@ -326,11 +399,114 @@ function showDeleteConfirmation(proof) {
   cancel.focus();
 }
 
+function renderUploadForm(sheet) {
+  const draft = proofStore.uploadDraft;
+  if (!draft) return;
+
+  const head = document.createElement('header');
+  head.className = 'public-payment-proof-head';
+  const heading = document.createElement('div');
+  const eyebrow = document.createElement('p');
+  eyebrow.textContent = 'Upload';
+  const title = document.createElement('strong');
+  title.textContent = 'Payment Details';
+  heading.append(eyebrow, title);
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'public-payment-proof-close';
+  close.setAttribute('aria-label', 'Close payment proof upload');
+  close.textContent = '×';
+  close.addEventListener('click', closeModal);
+  head.append(heading, close);
+
+  const form = document.createElement('form');
+  form.className = 'public-payment-proof-upload-form';
+  const previews = document.createElement('div');
+  previews.className = 'public-payment-proof-upload-grid';
+  draft.previews.forEach((url, index) => {
+    const thumb = document.createElement('button');
+    thumb.type = 'button';
+    thumb.className = 'public-payment-proof-upload-thumb';
+    thumb.setAttribute('aria-label', `Preview selected payment proof ${index + 1}`);
+    thumb.addEventListener('click', () => openLightboxUrl(url, `Selected payment proof ${index + 1}`));
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = `Selected payment proof ${index + 1}`;
+    thumb.appendChild(image);
+    previews.appendChild(thumb);
+  });
+
+  const fields = document.createElement('div');
+  fields.className = 'public-payment-proof-upload-fields';
+  const dateLabel = document.createElement('label');
+  dateLabel.textContent = 'Payment Date';
+  const dateInput = document.createElement('input');
+  dateInput.type = 'date';
+  dateInput.value = draft.paymentDate;
+  dateInput.disabled = proofStore.busy;
+  dateInput.addEventListener('input', () => {
+    draft.paymentDate = dateInput.value;
+    draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
+    updateTimezoneNote();
+  });
+  dateLabel.appendChild(dateInput);
+  const timeLabel = document.createElement('label');
+  timeLabel.textContent = 'Payment Time';
+  const timeInput = document.createElement('input');
+  timeInput.type = 'time';
+  timeInput.value = draft.paymentTime;
+  timeInput.disabled = proofStore.busy;
+  timeInput.addEventListener('input', () => {
+    draft.paymentTime = timeInput.value;
+    draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
+    updateTimezoneNote();
+  });
+  timeLabel.appendChild(timeInput);
+  fields.append(dateLabel, timeLabel);
+
+  const timezone = document.createElement('p');
+  timezone.className = 'public-payment-proof-timezone';
+  const updateTimezoneNote = () => {
+    timezone.textContent = `Prefilled from this device · ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}. This is the transfer time you report; upload time is recorded separately by the server.`;
+  };
+  updateTimezoneNote();
+  form.append(previews, fields, timezone);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    uploadProof(draft);
+  });
+
+  sheet.append(head, form);
+  if (proofStore.error) {
+    const error = document.createElement('p');
+    error.className = 'public-payment-proof-error';
+    error.setAttribute('role', 'alert');
+    error.textContent = proofStore.error;
+    sheet.appendChild(error);
+  }
+  const actions = document.createElement('footer');
+  actions.className = 'public-payment-proof-actions';
+  const cancel = createButton('Cancel', '', () => {
+    clearUploadDraft();
+    if (proofStore.proofs.length) renderModal();
+    else closeModal();
+  });
+  const upload = createButton(proofStore.busy ? 'Uploading…' : 'Upload Proof', 'is-primary', () => uploadProof(draft));
+  cancel.disabled = proofStore.busy;
+  upload.disabled = proofStore.busy;
+  actions.append(cancel, upload);
+  sheet.appendChild(actions);
+}
+
 function renderModal() {
   const overlay = proofStore.modal;
   if (!overlay) return;
   const sheet = overlay.querySelector('.public-payment-proof-sheet');
   sheet.replaceChildren();
+  if (proofStore.uploadDraft) {
+    renderUploadForm(sheet);
+    return;
+  }
 
   const head = document.createElement('header');
   head.className = 'public-payment-proof-head';
@@ -372,15 +548,40 @@ function renderModal() {
 
       const meta = document.createElement('div');
       meta.className = 'public-payment-proof-meta';
+      const metaHead = document.createElement('div');
+      metaHead.className = 'public-payment-proof-meta-head';
       const name = document.createElement('strong');
       name.textContent = `Proof ${index + 1}`;
       const status = document.createElement('span');
       status.className = `public-payment-proof-status is-${String(proof.status || 'processed').toLowerCase()}`;
       status.textContent = statusLabel(proof.status);
-      const uploaded = document.createElement('time');
-      uploaded.dateTime = proof.uploaded_at || '';
-      uploaded.textContent = `Uploaded ${uploadedLabel(proof.uploaded_at)}`;
-      meta.append(name, status, uploaded);
+      metaHead.append(name, status);
+      const times = document.createElement('dl');
+      times.className = 'public-payment-proof-times';
+      const addTime = (label, value, note = '') => {
+        const row = document.createElement('div');
+        const term = document.createElement('dt');
+        term.textContent = label;
+        const detail = document.createElement('dd');
+        detail.textContent = value;
+        if (note) {
+          const small = document.createElement('small');
+          small.textContent = note;
+          detail.append(document.createElement('br'), small);
+        }
+        row.append(term, detail);
+        times.appendChild(row);
+      };
+      addTime(
+        'Payment',
+        paymentLabel(proof.payment_date, proof.payment_time),
+        proof.payment_provisional ? 'Client reported · provisional' : ''
+      );
+      addTime('Uploaded', uploadedLabel(proof.uploaded_at), 'Server recorded · immutable');
+      if (proof.reviewed_at && !proof.payment_provisional) {
+        addTime('Confirmed', uploadedLabel(proof.reviewed_at));
+      }
+      meta.append(metaHead, times);
       entry.append(thumb, meta);
 
       if (!proofStore.locked && DELETABLE_STATUSES.has(String(proof.status || '').toLowerCase())) {
@@ -455,7 +656,7 @@ function openModal(trigger) {
   document.body.style.overflow = 'hidden';
   renderModal();
   overlay.querySelector('.public-payment-proof-close')?.focus();
-  fetchProofs({ force: true }).catch(() => {});
+  if (!proofStore.uploadDraft) fetchProofs({ force: true }).catch(() => {});
 }
 
 function createProofCard() {
