@@ -2,6 +2,12 @@ import { EmptyState } from '../../components/ui/index.js';
 import { compactEventDateLabel } from './dbHelpers.js';
 import { subscriptionTone } from './subs/subscriptionLogic.js';
 
+const CLIENT_NAME_TONE_STYLE = {
+  soon: { color: 'var(--evt-soon)' },
+  future: { color: 'var(--evt-future)' },
+  tba: { color: 'var(--evt-tba)' },
+};
+
 // Whether a string is a contact value worth showing under a client
 // row. Used by /db's left list to scrub raw timestamps (e.g.
 // "2026-05-17T13:08:21.123Z") and other non-contact metadata that
@@ -182,12 +188,13 @@ export function DatabaseList({
             : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
-          // The tone drives both the row text colour and the small
-          // date pill rendered on the right side of the row, with
-          // four states (soon/future/tba/past) mapped through CSS.
+          // The tone drives the client name, subtle left edge, and
+          // date pill. Settled past clients intentionally have no
+          // tone so all three surfaces return to neutral.
           const clientToneInfo = isClient ? (clientToneByRowId.get(row.id) || null) : null;
           const clientTone = clientToneInfo?.tone || '';
           const clientToneClass = clientTone ? `event-tone-${clientTone}` : '';
+          const clientNameStyle = isClient ? CLIENT_NAME_TONE_STYLE[clientTone] : undefined;
           const clientPillDate = clientToneInfo?.representativeDate || '';
           const clientPillTone = clientTone || (clientPillDate ? '' : 'tba');
           let meta = '';
@@ -235,7 +242,7 @@ export function DatabaseList({
               }}
             >
               <div className="db-list-row-text">
-                <strong>{title || 'Untitled'}</strong>
+                <strong style={clientNameStyle}>{title || 'Untitled'}</strong>
                 {isActivity ? (
                   <>
                     {row.folder_name ? <span className="activity-folder-line" title={row.folder_name}>{row.folder_name}</span> : null}
