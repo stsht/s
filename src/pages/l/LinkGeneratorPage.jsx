@@ -52,7 +52,7 @@ const LINK_SERVICES = [
 ];
 
 // Read invoice handoff in the same priority the legacy /l used:
-// URL params first (so /db's "Create Links" button always wins),
+// URL params first (so /db's "Links" button always wins),
 // otherwise a localStorage entry written by /inv that's still
 // inside the 7-day window.
 function readInvoiceHandoff() {
@@ -124,7 +124,7 @@ export function LinkGeneratorPage() {
   // per-event grouping; the two are independent.
   const [linkedClientId, setLinkedClientId] = useState('');
   // Stable per-event grouping key handed off from /db. When the
-  // user clicks "Create Links" on an existing event row this is the
+  // user clicks "Links" on an existing event row this is the
   // row's event_key (or the cross-ref anchor id when the row is
   // legacy and never carried event_key). When /l is opened
   // standalone (no /db handoff) it stays empty and the worker
@@ -627,7 +627,7 @@ export function LinkGeneratorPage() {
   return (
     <WorkspacePanels
       active="/l/"
-      // /l only needs a back-link to the workspace home. No Links/
+      // /l only needs a back-link to the workspace home. Links/
       // Invoice/Subs in the nav row.
       navItems={[{ href: '/db/', label: 'Database' }]}
       left={left}

@@ -1,4 +1,4 @@
-/* /db Delivery Detail / View Links styles.
+/* /db Delivery Detail / Links styles.
  *
  * Extracted verbatim from src/pages/invcs/inv.css (Pass 13). These
  * .dd-* selectors style the /db delivery admin UI rendered by the
@@ -9,7 +9,7 @@
  *
  *   - .dd-name-line* (delivery header folder-name + date pill row)
  *   - .dd-link-fields responsive single-column rule
- *   - the DeliveryDetail "View Links" right panel: .dd-stack,
+ *   - the DeliveryDetail "Links" right panel: .dd-stack,
  *     .dd-card*, .dd-icon-button, .dd-link-editor, .dd-service-*,
  *     .dd-message*, .dd-segmented, .dd-access-log*, .dd-visitor*,
  *     and their max-width:1023px responsive overrides.
@@ -51,12 +51,12 @@
   margin-top:0;
 }
 
-/* Mobile: View Links link-editor fields collapse to one column. */
+/* Mobile: Links link-editor fields collapse to one column. */
 @media(max-width:1023px){
   .dd-link-fields{grid-template-columns:1fr}
 }
 
-/* /db DeliveryDetail — admin-only View Links right panel. The
+/* /db DeliveryDetail — admin-only Links right panel. The
  * surface is intentionally card-led so each piece of information
  * the operator needs to re-share a delivery (short link,
  * password, GD/DB/WT/TN URLs, generated WhatsApp/Instagram

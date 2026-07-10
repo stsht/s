@@ -244,7 +244,7 @@
   margin-top:12px;
 }
 .record-row{
-  /* left meta (date pill + price) / View Links / View Invoice / X
+  /* left meta (date pill + price) / Links / Invoice / X
    * The meta column is minmax(min-content,1fr): it grows to fill
    * the row and pushes the action groups to the right, but never
    * shrinks below the date pill + price so the rupiah figure can
@@ -313,7 +313,7 @@
 .record-row button.record-row-link,
 .record-row button.record-row-link-anchor{
   /* Reset native button defaults so the pill renders identically
-   * to its <a> sibling. The View Links button only differs in
+   * to its <a> sibling. The Links button only differs in
    * behaviour (opens DeliveryDetail in /db's right panel instead
    * of navigating away); visually it's the same pill. */
   cursor:pointer;
@@ -353,13 +353,13 @@
 
 /* "Already created" pill state for the right-side action buttons.
  *
- * View Links / View Invoice (when the underlying delivery or
+ * Links / Invoice (when the underlying delivery or
  * invoice exists) flip to a soft-green pill so the operator can
  * tell at a glance which side of the row is already shipped. The
  * tint is layered through color-mix() against --sub-active —
  * the same green token used by the Subs tab "active" state — so
  * light/dark modes pick the right shade automatically without a
- * second palette. The neutral "Create Links" / "Create Invoice"
+ * second palette. The neutral "Links" / "Invoice"
  * pill is unchanged when the row is missing the corresponding
  * record. */
 .record-row a.is-created,
@@ -414,7 +414,7 @@
 /* Even action-pill sizing (desktop grid layout only — the mobile
  * stacked layout below makes pills full-width). Each text pill is
  * locked to a min-width sized for its longest label state so rows
- * align cleanly whether the action reads "View Links"/"Create Links"
+ * align cleanly whether the action reads "Links"/"Links"
  * or "View Client Invoice"/"Create Client Invoice", and whether or
  * not the vendor add-on is active. The icon-only vendor add-ons are
  * already a fixed 34px square, so each action group keeps a stable

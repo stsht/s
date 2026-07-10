@@ -78,7 +78,7 @@ function readInitialQuery() {
       // pass merges this invoice with its sibling delivery.
       eventKey: (params.get('eventKey') || '').trim().slice(0, 80),
       // Stable parent clients.id forwarded by /db's Create Events
-      // sheet. Empty for top-level Create Invoice / legacy buckets
+      // sheet. Empty for top-level Invoice / legacy buckets
       // — the worker still has its name+contact fallback. When set
       // it is forwarded on save so handleInvoiceSave attaches the
       // invoice to THIS exact clients row instead of name+contact-
@@ -103,7 +103,7 @@ function readInitialQuery() {
 export function InvoiceComposer() {
   const initial = useMemo(() => readInitialQuery(), []);
   // Mount-time visibility into the URL handoff so operators can
-  // confirm /db sent eventKey/eventDate when "Create Invoice" was
+  // confirm /db sent eventKey/eventDate when "Invoice" was
   // pressed on an existing event row. Only emits when ?debug=1 is
   // active (see dbg helper at top of file).
   useEffect(() => {
@@ -129,7 +129,7 @@ export function InvoiceComposer() {
   // hydrated from the saved row (row.event_key) so that subsequent
   // saves reuse it and /db's grouping pass merges this invoice
   // with its sibling delivery. Empty for a standalone /inv session
-  // (top-level Create Invoice with no event context).
+  // (top-level Invoice with no event context).
   const [eventKey, setEventKey] = useState(initial.eventKey || '');
   // Parent clients.id from the /db Create Events handoff. Sticky
   // for the session so subsequent saves keep targeting the same
@@ -197,7 +197,7 @@ export function InvoiceComposer() {
   // Save Status: when /inv is opened with ?invoiceId= we treat that
   // row as already-persisted so the toolbar button reads "Update
   // Status" and subsequent saves PATCH the same row instead of
-  // creating duplicates. New drafts opened from /db Create Invoice
+  // creating duplicates. New drafts opened from /db Invoice
   // (with title/name/contact/eventDate handoff but no invoiceId)
   // start with savedId='' and the button reads "Save Status";
   // after the first successful save we capture json.invoice.id

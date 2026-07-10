@@ -10,7 +10,7 @@ import {
 // A single event row inside the Clients detail. Owns the per-event
 // link/grouping/href computation that previously lived inline in the
 // ClientDetail records.map() loop, then hands the presentational row
-// (date+price meta, View/Create Links + Invoice pills, vendor add-ons,
+// (date+price meta, compact Links + Invoice pills, vendor add-ons,
 // and the two-tap delete X) off to the shared RecordRow component.
 //
 // The arm/disarm bookkeeping for the delete X (single-armed-row rule

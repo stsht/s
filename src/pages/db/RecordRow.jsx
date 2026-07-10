@@ -188,7 +188,7 @@ export function RecordRow({
             <button
               type="button"
               className={actionClass(linkStateClass)}
-              title={deliveryDone ? 'Links complete' : 'View Links'}
+              title={deliveryDone ? 'Links complete' : 'Links'}
               onClick={(event) => {
                 event.stopPropagation();
                 onViewLinks?.(row.delivery);
@@ -197,7 +197,7 @@ export function RecordRow({
               <LinkIcon /> <span>Links</span>
             </button>
           ) : (
-            <a className={actionClass()} href={eventLinkHref} target="_blank" rel="noopener noreferrer" title="Create Links">
+            <a className={actionClass()} href={eventLinkHref} target="_blank" rel="noopener noreferrer" title="Links">
               <LinkIcon /> <span>Links</span>
             </a>
           )}
@@ -207,7 +207,7 @@ export function RecordRow({
             href={eventInvoiceHref}
             target="_blank"
             rel="noopener noreferrer"
-            title={hasInvoice ? (invoicePaid ? 'Invoice fully paid' : 'View Invoice') : 'Create Invoice'}
+            title={invoicePaid ? 'Invoice fully paid' : 'Invoice'}
           >
             <PaperIcon /> <span>Invoice</span>
           </a>
@@ -217,7 +217,7 @@ export function RecordRow({
             className={actionClass(paymentStateClass)}
             disabled={!paymentProofs.length}
             aria-disabled={!paymentProofs.length}
-            title={paymentProofs.length ? 'View Payments' : 'No payment proofs'}
+            title={paymentProofs.length ? 'Payments' : 'No payment proof'}
             onClick={(event) => {
               event.stopPropagation();
               if (paymentProofs.length) setProofViewer({ title: 'Client Payment Proof', entries: paymentProofs });
@@ -245,7 +245,7 @@ export function RecordRow({
               <button
                 type="button"
                 className={actionClass(vendorLinkStateClass)}
-                title={vendorDeliveryDone ? 'Vendor links complete' : 'View Vendor Links'}
+                title={vendorDeliveryDone ? 'Vendor links complete' : 'Vendor Links'}
                 onClick={(event) => {
                   event.stopPropagation();
                   onViewLinks?.(row.vendorDelivery);
@@ -254,7 +254,7 @@ export function RecordRow({
                 <LinkIcon /> <span>Links</span>
               </button>
             ) : (
-              <a className={actionClass()} href={eventVendorDeliveryHref} target="_blank" rel="noopener noreferrer" title="Create Vendor Links">
+              <a className={actionClass()} href={eventVendorDeliveryHref} target="_blank" rel="noopener noreferrer" title="Vendor Links">
                 <LinkIcon /> <span>Links</span>
               </a>
             )}
@@ -264,7 +264,7 @@ export function RecordRow({
               href={eventVendorInvoiceHref}
               target="_blank"
               rel="noopener noreferrer"
-              title={hasVendorInvoice ? (vendorInvoicePaid ? 'Vendor invoice fully paid' : 'View Vendor Invoice') : 'Create Vendor Invoice'}
+              title={vendorInvoicePaid ? 'Vendor invoice fully paid' : 'Vendor Invoice'}
             >
               <PaperIcon /> <span>Invoice</span>
             </a>
@@ -274,7 +274,7 @@ export function RecordRow({
               className={actionClass(vendorPaymentStateClass)}
               disabled={!vendorPaymentProofs.length}
               aria-disabled={!vendorPaymentProofs.length}
-              title={vendorPaymentProofs.length ? 'View Vendor Payments' : 'No vendor payment proofs'}
+              title={vendorPaymentProofs.length ? 'Vendor Payments' : 'No vendor payment proof'}
               onClick={(event) => {
                 event.stopPropagation();
                 if (vendorPaymentProofs.length) setProofViewer({ title: 'Vendor Payment Proof', entries: vendorPaymentProofs });

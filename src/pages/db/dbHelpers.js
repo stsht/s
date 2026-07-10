@@ -293,7 +293,7 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
 
   // Process invoices first. Invoices tend to be the side that
   // carries an explicit event_key (operators set the event date in
-  // /inv before they ever press Create Links), so by attaching
+  // /inv before they ever press Links), so by attaching
   // them first we seed each group with its event_key. A subsequent
   // delivery whose own event_key column was stripped — e.g. on a
   // pre-part-6 schema — can then still merge via the cross-ref
