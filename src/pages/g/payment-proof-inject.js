@@ -147,11 +147,16 @@ function updateCard(row) {
   const mode = cardMode();
   row.classList.remove('is-pending', 'is-rejected', 'is-confirmed');
   if (mode.className) row.classList.add(mode.className);
-  row.querySelector('.public-payment-proof-note').textContent = proofStore.loading
+  const note = proofStore.loading
     ? 'Loading payment proofs…'
     : (proofStore.error || mode.note);
-  row.querySelector('.public-payment-proof-action').textContent = proofStore.loading ? 'Wait' : mode.action;
-  row.disabled = !!proofStore.loading || proofStore.busy;
+  const action = proofStore.loading ? 'Wait' : mode.action;
+  const noteElement = row.querySelector('.public-payment-proof-note');
+  const actionElement = row.querySelector('.public-payment-proof-action');
+  if (noteElement.textContent !== note) noteElement.textContent = note;
+  if (actionElement.textContent !== action) actionElement.textContent = action;
+  const disabled = !!proofStore.loading || proofStore.busy;
+  if (row.disabled !== disabled) row.disabled = disabled;
 }
 
 function updateAllCards() {
@@ -497,7 +502,6 @@ function sync() {
     proofCard = createProofCard();
     invoiceRow.insertAdjacentElement('afterend', proofCard);
   }
-  updateCard(proofCard);
   if (!proofStore.loaded && !proofStore.loading) fetchProofs().catch(() => {});
 }
 
