@@ -1,4 +1,4 @@
-// Shared vendor artifact state for /db event rows and left-list settlement.
+// Shared artifact state for /db event rows and left-list settlement.
 // Existing artifacts participate independently: missing optional artifacts do
 // not block completion, while any existing unfinished artifact takes priority.
 
@@ -46,17 +46,23 @@ export function paymentState(entries = []) {
   return String(latest?.status || '').toLowerCase() === 'confirmed' ? ' is-complete' : ' is-created';
 }
 
+function appendInvoiceArtifacts(artifactCompletion, invoice) {
+  if (!invoice?.id) return [];
+  artifactCompletion.push(String(invoice.status || '').trim() === 'paid');
+  const paymentProofs = invoicePaymentProofs(invoice);
+  if (paymentProofs.length) {
+    artifactCompletion.push(paymentState(paymentProofs) === ' is-complete');
+  }
+  return paymentProofs;
+}
+
 export function vendorSummaryState(row = {}) {
   const vendorDelivery = row?.vendorDelivery || null;
   const vendorInvoice = row?.vendorInvoice || null;
-  const paymentProofs = vendorInvoice?.id ? invoicePaymentProofs(vendorInvoice) : [];
   const artifactCompletion = [];
 
   if (vendorDelivery?.id) artifactCompletion.push(vendorDelivery.delivery_done === true);
-  if (vendorInvoice?.id) {
-    artifactCompletion.push(String(vendorInvoice.status || '').trim() === 'paid');
-  }
-  if (paymentProofs.length) artifactCompletion.push(paymentState(paymentProofs) === ' is-complete');
+  const paymentProofs = appendInvoiceArtifacts(artifactCompletion, vendorInvoice);
 
   return {
     stateClass: artifactCompletion.length
@@ -66,14 +72,18 @@ export function vendorSummaryState(row = {}) {
   };
 }
 
-// Client artifacts are authoritative whenever they genuinely exist. Vendor
-// artifacts are considered only for vendor-only groups, preventing a paid
-// vendor invoice from masking unfinished client delivery/invoice work.
+// A past event is settled when at least one confidently linked artifact exists
+// and every existing artifact is complete. Missing optional Links, Invoice, or
+// Payments records do not count as unfinished work. Client and vendor artifacts
+// in the same event group are all evaluated, so completed vendor work cannot
+// hide an unfinished client artifact (or vice versa).
 export function eventGroupIsSettled(group = {}) {
-  const hasClientArtifacts = !!group?.delivery || !!group?.invoice;
-  if (hasClientArtifacts) {
-    return group?.delivery?.delivery_done === true
-      && String(group?.invoice?.status || '').trim() === 'paid';
-  }
-  return vendorSummaryState(group).stateClass === ' is-complete';
+  const artifactCompletion = [];
+
+  if (group?.delivery?.id) artifactCompletion.push(group.delivery.delivery_done === true);
+  appendInvoiceArtifacts(artifactCompletion, group?.invoice);
+  if (group?.vendorDelivery?.id) artifactCompletion.push(group.vendorDelivery.delivery_done === true);
+  appendInvoiceArtifacts(artifactCompletion, group?.vendorInvoice);
+
+  return artifactCompletion.length > 0 && artifactCompletion.every(Boolean);
 }
