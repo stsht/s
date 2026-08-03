@@ -7,7 +7,7 @@ const DELETABLE_STATUSES = new Set(['pending', 'rejected']);
 
 const proofStore = {
   proofs: [],
-  locked: false,
+  locklockeded: false,
   loaded: false,
   loading: null,
   busy: false,
@@ -169,14 +169,14 @@ function timezoneOffsetForLocalPayment(date, time, fallback) {
 
 function cardMode() {
   const statuses = proofStore.proofs.map((proof) => String(proof.status || '').toLowerCase());
-  if (proofStore.locked || statuses.includes('confirmed')) {
+  if (proofStore.locked) {
     return { className: 'is-confirmed', note: 'Payment confirmed', action: 'View' };
-  }
-  if (statuses.some((status) => !DELETABLE_STATUSES.has(status))) {
-    return { className: 'is-confirmed', note: 'Payment processed', action: 'View' };
   }
   if (statuses.includes('pending')) return { className: 'is-pending', note: 'Waiting for review', action: 'Manage' };
   if (statuses.includes('rejected')) return { className: 'is-rejected', note: 'Proof rejected. Upload a replacement.', action: 'Replace' };
+  if (statuses.includes('confirmed')) {
+    return { className: '', note: 'Payment requested. Upload transfer proof.', action: 'Upload' };
+  }
   return { className: '', note: 'Upload up to 3 transfer screenshots.', action: 'Upload' };
 }
 
