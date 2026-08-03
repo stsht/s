@@ -60,3 +60,22 @@ export function makeDepositPayment(amountDefault) {
     amount: Math.max(0, Math.round(Number(amountDefault) || 0)),
   };
 }
+
+export function isDpPaid(payments) {
+  return Array.isArray(payments) && payments.some((payment) => payment.paid);
+}
+
+export function resolveAskingDpState(currentAskingDp, explicitToggle = false) {
+  if (explicitToggle) {
+    return !currentAskingDp;
+  }
+  return currentAskingDp;
+}
+
+export function shouldShowBankDetails(activeSection, isDpPaid, isAskingDp) {
+  if (activeSection === 'deposit') {
+    return !isDpPaid || isAskingDp;
+  }
+  return activeSection !== 'paid';
+}
+
