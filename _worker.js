@@ -3400,11 +3400,7 @@ function publicPaymentProofStatus(value = '') {
 function invoiceLocksPublicPaymentProofs(invoice = {}) {
   const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const status = String(invoice.status || '').trim().toLowerCase();
-  const paidAmount = Math.max(0, Math.round(Number(invoice.paid_amount) || 0));
-  const hasRecordedDeposit = Array.isArray(data.depositPayments)
-    && data.depositPayments.some((payment) => payment?.paid);
-  return status === 'paid'
-    || (status === 'deposit' && (paidAmount > 0 || data.depositAskOpen === false || hasRecordedDeposit));
+  return status === 'paid' || (status === 'deposit' && data.depositAskOpen === false);
 }
 
 function paymentProofBelongsToDeliveryInvoice(proof = {}, delivery = {}, invoice = {}) {
