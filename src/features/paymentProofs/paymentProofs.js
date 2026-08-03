@@ -1,7 +1,7 @@
 export const PAYMENT_PROOF_MAX_IMAGES = 3;
 export const PAYMENT_PROOF_STATUSES = new Set(['pending', 'partial', 'confirmed', 'rejected']);
 
-export function paymentProofState(invoice = {}) {
+export function paymentProofSpaymentProofStatetate(invoice = {}) {
   const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const proofs = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
   const cleanProofs = proofs
@@ -19,7 +19,8 @@ export function paymentProofState(invoice = {}) {
     .filter((proof) => proof.images.length);
   const latest = cleanProofs[cleanProofs.length - 1] || null;
   const invoiceStatus = String(invoice?.status || '').toLowerCase();
-  const fullyPaid = invoiceStatus === 'paid' || cleanProofs.some((proof) => proof.status === 'confirmed');
+  const depositAskOpen = data.depositAskOpen !== false;
+  const fullyPaid = invoiceStatus === 'paid' || (invoiceStatus === 'deposit' && !depositAskOpen);
   const pending = latest?.status === 'pending';
   const canUpload = !fullyPaid && !pending;
 
@@ -30,8 +31,14 @@ export function paymentProofState(invoice = {}) {
     fullyPaid,
     pending,
     canUpload,
-    publicLabel: fullyPaid ? 'Payment confirmed' : pending ? 'Pending review' : cleanProofs.length ? 'Partial payment confirmed' : 'Not uploaded yet',
-    publicCta: fullyPaid || cleanProofs.length ? 'View' : pending ? 'Pending' : 'Upload',
+    publicLabel: fullyPaid
+      ? (invoiceStatus === 'paid' ? 'Payment confirmed' : 'Deposit received')
+      : pending
+      ? 'Pending review'
+      : cleanProofs.length
+      ? 'Payment requested'
+      : 'Not uploaded yet',
+    publicCta: canUpload ? 'Upload' : (cleanProofs.length > 0 ? 'View' : 'Pending'),
   };
 }
 
@@ -54,3 +61,4 @@ export function appendPendingPaymentProof(invoiceData = {}, images = []) {
     ],
   };
 }
+
