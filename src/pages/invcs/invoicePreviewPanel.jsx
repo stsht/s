@@ -14,6 +14,7 @@ import { toTitleCase, maybeTitleCase } from '../../utils/titleCase.js';
 import { SaveIcon, PrinterIcon, TrashIcon } from './invoicePrimitives.jsx';
 import { BANK_DETAILS, PAYMENT_QR_SRC, INVOICE_PREVIEW_WIDTH, INVOICE_PREVIEW_MIN_HEIGHT } from './invoiceConstants.js';
 import { cleanPaymentMethod, rupiah, isFullPayment, prettyDate, prettyDateTime, clampItemDiscount } from './invoiceFormat.js';
+import { isDpPaid, shouldShowBankDetails } from './invoiceState.js';
 
 // Toolbar icons for the Live Preview header. Same minimalist 2D
 // stroke-only family as the /db Subs detail toolbar (viewBox 0 0 24
@@ -28,6 +29,10 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
   const paidDeposits = (mode === 'deposit' || mode === 'paid')
     ? (depositPayments || []).filter((payment) => payment.paid)
     : [];
+  const isPaidDp = isDpPaid(depositPayments);
+  const isAskingDp = !!depositAskOpen;
+  const activeSection = mode;
+  const showBankDetails = shouldShowBankDetails(activeSection, isPaidDp, isAskingDp);
   // Payment caption shown in the .payment-box beside Terms &
   // Conditions. In every requesting mode (Draft Invoice / Deposit
   // Invoice "Ask DP") the canvas advertises the REQUESTED deposit
@@ -225,7 +230,7 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
                     <span className="paid-stamp-badge">PAID</span>
                     <p className="paid-stamp-note">Thank You!<br />Your Invoice has been Paid in Full</p>
                   </div>
-                ) : mode === 'deposit' && !depositAskOpen ? (
+                ) : !showBankDetails ? (
                   <div className="deposit-received-stamp">
                     <span>Deposit</span>
                     <span>Received</span>
