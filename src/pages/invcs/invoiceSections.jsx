@@ -289,17 +289,14 @@ export function DepositLedger({ mode, payments, addPayment, updatePayment, remov
     : (fullPayment ? 'Requested Full Payment' : 'Requested Deposit Due');
   const paidRows = payments.filter((payment) => payment.paid);
 
-  useEffect(() => {
-    if (depositAskOpen && paidRows.length) setDepositAskOpen(false);
-  }, [depositAskOpen, paidRows.length, setDepositAskOpen]);
-
   // Opening "Ask DP" auto-follows the requested deposit due to the
   // latest recorded paid DP, so the amount we ask for matches what
   // the client most recently paid. With no paid DP yet it falls back
   // to the 20% preset default. Tied to the open action only —
   // hydrating a saved invoice keeps the persisted requested deposit
   // untouched until the operator explicitly reopens Ask DP.
-  const handleAskToggle = () => {
+  const handleAskToggle = (event) => {
+    event?.stopPropagation?.();
     const willOpen = !depositAskOpen;
     setDepositAskOpen(willOpen);
     if (!willOpen) return;
