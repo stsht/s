@@ -1,0 +1,20 @@
+{
+  "name": "Counter",
+  "short_name": "Counter",
+  "description": "A tiny, minimal tap counter.",
+  "start_url": "/t/",
+  "scope": "/t/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "/t/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
