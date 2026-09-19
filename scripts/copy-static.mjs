@@ -21,7 +21,8 @@ const files = [
   'payment-qr.png',
 ];
 
-const directories = [];
+// Standalone static tools that must survive the Vite build.
+const directories = ['counter'];
 
 for (const file of files) {
   const target = join(out, file);
