@@ -1,4 +1,4 @@
-import { cp, copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 const root = process.cwd();
@@ -21,15 +21,8 @@ const files = [
   'payment-qr.png',
 ];
 
-// Standalone static tools that must survive the Vite build.
-const directories = ['counter'];
-
 for (const file of files) {
   const target = join(out, file);
   await mkdir(dirname(target), { recursive: true });
   await copyFile(join(root, file), target);
-}
-
-for (const directory of directories) {
-  await cp(join(root, directory), join(out, directory), { recursive: true });
 }
