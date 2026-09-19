@@ -1,17 +1,52 @@
 <!doctype html>
-<html class="ss-force-motion" lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-    <meta name="robots" content="noindex,nofollow" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f3f7fb" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a1226" />
-    <title>Text Pad</title>
-    <script src="/animate.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/pages/t/main.jsx"></script>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Counter</title>
+  <style>
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{touch-action:manipulation;user-select:none;-webkit-user-select:none}
+    #app{width:100%;height:100%;display:grid;place-items:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+    .counter{width:min(92vw,30rem);height:min(72svh,34rem);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+    .value{font-variant-numeric:tabular-nums lining-nums;font-weight:700;line-height:.92;font-size:clamp(5rem,23vw,10rem);letter-spacing:-.045em;text-align:center}
+    .hint{margin-top:1rem;color:#666;font-size:.75rem;transition:opacity .3s}
+    .controls{position:absolute;bottom:0;right:0;display:flex;gap:.25rem}
+    .control{width:2.75rem;height:2.75rem;border:0;background:transparent;color:#777;display:grid;place-items:center;font-size:1.45rem;border-radius:999px;padding:0}
+    .control:active{background:#111;color:#fff;transform:scale(.94)}
+    .control svg{width:1.35rem;height:1.35rem}
+    @media (min-width:700px){.counter{width:min(42vw,30rem);height:min(64svh,34rem)}.value{font-size:clamp(6rem,12vw,10rem)}}
+  </style>
+</head>
+<body>
+<div id="app"><main class="counter" aria-label="Counter">
+  <div id="value" class="value">0</div>
+  <div id="hint" class="hint">tap anywhere</div>
+  <div class="controls">
+    <button id="minus" class="control" aria-label="Decrease">−</button>
+    <button id="reset" class="control" aria-label="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M20 11a8.1 8.1 0 0 0-14.9-4.2L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 14.9 4.2L21 15"/><path d="M21 20v-5h-5"/></svg></button>
+  </div>
+</main></div>
+<script>
+(()=>{const K='t-counter-v1',app=document.getElementById('app'),v=document.getElementById('value'),m=document.getElementById('minus'),r=document.getElementById('reset'),h=document.getElementById('hint');let n=Math.max(0,parseInt(localStorage.getItem(K)||'0',10)||0),timer,repeat,holding=false;
+const render=()=>v.textContent=n.toLocaleString('en-US'),save=()=>localStorage.setItem(K,String(n));
+function step(d){n=Math.max(0,n+d);render();save();if(navigator.vibrate)navigator.vibrate(d>0?7:9)}
+function start(){holding=true;let delay=280;const tick=()=>{if(!holding)return;step(1);delay=Math.max(22,delay*.84);repeat=setTimeout(tick,delay)};tick()}
+function cancel(){holding=false;clearTimeout(timer);clearTimeout(repeat)}
+app.addEventListener('pointerdown',e=>{if(e.target.closest('.control'))return;clearTimeout(timer);timer=setTimeout(start,520)});
+app.addEventListener('pointerup',e=>{if(e.target.closest('.control'))return;const was=holding;cancel();if(!was)step(1)});
+app.addEventListener('pointercancel',cancel);
+app.addEventListener('pointerleave',()=>{if(holding)cancel()});
+m.onclick=e=>{e.stopPropagation();step(-1)};
+r.onclick=e=>{e.stopPropagation();if(!n)return;n=0;render();save();if(navigator.vibrate)navigator.vibrate([8,35,8])};
+setTimeout(()=>h.style.opacity=0,2200);render();
+})()
+</script>
+</body>
 </html>
