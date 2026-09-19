@@ -1,13 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#000000">
   <meta name="color-scheme" content="dark">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="robots" content="noindex,nofollow">
+  <link rel="manifest" href="/t/manifest.webmanifest">
   <title>Counter</title>
   <style>
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -46,6 +47,7 @@ app.addEventListener('pointerleave',()=>{if(holding)cancel()});
 m.onclick=e=>{e.stopPropagation();step(-1)};
 r.onclick=e=>{e.stopPropagation();if(!n)return;n=0;render();save();if(navigator.vibrate)navigator.vibrate([8,35,8])};
 setTimeout(()=>h.style.opacity=0,2200);render();
+if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('/t/sw.js',{scope:'/t/'}).catch(()=>{}))}
 })()
 </script>
 </body>
