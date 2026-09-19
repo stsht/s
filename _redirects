@@ -10,3 +10,5 @@
 /subs/*  /subs/index.html  200
 /t  /t/index.html  200
 /t/*  /t/index.html  200
+/counter  /counter/index.html  200
+/counter/*  /counter/index.html  200
