@@ -6,53 +6,19 @@
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="/t/manifest.webmanifest">
 <title>大悲咒</title>
 <style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#f4f4f4;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-body{touch-action:manipulation;user-select:none;-webkit-user-select:none}
-#app{position:fixed;inset:0;overflow:hidden;background:#000}
-.reader{position:absolute;inset:0;overflow:hidden}
-.track{position:absolute;left:0;right:0;top:0;padding:15vh 7vw 45vh;will-change:transform}
-.row{height:clamp(7.2rem,25svh,10.5rem);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.pinyin{font-size:clamp(1rem,4.2vw,1.7rem);line-height:1.35;color:#777;letter-spacing:.015em;margin-bottom:.45rem;white-space:nowrap}
-.hanzi{font-family:"Noto Serif CJK SC","Noto Serif SC","Songti SC",serif;font-size:clamp(2.6rem,13vw,5.4rem);line-height:1.05;letter-spacing:.05em;color:#f5f2ea;white-space:nowrap}
-.counter{position:fixed;top:max(1rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));min-width:3.1rem;height:2.35rem;padding:0 .72rem;border:1px solid #242424;border-radius:1.3rem;background:rgba(10,10,10,.78);display:grid;place-items:center;font-variant-numeric:tabular-nums;color:#aaa;font-size:1rem;z-index:10;backdrop-filter:blur(8px)}
-.controls{position:fixed;left:max(.65rem,env(safe-area-inset-left));bottom:max(.65rem,env(safe-area-inset-bottom));display:flex;gap:.1rem;align-items:center;z-index:10;padding:.15rem;border-radius:1.6rem;background:rgba(8,8,8,.7);backdrop-filter:blur(8px)}
-.control{width:2.7rem;height:2.7rem;border:0;background:transparent;color:#555;display:grid;place-items:center;font-size:1.35rem;border-radius:999px;padding:0}
-.control:active{background:#151515;color:#fff;transform:scale(.94)}
-.control.on{color:#aaa}.control.off{color:#444}
-.control svg{width:1.25rem;height:1.25rem}
-.speed{position:fixed;right:max(.65rem,env(safe-area-inset-right));bottom:max(.65rem,env(safe-area-inset-bottom));display:flex;gap:.25rem;z-index:10;padding:.25rem;border-radius:1.6rem;background:rgba(8,8,8,.7);backdrop-filter:blur(8px)}
-.speed button{border:0;background:transparent;color:#555;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:.65rem .55rem;border-radius:1.2rem;min-width:3.15rem}
-.speed button.active{background:#202020;color:#eee}
-.start{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#000;transition:opacity .25s}
-.start.hidden{opacity:0;pointer-events:none}
-.startText{text-align:center;color:#666;font-size:.95rem;letter-spacing:.08em}
-.startTitle{display:block;color:#eee;font-family:"Noto Serif CJK SC","Noto Serif SC",serif;font-size:clamp(2rem,9vw,4rem);margin-bottom:1rem}
-.status{position:fixed;top:max(4rem,calc(env(safe-area-inset-top) + 2.8rem));left:50%;transform:translateX(-50%);z-index:9;color:#444;font-size:.7rem;opacity:0;transition:opacity .2s;pointer-events:none}
-.status.show{opacity:1}
-@media (min-width:700px){.track{padding-left:10vw;padding-right:10vw}.row{height:clamp(8rem,18svh,11rem)}.hanzi{font-size:clamp(3.2rem,8vw,5.5rem)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#f4f4f4;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{touch-action:manipulation;user-select:none;-webkit-user-select:none}#app{position:fixed;inset:0;overflow:hidden;background:#000}.reader{position:absolute;inset:0;overflow:hidden}.track{position:absolute;left:0;right:0;top:0;padding:16vh 7vw 50vh;will-change:transform}.row{height:clamp(7.2rem,25svh,10.5rem);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}.pinyin{font-size:clamp(1rem,4.2vw,1.7rem);line-height:1.35;color:#777;margin-bottom:.45rem;white-space:nowrap}.hanzi{font-family:"Noto Serif CJK SC","Noto Serif SC","Songti SC",serif;font-size:clamp(2.6rem,13vw,5.4rem);line-height:1.05;letter-spacing:.05em;color:#f5f2ea;white-space:nowrap}.counter{position:fixed;top:max(1rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));min-width:3.1rem;height:2.35rem;padding:0 .72rem;border:1px solid #242424;border-radius:1.3rem;background:rgba(10,10,10,.78);display:grid;place-items:center;font-variant-numeric:tabular-nums;color:#aaa;font-size:1rem;z-index:10;backdrop-filter:blur(8px)}.controls{position:fixed;left:max(.65rem,env(safe-area-inset-left));bottom:max(.65rem,env(safe-area-inset-bottom));display:flex;gap:.1rem;z-index:10;padding:.15rem;border-radius:1.6rem;background:rgba(8,8,8,.7);backdrop-filter:blur(8px)}.control{width:2.7rem;height:2.7rem;border:0;background:transparent;color:#555;display:grid;place-items:center;font-size:1.35rem;border-radius:999px;padding:0}.control:active{background:#151515;color:#fff;transform:scale(.94)}.control.on{color:#aaa}.control.off{color:#444}.control svg{width:1.25rem;height:1.25rem}.speed{position:fixed;right:max(.65rem,env(safe-area-inset-right));bottom:max(.65rem,env(safe-area-inset-bottom));display:flex;gap:.25rem;z-index:10;padding:.25rem;border-radius:1.6rem;background:rgba(8,8,8,.7);backdrop-filter:blur(8px)}.speed button{border:0;background:transparent;color:#555;font-size:.72rem;font-weight:700;padding:.65rem .55rem;border-radius:1.2rem;min-width:3.15rem}.speed button.active{background:#202020;color:#eee}.start{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#000}.start.hidden{opacity:0;pointer-events:none;transition:opacity .2s}.startText{text-align:center;color:#666;font-size:.95rem;letter-spacing:.08em}.startTitle{display:block;color:#eee;font-family:"Noto Serif CJK SC","Noto Serif SC",serif;font-size:clamp(2rem,9vw,4rem);margin-bottom:1rem}.status{position:fixed;top:max(4rem,calc(env(safe-area-inset-top) + 2.8rem));left:50%;transform:translateX(-50%);z-index:9;color:#444;font-size:.7rem;opacity:0;transition:opacity .2s;pointer-events:none}.status.show{opacity:1}@media (min-width:700px){.track{padding-left:10vw;padding-right:10vw}.row{height:clamp(8rem,18svh,11rem)}.hanzi{font-size:clamp(3.2rem,8vw,5.5rem)}}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="reader"><div id="track" class="track"></div></div>
-  <div id="count" class="counter">0</div>
-  <div id="status" class="status">PAUSED</div>
-  <div id="start" class="start"><div class="startText"><span class="startTitle">大悲咒</span>Tap to start</div></div>
-  <div class="controls">
-    <button id="minus" class="control" aria-label="Decrease">−</button>
-    <button id="reset" class="control" aria-label="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M20 11a8.1 8.1 0 0 0-14.9-4.2L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 14.9 4.2L21 15"/><path d="M21 20v-5h-5"/></svg></button>
-    <button id="vibe" class="control off" aria-label="Vibration off" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 4v16M15 4v16"/><path d="M5 7v10M19 7v10"/><path d="M2.5 9.5v5M21.5 9.5v5"/></svg></button>
-    <button id="sound" class="control off" aria-label="Sound off" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6l-5 4H4z"/><path d="M17 9.5c1.3 1.3 1.3 3.7 0 5"/><path d="M19.5 7c2.6 2.5 2.6 6.5 0 9"/></svg></button>
-  </div>
-  <div id="speed" class="speed" aria-label="Scroll speed">
-    <button data-ms="300">FAST</button><button data-ms="500" class="active">NORMAL</button><button data-ms="800">SLOW</button>
-  </div>
+<div class="reader"><div id="track" class="track"></div></div>
+<div id="count" class="counter">0</div><div id="status" class="status">PAUSED</div>
+<div id="start" class="start"><div class="startText"><span class="startTitle">大悲咒</span>Tap to start</div></div>
+<div class="controls"><button id="minus" class="control" aria-label="Decrease">−</button><button id="reset" class="control" aria-label="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M20 11a8.1 8.1 0 0 0-14.9-4.2L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 14.9 4.2L21 15"/><path d="M21 20v-5h-5"/></svg></button><button id="vibe" class="control off" aria-label="Vibration off" aria-pressed="false">⌁</button><button id="sound" class="control off" aria-label="Sound off" aria-pressed="false">♪</button></div>
+<div id="speed" class="speed" aria-label="Scroll speed"><button data-ms="500">FAST</button><button data-ms="1000" class="active">NORMAL</button><button data-ms="2000">SLOW</button></div>
 </div>
 <script>
 (()=>{
@@ -144,35 +110,31 @@ xī diàn dū|悉殿都
 màn duō là|漫多啰
 bá tuó yē|跋陀耶
 suō pó hē|娑婆诃`;
-const phrases=raw.trim().split('\n').map(x=>{const [p,h]=x.split('|');return {p:p.trim(),h:h.trim()}});
+const phrases=raw.trim().split('\n').map(x=>{const [p,h]=x.split('|');return{p:p.trim(),h:h.trim()}});
 const track=document.getElementById('track'),countEl=document.getElementById('count'),start=document.getElementById('start'),status=document.getElementById('status');
-const minus=document.getElementById('minus'),reset=document.getElementById('reset'),vibe=document.getElementById('vibe'),sound=document.getElementById('sound');
-const speeds=[...document.querySelectorAll('#speed button')];
+const minus=document.getElementById('minus'),reset=document.getElementById('reset'),vibe=document.getElementById('vibe'),sound=document.getElementById('sound'),speeds=[...document.querySelectorAll('#speed button')];
 const K='t-paritta-count-v1',VK='t-paritta-vibe-v1',SK='t-paritta-sound-v1';
-let count=Math.max(0,parseInt(localStorage.getItem(K)||'0',10)||0), vibration=localStorage.getItem(VK)==='1', soundOn=localStorage.getItem(SK)==='1';
-let interval=500, running=false, rowIndex=0, timer=null, audio=null;
+let count=Math.max(0,parseInt(localStorage.getItem(K)||'0',10)||0),vibration=localStorage.getItem(VK)==='1',soundOn=localStorage.getItem(SK)==='1';
+let interval=1000,running=false,rowIndex=0,timer=null,audio=null;
 function renderCount(){countEl.textContent=count.toLocaleString('en-US');localStorage.setItem(K,String(count))}
-function updateControls(){vibe.classList.toggle('on',vibration);vibe.classList.toggle('off',!vibration);vibe.setAttribute('aria-pressed',String(vibration));vibe.setAttribute('aria-label',`Vibration ${vibration?'on':'off'}`);sound.classList.toggle('on',soundOn);sound.classList.toggle('off',!soundOn);sound.setAttribute('aria-pressed',String(soundOn));sound.setAttribute('aria-label',`Sound ${soundOn?'on':'off'}`)}
-function beep(){if(!soundOn)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.045,audio.currentTime+.004);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.055);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.06)}catch(e){}}
-function feedback(d=1){if(vibration&&navigator.vibrate)navigator.vibrate(d>0?7:9);beep()}
-function makeRows(){const rows=[];for(const q of phrases){const hs=[...q.h], ps=q.p.split(/\s+/);for(let i=0;i<hs.length;i+=5){rows.push({p:ps.slice(i,i+5).join(' '),h:hs.slice(i,i+5).join('')})}}return rows}
-const rows=makeRows();
-track.innerHTML=rows.map((r,i)=>`<div class="row" data-i="${i}"><div class="pinyin">${r.p}</div><div class="hanzi">${r.h}</div></div>`).join('');
-function rowStep(){if(!running)return;if(rowIndex>=rows.length-1){finishRound();return}rowIndex++;const row=track.children[rowIndex];const y=row.offsetTop;track.style.transition=`transform ${Math.max(220,interval*.82)}ms cubic-bezier(.25,.7,.2,1)`;track.style.transform=`translate3d(0,${-y}px,0)`;timer=setTimeout(rowStep,interval)}
-function startRun(){if(running)return;running=true;status.classList.remove('show');start.classList.add('hidden');timer=setTimeout(rowStep,180)}
-function pauseRun(){if(!running)return;running=false;clearTimeout(timer);status.classList.add('show');}
-function finishRound(){running=false;clearTimeout(timer);count++;renderCount();feedback(1);rowIndex=0;const top=track.children[0].offsetTop;track.style.transition='transform 320ms cubic-bezier(.2,.8,.2,1)';track.style.transform='translate3d(0,0,0)';setTimeout(()=>{running=true;status.classList.remove('show');timer=setTimeout(rowStep,250)},340)}
-function setSpeed(ms,btn){interval=ms;speeds.forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(running){clearTimeout(timer);timer=setTimeout(rowStep,100)}}
-function resetAll(e){e.stopPropagation();running=false;clearTimeout(timer);count=0;rowIndex=0;track.style.transition='transform 240ms ease';track.style.transform='translate3d(0,0,0)';renderCount();status.classList.remove('show');start.classList.remove('hidden')}
-start.addEventListener('pointerup',()=>startRun());
-track.addEventListener('pointerup',()=>{if(start.classList.contains('hidden'))running?pauseRun():startRun()});
-minus.addEventListener('click',e=>{e.stopPropagation();count=Math.max(0,count-1);renderCount();feedback(-1)});
-reset.addEventListener('click',resetAll);
-vibe.addEventListener('click',e=>{e.stopPropagation();vibration=!vibration;localStorage.setItem(VK,vibration?'1':'0');updateControls();if(vibration&&navigator.vibrate)navigator.vibrate(12)});
+function updateControls(){vibe.className='control '+(vibration?'on':'off');sound.className='control '+(soundOn?'on':'off')}
+function beep(){if(!soundOn)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.frequency.value=880;g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.045,audio.currentTime+.004);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.055);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.06)}catch(e){}}
+function feedback(){if(vibration&&navigator.vibrate)navigator.vibrate(7);beep()}
+function makeRows(){const rows=[];for(const q of phrases){const hs=[...q.h],ps=q.p.split(/\s+/);for(let i=0;i<hs.length;i+=5)rows.push({p:ps.slice(i,i+5).join(' '),h:hs.slice(i,i+5).join('')})}return rows}
+const rows=makeRows();track.innerHTML=rows.map((r,i)=>`<div class="row" data-i="${i}"><div class="pinyin">${r.p}</div><div class="hanzi">${r.h}</div></div>`).join('');
+function moveTo(i){const row=track.children[i];track.style.transition=`transform ${Math.min(500,interval*.7)}ms cubic-bezier(.25,.7,.2,1)`;track.style.transform=`translate3d(0,${-row.offsetTop}px,0)`}
+function tick(){if(!running)return;if(rowIndex>=rows.length-1){finishRound();return}rowIndex++;moveTo(rowIndex);timer=setTimeout(tick,interval)}
+function startRun(){if(running)return;running=true;start.classList.add('hidden');status.classList.remove('show');clearTimeout(timer);timer=setTimeout(tick,interval)}
+function pauseRun(){if(!running)return;running=false;clearTimeout(timer);status.classList.add('show')}
+function finishRound(){running=false;clearTimeout(timer);count++;renderCount();feedback();rowIndex=0;track.style.transition='transform 420ms cubic-bezier(.2,.8,.2,1)';track.style.transform='translate3d(0,0,0)';setTimeout(()=>{running=true;status.classList.remove('show');timer=setTimeout(tick,interval)},460)}
+function resetAll(e){e.stopPropagation();running=false;clearTimeout(timer);count=0;rowIndex=0;track.style.transition='transform 260ms ease';track.style.transform='translate3d(0,0,0)';renderCount();status.classList.remove('show');start.classList.remove('hidden')}
+start.addEventListener('pointerup',e=>{e.stopPropagation();startRun()});track.addEventListener('pointerup',()=>running?pauseRun():startRun());
+minus.addEventListener('click',e=>{e.stopPropagation();count=Math.max(0,count-1);renderCount()});reset.addEventListener('click',resetAll);
+vibe.addEventListener('click',e=>{e.stopPropagation();vibration=!vibration;localStorage.setItem(VK,vibration?'1':'0');updateControls();if(vibration)navigator.vibrate?.(12)});
 sound.addEventListener('click',e=>{e.stopPropagation();soundOn=!soundOn;localStorage.setItem(SK,soundOn?'1':'0');updateControls();if(soundOn)beep()});
-speeds.forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();setSpeed(Number(b.dataset.ms),b)}));
+speeds.forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();interval=Number(b.dataset.ms);speeds.forEach(x=>x.classList.remove('active'));b.classList.add('active');if(running){clearTimeout(timer);timer=setTimeout(tick,interval)}}));
 renderCount();updateControls();
-if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/t/sw.js',{scope:'/t/'}).catch(()=>{}));
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/t/sw.js',{scope:'/t/'}).catch(()=>{}));
 })();
 </script>
 </body>
