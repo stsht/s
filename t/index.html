@@ -1,66 +1,179 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-Hans">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <meta name="theme-color" content="#000000">
-  <meta name="color-scheme" content="dark">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="robots" content="noindex,nofollow">
-  <link rel="manifest" href="/t/manifest.webmanifest">
-  <title>Counter</title>
-  <style>
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    body{touch-action:manipulation;user-select:none;-webkit-user-select:none}
-    #app{width:100%;height:100%;display:grid;place-items:center;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-    .counter{width:min(92vw,30rem);height:min(72svh,34rem);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
-    .value{font-variant-numeric:tabular-nums lining-nums;font-weight:700;line-height:.92;font-size:clamp(5rem,23vw,10rem);letter-spacing:-.045em;text-align:center}
-    .hint{margin-top:1rem;color:#666;font-size:.75rem;transition:opacity .3s}
-    .controls{position:absolute;bottom:0;left:0;display:flex;gap:.2rem;align-items:center}
-    .control{width:2.7rem;height:2.7rem;border:0;background:transparent;color:#666;display:grid;place-items:center;font-size:1.4rem;border-radius:999px;padding:0}
-    .control:active{background:#111;color:#fff;transform:scale(.94)}
-    .control svg{width:1.3rem;height:1.3rem}
-    .control.on{color:#aaa}
-    .control.off{color:#444}
-    @media (min-width:700px){.counter{width:min(42vw,30rem);height:min(64svh,34rem)}.value{font-size:clamp(6rem,12vw,10rem)}}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="/t/manifest.webmanifest">
+<title>大悲咒</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#f4f4f4;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{touch-action:manipulation;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;overflow:hidden;background:#000}
+.reader{position:absolute;inset:0;overflow:hidden}
+.track{position:absolute;left:0;right:0;top:0;padding:15vh 7vw 45vh;will-change:transform}
+.row{height:clamp(7.2rem,25svh,10.5rem);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.pinyin{font-size:clamp(1rem,4.2vw,1.7rem);line-height:1.35;color:#777;letter-spacing:.015em;margin-bottom:.45rem;white-space:nowrap}
+.hanzi{font-family:"Noto Serif CJK SC","Noto Serif SC","Songti SC",serif;font-size:clamp(2.6rem,13vw,5.4rem);line-height:1.05;letter-spacing:.05em;color:#f5f2ea;white-space:nowrap}
+.counter{position:fixed;top:max(1rem,env(safe-area-inset-top));right:max(1rem,env(safe-area-inset-right));min-width:3.1rem;height:2.35rem;padding:0 .72rem;border:1px solid #242424;border-radius:1.3rem;background:rgba(10,10,10,.78);display:grid;place-items:center;font-variant-numeric:tabular-nums;color:#aaa;font-size:1rem;z-index:10;backdrop-filter:blur(8px)}
+.controls{position:fixed;left:max(.65rem,env(safe-area-inset-left));bottom:max(.65rem,env(safe-area-inset-bottom));display:flex;gap:.1rem;align-items:center;z-index:10;padding:.15rem;border-radius:1.6rem;background:rgba(8,8,8,.7);backdrop-filter:blur(8px)}
+.control{width:2.7rem;height:2.7rem;border:0;background:transparent;color:#555;display:grid;place-items:center;font-size:1.35rem;border-radius:999px;padding:0}
+.control:active{background:#151515;color:#fff;transform:scale(.94)}
+.control.on{color:#aaa}.control.off{color:#444}
+.control svg{width:1.25rem;height:1.25rem}
+.speed{position:fixed;right:max(.65rem,env(safe-area-inset-right));bottom:max(.65rem,env(safe-area-inset-bottom));display:flex;gap:.25rem;z-index:10;padding:.25rem;border-radius:1.6rem;background:rgba(8,8,8,.7);backdrop-filter:blur(8px)}
+.speed button{border:0;background:transparent;color:#555;font-size:.72rem;font-weight:700;letter-spacing:.04em;padding:.65rem .55rem;border-radius:1.2rem;min-width:3.15rem}
+.speed button.active{background:#202020;color:#eee}
+.start{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#000;transition:opacity .25s}
+.start.hidden{opacity:0;pointer-events:none}
+.startText{text-align:center;color:#666;font-size:.95rem;letter-spacing:.08em}
+.startTitle{display:block;color:#eee;font-family:"Noto Serif CJK SC","Noto Serif SC",serif;font-size:clamp(2rem,9vw,4rem);margin-bottom:1rem}
+.status{position:fixed;top:max(4rem,calc(env(safe-area-inset-top) + 2.8rem));left:50%;transform:translateX(-50%);z-index:9;color:#444;font-size:.7rem;opacity:0;transition:opacity .2s;pointer-events:none}
+.status.show{opacity:1}
+@media (min-width:700px){.track{padding-left:10vw;padding-right:10vw}.row{height:clamp(8rem,18svh,11rem)}.hanzi{font-size:clamp(3.2rem,8vw,5.5rem)}}
+</style>
 </head>
 <body>
-<div id="app"><main class="counter" aria-label="Counter">
-  <div id="value" class="value">0</div>
-  <div id="hint" class="hint">tap anywhere</div>
+<div id="app">
+  <div class="reader"><div id="track" class="track"></div></div>
+  <div id="count" class="counter">0</div>
+  <div id="status" class="status">PAUSED</div>
+  <div id="start" class="start"><div class="startText"><span class="startTitle">大悲咒</span>Tap to start</div></div>
   <div class="controls">
-    <button id="minus" class="control" aria-label="Decrease" title="Decrease">−</button>
-    <button id="reset" class="control" aria-label="Reset" title="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M20 11a8.1 8.1 0 0 0-14.9-4.2L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 14.9 4.2L21 15"/><path d="M21 20v-5h-5"/></svg></button>
-    <button id="vibe" class="control off" aria-label="Vibration off" title="Vibration" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 4v16M15 4v16"/><path d="M5 7v10M19 7v10"/><path d="M2.5 9.5v5M21.5 9.5v5"/></svg></button>
-    <button id="sound" class="control off" aria-label="Sound off" title="Sound" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6l-5 4H4z"/><path d="M17 9.5c1.3 1.3 1.3 3.7 0 5"/><path d="M19.5 7c2.6 2.5 2.6 6.5 0 9"/></svg></button>
+    <button id="minus" class="control" aria-label="Decrease">−</button>
+    <button id="reset" class="control" aria-label="Reset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M20 11a8.1 8.1 0 0 0-14.9-4.2L3 9"/><path d="M3 4v5h5"/><path d="M4 13a8.1 8.1 0 0 0 14.9 4.2L21 15"/><path d="M21 20v-5h-5"/></svg></button>
+    <button id="vibe" class="control off" aria-label="Vibration off" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 4v16M15 4v16"/><path d="M5 7v10M19 7v10"/><path d="M2.5 9.5v5M21.5 9.5v5"/></svg></button>
+    <button id="sound" class="control off" aria-label="Sound off" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h4l5 4V6l-5 4H4z"/><path d="M17 9.5c1.3 1.3 1.3 3.7 0 5"/><path d="M19.5 7c2.6 2.5 2.6 6.5 0 9"/></svg></button>
   </div>
-</main></div>
+  <div id="speed" class="speed" aria-label="Scroll speed">
+    <button data-ms="300">FAST</button><button data-ms="500" class="active">NORMAL</button><button data-ms="800">SLOW</button>
+  </div>
+</div>
 <script>
 (()=>{
-  const K='t-counter-v1',VK='t-vibration-v1',SK='t-sound-v1';
-  const app=document.getElementById('app'),v=document.getElementById('value'),m=document.getElementById('minus'),r=document.getElementById('reset'),vb=document.getElementById('vibe'),sb=document.getElementById('sound'),h=document.getElementById('hint');
-  let n=Math.max(0,parseInt(localStorage.getItem(K)||'0',10)||0),vibration=localStorage.getItem(VK)==='1',sound=localStorage.getItem(SK)==='1',timer,repeat,holding=false,audio;
-  const render=()=>v.textContent=n.toLocaleString('en-US'),save=()=>localStorage.setItem(K,String(n));
-  const updateButtons=()=>{vb.classList.toggle('on',vibration);vb.classList.toggle('off',!vibration);vb.setAttribute('aria-pressed',String(vibration));vb.setAttribute('aria-label',`Vibration ${vibration?'on':'off'}`);sb.classList.toggle('on',sound);sb.classList.toggle('off',!sound);sb.setAttribute('aria-pressed',String(sound));sb.setAttribute('aria-label',`Sound ${sound?'on':'off'}`)};
-  function beep(){if(!sound)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.045,audio.currentTime+.004);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.055);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.06)}catch(e){}}
-  function feedback(d){if(vibration&&navigator.vibrate)navigator.vibrate(d>0?7:9);beep()}
-  function step(d){n=Math.max(0,n+d);render();save();feedback(d)}
-  function start(){holding=true;let delay=280;const tick=()=>{if(!holding)return;step(1);delay=Math.max(22,delay*.84);repeat=setTimeout(tick,delay)};tick()}
-  function cancel(){holding=false;clearTimeout(timer);clearTimeout(repeat)}
-  app.addEventListener('pointerdown',e=>{if(e.target.closest('.control'))return;clearTimeout(timer);timer=setTimeout(start,520)});
-  app.addEventListener('pointerup',e=>{if(e.target.closest('.control'))return;const was=holding;cancel();if(!was)step(1)});
-  app.addEventListener('pointercancel',cancel);
-  app.addEventListener('pointerleave',()=>{if(holding)cancel()});
-  m.onclick=e=>{e.stopPropagation();step(-1)};
-  r.onclick=e=>{e.stopPropagation();if(!n)return;n=0;render();save();feedback(0)};
-  vb.onclick=e=>{e.stopPropagation();vibration=!vibration;localStorage.setItem(VK,vibration?'1':'0');updateButtons();if(vibration&&navigator.vibrate)navigator.vibrate(12)};
-  sb.onclick=e=>{e.stopPropagation();sound=!sound;localStorage.setItem(SK,sound?'1':'0');updateButtons();if(sound)beep()};
-  setTimeout(()=>h.style.opacity=0,2200);render();updateButtons();
-  if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('/t/sw.js',{scope:'/t/'}).catch(()=>{}))}
-})()
+const raw=`Qiān shǒu qiān yǎn wú ài dà bēi xīn tuó luó ní|千手千眼无碍大悲心陀罗尼
+ná mó hē là dá nuó duō là yè yē|南无喝啰怛那哆啰夜耶
+ná mó ā lì yē|南无阿唎耶
+pó lú jiē dì shuò bō là yē|婆卢羯帝烁钵啰耶
+pú tí sà duǒ pó yē|菩提萨埵婆耶
+mó hē sà duǒ pó yē|摩诃萨埵婆耶
+mó hē jiā lú ní jiā yē|摩诃迦卢尼迦耶
+ān|唵
+sà bó là fá yè|萨皤啰罚曳
+shù dá nuó dá xiè|数怛那怛写
+ná mó xī jí lì duǒ yī méng ā lì yē|南无悉吉㗚埵伊蒙阿唎耶
+pó lú jí dì shì fó là léng tuó pó|婆卢吉帝室佛啰楞驮婆
+ná mó nuó là jǐn chí|南无那啰谨墀
+xī lì mó hē bó duō shā miē|醯唎摩诃皤哆沙咩
+sà pó ā tuó dòu shū péng|萨婆阿他豆输朋
+ā shì yùn|阿逝孕
+sà pó sà duō ná mó pó sà duō|萨婆萨哆那摩婆萨多
+ná mó pó qié|那摩婆伽
+mó fá tè dòu|摩罚特豆
+dá zhì tuó|怛姪他
+ān|唵
+ā pó lú xī|阿婆卢醯
+lú jiā dì|卢迦帝
+jiā luó dì|迦罗帝
+yí xī lì|夷醯唎
+mó hē pú tí sà duǒ|摩诃菩提萨埵
+sà pó sà pó|萨婆萨婆
+mó là mó là|摩啰摩啰
+mó xī mó xī lì tuó yùn|摩醯摩醯唎驮孕
+jù lú jù lú jié méng|俱卢俱卢羯蒙
+dù lú dù lú fá shé yē dì|度卢度卢罚阇耶帝
+mó hē fá shé yē dì|摩诃罚阇耶帝
+tuó là tuó là|陀啰陀啰
+dì lì ní|地唎尼
+shì fó là yē|室佛啰耶
+zhē là zhē là|遮啰遮啰
+mó mó fá mó là|么么罚摩啰
+mù dì lì|穆帝隶
+yī xī yī xī|伊醯伊醯
+shì nuó shì nuó|室那室那
+ā là shēn fó là shè lì|阿啰嘇佛啰舍利
+fá suō fá shēn|罚娑罚嘇
+fó là shě yē|佛啰舍耶
+hū lú hū lú mó là|呼卢呼卢摩啰
+hū lú hū lú xī lì|呼卢呼卢醯利
+suō là suō là|娑啰娑啰
+xī lì xī lì|悉唎悉唎
+sū lú sū lú|苏嚧苏嚧
+pú tí yè pú tí yè|菩提夜菩提夜
+pú tuó yè pú tuó yè|菩驮夜菩驮夜
+mī dì lì yè|弥帝利夜
+nuó là jǐn chí|那啰谨墀
+dì lì sè ní nuó|地利瑟尼那
+pó yè mó nuó|婆夜摩那
+suō pó hē|娑婆诃
+xī tuó yè|悉陀夜
+suō pó hē|娑婆诃
+mó hē xī tuó yè|摩诃悉陀夜
+suō pó hē|娑婆诃
+xī tuó yù yì|悉陀喻艺
+shì pō là yē|室皤啰耶
+suō pó hē|娑婆诃
+nuó là jǐn chí|那啰谨墀
+suō pó hē|娑婆诃
+mó là nuó là|摩啰那啰
+suō pó hē|娑婆诃
+xī là sēng ā mù qiè yē|悉啰僧阿穆佉耶
+suō pó hē|娑婆诃
+suō pó mó hē ā xī tuó yè|娑婆摩诃阿悉陀夜
+suō pó hē|娑婆诃
+zhě jí là ā xī tuó yè|者吉啰阿悉陀夜
+suō pó hē|娑婆诃
+bō tuó mó jié xī tuó yè|波陀摩羯悉陀夜
+suō pó hē|娑婆诃
+nuó là jǐn chí pō qié là yē|那啰谨墀皤伽啰耶
+suō pó hē|娑婆诃
+mó pó lì shèng jié là yè|摩婆利胜羯啰夜
+suō pó hē|娑婆诃
+ná mó hē là dá nuó duō là yè yē|南无喝啰怛那哆啰夜耶
+ná mó ā lì yē|南无阿利耶
+pó lú jí dì|婆嚧吉帝
+shuò pō là yè|烁皤啰夜
+suō pó hē|娑婆诃
+ān|唵
+xī diàn dū|悉殿都
+màn duō là|漫多啰
+bá tuó yē|跋陀耶
+suō pó hē|娑婆诃`;
+const phrases=raw.trim().split('\n').map(x=>{const [p,h]=x.split('|');return {p:p.trim(),h:h.trim()}});
+const track=document.getElementById('track'),countEl=document.getElementById('count'),start=document.getElementById('start'),status=document.getElementById('status');
+const minus=document.getElementById('minus'),reset=document.getElementById('reset'),vibe=document.getElementById('vibe'),sound=document.getElementById('sound');
+const speeds=[...document.querySelectorAll('#speed button')];
+const K='t-paritta-count-v1',VK='t-paritta-vibe-v1',SK='t-paritta-sound-v1';
+let count=Math.max(0,parseInt(localStorage.getItem(K)||'0',10)||0), vibration=localStorage.getItem(VK)==='1', soundOn=localStorage.getItem(SK)==='1';
+let interval=500, running=false, rowIndex=0, timer=null, audio=null;
+function renderCount(){countEl.textContent=count.toLocaleString('en-US');localStorage.setItem(K,String(count))}
+function updateControls(){vibe.classList.toggle('on',vibration);vibe.classList.toggle('off',!vibration);vibe.setAttribute('aria-pressed',String(vibration));vibe.setAttribute('aria-label',`Vibration ${vibration?'on':'off'}`);sound.classList.toggle('on',soundOn);sound.classList.toggle('off',!soundOn);sound.setAttribute('aria-pressed',String(soundOn));sound.setAttribute('aria-label',`Sound ${soundOn?'on':'off'}`)}
+function beep(){if(!soundOn)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(.0001,audio.currentTime);g.gain.exponentialRampToValueAtTime(.045,audio.currentTime+.004);g.gain.exponentialRampToValueAtTime(.0001,audio.currentTime+.055);o.connect(g).connect(audio.destination);o.start();o.stop(audio.currentTime+.06)}catch(e){}}
+function feedback(d=1){if(vibration&&navigator.vibrate)navigator.vibrate(d>0?7:9);beep()}
+function makeRows(){const rows=[];for(const q of phrases){const hs=[...q.h], ps=q.p.split(/\s+/);for(let i=0;i<hs.length;i+=5){rows.push({p:ps.slice(i,i+5).join(' '),h:hs.slice(i,i+5).join('')})}}return rows}
+const rows=makeRows();
+track.innerHTML=rows.map((r,i)=>`<div class="row" data-i="${i}"><div class="pinyin">${r.p}</div><div class="hanzi">${r.h}</div></div>`).join('');
+function rowStep(){if(!running)return;if(rowIndex>=rows.length-1){finishRound();return}rowIndex++;const row=track.children[rowIndex];const y=row.offsetTop;track.style.transition=`transform ${Math.max(220,interval*.82)}ms cubic-bezier(.25,.7,.2,1)`;track.style.transform=`translate3d(0,${-y}px,0)`;timer=setTimeout(rowStep,interval)}
+function startRun(){if(running)return;running=true;status.classList.remove('show');start.classList.add('hidden');timer=setTimeout(rowStep,180)}
+function pauseRun(){if(!running)return;running=false;clearTimeout(timer);status.classList.add('show');}
+function finishRound(){running=false;clearTimeout(timer);count++;renderCount();feedback(1);rowIndex=0;const top=track.children[0].offsetTop;track.style.transition='transform 320ms cubic-bezier(.2,.8,.2,1)';track.style.transform='translate3d(0,0,0)';setTimeout(()=>{running=true;status.classList.remove('show');timer=setTimeout(rowStep,250)},340)}
+function setSpeed(ms,btn){interval=ms;speeds.forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(running){clearTimeout(timer);timer=setTimeout(rowStep,100)}}
+function resetAll(e){e.stopPropagation();running=false;clearTimeout(timer);count=0;rowIndex=0;track.style.transition='transform 240ms ease';track.style.transform='translate3d(0,0,0)';renderCount();status.classList.remove('show');start.classList.remove('hidden')}
+start.addEventListener('pointerup',()=>startRun());
+track.addEventListener('pointerup',()=>{if(start.classList.contains('hidden'))running?pauseRun():startRun()});
+minus.addEventListener('click',e=>{e.stopPropagation();count=Math.max(0,count-1);renderCount();feedback(-1)});
+reset.addEventListener('click',resetAll);
+vibe.addEventListener('click',e=>{e.stopPropagation();vibration=!vibration;localStorage.setItem(VK,vibration?'1':'0');updateControls();if(vibration&&navigator.vibrate)navigator.vibrate(12)});
+sound.addEventListener('click',e=>{e.stopPropagation();soundOn=!soundOn;localStorage.setItem(SK,soundOn?'1':'0');updateControls();if(soundOn)beep()});
+speeds.forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();setSpeed(Number(b.dataset.ms),b)}));
+renderCount();updateControls();
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/t/sw.js',{scope:'/t/'}).catch(()=>{}));
+})();
 </script>
 </body>
 </html>
