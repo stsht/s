@@ -3400,7 +3400,9 @@ function publicPaymentProofStatus(value = '') {
 function invoiceLocksPublicPaymentProofs(invoice = {}) {
   const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const status = String(invoice.status || '').trim().toLowerCase();
-  return status === 'paid' || (status === 'deposit' && data.depositAskOpen === false);
+  // A confirmed deposit is not the same as a fully settled invoice.
+  // Keep public proof uploads open until the invoice is explicitly marked paid.
+  return status === 'paid';
 }
 
 function paymentProofBelongsToDeliveryInvoice(proof = {}, delivery = {}, invoice = {}) {
@@ -3598,8 +3600,7 @@ async function handlePaymentProofSubmit(request, env) {
     if (auth.error) return auth.error;
     const { delivery, invoice } = auth;
     const existingProofs = await loadPublicPaymentProofRows(env, delivery, invoice);
-    if (invoiceLocksPublicPaymentProofs(invoice)
-      || existingProofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))) {
+    if (invoiceLocksPublicPaymentProofs(invoice)) {
       return json({ error: 'Payment is already confirmed.' }, 409);
     }
     if (existingProofs.some((proof) => publicPaymentProofStatus(proof.status) === 'pending')) {
