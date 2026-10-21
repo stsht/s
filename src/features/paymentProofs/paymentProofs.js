@@ -1,7 +1,7 @@
 export const PAYMENT_PROOF_MAX_IMAGES = 3;
 export const PAYMENT_PROOF_STATUSES = new Set(['pending', 'partial', 'confirmed', 'rejected']);
 
-export function paymentProofSpaymentProofStatetate(invoice = {}) {
+export function paymentProofState(invoice = {}) {
   const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const proofs = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
   const cleanProofs = proofs
@@ -20,7 +20,7 @@ export function paymentProofSpaymentProofStatetate(invoice = {}) {
   const latest = cleanProofs[cleanProofs.length - 1] || null;
   const invoiceStatus = String(invoice?.status || '').toLowerCase();
   const depositAskOpen = data.depositAskOpen !== false;
-  const fullyPaid = invoiceStatus === 'paid' || (invoiceStatus === 'deposit' && !depositAskOpen);
+  const fullyPaid = invoiceStatus === 'paid';
   const pending = latest?.status === 'pending';
   const canUpload = !fullyPaid && !pending;
 
