@@ -77,9 +77,12 @@
 .public-delivery-logo{width:min(224px,62vw);height:auto;align-self:center;margin-bottom:0}
 .public-delivery-header{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:18px}
 .public-delivery-folder{margin:0;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-align:center}
-.public-delivery-divider{height:1px;margin:0 0 22px;background:var(--line);border:0}
+.public-delivery-divider{height:1px;margin:0 0 22px;background:linear-gradient(90deg,transparent 0%,rgba(17,17,17,.065) 14%,rgba(17,17,17,.105) 50%,rgba(17,17,17,.065) 86%,transparent 100%);border:0}
 .public-delivery-kicker{margin:0 0 12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
-.public-delivery-greeting,.public-delivery-card h1{margin:0;color:var(--ink);font-family:ui-serif,Georgia,Cambria,"Times New Roman",serif;font-size:clamp(24px,3.1vw,30px);font-weight:500;line-height:1.16;letter-spacing:-.005em;text-align:center}
+.public-delivery-greeting,.public-delivery-card h1{margin:0;color:var(--ink);font-family:"Instrument Serif",Georgia,Cambria,"Times New Roman",serif;font-size:clamp(27px,3.4vw,34px);font-weight:400;line-height:1.12;letter-spacing:-.012em;text-align:center}
+/* The public delivery gate shares gate markup with private pages, but
+   only /g opts into this editorial greeting face. */
+.gate-page .gate-card h1{font-family:"Instrument Serif",Georgia,Cambria,"Times New Roman",serif;font-size:clamp(27px,3.4vw,34px);font-weight:400;line-height:1.12;letter-spacing:-.012em}
 .public-delivery-subcopy{margin:14px 0 22px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.01em;text-align:center}
 .public-delivery-invoice{
   display:grid;
@@ -89,50 +92,61 @@
   min-height:64px;
   margin:clamp(22px,3.6vw,28px) 0 0;
   padding:10px 16px;
-  border:1px solid color-mix(in srgb,var(--accent) 34%,transparent);
+  border:1px solid #e5e5e5;
   border-radius:18px;
-  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 17%,transparent),color-mix(in srgb,var(--accent) 10%,transparent));
+  background:#ffffff;
   color:var(--ink);
   text-decoration:none;
-  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),0 12px 26px -18px color-mix(in srgb,var(--accent) 58%,transparent);
+  box-shadow:0 6px 16px rgba(17,17,17,.035);
   transition:transform .15s ease,box-shadow .15s ease,background .15s ease,border-color .15s ease;
 }
-.public-delivery-invoice:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 50%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 23%,transparent),color-mix(in srgb,var(--accent) 14%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),0 16px 34px -18px color-mix(in srgb,var(--accent) 64%,transparent)}
+.public-delivery-invoice:hover{transform:translateY(-1px);border-color:#c9c9c9;background:#fafafa;box-shadow:0 10px 24px rgba(17,17,17,.065)}
 .public-delivery-invoice:active{transform:translateY(0) scale(.995)}
-.public-delivery-invoice.is-paid{border-color:color-mix(in srgb,var(--sub-active) 36%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--sub-active) 18%,transparent),color-mix(in srgb,var(--sub-active) 11%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 52%,transparent),0 12px 26px -18px color-mix(in srgb,var(--sub-active) 50%,transparent)}
-.public-delivery-invoice.is-paid:hover{border-color:color-mix(in srgb,var(--sub-active) 52%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--sub-active) 24%,transparent),color-mix(in srgb,var(--sub-active) 15%,transparent));box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 56%,transparent),0 16px 34px -18px color-mix(in srgb,var(--sub-active) 56%,transparent)}
-.public-delivery-invoice-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:color-mix(in srgb,var(--accent) 30%,transparent);color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-size:11px;font-weight:900;letter-spacing:.06em}
-.public-delivery-invoice.is-paid .public-delivery-invoice-icon{background:color-mix(in srgb,var(--sub-active) 30%,transparent);color:color-mix(in srgb,var(--sub-active) 82%,var(--ink))}
+.public-delivery-invoice.is-paid{border-color:#e5e5e5;background:#ffffff;box-shadow:0 6px 16px rgba(17,17,17,.035)}
+.public-delivery-invoice.is-paid:hover{border-color:#c9c9c9;background:#fafafa;box-shadow:0 10px 24px rgba(17,17,17,.065)}
+.public-delivery-invoice-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#f6f6f6;color:#333333;font-size:11px;font-weight:900;letter-spacing:.06em}
+.public-delivery-invoice.is-paid .public-delivery-invoice-icon{background:#f1f1f1;color:#333333}
 .public-delivery-invoice-label{min-width:0;font-size:15px;font-weight:900}
-.public-delivery-invoice-cta{color:color-mix(in srgb,var(--accent) 82%,var(--ink));font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;opacity:.9}
-.public-delivery-invoice.is-paid .public-delivery-invoice-cta{color:color-mix(in srgb,var(--sub-active) 84%,var(--ink))}
+.public-delivery-invoice-cta{color:#666666;font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;opacity:.95}
+.public-delivery-invoice.is-paid .public-delivery-invoice-cta{color:#666666}
 .public-delivery-list{display:grid;gap:12px}
-.public-delivery-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border:1px solid #e8e8e8;border-radius:18px;background:#ffffff;box-shadow:0 6px 16px rgba(17,17,17,.035);color:var(--ink);text-decoration:none;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease}
+.public-delivery-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border:1px solid #e5e5e5;border-radius:18px;background:#ffffff;box-shadow:0 6px 16px rgba(17,17,17,.035);color:var(--ink);text-decoration:none;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,opacity .15s ease,background .15s ease}
 .public-delivery-row.is-active:hover{border-color:#c9c9c9;transform:translateY(-1px);background:#fafafa;box-shadow:0 10px 24px rgba(17,17,17,.065)}
 button.public-delivery-row{appearance:none;width:100%;font:inherit;background:transparent;text-align:left}
 .public-delivery-row.is-active{cursor:pointer}
-.public-delivery-row.is-disabled{cursor:default;opacity:.5;background:color-mix(in srgb,var(--soft) 30%,transparent);border-style:dashed;box-shadow:none}
-.public-delivery-row.is-disabled .public-delivery-icon,.public-delivery-row.is-disabled .public-delivery-name,.public-delivery-row.is-disabled .public-delivery-state{color:var(--muted)}
+.public-delivery-row.is-disabled{cursor:default;opacity:1;color:#858585;background:#fbfbfb;border-color:#ededed;border-style:dashed;box-shadow:none}
+.public-delivery-row.is-disabled .public-delivery-icon,.public-delivery-row.is-disabled .public-delivery-name,.public-delivery-row.is-disabled .public-delivery-state{color:#858585}
 .public-delivery-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#f6f6f6;box-shadow:none;color:var(--ink);font-size:11px;font-weight:900;letter-spacing:.06em}
 .public-delivery-name{min-width:0;font-size:15px;font-weight:900}
-.public-delivery-state{color:var(--accent);font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
-.public-delivery-row.is-preview .public-delivery-state{color:var(--muted);letter-spacing:.14em}
+.public-delivery-state{color:#666666;font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase}
+.public-delivery-row.is-preview .public-delivery-state{color:#666666;letter-spacing:.14em}
 .public-delivery-signoff{margin:auto 0 0;padding-top:34px;color:var(--muted);font-size:13px;font-weight:900;letter-spacing:.08em;text-align:center}
 @media(prefers-color-scheme:dark){
+  .public-delivery-divider{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.08) 14%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.08) 86%,transparent 100%)}
+  .public-delivery-invoice,.public-delivery-invoice.is-paid{
+    border-color:#34363c;background:#202228;box-shadow:none;
+  }
+  .public-delivery-invoice:hover,.public-delivery-invoice.is-paid:hover{
+    border-color:#555861;background:#282a31;box-shadow:0 8px 20px rgba(0,0,0,.18);
+  }
+  .public-delivery-invoice-icon,.public-delivery-invoice.is-paid .public-delivery-invoice-icon{
+    background:#292b32;color:#f4f4f5;
+  }
+  .public-delivery-invoice-cta,.public-delivery-invoice.is-paid .public-delivery-invoice-cta{color:#a1a1aa}
   .public-delivery-row{
-    border-color:#34363c;
-    background:#202228;
-    box-shadow:none;
+    border-color:#34363c;background:#202228;box-shadow:none;
   }
   .public-delivery-row.is-active:hover{
-    border-color:#555861;
-    background:#282a31;
-    box-shadow:0 8px 20px rgba(0,0,0,.18);
+    border-color:#555861;background:#282a31;box-shadow:0 8px 20px rgba(0,0,0,.18);
   }
-  .public-delivery-icon{
-    background:#292b32;
-    color:#f4f4f5;
+  .public-delivery-row.is-disabled{
+    opacity:1;color:#a1a1aa;background:#191a1f;border-color:#303238;box-shadow:none;
   }
+  .public-delivery-row.is-disabled .public-delivery-icon,
+  .public-delivery-row.is-disabled .public-delivery-name,
+  .public-delivery-row.is-disabled .public-delivery-state{color:#a1a1aa}
+  .public-delivery-icon{background:#292b32;color:#f4f4f5}
+  .public-delivery-state,.public-delivery-row.is-preview .public-delivery-state{color:#a1a1aa}
 }
 
 @media(max-width:1023px){
@@ -141,7 +155,8 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:tr
   .public-delivery-logo{width:min(196px,58vw)}
   .public-delivery-header{gap:12px;margin-bottom:14px}
   .public-delivery-divider{margin:0 0 18px}
-  .public-delivery-greeting,.public-delivery-card h1{text-align:center;font-size:clamp(21px,5.4vw,27px);line-height:1.18}
+  .public-delivery-greeting,.public-delivery-card h1{text-align:center;font-size:clamp(25px,6vw,30px);line-height:1.12}
+  .gate-page .gate-card h1{font-size:clamp(25px,6vw,30px);line-height:1.12}
   .public-delivery-subcopy{text-align:center;margin:12px 0 20px}
   .public-delivery-row{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}
   .public-delivery-icon{width:32px;height:32px;border-radius:10px;font-size:10px}
