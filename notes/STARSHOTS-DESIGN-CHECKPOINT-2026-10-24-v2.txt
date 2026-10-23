@@ -1,0 +1,55 @@
+STARSHOTS DESIGN CHECKPOINT — 2026-10-24
+================================================
+Branch: experiment/delivery-visual-polish-v2
+Base commit: 78389a58d47d358f7665ba1d5e8de8881af5331c
+Purpose: visual polish only. Preserve routing, password/session/API behavior, client delivery actions, /db and /inv desktop split panels, and mobile bottom pills.
+
+CURRENT BASELINE (already merged to main before this stage)
+1) src/components/GlobalBackground.jsx + .css
+   - Active global background changed from rainbow aurora to monochrome editorial canvas.
+   - Dark canvas is #111216; light canvas is white with subtle neutral fade.
+   - Original versions kept at:
+     src/components/GlobalBackgroundBackup.jsx
+     src/components/GlobalBackgroundBackup.css
+   - PR #154.
+
+2) src/components/PasswordGate.css
+   - Shared .gate-card moved from glass to solid editorial surface.
+   - Original pre-editorial version:
+     src/components/PasswordGateBackup.css
+
+3) src/pages/g/g.css
+   - .public-delivery-card and delivery rows moved from glass to solid surfaces.
+   - Original pre-editorial version:
+     src/pages/g/g-backup.css
+   - PR #155.
+
+THIS V2 POLISH — current branch only; not in production until merged/deployed
+Active files changed:
+- g/index.html
+  Adds Instrument Serif font resource preconnect/style link.
+  Browser theme-color adjusted to #FFFFFF (light) and #111216 (dark).
+- src/pages/g/g.css
+  Client greeting / client gate greeting uses Instrument Serif; UI labels remain Plus Jakarta Sans.
+  Divider fades at both ends and loses blue tint.
+  Invoice and delivery option rows use shared neutral border/surface/shadow language.
+  Disabled delivery links remain readable in dark mode without lowering opacity of the entire row.
+- src/pages/g/payment-proof-inject.js
+  Payment Proof action card no longer keeps the old accent-colour glow.
+  Its border, surface, hover and focus treatments now match the Invoice/delivery rows.
+  Existing proof / upload / click behavior is unchanged; only injected CSS changed.
+
+PRE-POLISH V1 SNAPSHOTS (exact matches to the active files before V2 edits)
+- backups/2026-10-24/g-editorial-v1.css
+- backups/2026-10-24/payment-proof-inject-v1.js
+- backups/2026-10-24/g-index-v1.html
+
+RESTORE GUIDE
+- To undo only V2: restore the three active files above from the matching V1 snapshot files.
+- To undo the original editorial change: see the original backups listed in baseline sections. Keep in mind PR #154 and #155 are already merged; use a new revert commit / file restore rather than deleting Git history.
+
+VALIDATION STATUS
+- Confirmed each V1 snapshot blob matches the exact pre-edit file.
+- Static checks: CSS/JS brace counts balanced; key selectors and Instrument Serif link present.
+- Build and real browser screenshot test have NOT been run in this tool session.
+- No production deployment action performed by this V2 branch.
