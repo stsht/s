@@ -1,0 +1,40 @@
+STARSHOTS DESIGN CHECKPOINT
+Date: 2026-10-24
+Purpose: visual redesign only; preserve delivery routes, password/session/API logic, desktop split panels, and mobile bottom pills.
+
+BASE / CURRENT BEFORE POLISH
+- Main commit: 78389a58d47d358f7665ba1d5e8de8881af5331c
+- PR #154: GlobalBackground editorial monochrome (merged).
+- PR #155: Password gate + client delivery card solid editorial surfaces (merged).
+- Current working branch for this next stage: experiment/delivery-visual-polish-v2
+
+ACTIVE FILES ALREADY CHANGED BEFORE THIS POLISH
+1. src/components/GlobalBackground.jsx
+   - Replaced active rainbow layers with one .ss-bg canvas.
+   - Old version preserved in src/components/GlobalBackgroundBackup.jsx.
+2. src/components/GlobalBackground.css
+   - Light: white with very subtle monochrome fade.
+   - Dark: #111216 canvas.
+   - Old version preserved in src/components/GlobalBackgroundBackup.css.
+3. src/components/PasswordGate.css
+   - Gate card changed from frosted glass to solid white / charcoal.
+   - Old pre-editorial version: src/components/PasswordGateBackup.css.
+4. src/pages/g/g.css
+   - Delivery card and rows changed from glass to solid editorial surfaces.
+   - Original pre-editorial version: src/pages/g/g-backup.css.
+
+PRE-POLISH SNAPSHOTS CREATED IN THIS BRANCH
+- backups/2026-10-24/g-editorial-v1.css
+  Snapshot of the current editorial g.css before this typography/interaction polish.
+- backups/2026-10-24/payment-proof-inject-v1.js
+  Snapshot before changing the dynamically injected Payment Proof card styles.
+- backups/2026-10-24/g-index-v1.html
+  Snapshot before adding the Instrument Serif font resource.
+
+NEXT POLISH SCOPE
+- Load Instrument Serif only for the public delivery page.
+- Use it for the client greeting; keep Plus Jakarta Sans for UI labels and controls.
+- Fade the album divider at both ends and remove the blue tint.
+- Normalize invoice / Payment Proof / delivery row borders and shadows.
+- Improve disabled text contrast in dark mode.
+- Keep functionality and layout unchanged. No production/deployment action from this branch.
