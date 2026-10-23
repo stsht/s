@@ -1,0 +1,40 @@
+STARSHOTS DESIGN CHECKPOINT — 2026-10-24 (V3 / SOFT SURFACE)
+===============================================================
+Branch: experiment/delivery-visual-polish-v2
+Target branch: main
+PR #156: merged — https://github.com/stsht/s/pull/156
+PR #157: follow-up visual tuning — https://github.com/stsht/s/pull/157
+
+DESIGN DIRECTION
+- White / charcoal canvas; no rainbow glassmorphism.
+- Client greeting uses the existing sans-serif font stack (var(--font), sans-serif), weight 600, not Instrument Serif.
+- Invoice, Payment Proof, and delivery rows use a very light cool grey surface (#f0f4f9), no visible border, no shadow; hover uses #e8eef5.
+- Small functional tags use a slightly deeper cool grey (#e2e9f2).
+- Dark mode keeps charcoal surfaces (#202228) and muted hover (#282a31).
+- This follows the softer chat-bubble surface reference, using the site's existing font stack rather than adding a new Google Sans dependency.
+
+FILES IN THE FOLLOW-UP
+- g/index.html: removed Instrument Serif font requests; retained white / #111216 browser theme colours.
+- src/pages/g/g.css: modern sans greeting, soft grey borderless rows, calmer divider, readable disabled states.
+- src/pages/g/payment-proof-inject.js: injected Payment Proof card uses the same soft grey surface as Invoice and delivery rows.
+- notes/STARSHOTS-DESIGN-CHECKPOINT-2026-10-24-v3.txt: this checkpoint.
+- Three snapshots under backups/2026-10-24/*-v2-before-gemini-tuning.* preserve the exact state before soft-surface tuning.
+
+EARLIER SNAPSHOTS
+- backups/2026-10-24/g-editorial-v1.css
+- backups/2026-10-24/payment-proof-inject-v1.js
+- backups/2026-10-24/g-index-v1.html
+These are the state before the first V2 typography/surface polish.
+
+OLDER PRE-EDITORIAL BACKUPS
+- src/components/GlobalBackgroundBackup.jsx
+- src/components/GlobalBackgroundBackup.css
+- src/components/PasswordGateBackup.css
+- src/pages/g/g-backup.css
+
+SAFETY / VALIDATION
+- Styling and font resource link changes only are intended in this iteration.
+- No route, password/session/API, payment proof upload, delivery link, /db or /inv layout, or mobile bottom-pills logic was intentionally changed.
+- Static brace counts balanced after edits.
+- Build and real browser screenshots have not yet been run. Preview light/dark modes on mobile and desktop before merging or deploying.
+- The current PR may need branch synchronization/conflict resolution before it can merge.
