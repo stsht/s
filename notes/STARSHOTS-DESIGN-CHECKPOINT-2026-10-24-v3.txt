@@ -1,0 +1,42 @@
+STARSHOTS DESIGN CHECKPOINT — 2026-10-24 (V3 / SOFT SURFACE)
+===============================================================
+Branch: experiment/delivery-visual-polish-v2
+Base: main / commit 78389a58d47d358f7665ba1d5e8de8881af5331c
+PR: https://github.com/stsht/s/pull/156 (draft, not merged)
+
+DESIGN DIRECTION
+- White / charcoal canvas; no rainbow glassmorphism.
+- Client greeting uses existing Plus Jakarta Sans stack, weight 600, not a serif.
+- Invoice, Payment Proof, and delivery rows use a very light cool grey surface (#f0f4f9), no visible border, no shadow; hover uses #e8eef5.
+- Small functional tags use a slightly deeper cool grey (#e2e9f2).
+- Dark mode keeps charcoal surfaces (#202228) and muted hover (#282a31).
+- This follows the softer chat-bubble surface reference, but uses local existing fonts instead of adding a dependency on Google's proprietary Google Sans.
+
+FILES CHANGED IN PR #156
+- g/index.html: removed Instrument Serif font requests; retained white / #111216 browser theme colours.
+- src/pages/g/g.css: modern sans greeting, soft grey borderless rows, calmer divider, readable disabled states.
+- src/pages/g/payment-proof-inject.js: injected Payment Proof card now uses the same soft grey surface as Invoice and delivery rows.
+
+EXACT PREVIOUS STATE BEFORE SOFT-SURFACE TUNING
+- backups/2026-10-24/g-polish-v2-before-gemini-tuning.css
+- backups/2026-10-24/payment-proof-inject-v2-before-gemini-tuning.js
+- backups/2026-10-24/g-index-v2-before-gemini-tuning.html
+These were created before the latest edits and each snapshot was verified to match the active file at that moment.
+
+EARLIER SNAPSHOTS
+- backups/2026-10-24/g-editorial-v1.css
+- backups/2026-10-24/payment-proof-inject-v1.js
+- backups/2026-10-24/g-index-v1.html
+These are the state before the first V2 typography/surface polish.
+
+OLDER PRE-EDITORIAL BACKUPS
+- src/components/GlobalBackgroundBackup.jsx
+- src/components/GlobalBackgroundBackup.css
+- src/components/PasswordGateBackup.css
+- src/pages/g/g-backup.css
+
+SAFETY / VALIDATION
+- Only visual styling and font resource link changed in this iteration.
+- No route, password/session/API, payment proof upload, delivery link, /db or /inv layout, or mobile bottom-pills logic was intentionally changed.
+- Static brace counts balanced after edits.
+- Build and real browser screenshots still pending. Preview light/dark modes on mobile and desktop before merging or deploying.
