@@ -67,6 +67,44 @@ function ensureStyle() {
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
     @media(max-width:1023px){.public-payment-proof-card{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}.public-payment-proof-icon{width:32px;height:32px;border-radius:10px;font-size:10px}.public-payment-proof-label{font-size:14px}.public-payment-proof-action{font-size:10px;letter-spacing:.14em}}
     @media(max-width:600px){.public-payment-proof-overlay{place-items:end center;padding:0}.public-payment-proof-sheet{max-height:88dvh;border-radius:24px 24px 0 0}.public-payment-proof-body,.public-payment-proof-upload-grid{grid-template-columns:minmax(0,1fr)}.public-payment-proof-thumb,.public-payment-proof-upload-thumb{height:210px}.public-payment-proof-upload-fields{grid-template-columns:minmax(0,1fr)}.public-payment-proof-actions{display:grid;grid-template-columns:1fr}.public-payment-proof-actions .public-payment-proof-button{width:100%}}
+    /* Editorial surface override for the Payment Proof action card.
+       Keep its confirmed state readable, but remove the blue/pale glow
+       that made this row look more glossy than Invoice. */
+    .public-payment-proof-card{
+      border-color:#e5e5e5;background:#ffffff;box-shadow:0 6px 16px rgba(17,17,17,.035);
+    }
+    .public-payment-proof-card:hover{
+      border-color:#c9c9c9;background:#fafafa;box-shadow:0 10px 24px rgba(17,17,17,.065);
+    }
+    .public-payment-proof-card.is-confirmed{
+      border-color:#e5e5e5;background:#ffffff;box-shadow:0 6px 16px rgba(17,17,17,.035);
+    }
+    .public-payment-proof-card.is-confirmed:hover{
+      border-color:#c9c9c9;background:#fafafa;box-shadow:0 10px 24px rgba(17,17,17,.065);
+    }
+    .public-payment-proof-icon,.public-payment-proof-card.is-confirmed .public-payment-proof-icon{
+      background:#f1f1f1;color:#333333;box-shadow:none;
+    }
+    .public-payment-proof-action,.public-payment-proof-card.is-confirmed .public-payment-proof-action{color:#666666}
+    .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{
+      outline:2px solid rgba(17,17,17,.42);outline-offset:2px;
+    }
+    @media(prefers-color-scheme:dark){
+      .public-payment-proof-card,.public-payment-proof-card.is-confirmed,.public-payment-proof-card.is-pending,.public-payment-proof-card.is-rejected{
+        border-color:#34363c;background:#202228;box-shadow:none;
+      }
+      .public-payment-proof-card:hover,.public-payment-proof-card.is-confirmed:hover{
+        border-color:#555861;background:#282a31;box-shadow:0 8px 20px rgba(0,0,0,.18);
+      }
+      .public-payment-proof-icon,.public-payment-proof-card.is-confirmed .public-payment-proof-icon,
+      .public-payment-proof-card.is-pending .public-payment-proof-icon,.public-payment-proof-card.is-rejected .public-payment-proof-icon{
+        background:#292b32;color:#f4f4f5;
+      }
+      .public-payment-proof-action,.public-payment-proof-card.is-confirmed .public-payment-proof-action{color:#a1a1aa}
+      .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{
+        outline:2px solid rgba(255,255,255,.52);outline-offset:2px;
+      }
+    }
   `;
   document.head.appendChild(style);
 }
