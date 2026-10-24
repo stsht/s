@@ -927,7 +927,14 @@ function GalleryLinks({ payload }) {
           {folderLabel ? <p className="public-delivery-folder">{folderLabel}</p> : null}
         </header>
         <div className="public-delivery-divider" role="presentation" />
-        <h1 className="public-delivery-greeting">{heading}</h1>
+        <h1 className="public-delivery-greeting">
+          {delivery.clientName ? (
+            <>
+              <span className="public-delivery-greeting-prefix">{`Hello, ${honorific ? `${honorific} ` : ''}`}</span>
+              <span className="public-delivery-greeting-name">{delivery.clientName}</span>
+            </>
+          ) : heading}
+        </h1>
 
         {payload?.invoice ? (
           <a
@@ -1501,7 +1508,14 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
-        <h1>{greeting}</h1>
+        <h1>
+          {clientName ? (
+            <>
+              <span className="public-delivery-greeting-prefix">{`Hello, ${honorific ? `${honorific} ` : ''}`}</span>
+              <span className="public-delivery-greeting-name">{clientName}</span>
+            </>
+          ) : greeting}
+        </h1>
         <label htmlFor="galleryPassword">Access key</label>
         <div className="gate-input">
           <input
