@@ -10,7 +10,7 @@ DESIGN DECISIONS
 - Greeting weight changed from 600 to 500.
 - Greeting letter spacing changed from -0.035em to -0.02em.
 - Preserve responsive font sizing and 1.22 line height.
-- The personalized client name gets a restrained cool-blue-to-ink color animation, once on initial render (850ms); greeting prefix remains stable.
+- The personalized client name gets a more visible cornflower-blue-to-ink color animation, once on initial render (1400ms): #4F86F7 at start, #789BEA at 48%, then the normal text color; greeting prefix remains stable.
 - Applied consistently to the public delivery card greeting and the access-key gate greeting.
 - Honor prefers-reduced-motion by disabling the color animation.
 - No exclamation mark added; copy remains "Hello, [Title] [Client Name]".
