@@ -861,8 +861,11 @@ function GalleryLinks({ payload }) {
   // Regal". Older rows that were saved without a title fall back
   // to the bare client name; rows with no name at all keep the
   // generic placeholder.
+  const greetingPrefix = delivery.clientName
+    ? `Hello, ${honorific ? `${honorific} ` : ''}`
+    : '';
   const heading = delivery.clientName
-    ? `Hello, ${honorific ? `${honorific} ` : ''}${delivery.clientName}`
+    ? `${greetingPrefix}${delivery.clientName}`
     : 'Your files are ready';
   const folderLabel = String(delivery.folderName || '').trim();
 
@@ -927,7 +930,14 @@ function GalleryLinks({ payload }) {
           {folderLabel ? <p className="public-delivery-folder">{folderLabel}</p> : null}
         </header>
         <div className="public-delivery-divider" role="presentation" />
-        <h1 className="public-delivery-greeting">{heading}</h1>
+        <h1 className="public-delivery-greeting">
+          {delivery.clientName ? (
+            <>
+              {greetingPrefix}
+              <span className="public-delivery-greeting-name">{delivery.clientName}</span>
+            </>
+          ) : heading}
+        </h1>
 
         {payload?.invoice ? (
           <a
@@ -1456,8 +1466,11 @@ function GalleryGate() {
   // chrome.
   const honorific = String(gateInfo?.title || '').trim();
   const clientName = String(gateInfo?.clientName || '').trim();
+  const greetingPrefix = clientName
+    ? `Hello, ${honorific ? `${honorific} ` : ''}`
+    : '';
   const greeting = clientName
-    ? `Hello, ${honorific ? `${honorific} ` : ''}${clientName}`
+    ? `${greetingPrefix}${clientName}`
     : 'Hello';
 
   return (
@@ -1501,7 +1514,14 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
-        <h1>{greeting}</h1>
+        <h1>
+          {clientName ? (
+            <>
+              {greetingPrefix}
+              <span className="gate-greeting-name">{clientName}</span>
+            </>
+          ) : greeting}
+        </h1>
         <label htmlFor="galleryPassword">Access key</label>
         <div className="gate-input">
           <input
