@@ -242,7 +242,7 @@ function updateCard(row) {
   // Upload/Replace require client action; Manage (pending) and View
   // (confirmed) remain neutral. Do not emphasize loading/busy/error states.
   const requiresClientAction = proofStore.loaded && !proofStore.loading && !proofStore.busy
-    && !proofStore.error && (mode.action === 'Upload' || mode.action === 'Replace');
+    && (mode.action === 'Upload' || mode.action === 'Replace');
   row.classList.toggle('is-action-required', requiresClientAction);
   actionElement.classList.toggle('is-action-required', requiresClientAction);
   if (noteElement.textContent !== note) noteElement.textContent = note;
