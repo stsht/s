@@ -84,6 +84,14 @@ function ensureStyle() {
       background:#e2e9f2;color:#303846;box-shadow:none;
     }
     .public-payment-proof-action,.public-payment-proof-card.is-confirmed .public-payment-proof-action{color:#596579}
+    /* High-contrast action cue uses the StarShots ink/white palette only. */
+    .public-payment-proof-card.is-action-required{border-color:rgba(38,62,112,.28)}
+    .public-payment-proof-card.is-action-required:hover{border-color:rgba(38,62,112,.44)}
+    .public-payment-proof-action.is-action-required{
+      display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:7px 10px;
+      border:1px solid #111216;border-radius:999px;background:#111216;color:#ffffff;
+      font-size:10px;letter-spacing:.10em;line-height:1;white-space:nowrap;
+    }
     .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{
       outline:2px solid rgba(48,56,70,.55);outline-offset:2px;
     }
@@ -99,6 +107,9 @@ function ensureStyle() {
         background:#292b32;color:#f4f4f5;
       }
       .public-payment-proof-action,.public-payment-proof-card.is-confirmed .public-payment-proof-action{color:#a1a1aa}
+      .public-payment-proof-card.is-action-required{border-color:rgba(255,255,255,.28)}
+      .public-payment-proof-card.is-action-required:hover{border-color:rgba(255,255,255,.42);background:#282a31}
+      .public-payment-proof-action.is-action-required{border-color:#ffffff;background:#ffffff;color:#111216}
       .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{
         outline:2px solid rgba(255,255,255,.52);outline-offset:2px;
       }
@@ -227,6 +238,13 @@ function updateCard(row) {
   const action = proofStore.loading ? 'Wait' : mode.action;
   const noteElement = row.querySelector('.public-payment-proof-note');
   const actionElement = row.querySelector('.public-payment-proof-action');
+  // Presentation-only emphasis, derived from existing card mode/state.
+  // Upload/Replace require client action; Manage (pending) and View
+  // (confirmed) remain neutral. Do not emphasize loading/busy/error states.
+  const requiresClientAction = proofStore.loaded && !proofStore.loading && !proofStore.busy
+    && !proofStore.error && (mode.action === 'Upload' || mode.action === 'Replace');
+  row.classList.toggle('is-action-required', requiresClientAction);
+  actionElement.classList.toggle('is-action-required', requiresClientAction);
   if (noteElement.textContent !== note) noteElement.textContent = note;
   if (actionElement.textContent !== action) actionElement.textContent = action;
   const disabled = !!proofStore.loading || proofStore.busy;
