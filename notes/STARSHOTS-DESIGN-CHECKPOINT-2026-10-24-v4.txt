@@ -1,0 +1,125 @@
+STARSHOTS DESIGN CHECKPOINT 4 — CONSOLIDATED MASTER
+====================================================
+Date: 2026-10-24
+Current branch: experiment/greeting-gradient-action-pills-v4
+Current follow-up PR: #158 — https://github.com/stsht/s/pull/158
+Target: main
+Purpose: one current reference for the StarShots design history, current styling, exact backups, and restore/validation notes. This document consolidates the useful content from earlier checkpoints so the next session does not need to scroll through old chats.
+
+READ THIS STATUS FIRST
+----------------------
+- PR #154: merged — monochrome GlobalBackground.
+- PR #155: merged — solid editorial password gate / delivery card styling.
+- PR #156: merged — first V2 delivery polish; this version temporarily introduced Instrument Serif for the greeting and neutralized the row treatment.
+- PR #157: merged — follow-up styling changed the greeting back to the existing sans font stack and standardized rows/Payment Proof on soft cool-grey surfaces; the Instrument Serif link was removed from g/index.html.
+- PR #158: open and not merged — Checkpoint 4 work described below. Do not assume it is deployed to production.
+- The old V2/V3 checkpoint files are retained as historical snapshots. This V4 file is the current consolidated source of truth.
+
+BRAND / DESIGN PRINCIPLES
+-------------------------
+- StarShots identity: monochrome ink and pure white, plus restrained cool-grey surfaces.
+- Light canvas: clean white with a subtle neutral fade; dark canvas: near-black / charcoal, not rainbow glassmorphism.
+- UI font stack: existing Plus Jakarta Sans stack from app-base.css. Do not add Instrument Serif / Google Sans dependencies for this client delivery experience.
+- Current soft row surfaces from PR #157: light #f0f4f9, hover #e8eef5, icon/tag surface #e2e9f2; dark row #202228, dark hover #282a31, dark icon #292b32.
+- Keep completed/neutral states quiet. Use contrast for actions the client actually needs to take.
+- Do not introduce orange in the new action styling. Existing red rejected/error styling elsewhere is unchanged.
+
+HISTORY — PREVIOUS CHECKPOINTS / MERGED WORK
+-------------------------------------------
+Checkpoint A — Global canvas (PR #154, merged)
+- src/components/GlobalBackground.jsx and src/components/GlobalBackground.css were changed from rainbow/aurora glass styling to a restrained monochrome canvas.
+- Light mode uses white with a subtle neutral fade; dark canvas uses #111216.
+- Original backups: src/components/GlobalBackgroundBackup.jsx and src/components/GlobalBackgroundBackup.css.
+
+Checkpoint B — Gate and delivery base surfaces (PR #155, merged)
+- Shared password gate surface moved from glass styling to a solid editorial card.
+- /g delivery card and delivery rows moved away from glass effects.
+- Original backups: src/components/PasswordGateBackup.css and src/pages/g/g-backup.css.
+
+Checkpoint C — First V2 editorial polish (PR #156, merged; historical state)
+- g/index.html added the Instrument Serif font resource for the greeting.
+- src/pages/g/g.css used an editorial serif greeting and neutral fade divider.
+- Invoice and delivery rows were styled with a more restrained surface.
+- Pre-polish snapshots (exact versions before the first V2 styling pass):
+  * backups/2026-10-24/g-editorial-v1.css
+  * backups/2026-10-24/payment-proof-inject-v1.js
+  * backups/2026-10-24/g-index-v1.html
+- This serif state is not the current design direction; PR #157 superseded it.
+
+Checkpoint C2 — Soft-surface tuning after Gemini reference (PR #157, merged)
+- Greeting returned to the existing sans stack; weight 600 and tighter tracking at that stage.
+- Invoice, Payment Proof, and delivery rows adopted soft cool-grey surfaces without visible borders or shadows; dark mode stayed charcoal.
+- Instrument Serif preconnect / stylesheet was removed from g/index.html.
+- Pre-soft-surface snapshots:
+  * backups/2026-10-24/g-polish-v2-before-gemini-tuning.css
+  * backups/2026-10-24/payment-proof-inject-v2-before-gemini-tuning.js
+  * backups/2026-10-24/g-index-v2-before-gemini-tuning.html
+- Earlier notes retained for history:
+  * notes/STARSHOTS-DESIGN-CHECKPOINT-2026-10-24-v2.txt
+  * notes/STARSHOTS-DESIGN-CHECKPOINT-2026-10-24-v3.txt
+
+CHECKPOINT 4 — CURRENT CHANGES IN PR #158
+-----------------------------------------
+1) src/pages/g/main.jsx
+- The public delivery greeting and password-gate greeting now render the actual client name in a dedicated span, separate from the existing "Hello, [honorific]" prefix.
+- Visible greeting wording is preserved. The generic fallbacks ("Your files are ready" / "Hello") remain unchanged.
+- This markup separation lets CSS animate the client name only, rather than animating the whole greeting.
+
+2) src/pages/g/g.css
+- Greeting typography is refined from weight 600 / letter-spacing -0.035em to weight 500 / -0.02em, keeping the current Plus Jakarta Sans stack and responsive font sizes.
+- Only the client-name span receives a one-time CSS gradient transition (~1050 ms): deep navy #263e70 through dark ink #111216 in light mode; restrained navy-blue into pure white in dark mode.
+- The name settles to the brand's normal ink/white color; it does not pulse or repeat.
+- prefers-reduced-motion disables the animation and shows the inherited static text color.
+- The Invoice row gets a subtle thin frame and a solid action pill only when it is not in the existing is-paid state. Pill colors: #111216 with pure white text in light mode; pure white with #111216 text in dark mode.
+- The current Invoice action label remains "View" when non-paid. It is intentionally not renamed to "UNPAID": the current UI only marks the row with is-paid versus not-is-paid, and "not paid" can include states other than fully unpaid. This avoids inventing payment semantics.
+
+3) src/pages/g/payment-proof-inject.js
+- Uses existing cardMode() values and statuses; no API, upload, locked, or payment decision logic is changed.
+- A presentation-only is-action-required class is toggled from the existing action. The solid pill and subtle row frame appear only for Upload / Replace when the proof state has loaded and the UI is not loading or busy.
+- Manage ("Waiting for review") and View ("Payment confirmed") remain neutral, without an action pill. That avoids signalling an action while a client is waiting for review or payment is confirmed.
+- Light mode action pill is #111216 with #ffffff text; dark mode reverses to #ffffff with #111216 text. The row frame uses a muted navy/white outline.
+- No orange is introduced. Existing red error/rejected feedback elsewhere in this file remains unchanged.
+
+4) Checkpoint-specific exact restore snapshots
+- backups/2026-10-24/g-css-before-checkpoint-v4.css
+- backups/2026-10-24/payment-proof-inject-before-checkpoint-v4.js
+- backups/2026-10-24/main-jsx-before-checkpoint-v4.jsx
+- These are exact copies of the active files immediately before Checkpoint 4 edits and are the first place to look if reverting only this iteration.
+
+ALL KNOWN BACKUP / RESTORE MAP
+------------------------------
+Older pre-editorial backups:
+- src/components/GlobalBackgroundBackup.jsx
+- src/components/GlobalBackgroundBackup.css
+- src/components/PasswordGateBackup.css
+- src/pages/g/g-backup.css
+
+Before the first V2 polish:
+- backups/2026-10-24/g-editorial-v1.css
+- backups/2026-10-24/payment-proof-inject-v1.js
+- backups/2026-10-24/g-index-v1.html
+
+Before the soft-surface tuning in PR #157:
+- backups/2026-10-24/g-polish-v2-before-gemini-tuning.css
+- backups/2026-10-24/payment-proof-inject-v2-before-gemini-tuning.js
+- backups/2026-10-24/g-index-v2-before-gemini-tuning.html
+
+Before Checkpoint 4:
+- backups/2026-10-24/g-css-before-checkpoint-v4.css
+- backups/2026-10-24/payment-proof-inject-before-checkpoint-v4.js
+- backups/2026-10-24/main-jsx-before-checkpoint-v4.jsx
+
+Restore guidance:
+- To revert only Checkpoint 4, restore its three exact snapshots above in a new commit/PR.
+- To revert the soft-surface treatment from PR #157, use the V2-before-Gemini snapshots for g.css, Payment Proof injection JS, and g/index.html.
+- To revert the first editorial pass, use the V1 snapshots above.
+- To revert the original solid editorial baseline, refer to the older pre-editorial backups. PR #154 and #155 are merged history; do not rewrite or delete merged Git history.
+
+SAFETY / VALIDATION
+-------------------
+- No private client gallery, password-protected delivery content, or customer data was opened or changed.
+- No route, password/session handling, invoice/payment API, proof upload/delete behavior, delivery URL, /db or /inv layout, or mobile bottom-pill logic was intentionally changed.
+- Presentation-only status styling uses the classes/actions already present in the application. Labels and semantics stay as they were.
+- Static checks on the first pass: g.css braces balanced (95/95), payment-proof-inject.js braces balanced (240/240), main.jsx braces balanced (395/395); both greeting occurrences have the isolated name span.
+- A local production build and real-browser visual test have not been run in this environment because the repository could not be cloned over the available network. Review the GitHub/Cloudflare preview for desktop/mobile, light/dark, initial gradient transition, and reduced-motion before merging/deploying.
+- Current PR #158 is not merged. Check the PR and deployment state directly before treating this styling as production.
