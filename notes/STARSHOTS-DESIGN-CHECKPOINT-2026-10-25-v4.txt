@@ -3,14 +3,14 @@ STARSHOTS DESIGN CHECKPOINT — 2026-10-25 (V4 / GREETING FINISH)
 Branch: experiment/greeting-name-animation-v1
 Target: main
 Previous delivery-surface polish: PR #157 — https://github.com/stsht/s/pull/157
-This iteration: follow-up PR for greeting typography and name accent.
+This checkpoint now includes the follow-up greeting typography/name accent and a 250ms pre-animation pause (PR #161).
 
 DESIGN DECISIONS
 - Keep the existing Plus Jakarta Sans stack; no new font dependency.
 - Greeting weight changed from 600 to 500.
 - Greeting letter spacing changed from -0.035em to -0.02em.
 - Preserve responsive font sizing and 1.22 line height.
-- The personalized client name gets a more visible cornflower-blue-to-ink color animation, once on initial render (1400ms): #4F86F7 at start, #789BEA at 48%, then the normal text color; greeting prefix remains stable.
+- The personalized client name gets a more visible cornflower-blue-to-ink color animation, once on initial render: a 250ms delay, then 1400ms animation (#4F86F7 at start, #789BEA at 48%, then the normal text color); greeting prefix remains stable.
 - Applied consistently to the public delivery card greeting and the access-key gate greeting.
 - Honor prefers-reduced-motion by disabling the color animation.
 - No exclamation mark added; copy remains "Hello, [Title] [Client Name]".
@@ -26,4 +26,5 @@ SAFETY / VALIDATION
 - Intent is styling only: no route, password/session/API, payment, invoice, upload, or delivery-link logic was intentionally changed.
 - JSX greeting strings are preserved; only personalized name text is wrapped for styling.
 - Source-level checks performed for exact replacement targets, single occurrences, balanced CSS braces, and presence of reduced-motion handling.
+- Follow-up timing adjustment: added a 250ms pause before the 1400ms animation so the greeting can settle and the accent is easier to notice. Existing pre-change CSS/JSX snapshots remain available; no new backup was needed.
 - A build, browser visual test, and live Cloudflare Pages deployment check have NOT yet been run. Review the branch preview in both light/dark modes before merging/deploying.

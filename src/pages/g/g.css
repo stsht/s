@@ -84,7 +84,7 @@
 .gate-page .gate-card h1{font-family:var(--font),sans-serif;font-size:clamp(24px,3.1vw,30px);font-weight:500;line-height:1.22;letter-spacing:-.02em}
 .public-delivery-greeting-name,.gate-greeting-name{
   color:var(--ink);
-  animation:client-greeting-name-settle 1400ms cubic-bezier(.22,.61,.36,1) both;
+  animation:client-greeting-name-settle 1400ms cubic-bezier(.22,.61,.36,1) 250ms both;
 }
 @keyframes client-greeting-name-settle{
   0%{color:#4F86F7}
