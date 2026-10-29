@@ -1,0 +1,131 @@
+STARSHOTS CONSOLIDATED CHECKPOINT — CP2 + PAYMENT / DEPOSIT FIX
+==================================================================
+Date: 2026-10-29 (WIB)
+Repository: https://github.com/stsht/s
+Production site: https://ssh ots.pages.dev
+Latest merged PR: #167 — https://github.com/stsht/s/pull/167
+Merge commit: 3bd613ac393c71e5b1120a52672ca7dd11e61107
+
+PURPOSE
+-------
+Consolidates the previously recorded StarShots checkpoint state with the
+latest invoice deposit and public payment-proof fixes. This is a code/repo
+checkpoint, not a claim that every database migration or production behavior
+has been verified live.
+
+CHECKPOINT CONTINUITY — PREVIOUS WORK
+-------------------------------------
+- PRs #154 and #155: merged; earlier delivery/editorial surface work.
+- PR #156: delivery polish was recorded as part of the previous checkpoint.
+- PR #157: previous delivery-surface polish reference.
+- PR #162: greeting typography/name accent and Version B color-burst animation
+  merged. Existing Plus Jakarta Sans stack retained; greeting copy unchanged;
+  reduced-motion behavior preserved.
+- PR #164: Client Hub attempt closed without merge. Client Hub is NOT
+  implemented. Existing buildClientRecords() grouping/sorting exists, but
+  client Hub credentials/session/schema work remains separate future work.
+- Existing design checkpoint:
+  notes/STARSHOTS-DESIGN-CHECKPOINT-2026-10-25-v4.txt
+- Existing backup references from earlier checkpoint:
+  backups/2026-10-24/g-editorial-v1.css
+  backups/2026-10-24/payment-proof-inject-v1.js
+  backups/2026-10-24/g-index-v1.html
+
+PAYMENT-PROOF WORK ALREADY MERGED
+---------------------------------
+- PR #165: client payment-proof UI cleanup and timestamp display handling.
+- PR #166: follow-up to keep payment time visible and align proof actions.
+  Relevant files: _worker.js and src/pages/g/payment-proof-inject.js.
+- The intended client-facing display uses "Payment Time" for the client's
+  reported transfer date/time, and only shows "Confirmed" time when the proof
+  is actually confirmed. Technical/provisional and upload-time lines are not
+  meant to clutter the client view.
+- Admin audit information in /db remains a separate admin surface and was
+  intentionally not changed by the latest PR.
+
+LATEST FIX — PR #167 (MERGED)
+-----------------------------
+PR: https://github.com/stsht/s/pull/167
+Merge commit: 3bd613ac393c71e5b1120a52672ca7dd11e61107
+
+Files changed:
+1. _worker.js
+   - Public proof GET now locks the client-facing proof panel when a proof
+     has been processed (confirmed/otherwise non-deletable), as well as when
+     the invoice itself is marked fully paid.
+   - Public proof submit rejects new uploads after a proof has been processed,
+     returning HTTP 409 and a read-only message.
+   - Existing admin/gallery authorization and route structure were not changed.
+2. src/pages/g/payment-proof-inject.js
+   - Corrected the initial state property typo from locklockeded to locked,
+     so the state field matches the property consumed by the UI.
+3. src/pages/invcs/InvoiceComposer.jsx
+   - Adding a DP Paid row closes the outstanding Ask DP request.
+   - The operator can reopen Ask DP intentionally if another payment request
+     needs to be made.
+
+EXPECTED BEHAVIOR AFTER THE MERGED CODE IS DEPLOYED
+---------------------------------------------------
+- Recording DP Paid should close the open deposit request; the invoice preview
+  should no longer keep showing the outstanding request's bank details /
+  Deposit Due state when the deposit has been recorded. Verify the actual
+  preview state on the live site after deployment.
+- A processed/confirmed payment proof should be read-only on the delivery link
+  and should offer View, not another Upload action.
+- DP Paid in the invoice ledger and approval of an uploaded payment-proof image
+  are distinct states. One must not be treated as proof that the other is
+  automatically approved.
+- Existing invoice and delivery records were not edited by this code change.
+- No SQL/database schema changes were included in PR #167.
+- No route/authentication changes were included in PR #167.
+
+DATABASE / MIGRATION NOTE
+-------------------------
+db-migration-part-12.sql exists in GitHub and defines payment_proofs plus
+reported_payment_date, reported_payment_time,
+reported_timezone_offset_minutes, payment_date, payment_time and
+linked_payment_id. A SQL file existing in GitHub does NOT prove that it was
+applied to the live Supabase project.
+Earlier live upload attempts returned:
+"Could not find the 'reported_payment_date' column of 'payment_proofs'
+in the schema cache".
+The live schema has not been inspected from this checkpoint. Do not claim
+that SQL part 12 is applied or that the production schema is healthy until
+the information_schema.columns query and/or a confirmed migration/reload
+have been checked. Do not delete/recreate invoices to address a schema-cache
+error; that will not add missing table columns.
+
+DEPLOYMENT / VALIDATION STATUS
+------------------------------
+- PR #167 was merged into main on 2026-10-29 at 07:32:54 UTC
+  (14:32:54 WIB).
+- Cloudflare Pages reported a successful deployment for the PR branch preview
+  at https://fix-confirmed-payment-proof.sshots.pages.dev before merge.
+- Production deployment after the merge has NOT been independently verified
+  in this checkpoint.
+- Source-level inspection confirmed the intended changes are present on main.
+- package.json does not define a dedicated test script. A production browser
+  retest of invoice preview and delivery-link proof state is still required.
+- Do not claim live end-to-end validation unless it is performed separately.
+
+RETEST CHECKLIST
+----------------
+[ ] Open invoice 314 in Invoice Generator after the latest main deployment.
+[ ] Confirm the Deposit tab has the expected DP Paid record and save.
+[ ] Reopen Preview Invoice and verify the Deposit Received / bank-details
+    presentation follows the saved payment state.
+[ ] Open the original delivery link and verify a processed proof displays
+    View/read-only instead of Upload.
+[ ] Separately verify the live Supabase payment_proofs columns if timestamp
+    upload errors persist; keep DB diagnosis separate from PR #167.
+[ ] Confirm /db admin audit details remain available and unchanged.
+
+SCOPE GUARDRAILS
+----------------
+- Preserve existing invoice, event, delivery, admin/gallery session, and
+  authorization behavior unless a separate verified bug requires a scoped fix.
+- Do not mix Client Hub work into this payment/deposit fix.
+- Do not claim that the SQL migration was applied merely because it is tracked
+  in the repository.
+- Preserve the existing CP2/design checkpoint history rather than overwriting
+  the earlier dated checkpoint artifact.
