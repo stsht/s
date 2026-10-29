@@ -3659,8 +3659,7 @@ async function handlePaymentProofSubmit(request, env) {
       [],
       ['reported_timezone_offset_minutes'],
       ['reported_timezone_offset_minutes', 'reported_payment_date', 'reported_payment_time'],
-      ['reported_timezone_offset_minutes', 'payment_date', 'payment_time'],
-      ['reported_timezone_offset_minutes', 'reported_payment_date', 'reported_payment_time', 'payment_date', 'payment_time']
+      ['reported_timezone_offset_minutes', 'payment_date', 'payment_time']
     ];
     let lastSchemaError = null;
     let inserted = false;

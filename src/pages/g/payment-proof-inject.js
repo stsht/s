@@ -57,7 +57,7 @@ function ensureStyle() {
     .public-payment-proof-entry{display:flex;min-width:0;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--line);border-radius:18px;background:color-mix(in srgb,var(--field) 52%,transparent)}
     .public-payment-proof-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:0;border-radius:13px;background:var(--soft);cursor:zoom-in}.public-payment-proof-thumb img{width:100%;height:100%;display:block;object-fit:cover}
     .public-payment-proof-meta{min-width:0}.public-payment-proof-meta-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.public-payment-proof-meta strong{display:block}
-    .public-payment-proof-times{display:grid;gap:7px;margin:10px 0 0}.public-payment-proof-times div{display:grid;gap:2px}.public-payment-proof-times dt,.public-payment-proof-times dd{margin:0}.public-payment-proof-times dt{color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.public-payment-proof-times dd{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35}.public-payment-proof-times small{color:var(--muted);font-size:10px;font-weight:650}
+    .public-payment-proof-times{display:grid;gap:9px;margin:10px 0 0}.public-payment-proof-times div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}.public-payment-proof-times dt,.public-payment-proof-times dd{margin:0}.public-payment-proof-times dt{color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.public-payment-proof-times dd{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35;text-align:right}.public-payment-proof-times small{color:var(--muted);font-size:10px;font-weight:650}
     .public-payment-proof-status{display:inline-flex;padding:5px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
     .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--sub-active) 20%,transparent);color:color-mix(in srgb,var(--sub-active) 78%,var(--ink))}.public-payment-proof-status.is-rejected{background:rgba(190,58,68,.12);color:#b32939}
     .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:900;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
@@ -608,15 +608,18 @@ function renderModal() {
         row.append(term, detail);
         times.appendChild(row);
       };
-      const paymentTimeLabel = paymentLabel(proof.payment_date, proof.payment_time);
-      if (paymentTimeLabel) addTime('Payment Time', paymentTimeLabel);
+      const paymentTimeLabel = paymentLabel(proof.payment_date || proof.reported_payment_date, proof.payment_time || proof.reported_payment_time);
+      addTime('Payment Time', paymentTimeLabel || 'Not recorded');
       if (String(proof.status || '').toLowerCase() === 'confirmed' && proof.reviewed_at) {
         addTime('Confirmed', uploadedLabel(proof.reviewed_at));
       }
       meta.append(metaHead, times);
       entry.append(thumb, meta);
 
-      if (!proofStore.locked && DELETABLE_STATUSES.has(String(proof.status || '').toLowerCase())) {
+      const proofSetReadOnly = proofStore.locked || proofStore.proofs.some((item) =>
+        !DELETABLE_STATUSES.has(String(item.status || '').toLowerCase())
+      );
+      if (!proofSetReadOnly && DELETABLE_STATUSES.has(String(proof.status || '').toLowerCase())) {
         entry.appendChild(createButton('Delete', 'is-danger', () => showDeleteConfirmation(proof)));
       }
       body.appendChild(entry);
