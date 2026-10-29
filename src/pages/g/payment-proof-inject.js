@@ -170,7 +170,7 @@ function uploadedLabel(value = '') {
 
 function paymentLabel(dateValue = '', timeValue = '') {
   const date = String(dateValue || '').slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return 'Not provided';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return '';
   const dateLabel = new Intl.DateTimeFormat('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric'
   }).format(new Date(`${date}T12:00:00`));
@@ -608,13 +608,9 @@ function renderModal() {
         row.append(term, detail);
         times.appendChild(row);
       };
-      addTime(
-        'Payment',
-        paymentLabel(proof.payment_date, proof.payment_time),
-        proof.payment_provisional ? 'Client reported · provisional' : ''
-      );
-      addTime('Uploaded', uploadedLabel(proof.uploaded_at), 'Server recorded · immutable');
-      if (proof.reviewed_at && !proof.payment_provisional) {
+      const paymentTimeLabel = paymentLabel(proof.payment_date, proof.payment_time);
+      if (paymentTimeLabel) addTime('Payment Time', paymentTimeLabel);
+      if (String(proof.status || '').toLowerCase() === 'confirmed' && proof.reviewed_at) {
         addTime('Confirmed', uploadedLabel(proof.reviewed_at));
       }
       meta.append(metaHead, times);
