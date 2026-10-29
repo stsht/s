@@ -616,7 +616,10 @@ function renderModal() {
       meta.append(metaHead, times);
       entry.append(thumb, meta);
 
-      if (!proofStore.locked && DELETABLE_STATUSES.has(String(proof.status || '').toLowerCase())) {
+      const proofSetReadOnly = proofStore.locked || proofStore.proofs.some((item) =>
+        !DELETABLE_STATUSES.has(String(item.status || '').toLowerCase())
+      );
+      if (!proofSetReadOnly && DELETABLE_STATUSES.has(String(proof.status || '').toLowerCase())) {
         entry.appendChild(createButton('Delete', 'is-danger', () => showDeleteConfirmation(proof)));
       }
       body.appendChild(entry);
