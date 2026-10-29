@@ -2,7 +2,7 @@ STARSHOTS CONSOLIDATED CHECKPOINT — CP2 + PAYMENT / DEPOSIT FIX
 ==================================================================
 Date: 2026-10-29 (WIB)
 Repository: https://github.com/stsht/s
-Production site: https://ssh ots.pages.dev
+Production site: https://sshots.pages.dev
 Latest merged PR: #167 — https://github.com/stsht/s/pull/167
 Merge commit: 3bd613ac393c71e5b1120a52672ca7dd11e61107
 
