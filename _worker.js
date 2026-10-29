@@ -3504,7 +3504,7 @@ async function handlePublicPaymentProofsGet(request, env) {
     return json({
       ok: true,
       proofs: proofs.map(sanitizePublicPaymentProof),
-      locked: invoiceLocksPublicPaymentProofs(auth.invoice)
+      locked: invoiceLocksPublicPaymentProofs(auth.invoice) || processed
     }, 200, { 'Cache-Control': 'private, no-store' });
   } catch (error) {
     return json({ error: error?.message || 'Could not load payment proofs.' }, 500);
@@ -3615,6 +3615,9 @@ async function handlePaymentProofSubmit(request, env) {
     }
     if (existingProofs.some((proof) => publicPaymentProofStatus(proof.status) === 'pending')) {
       return json({ error: 'A payment proof is already pending review.' }, 409);
+    }
+    if (existingProofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))) {
+      return json({ error: 'Payment proof has already been processed and is read-only.' }, 409);
     }
 
     const uploadedAt = new Date().toISOString();

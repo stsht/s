@@ -7,7 +7,7 @@ const DELETABLE_STATUSES = new Set(['pending', 'rejected']);
 
 const proofStore = {
   proofs: [],
-  locklockeded: false,
+  locked: false,
   loaded: false,
   loading: null,
   busy: false,

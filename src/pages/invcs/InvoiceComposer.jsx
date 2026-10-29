@@ -591,6 +591,10 @@ export function InvoiceComposer() {
   // makeDepositPayment). update/remove are the usual id-keyed patches.
   function addDepositPayment() {
     setDepositPayments((current) => [...current, makeDepositPayment(totals.depositDue)]);
+    // The new row is already marked paid. Close the outstanding DP request
+    // immediately so the invoice preview switches to "Deposit Received".
+    // The operator can explicitly reopen "Ask DP" if another payment is due.
+    setDepositAskOpen(false);
   }
 
   function updateDepositPayment(id, patch) {
