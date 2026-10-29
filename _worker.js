@@ -3464,21 +3464,31 @@ async function authorizePublicPaymentProofRequest(request, env, lookup = '') {
 
 async function loadPublicPaymentProofRows(env, delivery, invoice) {
   const suffix = `&invoice_id=eq.${encodeURIComponent(invoice.id)}&delivery_id=eq.${encodeURIComponent(delivery.id)}&order=uploaded_at.asc`;
+  // Keep this public read narrow: optional audit/link columns must not prevent
+  // the payment timestamps from being returned to the delivery UI.
+  const selects = [
+    'id,invoice_id,delivery_id,status,reported_payment_date,reported_payment_time,payment_date,payment_time,uploaded_at,reviewed_at',
+    'id,invoice_id,delivery_id,status,payment_date,payment_time,uploaded_at,reviewed_at',
+    'id,invoice_id,delivery_id,status,reported_payment_date,reported_payment_time,uploaded_at,reviewed_at',
+    'id,invoice_id,delivery_id,status,uploaded_at,reviewed_at'
+  ];
   let rows;
-  try {
-    rows = await supabaseFetch(
-      env,
-      `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,status,reported_payment_date,reported_payment_time,reported_timezone_offset_minutes,payment_date,payment_time,linked_payment_id,uploaded_at,reviewed_at${suffix}`
-    );
-  } catch (error) {
-    if (!isSchemaError(error)) throw error;
-    rows = await supabaseFetch(
-      env,
-      `/rest/v1/payment_proofs?select=id,invoice_id,delivery_id,client_id,event_key,event_date,status,uploaded_at,reviewed_at${suffix}`
-    ).catch((fallbackError) => {
-      if (isSchemaError(fallbackError)) throw new Error('Payment proof table is missing. Run db-migration-part-12.sql.');
-      throw fallbackError;
-    });
+  let loaded = false;
+  let lastSchemaError = null;
+  for (const fields of selects) {
+    try {
+      rows = await supabaseFetch(env, `/rest/v1/payment_proofs?select=${fields}${suffix}`);
+      loaded = true;
+      break;
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      lastSchemaError = error;
+    }
+  }
+  if (!loaded) {
+    if (lastSchemaError && isSchemaError(lastSchemaError)) {
+      throw new Error('Payment proof table is missing or its required columns are unavailable. Check db-migration-part-12.sql.');
+    }
   }
   return (Array.isArray(rows) ? rows : [])
     .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, delivery, invoice));
@@ -3643,31 +3653,37 @@ async function handlePaymentProofSubmit(request, env) {
     }
 
     let saved;
-    try {
-      saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
-        method: 'POST',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(proofRows)
-      });
-    } catch (error) {
-      if (!isSchemaError(error)) throw error;
-      const legacyRows = proofRows.map((proof) => {
-        const {
-          reported_payment_date: _reportedDate,
-          reported_payment_time: _reportedTime,
-          reported_timezone_offset_minutes: _reportedOffset,
-          payment_date: _paymentDate,
-          payment_time: _paymentTime,
-          ...legacyProof
-        } = proof;
-        return legacyProof;
-      });
-      saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
-        method: 'POST',
-        headers: { Prefer: 'return=representation' },
-        body: JSON.stringify(legacyRows)
-      });
+    // Retry schema mismatches in descending order of information preserved.
+    // A missing optional timestamp column must not erase every other timestamp.
+    const insertVariants = [
+      [],
+      ['reported_timezone_offset_minutes'],
+      ['reported_timezone_offset_minutes', 'reported_payment_date', 'reported_payment_time'],
+      ['reported_timezone_offset_minutes', 'payment_date', 'payment_time'],
+      ['reported_timezone_offset_minutes', 'reported_payment_date', 'reported_payment_time', 'payment_date', 'payment_time']
+    ];
+    let lastSchemaError = null;
+    let inserted = false;
+    for (const omittedFields of insertVariants) {
+      const payload = omittedFields.length
+        ? proofRows.map((proof) => Object.fromEntries(
+          Object.entries(proof).filter(([key]) => !omittedFields.includes(key))
+        ))
+        : proofRows;
+      try {
+        saved = await supabaseFetch(env, '/rest/v1/payment_proofs', {
+          method: 'POST',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(payload)
+        });
+        inserted = true;
+        break;
+      } catch (error) {
+        if (!isSchemaError(error)) throw error;
+        lastSchemaError = error;
+      }
     }
+    if (!inserted) throw lastSchemaError || new Error('Could not save payment proof.');
     const safeSaved = (Array.isArray(saved) ? saved : [saved].filter(Boolean))
       .filter((proof) => paymentProofBelongsToDeliveryInvoice(proof, delivery, invoice))
       .map(sanitizePublicPaymentProof);
