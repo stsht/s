@@ -168,7 +168,15 @@ export function RecordRow({
 
   const paymentProofs = eventPaymentProofs(row);
   const vendorPaymentProofs = hasVendorInvoice ? invoicePaymentProofs(row.vendorInvoice) : [];
-  const paymentStateClass = paymentState(paymentProofs);
+  const invoiceData = row.invoice?.invoice_data && typeof row.invoice.invoice_data === 'object' ? row.invoice.invoice_data : {};
+  const askDpActive = String(row.invoice?.status || '').toLowerCase() === 'deposit' && invoiceData.depositAskOpen !== false;
+  const askOpenedAt = String(invoiceData.depositAskOpenedAt || '');
+  const currentAskProofs = askDpActive && askOpenedAt
+    ? paymentProofs.filter((proof) => !proof.uploadedAt || Date.parse(proof.uploadedAt) >= Date.parse(askOpenedAt))
+    : paymentProofs;
+  const paymentStateClass = askDpActive && !currentAskProofs.some((proof) => String(proof.status || '').toLowerCase() === 'confirmed')
+    ? ' is-complete'
+    : paymentState(paymentProofs);
   const vendorPaymentStateClass = paymentState(vendorPaymentProofs);
   const vendorSummaryStateClass = vendorSummaryState(row).stateClass;
 
