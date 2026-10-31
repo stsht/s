@@ -190,6 +190,9 @@ export async function onRequestPost({ request, env }) {
     if (currentProofs.some((proof) => String(proof?.status || '').toLowerCase() === 'pending')) {
       return json({ error: 'A payment proof is already pending review.' }, 409);
     }
+    if (currentProofs.some((proof) => !['pending', 'rejected'].includes(String(proof?.status || '').toLowerCase()))) {
+      return json({ error: 'Payment proof for this request has already been processed.' }, 409);
+    }
 
     const nextData = {
       ...data,
