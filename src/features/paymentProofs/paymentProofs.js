@@ -20,8 +20,9 @@ export function paymentProofState(invoice = {}) {
   const invoiceStatus = String(invoice?.status || '').toLowerCase();
   const depositAskOpen = data.depositAskOpen !== false;
   const askOpenedAt = String(data.depositAskOpenedAt || '');
-  const currentCycleProofs = askOpenedAt
-    ? cleanProofs.filter((proof) => !proof.createdAt || Date.parse(proof.createdAt) >= Date.parse(askOpenedAt))
+  const askOpenedAtMs = Date.parse(askOpenedAt);
+  const currentCycleProofs = Number.isFinite(askOpenedAtMs)
+    ? cleanProofs.filter((proof) => !proof.createdAt || Date.parse(proof.createdAt) >= askOpenedAtMs)
     : cleanProofs;
   const latest = currentCycleProofs[currentCycleProofs.length - 1] || null;
   const fullyPaid = invoiceStatus === 'paid';
