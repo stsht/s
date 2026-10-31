@@ -204,7 +204,8 @@ function timezoneOffsetForLocalPayment(date, time, fallback) {
 }
 
 function cardMode() {
-  const statuses = proofStore.proofs.map((proof) => String(proof.status || '').toLowerCase());
+  const currentProofs = proofStore.proofs.filter((proof) => proof.current_request !== false);
+  const statuses = currentProofs.map((proof) => String(proof.status || '').toLowerCase());
   if (proofStore.locked) {
     return { className: 'is-confirmed', note: 'Payment confirmed', action: 'View' };
   }
