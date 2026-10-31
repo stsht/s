@@ -8,6 +8,7 @@ const DELETABLE_STATUSES = new Set(['pending', 'rejected']);
 const proofStore = {
   proofs: [],
   locked: false,
+  askOpen: true,
   loaded: false,
   loading: null,
   busy: false,
@@ -87,7 +88,13 @@ function ensureStyle() {
     .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{
       outline:2px solid rgba(48,56,70,.55);outline-offset:2px;
     }
+    .public-payment-proof-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:8px;margin-top:14px}
+    .public-payment-proof-card{margin-top:0;min-width:0}
+    .public-payment-proof-history{min-width:64px;padding:0 14px;border:1px solid transparent;border-radius:18px;background:#f0f4f9;color:#596579;font:inherit;font-size:10px;font-weight:900;letter-spacing:.14em;cursor:pointer}
+    .public-payment-proof-history[hidden]{display:none}
+    .public-payment-proof-history:disabled{opacity:.6;cursor:wait}
     @media(prefers-color-scheme:dark){
+      .public-payment-proof-history{background:#202228;color:#a1a1aa}
       .public-payment-proof-card,.public-payment-proof-card.is-confirmed,.public-payment-proof-card.is-pending,.public-payment-proof-card.is-rejected{
         border-color:transparent;background:#202228;box-shadow:none;
       }
@@ -206,14 +213,18 @@ function timezoneOffsetForLocalPayment(date, time, fallback) {
 function cardMode() {
   const currentProofs = proofStore.proofs.filter((proof) => proof.current_request !== false);
   const statuses = currentProofs.map((proof) => String(proof.status || '').toLowerCase());
-  if (proofStore.locked) {
+  if (proofStore.locked || statuses.includes('confirmed')) {
     return { className: 'is-confirmed', note: 'Payment confirmed', action: 'View' };
   }
   if (statuses.includes('pending')) return { className: 'is-pending', note: 'Waiting for review', action: 'Manage' };
-  if (statuses.includes('rejected')) return { className: 'is-rejected', note: 'Proof rejected. Upload a replacement.', action: 'Replace' };
-  if (statuses.includes('confirmed')) {
-    return { className: '', note: 'Payment requested. Upload transfer proof.', action: 'Upload' };
+  if (!proofStore.askOpen) {
+    return {
+      className: '',
+      note: proofStore.proofs.length ? 'No active request. View previous payment proof.' : 'No active payment request.',
+      action: proofStore.proofs.length ? 'View' : 'Pending'
+    };
   }
+  if (statuses.includes('rejected')) return { className: 'is-rejected', note: 'Proof rejected. Upload a replacement.', action: 'Replace' };
   return { className: '', note: 'Upload up to 3 transfer screenshots.', action: 'Upload' };
 }
 
@@ -230,8 +241,13 @@ function updateCard(row) {
   const actionElement = row.querySelector('.public-payment-proof-action');
   if (noteElement.textContent !== note) noteElement.textContent = note;
   if (actionElement.textContent !== action) actionElement.textContent = action;
-  const disabled = !!proofStore.loading || proofStore.busy;
+  const disabled = !!proofStore.loading || proofStore.busy || mode.action === 'Pending';
   if (row.disabled !== disabled) row.disabled = disabled;
+  const historyButton = row.parentElement?.querySelector('.public-payment-proof-history');
+  if (historyButton) {
+    historyButton.hidden = !(mode.action === 'Upload' && proofStore.proofs.length > 0);
+    historyButton.disabled = !!proofStore.loading || proofStore.busy;
+  }
 }
 
 function updateAllCards() {
@@ -251,6 +267,7 @@ async function fetchProofs({ force = false } = {}) {
       if (!response.ok || !data.ok) throw new Error(data.error || 'Could not load payment proofs.');
       proofStore.proofs = Array.isArray(data.proofs) ? data.proofs : [];
       proofStore.locked = !!data.locked;
+      proofStore.askOpen = data.ask_open !== false;
       proofStore.loaded = true;
       return proofStore.proofs;
     })
@@ -588,7 +605,7 @@ function renderModal() {
       const metaHead = document.createElement('div');
       metaHead.className = 'public-payment-proof-meta-head';
       const name = document.createElement('strong');
-      name.textContent = `Proof ${index + 1}`;
+      name.textContent = `Proof ${index + 1}${proof.current_request === false ? ' · Previous request' : ' · Current request'}`;
       const status = document.createElement('span');
       status.className = `public-payment-proof-status is-${String(proof.status || 'processed').toLowerCase()}`;
       status.textContent = statusLabel(proof.status);
@@ -636,8 +653,9 @@ function renderModal() {
     sheet.appendChild(error);
   }
 
-  const hasPending = proofStore.proofs.some((proof) => String(proof.status || '').toLowerCase() === 'pending');
-  const hasRejected = proofStore.proofs.some((proof) => String(proof.status || '').toLowerCase() === 'rejected');
+  const currentProofs = proofStore.proofs.filter((proof) => proof.current_request !== false);
+  const hasPending = currentProofs.some((proof) => String(proof.status || '').toLowerCase() === 'pending');
+  const hasRejected = currentProofs.some((proof) => String(proof.status || '').toLowerCase() === 'rejected');
   if (!proofStore.locked && hasRejected && !hasPending) {
     const actions = document.createElement('footer');
     actions.className = 'public-payment-proof-actions';
@@ -696,6 +714,8 @@ function openModal(trigger) {
 }
 
 function createProofCard() {
+  const wrap = document.createElement('div');
+  wrap.className = 'public-payment-proof-wrap';
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'public-payment-proof-card';
@@ -723,21 +743,29 @@ function createProofCard() {
     }
     const mode = cardMode();
     if (mode.action === 'Upload') chooseFiles();
-    else openModal(row);
+    else if (mode.action !== 'Pending') openModal(row);
   });
 
+  const history = document.createElement('button');
+  history.type = 'button';
+  history.className = 'public-payment-proof-history';
+  history.textContent = 'VIEW';
+  history.setAttribute('aria-label', 'View previous payment proofs');
+  history.hidden = true;
+  history.addEventListener('click', () => openModal(row));
+  wrap.append(row, history);
   updateCard(row);
-  return row;
+  return wrap;
 }
 
 function sync() {
   ensureStyle();
   const invoiceRow = document.querySelector('.public-delivery-card .public-delivery-invoice');
   if (!invoiceRow) return;
-  let proofCard = document.querySelector('.public-delivery-card .public-payment-proof-card');
-  if (!proofCard) {
-    proofCard = createProofCard();
-    invoiceRow.insertAdjacentElement('afterend', proofCard);
+  let proofWrap = document.querySelector('.public-delivery-card .public-payment-proof-wrap');
+  if (!proofWrap) {
+    proofWrap = createProofCard();
+    invoiceRow.insertAdjacentElement('afterend', proofWrap);
   }
   if (!proofStore.loaded && !proofStore.loading) fetchProofs().catch(() => {});
 }
