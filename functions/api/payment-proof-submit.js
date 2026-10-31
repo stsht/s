@@ -179,6 +179,9 @@ export async function onRequestPost({ request, env }) {
     if (String(invoice.status || '').toLowerCase() === 'paid') return json({ error: 'Payment is already confirmed.' }, 409);
 
     const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+    if (String(invoice.status || '').toLowerCase() === 'deposit' && data.depositAskOpen === false) {
+      return json({ error: 'There is no active payment request.' }, 409);
+    }
     const proofs = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
     const askOpenedAt = Date.parse(String(data.depositAskOpenedAt || ''));
     const currentProofs = Number.isFinite(askOpenedAt)
