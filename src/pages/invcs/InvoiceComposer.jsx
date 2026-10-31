@@ -152,6 +152,7 @@ export function InvoiceComposer() {
   const [depositMode, setDepositMode] = useState('20');
   const [depositCustomAmount, setDepositCustomAmount] = useState('');
   const [depositAskOpen, setDepositAskOpen] = useState(true);
+  const [depositAskOpenedAt, setDepositAskOpenedAt] = useState('');
   const [paidConfirmed, setPaidConfirmed] = useState(true);
   const [{ date: initialPaidDate, time: initialPaidTime }] = useState(() => nowDateParts());
   const [paidAtDate, setPaidAtDate] = useState(initialPaidDate);
@@ -426,6 +427,7 @@ export function InvoiceComposer() {
         if (typeof data.depositAskOpen === 'boolean') {
           setDepositAskOpen(data.depositAskOpen);
         }
+        setDepositAskOpenedAt(String(data.depositAskOpenedAt || ''));
         if (data.folderName != null) {
           setFolderName(String(data.folderName || ''));
         }
@@ -589,6 +591,11 @@ export function InvoiceComposer() {
   // Deposit ledger mutators. addDepositPayment seeds the new row with
   // the current system date/time and the Invoice-tab deposit due (see
   // makeDepositPayment). update/remove are the usual id-keyed patches.
+  function updateDepositAskOpen(next) {
+    setDepositAskOpen(!!next);
+    if (next) setDepositAskOpenedAt(new Date().toISOString());
+  }
+
   function addDepositPayment() {
     setDepositPayments((current) => [...current, makeDepositPayment(totals.depositDue)]);
     // The new row is already marked paid. Close the outstanding DP request
@@ -667,6 +674,7 @@ export function InvoiceComposer() {
           depositMode: String(depositMode || ''),
           depositCustomAmount: String(depositCustomAmount || ''),
           depositAskOpen: !!depositAskOpen,
+          depositAskOpenedAt: String(depositAskOpenedAt || ''),
           paymentMethod: cleanPaymentMethod(paymentMethod),
           venue: String(venue || ''),
           eventTime: String(eventTime || ''),
@@ -888,7 +896,7 @@ export function InvoiceComposer() {
           balanceDue={balanceDue}
           requestedDue={requestedDue}
           depositAskOpen={depositAskOpen}
-          setDepositAskOpen={setDepositAskOpen}
+          setDepositAskOpen={updateDepositAskOpen}
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
           paidConfirmed={paidConfirmed}
