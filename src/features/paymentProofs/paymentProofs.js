@@ -22,12 +22,19 @@ export function paymentProofState(invoice = {}) {
   const askOpenedAt = String(data.depositAskOpenedAt || '');
   const askOpenedAtMs = Date.parse(askOpenedAt);
   const currentCycleProofs = Number.isFinite(askOpenedAtMs)
-    ? cleanProofs.filter((proof) => !proof.createdAt || Date.parse(proof.createdAt) >= askOpenedAtMs)
+    ? cleanProofs.filter((proof) => {
+        const createdAt = Date.parse(proof.createdAt || '');
+        return Number.isFinite(createdAt) && createdAt >= askOpenedAtMs;
+      })
     : cleanProofs;
-  const latest = currentCycleProofs[currentCycleProofs.length - 1] || null;
+  const currentLatest = currentCycleProofs[currentCycleProofs.length - 1] || null;
+  // Keep a historical proof available to the View action while a newly
+  // opened request has no proof in its own cycle yet.
+  const latest = currentLatest || cleanProofs[cleanProofs.length - 1] || null;
   const fullyPaid = invoiceStatus === 'paid';
-  const pending = latest?.status === 'pending';
-  const canUpload = !fullyPaid && !pending && depositAskOpen;
+  const activeRequest = !fullyPaid && (invoiceStatus !== 'deposit' || depositAskOpen);
+  const pending = currentLatest?.status === 'pending';
+  const canUpload = activeRequest && !pending && currentLatest?.status !== 'confirmed';
 
   return {
     proofs: cleanProofs,
@@ -41,12 +48,23 @@ export function paymentProofState(invoice = {}) {
       ? 'Payment confirmed'
       : pending
       ? 'Pending review'
-      : latest?.status === 'confirmed'
+      : currentLatest?.status === 'confirmed'
       ? 'Payment confirmed'
-      : depositAskOpen
+      : activeRequest
       ? 'Payment requested. Upload transfer proof.'
       : 'Deposit received',
-    publicCta: fullyPaid || latest?.status === 'confirmed' ? 'View' : canUpload ? 'Upload' : (latest ? 'Manage' : 'Pending'),
+    currentLatest,
+    publicCta: fullyPaid || currentLatest?.status === 'confirmed'
+      ? 'View'
+      : pending
+      ? 'Manage'
+      : currentLatest?.status === 'rejected'
+      ? 'Replace'
+      : canUpload
+      ? 'Upload'
+      : cleanProofs.length
+      ? 'View'
+      : 'Pending',
   };
 }
 

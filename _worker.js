@@ -3401,12 +3401,20 @@ function invoiceLocksPublicPaymentProofs(invoice = {}) {
   return String(invoice.status || '').trim().toLowerCase() === 'paid';
 }
 
+function invoiceHasActivePaymentRequest(invoice = {}) {
+  const status = String(invoice.status || '').trim().toLowerCase();
+  if (status === 'paid') return false;
+  if (status !== 'deposit') return true;
+  const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  return data.depositAskOpen !== false;
+}
+
 function paymentProofIsForCurrentAsk(proof = {}, invoice = {}) {
   const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const openedAt = Date.parse(String(data.depositAskOpenedAt || ''));
   if (!Number.isFinite(openedAt)) return true;
   const uploadedAt = Date.parse(String(proof.uploaded_at || ''));
-  return !Number.isFinite(uploadedAt) || uploadedAt >= openedAt;
+  return Number.isFinite(uploadedAt) && uploadedAt >= openedAt;
 }
 
 function paymentProofBelongsToDeliveryInvoice(proof = {}, delivery = {}, invoice = {}) {
@@ -3506,6 +3514,7 @@ async function handlePublicPaymentProofsGet(request, env) {
     const proofs = await loadPublicPaymentProofRows(env, auth.delivery, auth.invoice);
     return json({
       ok: true,
+      ask_open: invoiceHasActivePaymentRequest(auth.invoice),
       proofs: proofs.map((proof) => ({
         ...sanitizePublicPaymentProof(proof),
         current_request: paymentProofIsForCurrentAsk(proof, auth.invoice)
@@ -3618,6 +3627,9 @@ async function handlePaymentProofSubmit(request, env) {
     const auth = await authorizePublicPaymentProofRequest(request, env, body.slug || body.shortCode || '');
     if (auth.error) return auth.error;
     const { delivery, invoice } = auth;
+    if (!invoiceHasActivePaymentRequest(invoice)) {
+      return json({ error: 'There is no active payment request.' }, 409);
+    }
     const existingProofs = await loadPublicPaymentProofRows(env, delivery, invoice);
     if (invoiceLocksPublicPaymentProofs(invoice)) {
       return json({ error: 'Payment is already confirmed.' }, 409);

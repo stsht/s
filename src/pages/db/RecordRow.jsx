@@ -175,7 +175,7 @@ export function RecordRow({
     ? paymentProofs.filter((proof) => !proof.uploadedAt || Date.parse(proof.uploadedAt) >= Date.parse(askOpenedAt))
     : paymentProofs;
   const paymentStateClass = askDpActive && !currentAskProofs.some((proof) => String(proof.status || '').toLowerCase() === 'confirmed')
-    ? ' is-complete'
+    ? ' is-created'
     : paymentState(paymentProofs);
   const vendorPaymentStateClass = paymentState(vendorPaymentProofs);
   const vendorSummaryStateClass = vendorSummaryState(row).stateClass;
