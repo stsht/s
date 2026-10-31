@@ -3504,12 +3504,16 @@ async function handlePublicPaymentProofsGet(request, env) {
     const auth = await authorizePublicPaymentProofRequest(request, env, url.searchParams.get('slug') || '');
     if (auth.error) return auth.error;
     const proofs = await loadPublicPaymentProofRows(env, auth.delivery, auth.invoice);
-    const processed = proofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)));
     return json({
       ok: true,
-      proofs: proofs.map(sanitizePublicPaymentProof),
-      proofs: proofs.map((proof) => ({ ...sanitizePublicPaymentProof(proof), current_request: paymentProofIsForCurrentAsk(proof, auth.invoice) })),
-      locked: invoiceLocksPublicPaymentProofs(auth.invoice) || proofs.some((proof) => paymentProofIsForCurrentAsk(proof, auth.invoice) && !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))
+      proofs: proofs.map((proof) => ({
+        ...sanitizePublicPaymentProof(proof),
+        current_request: paymentProofIsForCurrentAsk(proof, auth.invoice)
+      })),
+      locked: invoiceLocksPublicPaymentProofs(auth.invoice) || proofs.some((proof) =>
+        paymentProofIsForCurrentAsk(proof, auth.invoice)
+        && !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status))
+      )
     }, 200, { 'Cache-Control': 'private, no-store' });
   } catch (error) {
     return json({ error: error?.message || 'Could not load payment proofs.' }, 500);
