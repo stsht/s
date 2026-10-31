@@ -17,28 +17,35 @@ export function paymentProofState(invoice = {}) {
       amount: Math.max(0, Math.round(Number(proof?.amount) || 0)),
     }))
     .filter((proof) => proof.images.length);
-  const latest = cleanProofs[cleanProofs.length - 1] || null;
   const invoiceStatus = String(invoice?.status || '').toLowerCase();
   const depositAskOpen = data.depositAskOpen !== false;
+  const askOpenedAt = String(data.depositAskOpenedAt || '');
+  const currentCycleProofs = askOpenedAt
+    ? cleanProofs.filter((proof) => !proof.createdAt || Date.parse(proof.createdAt) >= Date.parse(askOpenedAt))
+    : cleanProofs;
+  const latest = currentCycleProofs[currentCycleProofs.length - 1] || null;
   const fullyPaid = invoiceStatus === 'paid';
   const pending = latest?.status === 'pending';
-  const canUpload = !fullyPaid && !pending;
+  const canUpload = !fullyPaid && !pending && depositAskOpen;
 
   return {
     proofs: cleanProofs,
+    currentCycleProofs,
     latest,
     hasProof: cleanProofs.length > 0,
     fullyPaid,
     pending,
     canUpload,
     publicLabel: fullyPaid
-      ? (invoiceStatus === 'paid' ? 'Payment confirmed' : 'Deposit received')
+      ? 'Payment confirmed'
       : pending
       ? 'Pending review'
-      : cleanProofs.length
-      ? 'Payment requested'
-      : 'Not uploaded yet',
-    publicCta: canUpload ? 'Upload' : (cleanProofs.length > 0 ? 'View' : 'Pending'),
+      : latest?.status === 'confirmed'
+      ? 'Payment confirmed'
+      : depositAskOpen
+      ? 'Payment requested. Upload transfer proof.'
+      : 'Deposit received',
+    publicCta: fullyPaid || latest?.status === 'confirmed' ? 'View' : canUpload ? 'Upload' : (latest ? 'Manage' : 'Pending'),
   };
 }
 
