@@ -27,11 +27,14 @@ export function paymentProofState(invoice = {}) {
         return Number.isFinite(createdAt) && createdAt >= askOpenedAtMs;
       })
     : cleanProofs;
-  const latest = currentCycleProofs[currentCycleProofs.length - 1] || null;
+  const currentLatest = currentCycleProofs[currentCycleProofs.length - 1] || null;
+  // Keep a historical proof available to the View action while a newly
+  // opened request has no proof in its own cycle yet.
+  const latest = currentLatest || cleanProofs[cleanProofs.length - 1] || null;
   const fullyPaid = invoiceStatus === 'paid';
   const activeRequest = !fullyPaid && (invoiceStatus !== 'deposit' || depositAskOpen);
-  const pending = latest?.status === 'pending';
-  const canUpload = activeRequest && !pending && latest?.status !== 'confirmed';
+  const pending = currentLatest?.status === 'pending';
+  const canUpload = activeRequest && !pending && currentLatest?.status !== 'confirmed';
 
   return {
     proofs: cleanProofs,
@@ -45,16 +48,17 @@ export function paymentProofState(invoice = {}) {
       ? 'Payment confirmed'
       : pending
       ? 'Pending review'
-      : latest?.status === 'confirmed'
+      : currentLatest?.status === 'confirmed'
       ? 'Payment confirmed'
       : activeRequest
       ? 'Payment requested. Upload transfer proof.'
       : 'Deposit received',
-    publicCta: fullyPaid || latest?.status === 'confirmed'
+    currentLatest,
+    publicCta: fullyPaid || currentLatest?.status === 'confirmed'
       ? 'View'
       : pending
       ? 'Manage'
-      : latest?.status === 'rejected'
+      : currentLatest?.status === 'rejected'
       ? 'Replace'
       : canUpload
       ? 'Upload'
