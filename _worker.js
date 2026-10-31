@@ -3398,11 +3398,15 @@ function publicPaymentProofStatus(value = '') {
 }
 
 function invoiceLocksPublicPaymentProofs(invoice = {}) {
+  return String(invoice.status || '').trim().toLowerCase() === 'paid';
+}
+
+function paymentProofIsForCurrentAsk(proof = {}, invoice = {}) {
   const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  const status = String(invoice.status || '').trim().toLowerCase();
-  // A confirmed deposit is not the same as a fully settled invoice.
-  // Keep public proof uploads open until the invoice is explicitly marked paid.
-  return status === 'paid';
+  const openedAt = Date.parse(String(data.depositAskOpenedAt || ''));
+  if (!Number.isFinite(openedAt)) return true;
+  const uploadedAt = Date.parse(String(proof.uploaded_at || ''));
+  return !Number.isFinite(uploadedAt) || uploadedAt >= openedAt;
 }
 
 function paymentProofBelongsToDeliveryInvoice(proof = {}, delivery = {}, invoice = {}) {
@@ -3500,11 +3504,16 @@ async function handlePublicPaymentProofsGet(request, env) {
     const auth = await authorizePublicPaymentProofRequest(request, env, url.searchParams.get('slug') || '');
     if (auth.error) return auth.error;
     const proofs = await loadPublicPaymentProofRows(env, auth.delivery, auth.invoice);
-    const processed = proofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)));
     return json({
       ok: true,
-      proofs: proofs.map(sanitizePublicPaymentProof),
-      locked: invoiceLocksPublicPaymentProofs(auth.invoice) || processed
+      proofs: proofs.map((proof) => ({
+        ...sanitizePublicPaymentProof(proof),
+        current_request: paymentProofIsForCurrentAsk(proof, auth.invoice)
+      })),
+      locked: invoiceLocksPublicPaymentProofs(auth.invoice) || proofs.some((proof) =>
+        paymentProofIsForCurrentAsk(proof, auth.invoice)
+        && !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status))
+      )
     }, 200, { 'Cache-Control': 'private, no-store' });
   } catch (error) {
     return json({ error: error?.message || 'Could not load payment proofs.' }, 500);
@@ -3613,10 +3622,11 @@ async function handlePaymentProofSubmit(request, env) {
     if (invoiceLocksPublicPaymentProofs(invoice)) {
       return json({ error: 'Payment is already confirmed.' }, 409);
     }
-    if (existingProofs.some((proof) => publicPaymentProofStatus(proof.status) === 'pending')) {
+    const currentAskProofs = existingProofs.filter((proof) => paymentProofIsForCurrentAsk(proof, invoice));
+    if (currentAskProofs.some((proof) => publicPaymentProofStatus(proof.status) === 'pending')) {
       return json({ error: 'A payment proof is already pending review.' }, 409);
     }
-    if (existingProofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))) {
+    if (currentAskProofs.some((proof) => !CLIENT_DELETABLE_PAYMENT_PROOF_STATUSES.has(publicPaymentProofStatus(proof.status)))) {
       return json({ error: 'Payment proof has already been processed and is read-only.' }, 409);
     }
 
