@@ -180,7 +180,11 @@ export async function onRequestPost({ request, env }) {
 
     const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
     const proofs = Array.isArray(data.paymentProofs) ? data.paymentProofs : [];
-    if (proofs.some((proof) => String(proof?.status || '').toLowerCase() === 'pending')) {
+    const askOpenedAt = Date.parse(String(data.depositAskOpenedAt || ''));
+    const currentProofs = Number.isFinite(askOpenedAt)
+      ? proofs.filter((proof) => !proof?.createdAt || Date.parse(String(proof.createdAt)) >= askOpenedAt)
+      : proofs;
+    if (currentProofs.some((proof) => String(proof?.status || '').toLowerCase() === 'pending')) {
       return json({ error: 'A payment proof is already pending review.' }, 409);
     }
 
