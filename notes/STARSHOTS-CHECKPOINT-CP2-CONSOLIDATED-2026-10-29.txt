@@ -3,8 +3,8 @@ STARSHOTS CONSOLIDATED CHECKPOINT — CP2 + PAYMENT / DEPOSIT FIX
 Date: 2026-10-29 (WIB)
 Repository: https://github.com/stsht/s
 Production site: https://sshots.pages.dev
-Latest merged PR: #167 — https://github.com/stsht/s/pull/167
-Merge commit: 3bd613ac393c71e5b1120a52672ca7dd11e61107
+Latest merged PR: #169 — https://github.com/stsht/s/pull/169
+Latest merge commit: 87744ae1016de9084b8a23b68f2758c38205dc8d
 
 PURPOSE
 -------
@@ -78,6 +78,53 @@ EXPECTED BEHAVIOR AFTER THE MERGED CODE IS DEPLOYED
 - Existing invoice and delivery records were not edited by this code change.
 - No SQL/database schema changes were included in PR #167.
 - No route/authentication changes were included in PR #167.
+
+LATEST FOLLOW-UPS — PR #168 AND PR #169 (MERGED 2026-10-31)
+-----------------------------------------------------------
+PR #168 — Fix installment payment proof request cycles
+https://github.com/stsht/s/pull/168
+Merge commit: 3bbe83fa4807e7ae835fad8b7fa916ef3fd4e8c2
+
+- Introduced request-cycle awareness using invoice_data.depositAskOpenedAt.
+- A proof is associated with the active DP request based on its upload time;
+  previous-cycle proofs remain part of the payment history.
+- Public proof GET exposes current_request per proof and an invoice-level lock
+  based on fully-paid state or processed proof in the current request cycle.
+- Submit validation applies to proofs in the current request cycle rather than
+  blocking a new DP cycle because of an older pending/processed proof.
+- InvoiceComposer records depositAskOpenedAt when Ask DP is reopened and saves
+  that timestamp with invoice_data.
+- Client payment-proof state and /db payment status presentation were adjusted
+  to distinguish current-cycle activity from previous proofs.
+
+PR #169 — Keep payment proof history viewable during new DP requests
+https://github.com/stsht/s/pull/169
+Merge commit: 87744ae1016de9084b8a23b68f2758c38205dc8d
+
+- Added invoiceHasActivePaymentRequest() and ask_open response to the public
+  proof endpoint; proof submission is rejected when there is no active request.
+- Tightened current-request matching: a proof without a valid uploaded_at is
+  not silently treated as belonging to a newly opened request.
+- Public proof card now distinguishes the active request from previous proofs.
+  When a new DP request is open, old proofs remain accessible through a
+  separate VIEW history action while the main card can offer Upload.
+- The modal labels each proof as Previous request or Current request.
+- Pending/rejected handling is scoped to the current request cycle.
+- Admin /db payment-state styling uses is-created for a newly active DP request
+  without a confirmed proof in that cycle.
+- Both the worker submit path and the Pages Function submit endpoint enforce
+  active-request and current-cycle validation.
+
+CURRENT PAYMENT-PROOF MODEL
+--------------------------
+- DP Paid / invoice deposit ledger, active Ask DP request, and uploaded proof
+  review status are three related but distinct pieces of state.
+- Reopening Ask DP starts a new request cycle; prior proof history is retained
+  and can still be viewed, rather than being mistaken for the new request.
+- A confirmed proof from the current request is read-only; an older confirmed
+  proof remains viewable as history while a new request can accept a new proof.
+- When no payment request is active, the public upload endpoint must reject
+  new submissions and the client view should not invite an upload.
 
 DATABASE / MIGRATION NOTE
 -------------------------
