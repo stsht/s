@@ -17,6 +17,105 @@ import './g.css';
  * whatever path the worker delivered us; it does NOT regenerate or
  * normalize the short-code so existing links keep working unchanged.
  */
+/**
+ * Public delivery greetings retain the full first/last name while
+ * shortening every middle name to an initial for a cleaner heading.
+ * The stored client name is never modified.
+ */
+function formatDeliveryGreetingName(value = '') {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= 2) return words.join(' ');
+
+  const middleInitials = words.slice(1, -1).map((word) => {
+    const clean = word.replace(/[.]+$/, '');
+    const initial = Array.from(clean || word)[0] || '';
+    return initial ? `${initial.toLocaleUpperCase()}.` : '';
+  }).filter(Boolean);
+
+  return [words[0], ...middleInitials, words[words.length - 1]].join(' ');
+}
+
+/**
+ * Shrink a greeting only when its complete text cannot fit its designed
+ * line width. Measurement uses the browser's resolved font family/weight;
+ * at the minimum size the heading wraps safely rather than overflowing.
+ */
+function useGreetingAutoFit(text, enabled = true) {
+  const headingRef = useRef(null);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const heading = headingRef.current;
+    if (!heading) return undefined;
+
+    let frame = 0;
+    let alive = true;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return undefined;
+
+    const fit = () => {
+      if (!alive) return;
+      const styles = window.getComputedStyle(heading);
+      const availableWidth = Math.max(1, heading.clientWidth);
+      const baseSize = Number(heading.dataset.baseGreetingSize)
+        || Number.parseFloat(styles.fontSize)
+        || 30;
+      const minimumSize = 18;
+      const fontWeight = styles.fontWeight || '500';
+      const fontFamily = styles.fontFamily || 'sans-serif';
+      const letterSpacing = Number.parseFloat(styles.letterSpacing) || 0;
+      const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
+      const characterCount = Array.from(cleanText).length;
+
+      const measure = (size) => {
+        context.font = `${fontWeight} ${size}px ${fontFamily}`;
+        return context.measureText(cleanText).width
+          + Math.max(0, characterCount - 1) * letterSpacing;
+      };
+
+      if (!heading.dataset.baseGreetingSize) {
+        heading.dataset.baseGreetingSize = String(baseSize);
+      }
+      let fittedSize = baseSize;
+      if (measure(baseSize) > availableWidth) {
+        let low = minimumSize;
+        let high = baseSize;
+        for (let iteration = 0; iteration < 12; iteration += 1) {
+          const candidate = (low + high) / 2;
+          if (measure(candidate) <= availableWidth) low = candidate;
+          else high = candidate;
+        }
+        fittedSize = Math.max(minimumSize, low);
+      }
+      heading.style.fontSize = `${fittedSize.toFixed(2)}px`;
+    };
+
+    const scheduleFit = () => {
+      if (!alive) return;
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(fit);
+    };
+
+    scheduleFit();
+    const observer = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(scheduleFit)
+      : null;
+    observer?.observe(heading);
+    window.addEventListener('resize', scheduleFit);
+    if (document.fonts?.ready) document.fonts.ready.then(scheduleFit);
+
+    return () => {
+      alive = false;
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', scheduleFit);
+    };
+  }, [text, enabled]);
+
+  return headingRef;
+}
+
 function deliverySlug() {
   const parts = window.location.pathname.split('/').filter(Boolean);
   if (parts[0]?.toLowerCase() === 'g') return parts[1] || '';
@@ -856,17 +955,16 @@ function GalleryLinks({ payload }) {
   }
 
   const honorific = String(delivery.title || '').trim();
-  // Greeting always includes the honorific when present so the
-  // public copy reads as "Hello, Ms. Amanda" / "Hello, Mr. Billy
-  // Regal". Older rows that were saved without a title fall back
-  // to the bare client name; rows with no name at all keep the
-  // generic placeholder.
-  const greetingPrefix = delivery.clientName
+  const displayClientName = formatDeliveryGreetingName(delivery.clientName);
+  // The public greeting uses a compact display form only; the original
+  // full client name remains untouched in the database and invoice.
+  const greetingPrefix = displayClientName
     ? `Hello, ${honorific ? `${honorific} ` : ''}`
     : '';
-  const heading = delivery.clientName
-    ? `${greetingPrefix}${delivery.clientName}`
+  const heading = displayClientName
+    ? `${greetingPrefix}${displayClientName}`
     : 'Your files are ready';
+  const greetingHeadingRef = useGreetingAutoFit(heading);
   const folderLabel = String(delivery.folderName || '').trim();
 
   // Resolve EVERY service to its stored link. All three services are
@@ -930,11 +1028,11 @@ function GalleryLinks({ payload }) {
           {folderLabel ? <p className="public-delivery-folder">{folderLabel}</p> : null}
         </header>
         <div className="public-delivery-divider" role="presentation" />
-        <h1 className="public-delivery-greeting">
-          {delivery.clientName ? (
+        <h1 ref={greetingHeadingRef} className="public-delivery-greeting">
+          {displayClientName ? (
             <>
               {greetingPrefix}
-              <span className="public-delivery-greeting-name">{delivery.clientName}</span>
+              <span className="public-delivery-greeting-name">{displayClientName}</span>
             </>
           ) : heading}
         </h1>
@@ -1453,6 +1551,16 @@ function GalleryGate() {
   // an empty unlock; once `checking` flips off, the probe has
   // either set `payload` (admin auto-unlock) or left it null
   // (public visitor — gate stays visible and editable).
+  const honorific = String(gateInfo?.title || '').trim();
+  const clientName = formatDeliveryGreetingName(gateInfo?.clientName || '');
+  const greetingPrefix = clientName
+    ? `Hello, ${honorific ? `${honorific} ` : ''}`
+    : '';
+  const greeting = clientName
+    ? `${greetingPrefix}${clientName}`
+    : 'Hello';
+  const greetingHeadingRef = useGreetingAutoFit(greeting, !payload);
+
   if (payload) return <GalleryLinks payload={payload} />;
 
   const gateBusy = busy || checking;
@@ -1464,14 +1572,6 @@ function GalleryGate() {
   // resolve (network error, missing record, dev mode) we fall
   // back to a bare "Hello" — never to the old "Private Delivery"
   // chrome.
-  const honorific = String(gateInfo?.title || '').trim();
-  const clientName = String(gateInfo?.clientName || '').trim();
-  const greetingPrefix = clientName
-    ? `Hello, ${honorific ? `${honorific} ` : ''}`
-    : '';
-  const greeting = clientName
-    ? `${greetingPrefix}${clientName}`
-    : 'Hello';
 
   return (
     <main
@@ -1514,7 +1614,7 @@ function GalleryGate() {
           <source media="(prefers-color-scheme: dark)" srcSet="/logo-hero-white.png" />
           <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
-        <h1>
+        <h1 ref={greetingHeadingRef} className="client-delivery-greeting">
           {clientName ? (
             <>
               {greetingPrefix}

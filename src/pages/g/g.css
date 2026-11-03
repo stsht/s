@@ -79,9 +79,23 @@
 .public-delivery-folder{margin:0;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-align:center}
 .public-delivery-divider{height:1px;margin:0 0 22px;background:linear-gradient(90deg,transparent 0%,rgba(17,17,17,.065) 14%,rgba(17,17,17,.105) 50%,rgba(17,17,17,.065) 86%,transparent 100%);border:0}
 .public-delivery-kicker{margin:0 0 12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
-.public-delivery-greeting,.public-delivery-card h1{margin:0;color:var(--ink);font-family:var(--font),sans-serif;font-size:clamp(24px,3.1vw,30px);font-weight:500;line-height:1.22;letter-spacing:-.02em;text-align:center}
+.public-delivery-greeting,.public-delivery-card h1,.gate-page .gate-card h1.client-delivery-greeting{
+  width:min(100%,360px);
+  max-width:360px;
+  margin:0 auto;
+  padding-inline:2px;
+  color:var(--ink);
+  font-family:var(--font),sans-serif;
+  font-size:clamp(24px,3.1vw,30px);
+  font-weight:500;
+  line-height:1.22;
+  letter-spacing:-.02em;
+  text-align:center;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
 /* Keep greetings sleek and let the personalized name carry one restrained accent. */
-.gate-page .gate-card h1{font-family:var(--font),sans-serif;font-size:clamp(24px,3.1vw,30px);font-weight:500;line-height:1.22;letter-spacing:-.02em}
 .public-delivery-greeting-name,.gate-greeting-name{
   color:var(--ink);
   animation:client-greeting-name-burst 1000ms cubic-bezier(.22,.61,.36,1) 500ms both;
