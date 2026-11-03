@@ -23,7 +23,7 @@ import './g.css';
  * The stored client name is never modified.
  */
 function formatDeliveryGreetingName(value = '') {
-  const words = String(value || '').trim().split(/\\s+/).filter(Boolean);
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
   if (words.length <= 2) return words.join(' ');
 
   const middleInitials = words.slice(1, -1).map((word) => {
@@ -40,10 +40,11 @@ function formatDeliveryGreetingName(value = '') {
  * line width. Measurement uses the browser's resolved font family/weight;
  * at the minimum size the heading wraps safely rather than overflowing.
  */
-function useGreetingAutoFit(text) {
+function useGreetingAutoFit(text, enabled = true) {
   const headingRef = useRef(null);
 
   useEffect(() => {
+    if (!enabled) return undefined;
     const heading = headingRef.current;
     if (!heading) return undefined;
 
@@ -110,7 +111,7 @@ function useGreetingAutoFit(text) {
       observer?.disconnect();
       window.removeEventListener('resize', scheduleFit);
     };
-  }, [text]);
+  }, [text, enabled]);
 
   return headingRef;
 }
@@ -1558,7 +1559,7 @@ function GalleryGate() {
   const greeting = clientName
     ? `${greetingPrefix}${clientName}`
     : 'Hello';
-  const greetingHeadingRef = useGreetingAutoFit(greeting);
+  const greetingHeadingRef = useGreetingAutoFit(greeting, !payload);
 
   if (payload) return <GalleryLinks payload={payload} />;
 
