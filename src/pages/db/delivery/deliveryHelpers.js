@@ -342,32 +342,72 @@ function accessLogVisitorKey(log = {}) {
   return `${ip}|${device}`;
 }
 
+// Meta link-preview fetches can fan out across several Meta IPs/regions
+// immediately after the same WhatsApp/Instagram share. Keep the detector
+// conservative: a genuine in-app browser is never folded into this group.
+function isMetaPreviewLog(log = {}) {
+  const ua = String(log.user_agent || '');
+  if (isRealInAppBrowser(ua)) return false;
+  const crawler = crawlerUserAgentLabel(ua);
+  return classifyAccessNetwork(log).key === 'meta'
+    || crawler === 'Meta preview'
+    || crawler === 'WhatsApp preview';
+}
+
+function makeAccessLogVisitor(group) {
+  const events = [...group.logs].sort(
+    (a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at)
+  );
+  const first = events[0] || {};
+  const last = events[events.length - 1] || {};
+  return {
+    key: group.key,
+    ip: group.ip || String(first.ip_address || '').trim(),
+    events,
+    first,
+    last,
+    place: accessLogPlace(first) || accessLogPlace(last),
+    device: accessLogDevice(first.user_agent) || accessLogDevice(last.user_agent),
+    isp: accessLogIsp(first) || accessLogIsp(last),
+  };
+}
+
 export function groupAccessLogsByVisitor(logs = []) {
   const groups = new Map();
+  const metaPreviews = [];
   for (const log of Array.isArray(logs) ? logs : []) {
+    if (isMetaPreviewLog(log)) {
+      metaPreviews.push(log);
+      continue;
+    }
     const key = accessLogVisitorKey(log);
     if (!groups.has(key)) {
       groups.set(key, { key, ip: String(log.ip_address || '').trim(), logs: [] });
     }
     groups.get(key).logs.push(log);
   }
-  const visitors = [...groups.values()].map((group) => {
-    const events = [...group.logs].sort(
-      (a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at)
-    );
-    const first = events[0] || {};
-    const last = events[events.length - 1] || {};
-    return {
-      key: group.key,
-      ip: group.ip,
-      events,
-      first,
-      last,
-      place: accessLogPlace(first) || accessLogPlace(last),
-      device: accessLogDevice(first.user_agent) || accessLogDevice(last.user_agent),
-      isp: accessLogIsp(first) || accessLogIsp(last),
-    };
-  });
+
+  // Merge Meta Preview scanner hits into one card when they belong to the
+  // same 60-second burst. Use a fixed window from the first hit (not a
+  // rolling window) so a long chain of scans cannot merge indefinitely.
+  metaPreviews.sort((a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at));
+  let burst = null;
+  for (const log of metaPreviews) {
+    const timestamp = accessLogTimeValue(log.created_at);
+    if (!timestamp) {
+      const key = `meta-preview:unknown:${groups.size}`;
+      groups.set(key, { key, ip: String(log.ip_address || '').trim(), logs: [log] });
+      continue;
+    }
+    if (!burst || timestamp - burst.startedAt > 60_000) {
+      const key = `meta-preview:${timestamp}`;
+      burst = { key, startedAt: timestamp, ip: String(log.ip_address || '').trim(), logs: [] };
+      groups.set(key, burst);
+    }
+    burst.logs.push(log);
+  }
+
+  const visitors = [...groups.values()].map(makeAccessLogVisitor);
   visitors.sort((a, b) => accessLogTimeValue(b.last.created_at) - accessLogTimeValue(a.last.created_at));
   return visitors;
 }
