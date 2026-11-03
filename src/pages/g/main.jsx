@@ -64,7 +64,7 @@ function useGreetingAutoFit(text) {
       const fontWeight = styles.fontWeight || '500';
       const fontFamily = styles.fontFamily || 'sans-serif';
       const letterSpacing = Number.parseFloat(styles.letterSpacing) || 0;
-      const cleanText = String(text || '').replace(/\\s+/g, ' ').trim();
+      const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
       const characterCount = Array.from(cleanText).length;
 
       const measure = (size) => {
@@ -91,6 +91,7 @@ function useGreetingAutoFit(text) {
     };
 
     const scheduleFit = () => {
+      if (!alive) return;
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(fit);
     };
@@ -1549,6 +1550,16 @@ function GalleryGate() {
   // an empty unlock; once `checking` flips off, the probe has
   // either set `payload` (admin auto-unlock) or left it null
   // (public visitor — gate stays visible and editable).
+  const honorific = String(gateInfo?.title || '').trim();
+  const clientName = formatDeliveryGreetingName(gateInfo?.clientName || '');
+  const greetingPrefix = clientName
+    ? `Hello, ${honorific ? `${honorific} ` : ''}`
+    : '';
+  const greeting = clientName
+    ? `${greetingPrefix}${clientName}`
+    : 'Hello';
+  const greetingHeadingRef = useGreetingAutoFit(greeting);
+
   if (payload) return <GalleryLinks payload={payload} />;
 
   const gateBusy = busy || checking;
@@ -1560,15 +1571,6 @@ function GalleryGate() {
   // resolve (network error, missing record, dev mode) we fall
   // back to a bare "Hello" — never to the old "Private Delivery"
   // chrome.
-  const honorific = String(gateInfo?.title || '').trim();
-  const clientName = formatDeliveryGreetingName(gateInfo?.clientName || '');
-  const greetingPrefix = clientName
-    ? `Hello, ${honorific ? `${honorific} ` : ''}`
-    : '';
-  const greeting = clientName
-    ? `${greetingPrefix}${clientName}`
-    : 'Hello';
-  const greetingHeadingRef = useGreetingAutoFit(greeting);
 
   return (
     <main
