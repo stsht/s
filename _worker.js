@@ -4939,10 +4939,13 @@ export default {
         assetUrl.pathname = '/db/';
         return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
+      // /g is an internal asset mount for the delivery SPA, not a
+      // public landing page. Delivery links have one canonical public
+      // entry point: /<short_code>.
       if (request.method === 'GET' && ['/g', '/g/', '/g/index.html'].includes(url.pathname)) {
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/g/';
-        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
+        return withFreshHtmlHeaders(
+          new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+        );
       }
       if (request.method === 'POST' && url.pathname === '/api/admin-check') return await handleAdminCheck(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-save') return await handleInvoiceSave(request, env);
@@ -5005,31 +5008,33 @@ export default {
       if (request.method === 'GET' && galleryMatch) {
         const limited = enforceRateLimit(request, 'gallery-slug', { limit: 60, windowMs: 60 * 1000, blockMs: 10 * 60 * 1000 }, false);
         if (limited) return limited;
-        const slug = normalizeGalleryCode(decodeURIComponent(galleryMatch[1])) || cleanSlug(galleryMatch[1]);
-        if (slug && cleanSlug(galleryMatch[1]) !== slug) return Response.redirect(`${url.origin}/g/${slug}`, 302);
-        const delivery = await getLatestDeliveryBySlug(env, slug);
+        const raw = decodeURIComponent(galleryMatch[1]);
+        const shortCode = cleanShortCode(raw);
+        const delivery = shortCode
+          ? await getDeliveryByShortCode(env, shortCode)
+          : await getLatestDeliveryBySlug(env, normalizeGalleryCode(raw) || cleanSlug(raw));
         if (shouldBlockFolderSlug(delivery)) {
-          // Blocked-folder slugs (folders the admin marked
-          // not-public) get a generic 404. Indistinguishable from a
-          // slug that simply does not exist — an attacker can't tell
-          // "blocked" from "never existed".
+          // Keep the existing privacy rule for admin-only folder slugs.
           return withFreshHtmlHeaders(
             new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
           );
         }
-        if (delivery) {
-          const adminView = await verifyAdminSessionCookie(request, env);
-          await insertLog(env, request, delivery.id, adminView ? 'admin_page_view' : 'page_view');
-        }
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/g/';
-        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
+        const canonicalCode = delivery ? explicitShortCode(delivery) : '';
+        if (canonicalCode) return Response.redirect(`${url.origin}/${canonicalCode}`, 301);
+        return withFreshHtmlHeaders(
+          new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+        );
       }
 
       const oldDeliveryMatch = url.pathname.match(/^\/l\/([^/]+)\/?$/i);
       if (request.method === 'GET' && oldDeliveryMatch) {
-        const slug = normalizeGalleryCode(decodeURIComponent(oldDeliveryMatch[1])) || cleanSlug(oldDeliveryMatch[1]);
-        return Response.redirect(`${url.origin}/g/${slug}`, 302);
+        const raw = decodeURIComponent(oldDeliveryMatch[1]);
+        const delivery = await getLatestDeliveryBySlug(env, normalizeGalleryCode(raw) || cleanSlug(raw));
+        const canonicalCode = delivery ? explicitShortCode(delivery) : '';
+        if (canonicalCode) return Response.redirect(`${url.origin}/${canonicalCode}`, 301);
+        return withFreshHtmlHeaders(
+          new Response(notFoundPage(url.pathname), { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+        );
       }
     } catch (error) {
       if (url.pathname.startsWith('/api/')) {

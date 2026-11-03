@@ -140,11 +140,7 @@
 .ss-gate-card .ss-gate-eyebrow .dot,
 .ss-gate-card .gate-eyebrow .dot,
 .ss-gate-card .eyebrow .dot{
-  width:5px!important;
-  height:5px!important;
-  border-radius:50%!important;
-  background:var(--ss-gate-gold)!important;
-  box-shadow:0 0 0 3px rgba(138, 180, 248, 0.22)!important;
+  display:none!important;
 }
 
 .ss-gate-card .ss-gate-eyebrow .rule,
