@@ -121,6 +121,7 @@
   overflow-wrap:anywhere;
   word-break:normal;
 }
+.gate-page .gate-card .client-delivery-greeting-text{display:block;width:100%}
 /* Keep greetings sleek and let the personalized name carry one restrained accent. */
 .public-delivery-greeting-name,.gate-greeting-name{
   color:var(--ink);
