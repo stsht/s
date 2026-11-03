@@ -95,6 +95,7 @@
   overflow-wrap:anywhere;
   word-break:normal;
 }
+.gate-page .gate-card h1.client-delivery-greeting{margin-bottom:28px}
 /* Keep greetings sleek and let the personalized name carry one restrained accent. */
 .public-delivery-greeting-name,.gate-greeting-name{
   color:var(--ink);
@@ -183,6 +184,7 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
   .public-delivery-divider{margin:0 0 18px}
   .public-delivery-greeting,.public-delivery-card h1{text-align:center;font-size:clamp(23px,5.6vw,27px);line-height:1.22}
   .gate-page .gate-card h1{font-size:clamp(23px,5.6vw,27px);line-height:1.22}
+  .gate-page .gate-card h1.client-delivery-greeting{margin-bottom:22px}
   .public-delivery-subcopy{text-align:center;margin:12px 0 20px}
   .public-delivery-row{grid-template-columns:40px minmax(0,1fr) auto;gap:12px;min-height:60px;padding:10px 14px}
   .public-delivery-icon{width:32px;height:32px;border-radius:10px;font-size:10px}
