@@ -1615,12 +1615,14 @@ function GalleryGate() {
           <img className="gate-logo" src="/logo-hero.png" alt="StarShots" />
         </picture>
         <h1 ref={greetingHeadingRef} className="client-delivery-greeting">
-          {clientName ? (
-            <>
-              {greetingPrefix}
-              <span className="gate-greeting-name">{clientName}</span>
-            </>
-          ) : greeting}
+          <span className="client-delivery-greeting-text">
+            {clientName ? (
+              <>
+                {greetingPrefix}
+                <span className="gate-greeting-name">{clientName}</span>
+              </>
+            ) : greeting}
+          </span>
         </h1>
         <label htmlFor="galleryPassword">Access key</label>
         <div className="gate-input">
