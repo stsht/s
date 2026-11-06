@@ -3,3 +3,15 @@ dist/
 .wrangler/
 .tmp/
 screenshots/
+
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
