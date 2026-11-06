@@ -6,6 +6,12 @@ Production site: https://sshots.pages.dev
 Latest merged PR: #169 — https://github.com/stsht/s/pull/169
 Latest merge commit: 87744ae1016de9084b8a23b68f2758c38205dc8d
 
+ARCHIVE NOTE
+------------
+This is a historical snapshot dated 2026-10-29, not a live deployment check
+or a statement of the current main-branch state. For current behavior, inspect
+current source and verify Cloudflare/Supabase independently.
+
 PURPOSE
 -------
 Consolidates the previously recorded StarShots checkpoint state with the
@@ -24,12 +30,10 @@ CHECKPOINT CONTINUITY — PREVIOUS WORK
 - PR #164: Client Hub attempt closed without merge. Client Hub is NOT
   implemented. Existing buildClientRecords() grouping/sorting exists, but
   client Hub credentials/session/schema work remains separate future work.
-- Existing design checkpoint:
-  notes/STARSHOTS-DESIGN-CHECKPOINT-2026-10-25-v4.txt
-- Existing backup references from earlier checkpoint:
-  backups/2026-10-24/g-editorial-v1.css
-  backups/2026-10-24/payment-proof-inject-v1.js
-  backups/2026-10-24/g-index-v1.html
+- Related design reference: `docs/archive/2026-10-25-design-checkpoint.md`.
+- Temporary working-tree snapshots from earlier design work are no longer
+  kept in the active tree. Their previous Git objects remain recoverable from
+  repository history and the original pull requests.
 
 PAYMENT-PROOF WORK ALREADY MERGED
 ---------------------------------
@@ -174,5 +178,5 @@ SCOPE GUARDRAILS
 - Do not mix Client Hub work into this payment/deposit fix.
 - Do not claim that the SQL migration was applied merely because it is tracked
   in the repository.
-- Preserve the existing CP2/design checkpoint history rather than overwriting
-  the earlier dated checkpoint artifact.
+- Keep this file as a dated historical record. Record current operating
+  guidance in `README.md` or a new checkpoint instead of rewriting past status.

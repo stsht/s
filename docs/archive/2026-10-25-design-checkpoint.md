@@ -18,13 +18,15 @@ DESIGN DECISIONS
 FILES CHANGED
 - src/pages/g/g.css — typography and keyframes/reduced-motion rule.
 - src/pages/g/main.jsx — wraps only the existing personalized name in a styled span; displayed greeting text is unchanged.
-- backups/2026-10-25/g-css-before-greeting-motion-v1.css — exact CSS snapshot before this iteration.
-- backups/2026-10-25/g-main-before-greeting-motion-v1.jsx — exact JSX snapshot before this iteration.
-- notes/STARSHOTS-DESIGN-CHECKPOINT-2026-10-25-v4.txt — this checkpoint.
+- The pre-change CSS/JSX snapshots were temporary working-tree files. They
+  have since been removed from the active tree; their Git objects remain
+  recoverable from repository history.
+- `docs/archive/2026-10-25-design-checkpoint.md` — this checkpoint.
 
 SAFETY / VALIDATION
 - Intent is styling only: no route, password/session/API, payment, invoice, upload, or delivery-link logic was intentionally changed.
 - JSX greeting strings are preserved; only personalized name text is wrapped for styling.
 - Source-level checks performed for exact replacement targets, single occurrences, balanced CSS braces, and presence of reduced-motion handling.
-- Version B timing experiment: 500ms initial pause, then a vivid blue burst that softens by 700ms overall and eases back to normal by 1500ms overall. Existing pre-change CSS/JSX snapshots remain available; no new backup was needed.
+- Version B timing experiment: 500ms initial pause, then a vivid blue burst that softens by 700ms overall and eases back to normal by 1500ms overall. Pre-change CSS/JSX snapshots are recoverable from Git history; they are not
+kept as duplicate working-tree files.
 - A build, browser visual test, and live Cloudflare Pages deployment check have NOT yet been run. Review the branch preview in both light/dark modes before merging/deploying.
