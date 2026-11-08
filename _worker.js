@@ -31,7 +31,6 @@ const GALLERY_SESSION_COOKIE = 'ss_gallery_session';
 const GALLERY_SESSION_MS = 2 * 60 * 60 * 1000;
 const GALLERY_HASH_ALGO = 'pbkdf2_sha256';
 const GALLERY_HASH_ITERATIONS = 100000;
-const IP_INFO_CACHE = new Map();
 const RATE_LIMITS = new Map();
 let lastRateLimitSweep = 0;
 const PUBLIC_PAYMENT_PROOF_MAX_IMAGES = 3;
@@ -403,38 +402,7 @@ function galleryCodeFromSlug(slug) {
   return `${parts[0]} ${titleCaseName(parts.slice(1).join(' '))}`.trim();
 }
 
-function legacyShortCodeFrom(baseSlug, password = '', clientName = '') {
-  const input = `${cleanSlug(baseSlug)}|${String(password || '').trim()}|${String(clientName || '').trim().toLowerCase()}`;
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  }
-  const alphabet = '23456789abcdefghjkmnpqrstuvwxyz';
-  let n = hash || 1;
-  let code = '';
-  for (let i = 0; i < 7; i += 1) {
-    code += alphabet[n % alphabet.length];
-    n = (Math.floor(n / alphabet.length) ^ Math.imul(i + 17, 2654435761)) >>> 0;
-  }
-  return code;
-}
 
-function seededShortCodeFrom(seed, baseSlug, password = '', clientName = '', deliveryId = '') {
-  const input = `${String(seed || '').trim()}|${String(deliveryId || '').trim()}|${cleanSlug(baseSlug)}|${String(password || '').trim()}|${String(clientName || '').trim().toLowerCase()}`;
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 16777619) >>> 0;
-  }
-  let n = hash || 1;
-  let code = '';
-  for (let i = 0; i < 7; i += 1) {
-    code += SHORT_ALPHABET[n % SHORT_ALPHABET.length];
-    n = (Math.floor(n / SHORT_ALPHABET.length) ^ Math.imul(i + 23, 2654435761)) >>> 0;
-  }
-  return code;
-}
 
 
 
@@ -992,56 +960,8 @@ function recordFailure(request, scope, rule = {}) {
   RATE_LIMITS.set(key, item);
 }
 
-function cleanIspName(value = '') {
-  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 80);
-}
 
-async function lookupIpIsp(ip) {
-  const cleanIp = String(ip || '').trim();
-  if (!cleanIp) return '';
 
-  const cached = IP_INFO_CACHE.get(cleanIp);
-  if (cached && cached.expiresAt > Date.now()) return cached.isp;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 1200);
-  let isp = '';
-  try {
-    const response = await fetch(`https://ipwho.is/${encodeURIComponent(cleanIp)}?fields=success,connection`, {
-      signal: controller.signal
-    });
-    if (response.ok) {
-      const data = await response.json();
-      if (data?.success !== false) {
-        isp = cleanIspName(data?.connection?.isp || data?.connection?.org || data?.connection?.domain || '');
-      }
-    }
-  } catch (error) {
-    isp = '';
-  } finally {
-    clearTimeout(timer);
-  }
-
-  IP_INFO_CACHE.set(cleanIp, { isp, expiresAt: Date.now() + 6 * 60 * 60 * 1000 });
-  return isp;
-}
-
-// IP/ISP enrichment helper. No longer called by /api/db (the
-// dashboard payload now skips this enrichment to keep first-paint
-// fast — see the comment block in handleDbSearch). Kept here so a
-// future per-delivery details endpoint can lazy-load ISP lookups
-// for an expanded log view without re-deriving the cache /
-// timeout / fan-out cap.
-async function enrichLogsWithIpInfo(logs = []) {
-  if (!Array.isArray(logs) || !logs.length) return [];
-  const ips = [...new Set(logs.map((log) => String(log.ip_address || '').trim()).filter(Boolean))].slice(0, 40);
-  const entries = await Promise.all(ips.map(async (ip) => [ip, await lookupIpIsp(ip)]));
-  const ispByIp = new Map(entries);
-  return logs.map((log) => ({
-    ...log,
-    isp: ispByIp.get(String(log.ip_address || '').trim()) || ''
-  }));
-}
 
 async function insertLog(env, request, deliveryId, eventType, service = null) {
   if (!deliveryId || !eventType) return;
@@ -1158,9 +1078,6 @@ function invoiceRecordType(invoice = {}) {
   return type === 'vendor' ? 'vendor' : 'client';
 }
 
-function isClientInvoiceRecord(invoice = {}) {
-  return invoiceRecordType(invoice) !== 'vendor';
-}
 
 function deliveryInvoiceAudience(delivery = {}, exactRows = []) {
   const explicit = String(delivery.type || '').trim().toLowerCase();
@@ -1606,52 +1523,6 @@ function animateAssets() {
     <script src="/gate.js"></script>`;
 }
 
-// Tiny fallback shim. Runs ONLY if /animate.js failed to load. It must
-// never write style.transitionDelay or otherwise fight the page's own
-// intro staging — that mid-flight mutation was the iOS Safari bug.
-function mobileSafeRevealScript() {
-  return `
-    (() => {
-      if (window.StarShotsReveal) return;
-      const scopeFor = (root) => (root && root.querySelectorAll ? root : document);
-      const collect = (root) => {
-        const scope = scopeFor(root);
-        const sel = '[data-reveal],.reveal';
-        const out = [];
-        if (scope.matches && scope.matches(sel)) out.push(scope);
-        scope.querySelectorAll(sel).forEach((el) => out.push(el));
-        return out;
-      };
-      const show = (el) => { if (el) el.classList.add('is-visible'); };
-      const start = (root) => collect(root).forEach(show);
-      const reset = (root) => collect(root).forEach((el) => el.classList.remove('is-visible'));
-      const mount = (card) => {
-        if (!card || card.classList.contains('is-mounted')) return;
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(() => requestAnimationFrame(() => card.classList.add('is-mounted')));
-        } else {
-          card.classList.add('is-mounted');
-        }
-      };
-      const bounceLogos = (root) => {
-        scopeFor(root).querySelectorAll('.ss-logo-hero').forEach((logo) => {
-          logo.classList.remove('ss-bounce-in');
-          void logo.offsetWidth;
-          logo.classList.add('ss-bounce-in');
-        });
-      };
-      window.StarShotsReveal = { start, reset, show, mount, bounceLogos, intro: () => {} };
-
-      const boot = () => { bounceLogos(document); start(document); };
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot, { once: true });
-      } else {
-        boot();
-      }
-      window.addEventListener('pageshow', (e) => { if (e.persisted) bounceLogos(document); });
-    })();
-  `;
-}
 
 async function handleAdminCheck(request, env) {
   const body = await request.json().catch(() => ({}));
