@@ -2,7 +2,7 @@
 
 A multi-page web workspace for StarShots operations, client delivery, and supporting tools.
 
-The project is built as a Vite multi-page application and deployed to Cloudflare Pages. React powers the application surfaces; a Cloudflare Pages Worker and Pages Functions handle server-side routes and integrations.
+The project is built as a Vite multi-page application and deployed to Cloudflare Pages. React powers the application surfaces; a custom Cloudflare Pages Worker (`_worker.js`) handles server-side routes and integrations.
 
 ## Application surfaces
 
@@ -23,7 +23,7 @@ The first five routes are the core StarShots operations surfaces. `/t` and `/eng
 - **UI:** React 19
 - **Build:** Vite 6 (multi-page inputs are declared in `vite.config.js`)
 - **Hosting and server runtime:** Cloudflare Pages, Wrangler, and the root `_worker.js`
-- **Serverless endpoints:** Cloudflare Pages Functions in `functions/api/`
+- **Serverless endpoints:** the root `_worker.js` (Cloudflare Pages advanced mode); it handles every `/api/*` route
 - **Data and file storage:** Supabase REST API and Storage
 - **Optional receipt parsing:** Cloudflare Workers AI binding, with an OpenAI fallback when configured
 
@@ -34,7 +34,6 @@ The first five routes are the core StarShots operations surfaces. `/t` and `/eng
 | `src/pages/` | React entry points and page-specific UI |
 | `src/components/` | Shared React components |
 | `src/features/` | Domain-specific features |
-| `functions/api/` | Cloudflare Pages Function endpoints |
 | `_worker.js` | Custom Cloudflare Pages Worker and API routing |
 | `db/`, `g/`, `l/`, `inv/`, `subs/`, `t/`, `eng/` | HTML entry points for the multi-page build |
 | `scripts/copy-static.mjs` | Copies required root-level static assets and the Worker into `dist/` |
