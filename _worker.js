@@ -3269,6 +3269,7 @@ async function handleInvoiceSave(request, env) {
 }
 
 async function handleInvoiceGet(request, env) {
+  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
   const url = new URL(request.url);
   const id = String(url.searchParams.get('id') || '').trim();
   if (!id) return json({ error: 'Missing invoice id.' }, 400);
@@ -3956,6 +3957,7 @@ async function handleSubscriptionSave(request, env) {
 }
 
 async function handleSubscriptionGet(request, env) {
+  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
   const url = new URL(request.url);
   const id = String(url.searchParams.get('id') || '').trim();
   if (!id) return json({ error: 'Missing subscription id.' }, 400);
@@ -4088,6 +4090,7 @@ function normalizeSubscriptionExtensionPayload(raw = {}) {
 }
 
 async function handleSubscriptionExtensionsGet(request, env) {
+  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
   const url = new URL(request.url);
   const subscriptionId = String(url.searchParams.get('subscription_id') || '').trim();
   if (!subscriptionId) return json({ error: 'Missing subscription_id.' }, 400);
