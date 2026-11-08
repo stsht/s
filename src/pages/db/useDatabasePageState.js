@@ -20,11 +20,24 @@ import { createDatabasePageActions } from './databasePageActions.js';
 export function useDatabasePageState() {
   const [tab, setTab] = useState('clients');
   const [query, setQuery] = useState('');
+  // `query` drives the input and the local Activity filter, so it
+  // stays instant. The /api/db request is built from `debouncedQuery`
+  // instead, so typing one word sends one request rather than one
+  // per keystroke. Clearing the box applies immediately.
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selected, setSelected] = useState(null);
   const [draft, setDraft] = useState({ title: 'Ms.', name: '', contact: '' });
   const [saveStatus, setSaveStatus] = useState('');
   const [mobileView, setMobileView] = useState('left');
-  const endpoint = `/api/db${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ''}`;
+  useEffect(() => {
+    if (!query.trim()) {
+      setDebouncedQuery('');
+      return undefined;
+    }
+    const timer = setTimeout(() => setDebouncedQuery(query), 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+  const endpoint = `/api/db${debouncedQuery.trim() ? `?q=${encodeURIComponent(debouncedQuery.trim())}` : ''}`;
   const { data, status, refetch, refresh } = useRemoteList(endpoint);
   const rawClients = data?.clients || [];
   const invoices = data?.invoices || [];
