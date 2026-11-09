@@ -98,3 +98,44 @@ export function folderCodeFromEventDate(value) {
   if (slash) return slash[3].slice(2) + slash[2].padStart(2, '0') + slash[1].padStart(2, '0');
   return '';
 }
+
+// Reverse of folderCodeFromEventDate: the YYMMDD (or YYYYMMDD) code that
+// starts a folder name becomes a YYYY-MM-DD event date, e.g.
+// "261110 Silvia" -> "2026-11-10". The code must be the first word and be a
+// real calendar date; anything else returns '' so a typo never becomes a date.
+export function eventDateFromFolderName(value) {
+  const match = cleanLinkText(value).match(/^(\d{6}|\d{8})(?=\s|$)/);
+  if (!match) return '';
+  const code = match[1].length === 8 ? match[1].slice(2) : match[1];
+  const year = 2000 + Number(code.slice(0, 2));
+  const month = Number(code.slice(2, 4));
+  const day = Number(code.slice(4, 6));
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) return '';
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+// True when the folder's first word looks like a date code (6 or 8 digits)
+// but is not a real calendar date, e.g. "261340 Silvia" (month 13). Folders
+// with no date code at all are not flagged; they keep today's behaviour.
+export function hasInvalidFolderDate(value) {
+  const looksLikeCode = /^(\d{6}|\d{8})(?=\s|$)/.test(cleanLinkText(value));
+  return looksLikeCode && !eventDateFromFolderName(value);
+}
+
+// Decides the Event Date once a folder name is entered. `source` says where
+// the current date came from: '' (empty), 'auto' (filled from the folder
+// earlier), 'manual' (picked or cleared by the operator) or 'locked' (handed
+// off from /db or /inv, or the standalone default). Only '' and 'auto' may be
+// filled or refreshed from the folder, so a chosen date is never overwritten.
+export function resolveAutoEventDate({ source, current, folder }) {
+  if (source === 'manual' || source === 'locked') return { value: current, source };
+  const derived = eventDateFromFolderName(folder);
+  if (derived) return { value: derived, source: 'auto' };
+  if (source === 'auto') return { value: '', source: '' };
+  return { value: current, source };
+}
