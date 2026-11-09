@@ -495,12 +495,6 @@ function deliveryShortCode(delivery = {}) {
   return cleanShortCode(delivery.short_code);
 }
 
-function deliveryMatchesShortCode(delivery, target, env) {
-  const code = cleanShortCode(target);
-  if (!code) return false;
-  return deliveryShortCode(delivery) === code;
-}
-
 async function uniqueShortCode(env, context = {}) {
   for (let i = 0; i < 10; i += 1) {
     const candidate = await contextCode('short-code', SHORT_CODE_LENGTH, context, String(i));
@@ -659,12 +653,9 @@ async function getDeliveryByShortCode(env, code) {
   } catch (error) {
     if (!isSchemaError(error)) throw error;
   }
-  const rows = await supabaseFetch(
-    env,
-    '/rest/v1/deliveries?select=*&order=created_at.desc&limit=1000'
-  );
-  const deliveries = Array.isArray(rows) ? rows : [];
-  return deliveries.find((d) => deliveryMatchesShortCode(d, target, env)) || null;
+  // No broader fallback scan: every delivery row has a normalized short_code
+  // (checked against the live database), so a miss means the code is unknown.
+  return null;
 }
 
 async function getDeliveryById(env, id) {
