@@ -12,6 +12,8 @@ import {
   normalizeLinkUrl,
   normalizeInvoiceTitleValue,
   folderCodeFromEventDate,
+  resolveAutoEventDate,
+  hasInvalidFolderDate,
 } from './linkHelpers.js';
 import {
   buildBaseSlug,
@@ -137,6 +139,12 @@ export function LinkGeneratorPage() {
   // explicit event_date column lets /db group by date even when
   // the folder name doesn't carry the YYMMDD prefix.
   const [eventDateHandoff, setEventDateHandoff] = useState('');
+  // Where the Event Date came from, so the folder name's YYMMDD may fill it
+  // only when it is empty or was auto-filled: '' | 'auto' | 'manual' | 'locked'.
+  const dateSourceRef = useRef('');
+  // Folder name an existing event arrived with. It is never blocked by the
+  // folder-date check below, so old events with an odd folder can still be edited.
+  const initialFolderRef = useRef('');
   const [mobileView, setMobileView] = useState('left');
   // Visual flash on the clickable preview cards / textarea so
   // operators get tactile feedback after a copy or open action.
@@ -156,6 +164,7 @@ export function LinkGeneratorPage() {
     // handoff (including a deliberate TBA / empty date) always wins.
     if (!handoff || !handoffName) {
       setEventDateHandoff((current) => current || jakartaTodayISO());
+      dateSourceRef.current = 'locked';
       return;
     }
     const handoffType = String(handoff.type || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
@@ -179,6 +188,10 @@ export function LinkGeneratorPage() {
     if (handoffEventKey) setEventKey(handoffEventKey);
     const handoffEventDate = String(handoff.eventDate || '').trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(handoffEventDate)) setEventDateHandoff(handoffEventDate);
+    // A handed-off date, or an existing event (it already has a folder name),
+    // keeps its date as is. Only a brand-new event may take it from the folder.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(handoffEventDate) || handoff.folderName) dateSourceRef.current = 'locked';
+    if (handoff.folderName) initialFolderRef.current = normalizeFolderName(handoff.folderName);
     setClientName((current) => (current.trim() ? current : handoffName));
     setFolderName((current) => {
       if (current.trim()) return current;
@@ -265,9 +278,19 @@ export function LinkGeneratorPage() {
     markDirty();
   }
 
+  // Fill (or refresh) the Event Date from the folder name's YYMMDD when the
+  // operator has not chosen a date. Returns the date to use.
+  function applyAutoEventDate(folder) {
+    const next = resolveAutoEventDate({ source: dateSourceRef.current, current: eventDateHandoff, folder });
+    dateSourceRef.current = next.source;
+    if (next.value !== eventDateHandoff) setEventDateHandoff(next.value);
+    return next.value;
+  }
+
   function handleFolderNameBlur(event) {
     const next = normalizeFolderName(event.target.value);
     if (next !== event.target.value) setFolderName(next);
+    applyAutoEventDate(next);
     markDirty();
   }
 
@@ -292,6 +315,13 @@ export function LinkGeneratorPage() {
       setStatus({ text: 'Please use folder name starting with YYMMDD + name.', tone: 'error' });
       return;
     }
+
+    if (info.folder !== initialFolderRef.current && hasInvalidFolderDate(info.folder)) {
+      setStatus({ text: 'Folder date is not a real date. Please use YYMMDD, for example 261110.', tone: 'error' });
+      return;
+    }
+
+    const eventDateToSend = applyAutoEventDate(info.folder);
 
     const links = LINK_SERVICES
       .map((service) => ({
@@ -345,7 +375,7 @@ export function LinkGeneratorPage() {
           // empty and falls back to the legacy schema-tolerant
           // insert when the columns don't exist yet.
           eventKey,
-          eventDate: eventDateHandoff,
+          eventDate: eventDateToSend,
           links,
         }),
       });
@@ -419,6 +449,7 @@ export function LinkGeneratorPage() {
     setLinkedClientId('');
     setEventKey('');
     setEventDateHandoff('');
+    dateSourceRef.current = '';
     setSaved(null);
     setStatus({ text: '', tone: '' });
     setMobileView('left');
@@ -533,6 +564,7 @@ export function LinkGeneratorPage() {
             // the worker writes it to deliveries.event_date when
             // non-empty and skips the column when empty so the row
             // remains TBA-grouped.
+            dateSourceRef.current = 'manual';
             setEventDateHandoff(value);
             markDirty();
           }}
