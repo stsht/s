@@ -701,6 +701,12 @@ function cleanText(value = '', max = 240) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+function titleCaseClientName(value = '') {
+  return cleanText(value, 160)
+    .toLowerCase()
+    .replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_, separator, letter) => separator + letter.toUpperCase());
+}
+
 function normalizeClientName(value = '') {
   return cleanText(value, 160)
     .normalize('NFKD')
@@ -725,7 +731,7 @@ function cleanClientTitle(value = '') {
 }
 
 function cleanClientPayload(raw = {}) {
-  const name = cleanText(raw.name ?? raw.client_name ?? raw.clientName, 160);
+  const name = titleCaseClientName(raw.name ?? raw.client_name ?? raw.clientName);
   return {
     title: cleanClientTitle(raw.title ?? raw.client_title),
     name,
