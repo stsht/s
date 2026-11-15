@@ -15,11 +15,22 @@ import { DeliveryPasswordTools } from './DeliveryPasswordTools.jsx';
 import { DeliveryLinkEditor } from './DeliveryLinkEditor.jsx';
 import { DeliveryMessageBox } from './DeliveryMessageBox.jsx';
 import { DeliveryAccessLogs } from './DeliveryAccessLogs.jsx';
-import { buildDeliveryMessageWa, buildDeliveryMessageIg } from '../../../features/deliveries/deliveryMessages.js';
+import { buildDeliveryMessage } from '../../../features/deliveries/deliveryMessages.js';
 
 export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
-  const [variant, setVariant] = useState('whatsapp');
+  const [lastNamePreference, setLastNamePreference] = useState({
+    deliveryId: String(delivery?.id || ''),
+    enabled: false,
+  });
+  const useLastName = lastNamePreference.deliveryId === String(currentDelivery?.id || '')
+    && lastNamePreference.enabled;
+  function handleUseLastNameChange(enabled) {
+    setLastNamePreference({
+      deliveryId: String(currentDelivery?.id || ''),
+      enabled: Boolean(enabled),
+    });
+  }
   const [flash, setFlash] = useState('');
   const [repairing, setRepairing] = useState(false);
   const [rotatingPassword, setRotatingPassword] = useState(false);
@@ -63,6 +74,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   }, [delivery]);
 
   useEffect(() => {
+    setLastNamePreference({ deliveryId: String(delivery?.id || ''), enabled: false });
     setRepairStatus('');
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
@@ -121,10 +133,9 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     link: shortUrl || '(link unavailable)',
     password,
     deliveryDone,
+    useLastName,
   };
-  const messageWa = buildDeliveryMessageWa(messageInput);
-  const messageIg = buildDeliveryMessageIg(messageInput);
-  const messageText = variant === 'instagram' ? messageIg : messageWa;
+  const messageText = buildDeliveryMessage(messageInput);
   const hasAnyDetail = !!password || !!shortUrl || services.length > 0;
 
   const accessLogs = Array.isArray(currentDelivery?.stats?.logs) ? currentDelivery.stats.logs : [];
@@ -154,11 +165,10 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     flashTarget('pass');
   }
 
-  async function handleCopyMessage(which) {
-    const text = which === 'instagram' ? messageIg : messageWa;
-    if (!text) return;
-    await copyToClipboard(text);
-    flashTarget(`msg-${which}`);
+  async function handleCopyMessage() {
+    if (!messageText) return;
+    await copyToClipboard(messageText);
+    flashTarget('msg');
   }
 
   async function handleRefresh() {
@@ -440,8 +450,8 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
             />
           ) : null}
           <DeliveryMessageBox
-            variant={variant}
-            setVariant={setVariant}
+            useLastName={useLastName}
+            setUseLastName={handleUseLastNameChange}
             messageText={messageText}
             flash={flash}
             handleCopyMessage={handleCopyMessage}
