@@ -4,6 +4,8 @@
 // re-invoked on every render with current state/setters, preserving the
 // original closure semantics (handlers always read the latest values).
 
+import { formatClientContact } from './clients/clientContact.js';
+
 export function createDatabasePageActions({
   draft,
   query,
@@ -32,14 +34,18 @@ export function createDatabasePageActions({
 
     setSaveStatus('Saving...');
     try {
+      const draftForSave = {
+        ...draft,
+        contact: formatClientContact(draft.contact),
+      };
       const payload = isEdit
         ? {
-            ...draft,
+            ...draftForSave,
             ...(editId && !editId.startsWith('legacy:') ? { id: editId } : {}),
             invoiceIds: groupedInvoiceIds,
             deliveryIds: groupedDeliveryIds,
           }
-        : draft;
+        : draftForSave;
       const response = await fetch('/api/clients-save', {
         method: 'POST',
         credentials: 'same-origin',
