@@ -11,7 +11,7 @@
  *   - .dd-link-fields responsive single-column rule
  *   - the DeliveryDetail "Links" right panel: .dd-stack,
  *     .dd-card*, .dd-icon-button, .dd-link-editor, .dd-service-*,
- *     .dd-message*, .dd-segmented, .dd-access-log*, .dd-visitor*,
+ *     .dd-message*, .dd-access-log*, .dd-visitor*,
  *     and their max-width:1023px responsive overrides.
  *
  * Imported from src/pages/db/main.jsx AFTER inv.css so shared tokens
@@ -414,11 +414,10 @@
   word-break:break-all;
 }
 
-/* Generated message block — WA/IG segmented switcher above a
- * read-only textarea, with the two Copy WA / Copy IG ghost
- * buttons docked under the textarea. Kept inside a single card
- * surface (.dd-message) so the message reads as one bordered
- * region rather than three loose pieces. */
+/* Generated message block — one read-only message output with a
+ * Use Last Name checkbox in the header and one Copy Message action.
+ * Kept inside a single card surface (.dd-message) so the message
+ * reads as one bordered region rather than three loose pieces. */
 .dd-message{
   display:grid;
   gap:10px;
