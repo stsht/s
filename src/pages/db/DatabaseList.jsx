@@ -268,16 +268,6 @@ export function DatabaseList({
                   {compactEventDateLabel(subExpiry)}
                 </span>
               ) : null}
-              {!isActivity ? (
-                <button
-                  type="button"
-                  className="row-delete-x"
-                  onClick={handleDelete}
-                  aria-label={`Delete ${title || 'record'}`}
-                >
-                  <DeleteIcon />
-                </button>
-              ) : null}
             </div>
           );
         })}
