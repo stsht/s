@@ -74,6 +74,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   }, [delivery]);
 
   useEffect(() => {
+    setLastNamePreference({ deliveryId: String(delivery?.id || ''), enabled: false });
     setRepairStatus('');
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
