@@ -297,19 +297,6 @@ export function RecordRow({
           </div>
         ) : null}
 
-        <button
-          type="button"
-          className={`row-delete-x${armed ? ' is-armed' : ''}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete?.();
-          }}
-          aria-label={armed ? 'Confirm delete event' : 'Delete event'}
-          aria-pressed={armed}
-          title={armed ? 'Tap again to delete' : 'Delete event'}
-        >
-          <DeleteIcon />
-        </button>
       </article>
 
       {proofViewer ? (
