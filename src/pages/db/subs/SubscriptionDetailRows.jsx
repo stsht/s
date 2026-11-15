@@ -1,4 +1,5 @@
 import { SubscriptionProofRow } from './SubscriptionProofRow.jsx';
+import { formatClientContact } from '../clients/clientContact.js';
 
 export const SubscriptionDetailRows = ({
   tone,
@@ -40,7 +41,7 @@ export const SubscriptionDetailRows = ({
     </div>
     {contact ? (
       <article className="list-row" key="Contact">
-        <div><strong>Contact</strong><span>{contact}</span></div>
+        <div><strong>Contact</strong><span>{formatClientContact(contact)}</span></div>
       </article>
     ) : null}
     <SubscriptionProofRow proofValue={proofValue} proofIsImage={proofIsImage} proofIsUrl={proofIsUrl} onPreview={onProofPreview} />
