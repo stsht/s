@@ -18,7 +18,14 @@ export function formatClientContact(value, defaultCountry = 'ID') {
   try {
     const phone = parsePhoneNumberFromString(parseValue, defaultCountry);
     if (!phone || !phone.isPossible()) return raw;
-    return phone.formatInternational();
+
+    // libphonenumber supplies the country-specific digit groups. Keep one
+    // space after the calling code and use dashes between national groups
+    // for the compact, consistent StarShots contact display.
+    const groups = phone.formatInternational().split(/\s+/);
+    return groups.length > 1
+      ? groups[0] + ' ' + groups.slice(1).join('-')
+      : groups[0];
   } catch {
     return raw;
   }
