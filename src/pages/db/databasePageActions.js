@@ -5,6 +5,7 @@
 // original closure semantics (handlers always read the latest values).
 
 import { formatClientContact } from './clients/clientContact.js';
+import { toTitleCase } from '../../utils/titleCase.js';
 
 export function createDatabasePageActions({
   draft,
@@ -36,6 +37,7 @@ export function createDatabasePageActions({
     try {
       const draftForSave = {
         ...draft,
+        name: toTitleCase(String(draft.name || '').trim()),
         contact: formatClientContact(draft.contact),
       };
       const payload = isEdit
