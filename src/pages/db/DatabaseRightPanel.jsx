@@ -1,5 +1,6 @@
 import { EmptyState, Combobox } from '../../components/ui/index.js';
 import { rupiah } from '../../utils/rupiah.js';
+import { formatClientContact } from './clients/clientContact.js';
 import { SubscriptionDetail } from './subs/SubscriptionDetail.jsx';
 import { SubscriptionEdit } from './subs/SubscriptionEdit.jsx';
 import { SubscriptionImport } from './subs/SubscriptionImport.jsx';
@@ -27,7 +28,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
         </label>
       </div>
       <label>Contact
-        <input value={draft.contact} onChange={(event) => onChange({ ...draft, contact: event.target.value })} placeholder="Instagram / phone / email" />
+        <input value={draft.contact} onChange={(event) => onChange({ ...draft, contact: event.target.value })} onBlur={(event) => { const contact = formatClientContact(event.target.value); if (contact !== event.target.value) onChange({ ...draft, contact }); }} placeholder="Instagram / phone / email" />
       </label>
       <div className="client-actions">
         <button className="primary-button" type="submit">Save Client</button>
