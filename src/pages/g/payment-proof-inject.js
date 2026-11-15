@@ -88,9 +88,9 @@ function ensureStyle() {
     .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{
       outline:2px solid rgba(48,56,70,.55);outline-offset:2px;
     }
-    .public-payment-proof-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:8px;margin-top:14px}
-    .public-payment-proof-card{margin-top:0;min-width:0}
-    .public-payment-proof-history{min-width:64px;padding:0 14px;border:1px solid transparent;border-radius:18px;background:#f0f4f9;color:#596579;font:inherit;font-size:10px;font-weight:900;letter-spacing:.14em;cursor:pointer}
+    .public-payment-proof-wrap{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:8px;margin-top:14px;width:100%;min-width:0}
+    .public-payment-proof-card{display:grid;grid-column:1;grid-row:1;margin-top:0;min-width:0;width:100%;box-sizing:border-box}
+    .public-payment-proof-history{grid-column:1;justify-self:end;min-width:64px;min-height:36px;padding:0 14px;border:1px solid transparent;border-radius:18px;background:#f0f4f9;color:#596579;font:inherit;font-size:10px;font-weight:900;letter-spacing:.14em;cursor:pointer}
     .public-payment-proof-history[hidden]{display:none}
     .public-payment-proof-history:disabled{opacity:.6;cursor:wait}
     @media(prefers-color-scheme:dark){
