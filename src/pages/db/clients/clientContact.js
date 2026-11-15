@@ -11,8 +11,9 @@ export function formatClientContact(value, defaultCountry = 'ID') {
   if (!trimmed || !PHONE_ONLY.test(trimmed)) return raw;
 
   // WhatsApp exports sometimes omit the plus before Indonesia's country
-  // code. In the ID-default CRM, interpret a bare 62... number as +62...
-  const parseValue = /^62(?=[\d\s()./-]*8)/.test(trimmed) ? '+' + trimmed : trimmed;
+  // code. Only bare 628... mobile strings are treated as +628...
+  const compactDigits = trimmed.replace(/[\s()./-]/g, '');
+  const parseValue = /^628\d+$/.test(compactDigits) ? '+' + compactDigits : trimmed;
 
   try {
     const phone = parsePhoneNumberFromString(parseValue, defaultCountry);
