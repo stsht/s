@@ -1,4 +1,4 @@
-const HONORIFIC_RE = /^(?:Mr|Ms|Mrs|Miss|Dr|Kak|Pak|Bu|Ko|Ci)\\.?$/i;
+const HONORIFIC_RE = /^(?:Mr|Ms|Mrs|Miss|Dr|Kak|Pak|Bu|Ko|Ci)\.?$/i;
 
 export function stripMessageFormatting(text) {
   return String(text || '').replace(/[*_~`]/g, '');
@@ -14,7 +14,7 @@ export function toUnicodeBold(text) {
 }
 
 export function formatClientSalutation(rawName, useLastName = false) {
-  const parts = String(rawName ?? '').trim().split(/\\s+/).filter(Boolean);
+  const parts = String(rawName ?? '').trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return 'Client';
 
   const honorific = HONORIFIC_RE.test(parts[0]) ? parts.shift() : '';
@@ -30,7 +30,7 @@ export function formatClientSalutation(rawName, useLastName = false) {
 export function buildDeliveryMessage(input = {}) {
   const title = String(input.title ?? 'Ms.').trim();
   const clientName = String(input.clientName || 'Client').trim() || 'Client';
-  const firstClientToken = clientName.split(/\\s+/)[0] || '';
+  const firstClientToken = clientName.split(/\s+/)[0] || '';
   const rawSalutation = HONORIFIC_RE.test(firstClientToken)
     ? clientName
     : [title, clientName].filter(Boolean).join(' ');
@@ -48,13 +48,13 @@ export function buildDeliveryMessage(input = {}) {
         `${toUnicodeBold('Link:')} ${link}`,
         `${toUnicodeBold('Password:')} ${pass}`,
       ].filter(Boolean);
-  const details = lines.join('\\n');
+  const details = lines.join('\n');
 
   if (input.deliveryDone) {
-    return `Dear ${toUnicodeBold(salutation)},\\n\\nYour StarShots files are now ready.\\n\\nYou may access them here:\\n${details}\\n\\nThank you for your patience.\\nWith love, StarShots`;
+    return `Dear ${toUnicodeBold(salutation)},\n\nYour StarShots files are now ready.\n\nYou may access them here:\n${details}\n\nThank you for your patience.\nWith love, StarShots`;
   }
 
-  return `Dear ${toUnicodeBold(salutation)},\\n\\nWith sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.\\n\\nYou may access your ${toUnicodeBold('Delivery Page')} and ${toUnicodeBold('Invoice')} through the details below:\\n\\n${details}\\n\\nShould you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.\\n\\nKindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.\\n\\nThank you once again for allowing StarShots ID to be part of your special moment.\\n\\nWarm Regards,\\nStarShots ID`;
+  return `Dear ${toUnicodeBold(salutation)},\n\nWith sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.\n\nYou may access your ${toUnicodeBold('Delivery Page')} and ${toUnicodeBold('Invoice')} through the details below:\n\n${details}\n\nShould you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.\n\nKindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.\n\nThank you once again for allowing StarShots ID to be part of your special moment.\n\nWarm Regards,\nStarShots ID`;
 }
 
 // Keep the previous exports so the /l preview and any legacy callers
