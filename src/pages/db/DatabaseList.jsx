@@ -61,32 +61,6 @@ function activityStatsLine(row = {}) {
   ].filter(Boolean).join(' · ');
 }
 
-// Inline X glyph used by every list/row delete control on /db.
-// Stroke-only path so the icon picks up `currentColor`, which lets
-// CSS swap idle/hover palettes without touching the SVG markup.
-// Duplicated from DatabasePage (which keeps its own copy for the
-// detail-panel delete controls) so the list component stays
-// self-contained.
-function DeleteIcon() {
-  return (
-    <svg
-      className="row-delete-icon"
-      viewBox="0 0 16 16"
-      width="12"
-      height="12"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M4 4 L12 12 M12 4 L4 12"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function UploadIcon() {
   return (
     <svg
@@ -224,9 +198,6 @@ export function DatabaseList({
             .join(' ');
           const handleSelect = () => {
             onSelectRow(row);
-          };
-          const handleDelete = (event) => {
-            onDeleteRow(row, event);
           };
           return (
             <div
