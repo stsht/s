@@ -19,7 +19,18 @@ import { buildDeliveryMessage } from '../../../features/deliveries/deliveryMessa
 
 export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
-  const [useLastName, setUseLastName] = useState(false);
+  const [lastNamePreference, setLastNamePreference] = useState({
+    deliveryId: String(delivery?.id || ''),
+    enabled: false,
+  });
+  const useLastName = lastNamePreference.deliveryId === String(currentDelivery?.id || '')
+    && lastNamePreference.enabled;
+  function handleUseLastNameChange(enabled) {
+    setLastNamePreference({
+      deliveryId: String(currentDelivery?.id || ''),
+      enabled: Boolean(enabled),
+    });
+  }
   const [flash, setFlash] = useState('');
   const [repairing, setRepairing] = useState(false);
   const [rotatingPassword, setRotatingPassword] = useState(false);
@@ -63,7 +74,6 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
   }, [delivery]);
 
   useEffect(() => {
-    setUseLastName(false);
     setRepairStatus('');
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
@@ -440,7 +450,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
           ) : null}
           <DeliveryMessageBox
             useLastName={useLastName}
-            setUseLastName={setUseLastName}
+            setUseLastName={handleUseLastNameChange}
             messageText={messageText}
             flash={flash}
             handleCopyMessage={handleCopyMessage}
