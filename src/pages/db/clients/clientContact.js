@@ -3,7 +3,7 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js/min';
 // Format phone-only values using Google's maintained numbering metadata.
 // Mixed contacts, email addresses, URLs, and social handles pass through
 // untouched. "ID" is the default region for local numbers without +country.
-const PHONE_ONLY = /^\\+?[\\d\\s()./-]+$/;
+const PHONE_ONLY = /^\+?[\d\s()./-]+$/;
 
 export function formatClientContact(value, defaultCountry = 'ID') {
   const raw = String(value ?? '');
