@@ -1,5 +1,6 @@
 import { EmptyState, Combobox } from '../../components/ui/index.js';
 import { rupiah } from '../../utils/rupiah.js';
+import { toTitleCase } from '../../utils/titleCase.js';
 import { formatClientContact } from './clients/clientContact.js';
 import { SubscriptionDetail } from './subs/SubscriptionDetail.jsx';
 import { SubscriptionEdit } from './subs/SubscriptionEdit.jsx';
@@ -24,7 +25,7 @@ function ClientForm({ draft, onChange, onCancel, onSave, status }) {
           />
         </label>
         <label>Name
-          <input value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} placeholder="Client name" />
+          <input value={draft.name} onChange={(event) => onChange({ ...draft, name: event.target.value })} onBlur={(event) => { const name = toTitleCase(event.target.value.trim()); if (name !== event.target.value) onChange({ ...draft, name }); }} placeholder="Client name" />
         </label>
       </div>
       <label>Contact
@@ -136,8 +137,8 @@ export function DatabaseRightPanel({
             const parent = selected;
             setDraft({
               title: String((clientRow.title || clientRow.client_title) ?? 'Ms.'),
-              name: String(clientRow.name || clientRow.client_name || ''),
-              contact: String(clientRow.contact || clientRow.client_contact || ''),
+              name: toTitleCase(String(clientRow.name || clientRow.client_name || '').trim()),
+              contact: formatClientContact(String(clientRow.contact || clientRow.client_contact || '')),
             });
             setSaveStatus('');
             setSelected({
