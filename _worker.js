@@ -718,10 +718,19 @@ function normalizeClientName(value = '') {
 }
 
 function normalizeClientContact(value = '') {
-  return cleanText(value, 240)
-    .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/[^\d+a-z@._-]/g, '')
+  const raw = cleanText(value, 240).toLowerCase();
+  // Treat common phone separators as presentation only for phone-like
+  // values, so a pasted WhatsApp number and its formatted version match.
+  if (/^\\+?[\\d\\s()./-]+$/.test(raw)) {
+    const compact = raw.replace(/[\\s()./-]/g, '');
+    const digits = compact.replace(/^\\+/, '');
+    if (/^08\\d{8,10}$/.test(digits)) return `+62${digits.slice(1)}`;
+    if (/^628\\d{8,10}$/.test(digits)) return `+${digits}`;
+    return compact;
+  }
+  return raw
+    .replace(/\\s+/g, '')
+    .replace(/[^\\d+a-z@._-]/g, '')
     .trim();
 }
 
