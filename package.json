@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "html2canvas": "1.4.1",
+    "libphonenumber-js": "1.13.16",
     "react": "19.2.1",
     "react-dom": "19.2.1"
   },

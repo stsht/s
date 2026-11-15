@@ -1,6 +1,7 @@
 import { EmptyState } from '../../components/ui/index.js';
 import { compactEventDateLabel } from './dbHelpers.js';
 import { subscriptionTone } from './subs/subscriptionLogic.js';
+import { formatClientContact } from './clients/clientContact.js';
 
 const CLIENT_NAME_TONE_STYLE = {
   soon: { color: 'var(--evt-soon)' },
@@ -200,7 +201,7 @@ export function DatabaseList({
           let meta = '';
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
-            meta = isHumanReadableContact(contact) ? contact : '';
+            meta = isHumanReadableContact(contact) ? formatClientContact(contact) : '';
           } else if (isSub && subRecord) {
             // Service subtitle reflects the BASE subscription identity,
             // not the latest extension's per-period snapshot. Tone and
