@@ -1,3 +1,5 @@
+import { formatClientContact } from './clientContact.js';
+
 // Client contact/detail rows for the /db Clients detail view.
 //
 // Rendered inside the ClientHeader identity block (as its children)
@@ -6,5 +8,6 @@
 // record only carries a contact field today, so this stays a single
 // row; any future client-level detail rows belong here alongside it.
 export function ClientDetailRows({ contact }) {
-  return contact ? <span>{contact}</span> : null;
+  const displayContact = formatClientContact(contact);
+  return displayContact ? <span>{displayContact}</span> : null;
 }
