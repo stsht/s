@@ -188,3 +188,80 @@
   text-decoration:underline;
   word-break:break-all;
 }
+
+
+/* Clients detail only — neutral event cards and monochrome action states.
+ * The client-detail modifier is owned by ClientDetail.jsx; shared
+ * RecordRow markup remains unchanged for any other consumers. */
+.client-detail .record-row{
+  box-shadow:none;
+  opacity:1;
+}
+.client-detail .record-row .event-date-pill{
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  color:var(--ink);
+  font-size:0.8125rem;
+  font-weight:800;
+  letter-spacing:0;
+}
+.client-detail .record-row .record-row-price{
+  color:var(--muted);
+  font-weight:700;
+}
+
+/* Pending / needs-action: elevated neutral card surface. SVG icons
+ * inherit currentColor, so the existing functional icons stay intact. */
+.client-detail .record-row .record-row-status-pill,
+.client-detail .record-row .record-row-vendor-toggle{
+  border:1px solid var(--line);
+  background:var(--panel);
+  box-shadow:var(--shadow-soft);
+  color:var(--ink);
+}
+.client-detail .record-row .record-row-status-pill.is-created,
+.client-detail .record-row .record-row-vendor-toggle.is-created{
+  border-color:var(--line);
+  background:var(--panel);
+  box-shadow:var(--shadow-soft);
+  color:var(--ink);
+}
+.client-detail .record-row .record-row-status-pill:hover:not(.is-complete),
+.client-detail .record-row .record-row-vendor-toggle:hover:not(.is-complete){
+  border-color:var(--line-strong);
+  background:var(--field);
+}
+
+/* Completed / settled: softly recessed neutral surface. */
+.client-detail .record-row .record-row-status-pill.is-complete,
+.client-detail .record-row .record-row-vendor-toggle.is-complete{
+  border-color:transparent;
+  background:var(--soft);
+  box-shadow:none;
+  color:var(--muted);
+}
+.client-detail .record-row .record-row-status-pill.is-complete:hover,
+.client-detail .record-row .record-row-vendor-toggle.is-complete:hover{
+  border-color:transparent;
+  background:var(--soft);
+  color:var(--muted);
+}
+
+/* A quiet, dashed empty-state well belongs only to Clients events. */
+.client-detail .client-empty-state{
+  display:grid;
+  place-items:center;
+  min-height:112px;
+  padding:22px;
+  border:1px dashed var(--line-strong);
+  border-radius:18px;
+  background:var(--field);
+  text-align:center;
+}
+.client-detail .client-empty-state .empty-state{
+  margin:0;
+  color:var(--muted);
+  font-weight:650;
+}
