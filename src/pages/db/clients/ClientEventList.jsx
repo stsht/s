@@ -57,7 +57,7 @@ export function ClientEventList(props) {
         onEventDelete,
         onViewLinks,
       })),
-      !eventRows.length ? React.createElement('p', cls(cn('empty', '-state')), 'No events yet.') : null,
+      !eventRows.length ? React.createElement('div', cls(cn('client', '-empty-state')), React.createElement('p', cls(cn('empty', '-state')), 'No events yet.')) : null,
     ),
     createOpen
       ? React.createElement(
@@ -89,7 +89,7 @@ export function ClientEventList(props) {
             type: 'button',
             onClick: onOpenCreate,
           },
-          'Create Events',
+          '+ Add Event',
         ),
   );
 }
