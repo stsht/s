@@ -144,7 +144,7 @@ export function ClientDetail({ client, invoices, deliveries, onDeleteClient, onE
   });
 
   return (
-    <>
+    <div className="client-detail">
       <ClientHeader
         name={name}
         onRefresh={onRefresh}
@@ -172,6 +172,6 @@ export function ClientDetail({ client, invoices, deliveries, onDeleteClient, onE
         onOpenCreate={openCreateSheet}
         onCloseCreate={closeCreateSheet}
       />
-    </>
+    </div>
   );
 }

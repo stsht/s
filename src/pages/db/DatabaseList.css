@@ -716,3 +716,44 @@
  * preserves the same 44-tall pill chrome as a single full-width
  * .add-client-button (so the toolbar height matches Clients) while
  * giving the operator a one-tap route to either create flow. */
+
+
+/* Clients list — calm monochrome rows; the date pill is the sole
+ * status colour anchor. This modifier is applied only on tab=clients. */
+.db-list--clients{
+  --glacier-bg:#edf4ff;
+  --glacier-text:#1e4e8c;
+  padding-bottom:20px;
+  scroll-padding-bottom:20px;
+}
+@media(prefers-color-scheme:dark){
+  .db-list--clients{
+    --glacier-bg:#20334f;
+    --glacier-text:#c4dcff;
+  }
+}
+.db-list--clients .db-list-row{
+  box-shadow:none;
+  opacity:1;
+}
+.db-list--clients .db-list-row strong{
+  color:var(--ink);
+}
+.db-list--clients .db-list-row-text > span{
+  color:var(--muted);
+}
+.db-list--clients .db-list-row.active{
+  border:1px solid var(--line);
+  background:var(--field);
+  box-shadow:none;
+}
+.db-list--clients .db-list-row > span.event-date-pill.event-tone-soon{
+  color:var(--glacier-text);
+  background:var(--glacier-bg);
+  border-color:color-mix(in srgb,var(--glacier-text) 18%,transparent);
+}
+.db-list--clients .db-list-row > span.event-date-pill:not([class*="event-tone-"]){
+  color:var(--muted);
+  background:transparent;
+  border-color:transparent;
+}
