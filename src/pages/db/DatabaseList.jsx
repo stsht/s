@@ -3,12 +3,6 @@ import { compactEventDateLabel } from './dbHelpers.js';
 import { subscriptionTone } from './subs/subscriptionLogic.js';
 import { formatClientContact } from './clients/clientContact.js';
 
-const CLIENT_NAME_TONE_STYLE = {
-  soon: { color: 'var(--evt-soon)' },
-  future: { color: 'var(--evt-future)' },
-  tba: { color: 'var(--evt-tba)' },
-};
-
 // Whether a string is a contact value worth showing under a client
 // row. Used by /db's left list to scrub raw timestamps (e.g.
 // "2026-05-17T13:08:21.123Z") and other non-contact metadata that
@@ -106,6 +100,7 @@ export function DatabaseList({
   onImportSubscription,
 }) {
   const isActivityTab = tab === 'activity';
+  const isClientTab = tab === 'clients';
   return (
     <>
       <div className="pf-list-tools">
@@ -134,7 +129,7 @@ export function DatabaseList({
         ) : null}
       </div>
       {status ? <EmptyState>{status}</EmptyState> : null}
-      <div className="db-list">
+      <div className={`db-list${isClientTab ? ' db-list--clients' : ''}`}>
         {activeRows.slice(0, 80).map((row, index) => {
           const isClient = tab === 'clients';
           const isSub = tab === 'subs';
@@ -163,13 +158,11 @@ export function DatabaseList({
             : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
-          // The tone drives the client name, subtle left edge, and
-          // date pill. Settled past clients intentionally have no
-          // tone so all three surfaces return to neutral.
+          // The tone drives only the representative date pill in
+          // the Clients list. Client names and row surfaces stay neutral.
           const clientToneInfo = isClient ? (clientToneByRowId.get(row.id) || null) : null;
           const clientTone = clientToneInfo?.tone || '';
           const clientToneClass = clientTone ? `event-tone-${clientTone}` : '';
-          const clientNameStyle = isClient ? CLIENT_NAME_TONE_STYLE[clientTone] : undefined;
           const clientPillDate = clientToneInfo?.representativeDate || '';
           const clientPillTone = clientTone || (clientPillDate ? '' : 'tba');
           let meta = '';
@@ -214,7 +207,7 @@ export function DatabaseList({
               }}
             >
               <div className="db-list-row-text">
-                <strong style={clientNameStyle}>{title || 'Untitled'}</strong>
+                <strong>{title || 'Untitled'}</strong>
                 {isActivity ? (
                   <>
                     {row.folder_name ? <span className="activity-folder-line" title={row.folder_name}>{row.folder_name}</span> : null}
