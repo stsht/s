@@ -148,7 +148,8 @@ export function LinkGeneratorPage() {
   // Visual flash on the clickable preview cards / textarea so
   // operators get tactile feedback after a copy or open action.
   const [copyFlash, setCopyFlash] = useState('');
-  const clientInputRef = useRef(null);\n  const submitLockRef = useRef(false);
+  const clientInputRef = useRef(null);
+  const submitLockRef = useRef(false);
 
   // One-shot invoice handoff. Only fills empty fields so that a
   // mid-edit reload from /inv → /l never clobbers manual changes.
