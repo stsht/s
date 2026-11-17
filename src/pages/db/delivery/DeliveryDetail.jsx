@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { compactEventDateLabel, plainEventDate } from '../dbHelpers.js';
+import { plainEventDate } from '../dbHelpers.js';
 import {
   resolveDeliveryShortCode,
   buildShortUrl,
@@ -129,7 +129,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     title,
     clientName,
     folderName: folder || 'TBA',
-    eventDateLabel: compactEventDateLabel(currentDelivery?.event_date),
+    eventDate: plainEventDate(currentDelivery?.event_date),
     link: shortUrl || '(link unavailable)',
     password,
     deliveryDone,
