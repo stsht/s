@@ -1,7 +1,7 @@
 // Pure helper functions for the /db (DatabasePage) surface.
 //
 // This module holds only side-effect-free date/tone/grouping and
-// subscription helpers extracted verbatim from DatabasePage.jsx as
+// event date helpers extracted verbatim from DatabasePage.jsx as
 // part of the route/component structure cleanup. Nothing here renders
 // JSX or uses React hooks/state; the function bodies are unchanged so
 // the /db sorting, tone, date-pill, and grouping behaviour stays

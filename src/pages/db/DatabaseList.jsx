@@ -1,6 +1,5 @@
 import { EmptyState } from '../../components/ui/index.js';
 import { compactEventDateLabel } from './dbHelpers.js';
-import { subscriptionTone } from './subs/subscriptionLogic.js';
 import { formatClientContact } from './clients/clientContact.js';
 
 const CLIENT_NAME_TONE_STYLE = {
@@ -38,20 +37,6 @@ function isHumanReadableContact(value) {
   return false;
 }
 
-// Format the Subs-tab list meta from a subscription row. Produces
-// just the service name, e.g. "ChatGPT" / "iCloud" / "Google Drive".
-// The row already communicates state via two parallel surfaces — a
-// tone-driven left-edge tint (subscriptionTone → .sub-active /
-// .sub-warning / .sub-expired / .sub-tba) and the right-aligned
-// expiry-date pill — so repeating the status word in the subtitle
-// would be redundant. Falls back to "Subscription" when the row
-// has no service name set, matching the empty-state language used
-// elsewhere in the dashboard.
-function formatSubscriptionMeta(sub = {}) {
-  const service = String(sub.service || 'Subscription').trim();
-  return service || 'Subscription';
-}
-
 function activityStatsLine(row = {}) {
   return [
     row.lastActivityDisplay ? `Last ${row.lastActivityDisplay}` : '',
@@ -61,35 +46,9 @@ function activityStatsLine(row = {}) {
   ].filter(Boolean).join(' · ');
 }
 
-function UploadIcon() {
-  return (
-    <svg
-      className="btn-icon"
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M12 16V4" />
-      <path d="M7 9l5-5 5 5" />
-      <path d="M5 20h14" />
-    </svg>
-  );
-}
-
-// /db left panel content: the search/tools row, Create Client / New
-// Subscription / Import JPG actions, the status empty state, and the
-// scrollable Clients/Subs list (rows, tone, date/expiry pill, and the
-// permanent delete X). Pure presentation — selection and delete
-// business logic stay in DatabasePage and arrive via onSelectRow /
-// onDeleteRow. The shared left/right panel shell (WorkspacePanels)
-// is intentionally NOT part of this component.
+// /db left panel content: search/tools, Create Client, status, and
+// the scrollable Clients list with event-date pills. Pure presentation —
+// selection and delete logic arrive via onSelectRow / onDeleteRow.
 export function DatabaseList({
   tab,
   query,
@@ -98,12 +57,9 @@ export function DatabaseList({
   activeRows,
   selected,
   clientToneByRowId,
-  effectiveSubscription,
   onSelectRow,
   onDeleteRow,
   onCreateClient,
-  onCreateSubscription,
-  onImportSubscription,
 }) {
   const isActivityTab = tab === 'activity';
   return (
@@ -122,45 +78,15 @@ export function DatabaseList({
             Create Client
           </button>
         ) : null}
-        {tab === 'subs' ? (
-          <div className="subs-list-actions">
-            <button className="add-client-button" type="button" onClick={onCreateSubscription}>
-              New Subscription
-            </button>
-            <button className="subs-import-icon-button" type="button" onClick={onImportSubscription} aria-label="Import JPG" title="Import JPG">
-              <UploadIcon />
-            </button>
-          </div>
-        ) : null}
       </div>
       {status ? <EmptyState>{status}</EmptyState> : null}
       <div className="db-list">
         {activeRows.slice(0, 80).map((row, index) => {
           const isClient = tab === 'clients';
-          const isSub = tab === 'subs';
           const isActivity = tab === 'activity';
           const title = isActivity
             ? (row.client_name || row.name || 'Delivery')
             : row.client_name || row.name || row.title || row.slug;
-          // Subs row tone reads off the EFFECTIVE subscription so a
-          // recent extension can flip an "expired" base row back to
-          // active. row.subscription is the canonical subscription
-          // record that came down on /api/db.
-          const subRecord = isSub ? (row.subscription || null) : null;
-          const subEffective = subRecord ? effectiveSubscription(subRecord) : null;
-          const subTone = subEffective ? subscriptionTone(subEffective) : '';
-          // Subs row right-aligned expiry pill. Mirrors the Clients
-          // date pill: same chrome / event-tone-* palette, same
-          // {pill, X} grid column. effectiveSubscription has already
-          // merged the latest extension on top of the base row, so
-          // its expiry_date is the renewal-aware "current" expiry.
-          // No extension → base subscription expiry. No expiry on
-          // either → 'tba'. The compact label produces "14 Jun 2026"
-          // and "TBA" so the column reads identically to Clients.
-          const subExpiry = isSub ? String(subEffective?.expiry_date || '') : '';
-          const subPillTone = isSub
-            ? (subTone === 'expired' ? 'past' : subTone === 'active' ? 'future' : 'tba')
-            : '';
           // Clients tab tone is computed above in sortedCrmClients
           // by walking the row's event_dates against today (WIB).
           // The tone drives the client name, subtle left edge, and
@@ -176,23 +102,14 @@ export function DatabaseList({
           if (isClient) {
             const contact = row.contact || row.client_contact || '';
             meta = isHumanReadableContact(contact) ? formatClientContact(contact) : '';
-          } else if (isSub && subRecord) {
-            // Service subtitle reflects the BASE subscription identity,
-            // not the latest extension's per-period snapshot. Tone and
-            // the right-aligned expiry pill still read off subEffective
-            // so renewal state stays current; only the service label is
-            // pinned to the base subscription.
-            meta = formatSubscriptionMeta(subRecord);
           }
           const rowId = row.id || `row-${index}`;
           const className = [
             'db-list-row',
             isActivity ? 'activity-row' : '',
             selected?.id === row.id ? 'active' : '',
-            subTone ? `sub-${subTone}` : '',
             clientToneClass,
             isClient ? 'has-event-pill' : '',
-            isSub ? 'has-event-pill' : '',
           ]
             .filter(Boolean)
             .join(' ');
@@ -229,14 +146,6 @@ export function DatabaseList({
                   aria-label={`Event ${compactEventDateLabel(clientPillDate)}`}
                 >
                   {compactEventDateLabel(clientPillDate)}
-                </span>
-              ) : null}
-              {isSub ? (
-                <span
-                  className={`event-date-pill event-tone-${subPillTone || 'tba'}`}
-                  aria-label={`Expiry ${compactEventDateLabel(subExpiry)}`}
-                >
-                  {compactEventDateLabel(subExpiry)}
                 </span>
               ) : null}
             </div>

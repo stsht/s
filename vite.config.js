@@ -14,7 +14,6 @@ export default defineConfig({
         g: page('g/index.html'),
         l: page('l/index.html'),
         inv: page('inv/index.html'),
-        subs: page('subs/index.html'),
         t: page('t/index.html'),
         eng: page('eng/index.html'),
       },

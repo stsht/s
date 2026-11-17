@@ -25,15 +25,11 @@ export function DatabasePage() {
     invoices,
     activeRows,
     clientToneByRowId,
-    effectiveSubscription,
     selectedClient,
-    selectedSubscription,
     selectedDelivery,
     back,
     saveClient,
     openNewClient,
-    openImportSubscription,
-    openCreateSubscription,
     deleteClient,
     deleteRecord,
     handleSelectRow,
@@ -42,14 +38,10 @@ export function DatabasePage() {
 
   const tabs = [
     { value: 'clients', label: 'Clients' },
-    { value: 'subs', label: 'Subs' },
     { value: 'activity', label: 'Activity' },
   ];
 
-  const tabHeading =
-    tab === 'subs' ? 'Subscriptions'
-      : tab === 'activity' ? 'Recent Activity'
-        : 'Choose A Client';
+  const tabHeading = tab === 'activity' ? 'Recent Activity' : 'Choose A Client';
 
   const left = (
     <DatabaseList
@@ -60,12 +52,9 @@ export function DatabasePage() {
       activeRows={activeRows}
       selected={selected}
       clientToneByRowId={clientToneByRowId}
-      effectiveSubscription={effectiveSubscription}
       onSelectRow={handleSelectRow}
       onDeleteRow={handleDeleteRow}
       onCreateClient={openNewClient}
-      onCreateSubscription={openCreateSubscription}
-      onImportSubscription={openImportSubscription}
     />
   );
 
@@ -76,7 +65,6 @@ export function DatabasePage() {
       selected={selected}
       selectedClient={selectedClient}
       selectedDelivery={selectedDelivery}
-      selectedSubscription={selectedSubscription}
       draft={draft}
       setDraft={setDraft}
       saveStatus={saveStatus}
@@ -88,7 +76,6 @@ export function DatabasePage() {
       refetch={refetch}
       refresh={refresh}
       setSelected={setSelected}
-      setMobileView={setMobileView}
       data={data}
       invoices={invoices}
     />

@@ -1,12 +1,7 @@
 // Shared 2D stroke-only icons for the /db surface.
 //
-// These small (14×14, RefreshIcon family) icon components were
-// extracted verbatim from DatabasePage.jsx so both the page-level
-// detail views (Client / Delivery) and the Subs detail module
-// (src/pages/db/subs/*) can import them without a circular dependency
-// back into DatabasePage.jsx. Markup is unchanged: each icon picks up
-// `currentColor` so the parent button's hover/armed palette flows
-// through without per-icon overrides.
+// Shared stroke-only icons for Client and Delivery detail actions.
+// Icons inherit currentColor so parent-button states remain consistent.
 
 // Edit (pencil) glyph for detail action rows.
 export function EditIcon() {
@@ -96,30 +91,6 @@ export function TrashIcon() {
       <path d="M10 11v6" />
       <path d="M14 11v6" />
       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  );
-}
-
-// Plus glyph for the Subs detail "Add Extension" toolbar action.
-// Same 14x14 stroke-only family as Edit/Print/Delete so the top
-// action bar reads as one icon group.
-export function PlusIcon() {
-  return (
-    <svg
-      className="btn-icon"
-      viewBox="0 0 24 24"
-      width="14"
-      height="14"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
     </svg>
   );
 }

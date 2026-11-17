@@ -57,9 +57,6 @@ try {
             { id: 'inv-1', client_name: 'Kayla Wijaya', total: 2500000, status: 'paid' },
             { id: 'inv-2', client_name: 'Aulia & Rian', total: 3500000, status: 'sent' },
           ],
-          subscriptions: [
-            { id: 'sub-1', service: 'iCloud 200GB', client_name: 'Family Hartono', total: 540000 },
-          ],
           items: [],
         }),
       }),

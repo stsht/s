@@ -84,11 +84,8 @@ input,select{
   height:48px;
   padding:0 14px;
 }
-/* Textareas (e.g. Subs "Notes (Optional)") match the rounded input
- * look — same radius, border, field background, focus ring — with a
- * compact min-height and a contained vertical-only resize so the
- * native square/auto-resize handle never breaks the form layout or
- * overflows horizontally (box-sizing:border-box is global). */
+/* Textareas match the rounded input look with a compact min-height
+ * and contained vertical-only resize. */
 textarea{
   min-height:96px;
   padding:12px 14px;
@@ -662,7 +659,7 @@ input.no-spinner::-webkit-inner-spin-button{
  * Save Status button and the Generate JPG button side-by-side. The
  * ghost Save Status button is sized down with .compact so the
  * primary Generate JPG remains the visual anchor — same pattern
- * as .subs-toolbar-actions. */
+ * as a compact toolbar action. */
 .preview-toolbar-actions{
   display:flex;
   align-items:center;
@@ -749,36 +746,11 @@ input.no-spinner::-webkit-inner-spin-button{
 .empty-state{margin:0;color:var(--muted);font-weight:750}
 .form-stack{display:grid;gap:16px}
 
-/* Subscription status tones (Subs tab + detail). Driven by
- * subscriptionTone() in WorkspacePages.jsx — applies to both the
- * left-list rows and the right-panel detail field stack via the
- * `sub-${tone}` className wrapper.
- *
- *   active  → green (current / recurring / paid / renewed)
- *   warning → orange (≤ 3 days from expiry, not yet settled)
- *   expired → red (expiry_date already passed)
- *
- * The CSS variables are defined here so light and dark modes pick
- * the right palette automatically. Tones colour the row title
- * (`strong`) primarily and dim the meta line (`span`) to match.
- *
- * Event tones (--evt-*) are a parallel four-state palette used by
- * /db Clients rows + per-event RecordRow rows. Shared with the
- * compact .event-date-pill so both the row tint and the date pill
- * read off the same tokens. The palette is deliberately muted —
- * not neon — so a list of mixed-status events stays calm. Light
- * and dark variants are tuned individually so the text retains
- * AA contrast against their respective row backgrounds.
- *
- *   --evt-past   muted red    — event already happened
- *   --evt-tba    muted amber  — no real event_date set yet
- *   --evt-soon   muted blue   — event today/+1/+2 days WIB
- *   --evt-future muted green  — event more than 2 days out
- */
+/* Shared status tokens for successful records / confirmations and
+ * pending states. Event tones are used by Clients, Events, and Links. */
 :root{
-  --sub-active:#1f8a4c;
-  --sub-warning:#d97706;
-  --sub-expired:#b91c1c;
+  --success-state:#1f8a4c;
+  --warning-state:#d97706;
   --evt-past:#b04a51;
   --evt-tba:#b87420;
   --evt-soon:#3f6fb1;
@@ -786,9 +758,8 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --sub-active:#3ec27a;
-    --sub-warning:#f5a14a;
-    --sub-expired:#ef4444;
+    --success-state:#3ec27a;
+    --warning-state:#f5a14a;
     --evt-past:#d77a82;
     --evt-tba:#e5a366;
     --evt-soon:#7aa6dd;
@@ -883,10 +854,7 @@ input.no-spinner::-webkit-inner-spin-button{
   font-weight:800;
 }
 
-/* Icon + label pairing used on /db Subs detail action row (Edit /
- * Print / Delete). Stroke-only SVGs sit left of the label and pick
- * up the button's currentColor so the existing ghost-button hover
- * palette flows through unchanged. */
+/* Shared icon + label pairing for compact action buttons. */
 .icon-button{
   gap:6px;
 }
@@ -895,14 +863,8 @@ input.no-spinner::-webkit-inner-spin-button{
   flex-shrink:0;
 }
 
-/* Subs detail top toolbar — icon-only action group (Add Extension /
- * Edit / Print / Delete) sitting beside the round Close button. No
- * text labels, no chunky pill frames: each control is a subtle
- * square tap target that only shows a soft fill on hover/focus, so
- * the row reads as a toolbar rather than a stack of CTA buttons.
- * Scoped to .subs-detail-actions so the Clients detail view's
- * labelled buttons are untouched. The buttons match the 38px
- * .db-close-button so the whole group shares one height/baseline. */
+/* Shared icon-only detail toolbar controls used by Client, Delivery,
+ * and Invoice preview panels. Keep the square hit-area and hover state. */
 .toolbar-icon-btn{
   width:38px;
   height:38px;
@@ -1025,7 +987,7 @@ input.no-spinner::-webkit-inner-spin-button{
     border-color:#edeff5;
   }
   /* /inv composer panels match the Gemini-grey treatment used in
-   * /db /l /subs (WorkspacePanels). Scoped to .composer-page so
+   * /db /l (WorkspacePanels). Scoped to .composer-page so
    * the outer .ss-bg blue glow keeps the page background, and
    * .invoice-sheet keeps its hard-coded #fff (the JPG/export sheet
    * stays untouched — it has its own `background:#fff` and forces
@@ -1087,25 +1049,12 @@ input.no-spinner::-webkit-inner-spin-button{
 }
 
 
-/* /subs — subscription card / export artifact styles.
- *
- * The shared SubsPaidCard / SubsInvoiceCard styles (.subs-card,
- * .subs-accent, .subs-watermark, .subs-card-head/.subs-head-*,
- * .subs-logo, .subs-brand, .subs-greeting, .subs-title, .subs-hero*,
- * .subs-rows/.subs-row*, .subs-window* signature timeline,
- * .subs-note*, .subs-card-foot/.subs-foot-note/.subs-foot-meta,
- * .subs-invoice-*, .subs-export-host and their responsive rules) now
- * live in src/features/subscriptions/subscriptionCards.css, imported
- * by the card component modules so both /subs (SubscriptionsPage) and
- * /db (SubscriptionDetail) load them. The /subs live-preview chrome
- * (.subs-toolbar* + .subs-canvas) lives in subs.css. */
-
 @media(max-width:1023px){
   /* iOS Safari/Brave auto-zoom the page when a focused control's
    * font-size is below 16px. Root font uses -apple-system-body, so
    * `1rem` here is NOT guaranteed to be >=16px — pin an explicit
    * 16px on every interactive control (incl. the custom date/time
-   * picker's segment inputs) so focusing a Subs form field never
+   * picker's segment inputs) so focusing a form field never
    * triggers the zoom-and-jump behaviour. text-size-adjust:100%
    * (set on html/body) keeps Safari from re-inflating it. */
   input, select, textarea, .dtf-segment{

@@ -5,7 +5,7 @@ fileMatchPattern: ['src/components/PrivateWorkspaceFrame.jsx', 'src/components/P
 
 # Workspace shell vs /inv composer shell
 
-`PrivateWorkspaceFrame` (used by /db, /l, /subs) and the /inv
+`PrivateWorkspaceFrame` (used by /db and /l) and the /inv
 `InvoiceComposer` shell are **two deliberately-parallel implementations
 of the same canvas**, not one shared component. They are already
 unified at the primitive level:

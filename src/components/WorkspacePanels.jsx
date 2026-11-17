@@ -5,7 +5,7 @@ import './WorkspacePanels.css';
  * Cross-tool navigation rendered inside the left panel, low-emphasis.
  * "Dashboard" intentionally omitted now that /db is the workspace home.
  *
- * The three tool tabs (Links, Invoice, Subs) open in a new tab so the
+ * The two tool tabs (Links and Invoice) open in a new tab so the
  * /db dashboard stays the operator's "home" tab — switching to a tool
  * doesn't lose the current /db selection / scroll position.
  */
@@ -13,7 +13,6 @@ const NAV_ITEMS = [
   { href: '/db/', label: 'Database' },
   { href: '/l/', label: 'Links', target: '_blank' },
   { href: '/inv/', label: 'Invoice', target: '_blank' },
-  { href: '/subs/', label: 'Subs', target: '_blank' },
 ];
 
 /**
@@ -43,7 +42,7 @@ const NAV_ITEMS = [
  *   showNav           - render the cross-tool nav row (default true);
  *                       pass false for public/embed pages like the
  *                       gallery delivery view, or for pages whose
- *                       only context is themselves (e.g. /subs).
+ *                       only context is themselves (for example, the gallery delivery view).
  *   navItems          - override the cross-tool nav array. Defaults
  *                       to the full NAV_ITEMS list. Pass a single
  *                       item (e.g. just Database) for pages like /l

@@ -74,17 +74,6 @@ export function createDatabasePageActions({
     setSelected({ type: 'new' });
   }
 
-  function openImportSubscription() {
-    setTab('subs');
-    setSelected({ type: 'subs-import' });
-  }
-
-  function openCreateSubscription() {
-    setTab('subs');
-    setSelected({ type: 'subs-create' });
-    setMobileView('right');
-  }
-
   async function deleteClient(client) {
     if (!client) return;
     const id = String(client.id || client.client_id || '');
@@ -112,10 +101,7 @@ export function createDatabasePageActions({
   async function deleteRecord({ kind, id, deliveryId, invoiceId }) {
     let endpointPath = '';
     let body = null;
-    if (kind === 'subscription') {
-      endpointPath = '/api/subscriptions-delete';
-      body = { id };
-    } else if (kind === 'invoice') {
+    if (kind === 'invoice') {
       endpointPath = '/api/invoices-delete';
       body = { id };
     } else if (kind === 'delivery') {
@@ -162,37 +148,21 @@ export function createDatabasePageActions({
 
 
   const handleSelectRow = (row) => {
-    if (tab === 'subs') {
-      setSelected({ type: 'subscription', id: row.id, data: row });
-    } else if (tab === 'activity') {
-      setSelected({ type: 'activity', id: row.id, data: row });
-    } else if (tab === 'clients') {
-      setSelected({ type: 'client', id: row.id, data: row });
-    } else {
-      setSelected({ type: tab, id: row.id, data: row });
-    }
+    setSelected({
+      type: tab === 'activity' ? 'activity' : 'client',
+      id: row.id,
+      data: row,
+    });
   };
 
   const handleDeleteRow = (row, event) => {
     event.stopPropagation();
-    if (tab === 'subs') {
-      if (row.id) {
-        deleteRecord({ kind: 'subscription', id: row.id });
-        if (selected?.type === 'subscription' && selected.id === row.id) {
-          setSelected(null);
-          setMobileView('left');
-        }
-      }
-    } else if (tab === 'clients') {
-      deleteClient(row);
-    }
+    if (tab === 'clients') deleteClient(row);
   };
 
   return {
     saveClient,
     openNewClient,
-    openImportSubscription,
-    openCreateSubscription,
     deleteClient,
     deleteRecord,
     handleSelectRow,

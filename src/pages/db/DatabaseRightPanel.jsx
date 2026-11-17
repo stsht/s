@@ -1,9 +1,6 @@
 import { EmptyState, Combobox } from '../../components/ui/index.js';
 import { rupiah } from '../../utils/rupiah.js';
 import { formatClientContact } from './clients/clientContact.js';
-import { SubscriptionDetail } from './subs/SubscriptionDetail.jsx';
-import { SubscriptionEdit } from './subs/SubscriptionEdit.jsx';
-import { SubscriptionImport } from './subs/SubscriptionImport.jsx';
 import { ClientDetail } from './clients/ClientDetail.jsx';
 import { DeliveryDetail } from './delivery/DeliveryDetail.jsx';
 import { ActivityDetail } from './activity/ActivityDetail.jsx';
@@ -57,7 +54,6 @@ export function DatabaseRightPanel({
   selected,
   selectedClient,
   selectedDelivery,
-  selectedSubscription,
   draft,
   setDraft,
   saveStatus,
@@ -69,7 +65,6 @@ export function DatabaseRightPanel({
   refetch,
   refresh,
   setSelected,
-  setMobileView,
   data,
   invoices,
 }) {
@@ -186,94 +181,7 @@ export function DatabaseRightPanel({
           onClose={back}
         />
       ) : null}
-      {selected?.type === 'subscription' ? (
-        <SubscriptionDetail
-          client={selected.data || {}}
-          subscription={selectedSubscription}
-          onEdit={(sub) => {
-            if (!sub?.id) return;
-            const parent = selected;
-            setSelected({
-              type: 'subs-edit',
-              id: selected.id,
-              data: selected.data,
-              parent,
-            });
-          }}
-          onDeleteSubscription={(sub) => {
-            if (!sub?.id) return;
-            deleteRecord({ kind: 'subscription', id: sub.id });
-            setSelected(null);
-            setMobileView('left');
-          }}
-          onChanged={refetch}
-          onClose={back}
-        />
-      ) : null}
-      {selected?.type === 'subs-edit' ? (
-        <SubscriptionEdit
-          subscription={selectedSubscription}
-          onSaved={(saved) => {
-            refetch();
-            const parent = selected?.parent || null;
-            const savedId = String(saved?.id || parent?.id || selected?.id || '');
-            if (saved && savedId) {
-              setSelected({
-                type: 'subscription',
-                id: savedId,
-                data: {
-                  ...(parent?.data || {}),
-                  id: savedId,
-                  client_name: String(saved.client_name ?? parent?.data?.client_name ?? ''),
-                  client_title: String(saved.client_title ?? parent?.data?.client_title ?? ''),
-                  client_contact: String(saved.client_contact ?? parent?.data?.client_contact ?? ''),
-                  subscription: saved,
-                },
-                parent: parent?.parent || null,
-              });
-            } else {
-              back();
-            }
-          }}
-          onCancel={back}
-        />
-      ) : null}
-      {selected?.type === 'subs-import' ? (
-        <SubscriptionImport
-          onSaved={() => {
-            refetch();
-          }}
-          onCancel={back}
-        />
-      ) : null}
-      {selected?.type === 'subs-create' ? (
-        <SubscriptionEdit
-          subscription={null}
-          mode="create"
-          onSaved={(saved) => {
-            refetch();
-            const newId = String(saved?.id || '');
-            if (newId) {
-              setSelected({
-                type: 'subscription',
-                id: newId,
-                data: {
-                  id: newId,
-                  client_name: String(saved?.client_name || ''),
-                  client_title: String(saved?.client_title || ''),
-                  client_contact: String(saved?.client_contact || ''),
-                  subscription: saved,
-                },
-              });
-            } else {
-              setSelected(null);
-              setMobileView('left');
-            }
-          }}
-          onCancel={back}
-        />
-      ) : null}
-      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'subscription' && selected.type !== 'subs-import' && selected.type !== 'subs-edit' && selected.type !== 'subs-create' && selected.type !== 'delivery' && selected.type !== 'activity' ? (
+      {selected && !selectedClient && selected.type !== 'new' && selected.type !== 'client-edit' && selected.type !== 'delivery' && selected.type !== 'activity' ? (
         <>
           <div className="list-stack">
             <ListRow

@@ -1,6 +1,5 @@
-// Helpers for the IDR price/amount/discount inputs across /subs,
-// /db Subs, and /inv. Goal: when a field is sitting at 0 the
-// digit "0" must read like a placeholder, not a sticky real
+// Helpers for the IDR price/amount/discount inputs across /db and /inv. Goal: when a field is sitting at 0 the
+// digit "0" should read like a placeholder, not a sticky real
 // value the operator has to manually backspace out before
 // typing. Three behaviours:
 //
