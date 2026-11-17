@@ -436,7 +436,7 @@ function shortCodeFromText(value = '') {
 function deliveryPasswordForDisplay(delivery = {}) {
   const plain = String(delivery.password || '').trim();
   if (plain) return plain;
-  const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\\n');
+  const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\n');
   return extractDeliveryPassword(text);
 }
 
