@@ -510,21 +510,6 @@ async function generateGalleryPassword(context = {}, shortCode = '') {
   return contextCode('gallery-password', GALLERY_PASSWORD_LENGTH, context, `${shortCode}|${context.title || context.client_title || ''}`);
 }
 
-function formatEventDateLabel(value) {
-  const raw = String(value || '').trim();
-  // Only a bare YYYY-MM-DD counts as a real event date. Blank values
-  // and ISO timestamps (created_at/updated_at-style) read as TBA so
-  // the delivery message never shows a bookkeeping date in place of
-  // the real event date. Anchored at noon UTC so the en-GB render
-  // doesn't drift a day in negative timezones.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return 'TBA';
-  const dt = new Date(`${raw}T12:00:00Z`);
-  if (Number.isNaN(dt.getTime())) return 'TBA';
-  // "6 Jun 2026" — day:'numeric' drops the leading zero so the line
-  // matches the /db compact date-pill label.
-  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
 // Build a bag of human-readable date tokens for the /db search index.
 //
 // The stored value is a bare YYYY-MM-DD, but operators read the
@@ -589,7 +574,7 @@ function deliveryMessageInput({
     title: title ?? 'Ms.',
     clientName: clientName || '',
     folderName: String(folderName || '').trim() || 'TBA',
-    eventDateLabel: formatEventDateLabel(eventDate),
+    eventDate,
     link: `${PUBLIC_SITE}/${String(shortCode || '').trim()}`,
     password: String(password || '').trim() || '(no password)',
     deliveryDone: deliveryDone === true
