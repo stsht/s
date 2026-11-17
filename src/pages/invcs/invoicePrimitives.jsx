@@ -34,7 +34,7 @@ export function SaveIcon({ saving = false }) {
 }
 
 // Printer glyph for the Generate JPG action (icon-only). Mirrors the
-// /db Subs PrintIcon so "print/export" reads identically across the
+// Delivery / invoice PrintIcon so "print/export" reads consistently across the
 // app.
 export function PrinterIcon() {
   return (
