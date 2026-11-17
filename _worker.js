@@ -1,4 +1,4 @@
-import { buildDeliveryMessage } from './src/features/deliveries/deliveryMessages.js';
+import { buildDeliveryMessage, extractDeliveryPassword } from './src/features/deliveries/deliveryMessages.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -437,11 +437,7 @@ function deliveryPasswordForDisplay(delivery = {}) {
   const plain = String(delivery.password || '').trim();
   if (plain) return plain;
   const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\n');
-  const match = text.match(/password\s*:\s*([^\n\r]+)/i);
-  // Strip any leading bold markers (`*`) and the monospace backticks
-  // we now wrap the WhatsApp password value in, so the extracted
-  // password is the bare value (e.g. `123456`, never `` `123456` ``).
-  return match ? String(match[1] || '').trim().replace(/^[*`\s]+/, '').replace(/[*`\s]+$/, '') : '';
+  return extractDeliveryPassword(text);
 }
 
 const PASSWORD_HISTORY_MARKER_RE = /\n?\[SS_PASSWORD_HISTORY:([^\]]*)\]\s*$/;
