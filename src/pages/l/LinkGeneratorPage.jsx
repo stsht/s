@@ -397,7 +397,7 @@ export function LinkGeneratorPage() {
         title: effectiveTitle,
         clientName: name,
         folderName: info.folder,
-        eventDateLabel: compactEventDateLabel(eventDateToSend),
+        eventDate: eventDateToSend,
         link: finalShortLink,
         password: finalPassword,
         deliveryDone: false,
