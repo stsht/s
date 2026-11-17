@@ -148,7 +148,6 @@ export function DatabaseList({
                   {compactEventDateLabel(clientPillDate)}
                 </span>
               ) : null}
-}
             </div>
           );
         })}
