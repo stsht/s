@@ -17,11 +17,6 @@ import {
   groupAccessLogsByVisitor,
   summarizeAccessLogs,
 } from './delivery/deliveryHelpers.js';
-import {
-  subscriptionTone,
-  applySubscriptionExtension,
-  pickLatestSubscriptionExtension,
-} from './subs/subscriptionLogic.js';
 
 // Sort raw client list alphabetically by display name.
 export function sortClientsByName(rawClients) {
@@ -32,24 +27,11 @@ export function sortClientsByName(rawClients) {
   });
 }
 
-// Build the lightweight subscription rows used by the list.
-export function buildSubRows(subscriptions) {
-  return (Array.isArray(subscriptions) ? subscriptions : []).map((sub) => ({
-    id: String(sub.id || ''),
-    client_name: String(sub.client_name || '').trim(),
-    client_title: String(sub.client_title || '').trim(),
-    client_contact: String(sub.client_contact || '').trim(),
-    subscription: sub,
-  }));
-}
-
-
 // Filter sorted clients down to those that belong in the CRM list.
 export function filterCrmClients(clients) {
   return (Array.isArray(clients) ? clients : []).filter((c) => {
     const invoiceCount = Number(c?.invoice_count || 0);
     const deliveryCount = Number(c?.delivery_count || 0);
-    const subscriptionCount = Number(c?.subscription_count || 0);
     const source = String(c?.source || '').toLowerCase();
     const hasInvoiceHistory =
       invoiceCount > 0 ||
@@ -61,33 +43,12 @@ export function filterCrmClients(clients) {
 
     if (hasCrmHistory) return true;
 
-    const isLegacyOrSubscriptionSource =
-      source === 'legacy' ||
-      source === 'subscription' ||
-      source === 'subscriptions';
-    if (isLegacyOrSubscriptionSource) return false;
-
-    if (subscriptionCount > 0) return false;
+    if (source === 'legacy') return false;
 
     return source === 'client';
   });
 }
 
-
-// Resolve the effective subscription, applying the latest extension if any.
-export function getEffectiveSubscription(sub) {
-  if (!sub || typeof sub !== 'object') return sub;
-  const ext = sub.latest_extension || pickLatestSubscriptionExtension(sub.extensions);
-  return applySubscriptionExtension(sub, ext);
-}
-
-// Find a subscription by id within a list.
-export function getSubscriptionById(subscriptions, id) {
-  const cleanId = String(id || '').trim();
-  if (!cleanId) return null;
-  return (Array.isArray(subscriptions) ? subscriptions : [])
-    .find((sub) => String(sub?.id || '') === cleanId) || null;
-}
 
 // Extract plain event dates for a client from invoices and deliveries.
 export function getEventDatesByClient(client, invoices, deliveriesAll) {
@@ -257,44 +218,10 @@ export function buildActivityRows({ deliveriesAll, query }) {
 }
 
 
-// Annotate and sort subscription rows: active first, then by recency.
-export function buildSortedSubRows({ subRows, effectiveSubscription }) {
-  function recencyKey(sub) {
-    return String(
-      sub?.expiry_date
-      || sub?.payment_date
-      || sub?.start_date
-      || sub?.created_at
-      || ''
-    );
-  }
-  const annotated = (Array.isArray(subRows) ? subRows : []).map((row) => {
-    const sub = row.subscription || null;
-    const effective = sub ? effectiveSubscription(sub) : null;
-    const tone = effective ? subscriptionTone(effective) : 'active';
-    return {
-      row,
-      bucket: tone === 'expired' ? 1 : 0,
-      key: recencyKey(effective || sub),
-    };
-  });
-  annotated.sort((a, b) => {
-    if (a.bucket !== b.bucket) return a.bucket - b.bucket;
-    return b.key.localeCompare(a.key);
-  });
-  return annotated.map((entry) => entry.row);
-}
-
 // Resolve the currently selected client.
 export function getSelectedClient(selected, clients) {
   if (selected?.type !== 'client') return null;
   return (Array.isArray(clients) ? clients : []).find((client) => client.id === selected.id) || selected.data || null;
-}
-
-// Resolve the currently selected subscription.
-export function getSelectedSubscription(selected, subscriptions) {
-  if (selected?.type !== 'subscription' && selected?.type !== 'subs-edit') return null;
-  return getSubscriptionById(subscriptions, selected.id) || selected.data?.subscription || null;
 }
 
 // Resolve the currently selected delivery (preferring fresh data).
