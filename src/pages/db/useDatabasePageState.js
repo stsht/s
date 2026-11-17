@@ -3,16 +3,12 @@ import { useRemoteList } from './useRemoteList.js';
 import { jakartaTodayISO } from './dbHelpers.js';
 import {
   sortClientsByName,
-  buildSubRows,
   filterCrmClients,
-  getEffectiveSubscription,
   getEventDatesByClient,
   buildSortedCrmClients,
   buildClientToneByRowId,
-  buildSortedSubRows,
   buildActivityRows,
   getSelectedClient,
-  getSelectedSubscription,
   getSelectedDelivery,
 } from './databasePageDerivations.js';
 import { createDatabasePageActions } from './databasePageActions.js';
@@ -41,18 +37,15 @@ export function useDatabasePageState() {
   const { data, status, refetch, refresh } = useRemoteList(endpoint);
   const rawClients = data?.clients || [];
   const invoices = data?.invoices || [];
-  const subscriptions = data?.subscriptions || [];
   const deliveriesAll = data?.items || [];
   const todayIso = useMemo(() => jakartaTodayISO(), []);
 
-  const effectiveSubscription = useCallback((sub) => getEffectiveSubscription(sub), []);
   const eventDatesByClient = useCallback(
     (client) => getEventDatesByClient(client, invoices, deliveriesAll),
     [invoices, deliveriesAll],
   );
 
   const clients = useMemo(() => sortClientsByName(rawClients), [rawClients]);
-  const subRows = useMemo(() => buildSubRows(subscriptions), [subscriptions]);
   const crmClients = useMemo(() => filterCrmClients(clients), [clients]);
 
   const sortedCrmClients = useMemo(
@@ -65,23 +58,15 @@ export function useDatabasePageState() {
     [sortedCrmClients],
   );
 
-  const sortedSubRows = useMemo(
-    () => buildSortedSubRows({ subRows, effectiveSubscription }),
-    [subRows, effectiveSubscription],
-  );
-
   const activityRows = useMemo(
     () => buildActivityRows({ deliveriesAll, query }),
     [deliveriesAll, query],
   );
 
-  const activeRows = tab === 'subs'
-    ? sortedSubRows
-    : tab === 'activity'
-      ? activityRows
-      : sortedCrmClients.map((entry) => entry.client);
+  const activeRows = tab === 'activity'
+    ? activityRows
+    : sortedCrmClients.map((entry) => entry.client);
   const selectedClient = getSelectedClient(selected, clients);
-  const selectedSubscription = getSelectedSubscription(selected, subscriptions);
   const selectedDelivery = useMemo(
     () => getSelectedDelivery(selected, data),
     [selected, data],
@@ -118,8 +103,6 @@ export function useDatabasePageState() {
   const {
     saveClient,
     openNewClient,
-    openImportSubscription,
-    openCreateSubscription,
     deleteClient,
     deleteRecord,
     handleSelectRow,
@@ -158,9 +141,7 @@ export function useDatabasePageState() {
     invoices,
     activeRows,
     clientToneByRowId,
-    effectiveSubscription,
     selectedClient,
-    selectedSubscription,
     selectedDelivery,
     back,
     saveClient,
