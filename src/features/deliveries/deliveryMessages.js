@@ -9,6 +9,7 @@ function formatDeliveryEventDate(value) {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
