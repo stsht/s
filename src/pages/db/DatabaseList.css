@@ -321,14 +321,14 @@
 .record-row button.record-row-link.is-created,
 .record-row button.record-row-link-anchor.is-created{
   background:color-mix(in srgb,var(--success-state) 14%,var(--panel));
-  border-color:color-mix(in srgb,var(--sub-active) 48%,var(--line));
-  color:var(--sub-active);
+  border-color:color-mix(in srgb,var(--success-state) 48%,var(--line));
+  color:var(--success-state);
 }
 .record-row a.is-created:hover,
 .record-row button.record-row-link.is-created:hover,
 .record-row button.record-row-link-anchor.is-created:hover{
-  background:color-mix(in srgb,var(--sub-active) 22%,var(--panel));
-  border-color:var(--sub-active);
+  background:color-mix(in srgb,var(--success-state) 22%,var(--panel));
+  border-color:var(--success-state);
 }
 
 /* "Complete" pill state — a delivered Links row (delivery_done) or a
@@ -565,13 +565,13 @@
 }
 .payment-proof-status.is-pending{
   border-color:color-mix(in srgb,var(--warning-state) 44%,var(--line));
-  background:color-mix(in srgb,var(--sub-warning) 12%,var(--panel));
-  color:var(--sub-warning);
+  background:color-mix(in srgb,var(--warning-state) 12%,var(--panel));
+  color:var(--warning-state);
 }
 .payment-proof-status.is-confirmed{
-  border-color:color-mix(in srgb,var(--sub-active) 44%,var(--line));
-  background:color-mix(in srgb,var(--sub-active) 12%,var(--panel));
-  color:var(--sub-active);
+  border-color:color-mix(in srgb,var(--success-state) 44%,var(--line));
+  background:color-mix(in srgb,var(--success-state) 12%,var(--panel));
+  color:var(--success-state);
 }
 .payment-proof-status.is-rejected{
   border-color:color-mix(in srgb,var(--danger) 44%,var(--line));
