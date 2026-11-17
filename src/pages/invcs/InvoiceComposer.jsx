@@ -21,7 +21,7 @@ import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
 // INVOICE_TYPES. cleanPaymentMethod moved to invoiceFormat.js.
 
 // Title-case rules (small-words set, preserve list, regex token
-// matcher) live in `src/utils/titleCase.js` so /subs and /inv share
+// matcher) live in `src/utils/titleCase.js` so invoice-related views can share
 // the exact same display normalisation. The composer used to carry
 // a local `titleCasePackageText` helper here; that has been removed
 // in favour of `toTitleCase` from the shared utility.
@@ -639,8 +639,8 @@ export function InvoiceComposer() {
       const balanceDueAmount = mode === 'paid'
         ? 0
         : Math.max(0, grandTotal - paidAmount);
-      // Mirror the /subs Save shape (see WorkspacePages.jsx
-      // saveSubscription) so the worker's handleInvoiceSave gets the
+      // Keep the invoice save payload aligned with the worker's
+      // handleInvoiceSave contract so it receives the
       // typed columns it expects, plus the loose invoice_data blob
       // that the hydrate effect at the top of this component reads
       // back via /api/invoices-get.
