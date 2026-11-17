@@ -1,4 +1,4 @@
-import { buildDeliveryMessage, buildDeliveryMessageIg } from './src/features/deliveries/deliveryMessages.js';
+import { buildDeliveryMessage } from './src/features/deliveries/deliveryMessages.js';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1527,7 +1527,7 @@ async function handleSave(request, env) {
     password
   });
   const generatedText = buildDeliveryMessage(messageInput);
-  const generatedTextIg = buildDeliveryMessageIg(messageInput);
+  const generatedTextIg = generatedText;
   const passwordSecurity = await hashGalleryPassword(password);
   const invoiceId = String(body.invoiceId || '').trim();
   let linkedInvoice = null;
@@ -2003,7 +2003,7 @@ async function handleDbSearch(request, env) {
       ? buildDeliveryMessage(messageInput)
       : stripPasswordHistoryMarker(d.generated_text_whatsapp);
     const generatedTextIg = messageInput
-      ? buildDeliveryMessageIg(messageInput)
+      ? generatedText
       : stripPasswordHistoryMarker(d.generated_text_instagram);
     const passwordHistory = deliveryPasswordHistory(d);
     // Effective event grouping key.
@@ -2343,7 +2343,7 @@ async function handleDbRepairDelivery(request, env) {
     deliveryDone
   });
   const generatedText = buildDeliveryMessage(messageInput);
-  const generatedTextIg = buildDeliveryMessageIg(messageInput);
+  const generatedTextIg = generatedText;
   const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, password_history);
   const patch = {
     short_code: shortCode,
@@ -2455,7 +2455,7 @@ async function handleDbUpdateDelivery(request, env) {
         deliveryDone: nextDone
       });
       const generatedText = buildDeliveryMessage(messageInput);
-      const generatedTextIg = buildDeliveryMessageIg(messageInput);
+      const generatedTextIg = generatedText;
       const passwordHistory = deliveryPasswordHistory(delivery);
       const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
 
@@ -2624,7 +2624,7 @@ async function handleDbUpdateDelivery(request, env) {
     ? buildDeliveryMessage(messageInput)
     : stripPasswordHistoryMarker(delivery.generated_text_whatsapp);
   const generatedTextIg = messageInput
-    ? buildDeliveryMessageIg(messageInput)
+    ? generatedText
     : stripPasswordHistoryMarker(delivery.generated_text_instagram);
   const passwordHistory = deliveryPasswordHistory(delivery);
   const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
