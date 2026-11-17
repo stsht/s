@@ -2,7 +2,7 @@ const HONORIFIC_RE = /^(?:Mr|Ms|Mrs|Miss|Dr|Kak|Pak|Bu|Ko|Ci)\.?$/i;
 
 function formatDeliveryEventDate(value) {
   const raw = String(value || '').trim();
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return 'TBA';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return 'TBA';
   const date = new Date(`${raw}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) return 'TBA';
   return date.toLocaleDateString('en-GB', {
