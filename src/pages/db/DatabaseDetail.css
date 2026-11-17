@@ -7,7 +7,7 @@
  * .client-status). Loaded after DatabaseList.css from /db/main.jsx,
  * so it inherits the shared tokens / base button styles that stay in
  * inv.css (base .db-delete-button, .ghost-button, .toolbar-icon-btn*,
- * --sub-* / --evt-* tokens). Selectors moved verbatim. */
+ * success/warning status tokens, and --evt-* tokens). Selectors moved verbatim. */
 
 .detail-heading{
   display:flex;
@@ -157,13 +157,8 @@
 /* /db detail list-row stack (Pass 20).
  *
  * Extracted verbatim from src/pages/invcs/inv.css. These generic
- * .list-stack / .list-row* selectors are used only by /db detail
- * right-panel rows (DatabaseRightPanel) and the /db Subs detail
- * rows (SubscriptionDetailRows, SubscriptionProofRow,
- * SubscriptionPeriodHistory). Loaded after inv.css and
- * subscriptionManagement.css from /db/main.jsx, so the higher-
- * specificity subs overrides (.subs-extension-list .list-row.sub-*)
- * keep winning and the base rows render unchanged. */
+ * .list-stack / .list-row* selectors are used by Client and Delivery
+ * detail right-panel content. Loaded after inv.css from /db/main.jsx. */
 .list-stack{display:grid;gap:10px}
 .list-row{
   display:flex;
