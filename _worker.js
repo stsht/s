@@ -1,3 +1,5 @@
+import { buildDeliveryMessage } from './src/features/deliveries/deliveryMessages.js';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -508,21 +510,6 @@ async function generateGalleryPassword(context = {}, shortCode = '') {
   return contextCode('gallery-password', GALLERY_PASSWORD_LENGTH, context, `${shortCode}|${context.title || context.client_title || ''}`);
 }
 
-function formatEventDateLabel(value) {
-  const raw = String(value || '').trim();
-  // Only a bare YYYY-MM-DD counts as a real event date. Blank values
-  // and ISO timestamps (created_at/updated_at-style) read as TBA so
-  // the delivery message never shows a bookkeeping date in place of
-  // the real event date. Anchored at noon UTC so the en-GB render
-  // doesn't drift a day in negative timezones.
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return 'TBA';
-  const dt = new Date(`${raw}T12:00:00Z`);
-  if (Number.isNaN(dt.getTime())) return 'TBA';
-  // "6 Jun 2026" — day:'numeric' drops the leading zero so the line
-  // matches the /db compact date-pill label.
-  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
 // Build a bag of human-readable date tokens for the /db search index.
 //
 // The stored value is a bare YYYY-MM-DD, but operators read the
@@ -574,70 +561,24 @@ function dateSearchTokens(value) {
   ].join(' ');
 }
 
-function buildDoneDeliveryMessage(namePart, f, ev, shortCode, pass) {
-  return `Dear *${namePart.trim()}*,
-
-Your StarShots files are now ready.
-
-You may access them here:
-*Folder:* ${f}
-*Event Date:* ${ev}
-*Link:* ${PUBLIC_SITE}/${shortCode}
-*Password:* \`${pass}\`
-
-Thank you for your patience.
-With love, StarShots`;
-}
-
-function buildPendingDeliveryMessage(namePart, f, ev, shortCode, pass) {
-  return `Dear *${namePart.trim()}*,
-
-With sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.
-
-You may access your *Delivery Page* and *Invoice* through the details below:
-
-*Folder:* ${f}
-*Event Date:* ${ev}
-*Link:* ${PUBLIC_SITE}/${shortCode}
-*Password:* \`${pass}\`
-
-Should you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.
-
-Kindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.
-
-Thank you once again for allowing StarShots ID to be part of your special moment.
-
-Warm Regards,
-StarShots ID`;
-}
-
-function buildDeliveryMessage(title, clientName, folderName, eventDate, shortCode, password, deliveryDone) {
-  const t = String(title ?? 'Ms.').trim();
-  const c = String(clientName || '').trim();
-  const f = String(folderName || '').trim() || 'TBA';
-  const ev = formatEventDateLabel(eventDate);
-  const namePart = t ? `${t} ${c}` : c;
-  const pass = String(password || '').trim() || '(no password)';
-
-  return deliveryDone
-    ? buildDoneDeliveryMessage(namePart, f, ev, shortCode, pass)
-    : buildPendingDeliveryMessage(namePart, f, ev, shortCode, pass);
-}
-
-// Strip WhatsApp markdown markers (*bold*, _italic_, ~strike~,
-// `mono`) so the Instagram DM carries identical wording/order as
-// the WhatsApp template but as plain text. Only the markers are
-// removed, never the words.
-function stripMessageFormatting(text) {
-  return String(text || '').replace(/[*_~`]/g, '');
-}
-
-// Instagram DM variant: the exact same content/order as the
-// WhatsApp template with the formatting markers stripped, so the
-// two channels stay in lockstep (same password-change notice,
-// same "Warm Regards, / StarShots ID" closing).
-function buildDeliveryMessageIg(title, clientName, folderName, eventDate, shortCode, password, deliveryDone) {
-  return stripMessageFormatting(buildDeliveryMessage(title, clientName, folderName, eventDate, shortCode, password, deliveryDone));
+function deliveryMessageInput({
+  title,
+  clientName,
+  folderName,
+  eventDate,
+  shortCode,
+  password,
+  deliveryDone = false
+} = {}) {
+  return {
+    title: title ?? 'Ms.',
+    clientName: clientName || '',
+    folderName: String(folderName || '').trim() || 'TBA',
+    eventDate,
+    link: `${PUBLIC_SITE}/${String(shortCode || '').trim()}`,
+    password: String(password || '').trim() || '(no password)',
+    deliveryDone: deliveryDone === true
+  };
 }
 
 async function getDeliveryByShortCode(env, code) {
@@ -1562,8 +1503,16 @@ async function handleSave(request, env) {
   const shortCode = await uniqueShortCode(env, deliveryContext);
   const password = await generateGalleryPassword(deliveryContext, shortCode);
   const deliveryUrl = `/${shortCode}`;
-  const generatedText = buildDeliveryMessage(body.title ?? 'Ms.', body.clientName, body.folderName, body.eventDate, shortCode, password);
-  const generatedTextIg = buildDeliveryMessageIg(body.title ?? 'Ms.', body.clientName, body.folderName, body.eventDate, shortCode, password);
+  const messageInput = deliveryMessageInput({
+    title: body.title ?? 'Ms.',
+    clientName: body.clientName,
+    folderName: body.folderName,
+    eventDate: body.eventDate,
+    shortCode,
+    password
+  });
+  const generatedText = buildDeliveryMessage(messageInput);
+  const generatedTextIg = generatedText;
   const passwordSecurity = await hashGalleryPassword(password);
   const invoiceId = String(body.invoiceId || '').trim();
   let linkedInvoice = null;
@@ -2022,14 +1971,24 @@ async function handleDbSearch(request, env) {
     const shortPath = shortCode ? `/${shortCode}` : '';
     const displayPassword = deliveryPasswordForDisplay(d);
     const deliveryDoneBool = !!d.delivery_done;
-    const generatedText = displayPassword && shortCode
-      ? buildDeliveryMessage(d.title ?? 'Ms.', d.client_name, d.folder_name, d.event_date, shortCode, displayPassword, deliveryDoneBool)
-      : stripPasswordHistoryMarker(d.generated_text_whatsapp);
     // Rebuild generated messages from canonical delivery fields so
-    // older rows pick up template additions such as Folder without
-    // needing a manual password repair.
-    const generatedTextIg = displayPassword && shortCode
-      ? buildDeliveryMessageIg(d.title ?? 'Ms.', d.client_name, d.folder_name, d.event_date, shortCode, displayPassword, deliveryDoneBool)
+    // older rows pick up template changes without a manual repair.
+    const messageInput = displayPassword && shortCode
+      ? deliveryMessageInput({
+          title: d.title ?? 'Ms.',
+          clientName: d.client_name,
+          folderName: d.folder_name,
+          eventDate: d.event_date,
+          shortCode,
+          password: displayPassword,
+          deliveryDone: deliveryDoneBool
+        })
+      : null;
+    const generatedText = messageInput
+      ? buildDeliveryMessage(messageInput)
+      : stripPasswordHistoryMarker(d.generated_text_whatsapp);
+    const generatedTextIg = messageInput
+      ? generatedText
       : stripPasswordHistoryMarker(d.generated_text_instagram);
     const passwordHistory = deliveryPasswordHistory(d);
     // Effective event grouping key.
@@ -2359,8 +2318,17 @@ async function handleDbRepairDelivery(request, env) {
   const password_history = deliveryPasswordHistory(delivery);
 
   const deliveryDone = !!delivery.delivery_done;
-  const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, delivery.event_date, shortCode, displayPassword, deliveryDone);
-  const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, delivery.event_date, shortCode, displayPassword, deliveryDone);
+  const messageInput = deliveryMessageInput({
+    title: delivery.title ?? 'Ms.',
+    clientName: delivery.client_name || '',
+    folderName: delivery.folder_name,
+    eventDate: delivery.event_date,
+    shortCode,
+    password: displayPassword,
+    deliveryDone
+  });
+  const generatedText = buildDeliveryMessage(messageInput);
+  const generatedTextIg = generatedText;
   const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, password_history);
   const patch = {
     short_code: shortCode,
@@ -2462,8 +2430,17 @@ async function handleDbUpdateDelivery(request, env) {
     try {
       const displayPassword = deliveryPasswordForDisplay(delivery);
       const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery) || '';
-      const generatedText = buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, delivery.event_date, shortCode, displayPassword, nextDone);
-      const generatedTextIg = buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', delivery.folder_name, delivery.event_date, shortCode, displayPassword, nextDone);
+      const messageInput = deliveryMessageInput({
+        title: delivery.title ?? 'Ms.',
+        clientName: delivery.client_name || '',
+        folderName: delivery.folder_name,
+        eventDate: delivery.event_date,
+        shortCode,
+        password: displayPassword,
+        deliveryDone: nextDone
+      });
+      const generatedText = buildDeliveryMessage(messageInput);
+      const generatedTextIg = generatedText;
       const passwordHistory = deliveryPasswordHistory(delivery);
       const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
 
@@ -2617,11 +2594,22 @@ async function handleDbUpdateDelivery(request, env) {
   const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
   const displayPassword = deliveryPasswordForDisplay(delivery);
   const deliveryDone = !!delivery.delivery_done;
-  const generatedText = displayPassword && shortCode
-    ? buildDeliveryMessage(delivery.title ?? 'Ms.', delivery.client_name || '', updatedFolderName, updatedEventDate, shortCode, displayPassword, deliveryDone)
+  const messageInput = displayPassword && shortCode
+    ? deliveryMessageInput({
+        title: delivery.title ?? 'Ms.',
+        clientName: delivery.client_name || '',
+        folderName: updatedFolderName,
+        eventDate: updatedEventDate,
+        shortCode,
+        password: displayPassword,
+        deliveryDone
+      })
+    : null;
+  const generatedText = messageInput
+    ? buildDeliveryMessage(messageInput)
     : stripPasswordHistoryMarker(delivery.generated_text_whatsapp);
-  const generatedTextIg = displayPassword && shortCode
-    ? buildDeliveryMessageIg(delivery.title ?? 'Ms.', delivery.client_name || '', updatedFolderName, updatedEventDate, shortCode, displayPassword, deliveryDone)
+  const generatedTextIg = messageInput
+    ? generatedText
     : stripPasswordHistoryMarker(delivery.generated_text_instagram);
   const passwordHistory = deliveryPasswordHistory(delivery);
   const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);

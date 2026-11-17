@@ -19,6 +19,7 @@ const files = [
   'logo.png',
   'logo.svg',
   'payment-qr.png',
+  'src/features/deliveries/deliveryMessages.js',
 ];
 
 for (const file of files) {

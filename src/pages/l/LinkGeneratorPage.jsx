@@ -19,7 +19,7 @@ import {
   buildBaseSlug,
   buildFolderPassword,
 } from './linkSlug.js';
-import { buildPreviewMessage } from './linkMessage.js';
+import { buildDeliveryMessage } from '../../features/deliveries/deliveryMessages.js';
 import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
 
 // /l — Link Generator.
@@ -35,11 +35,10 @@ import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
 //   POST /api/save with the legacy payload shape. The current
 //   worker authoritatively generates `password` and `shortCode`
 //   server-side and ignores any matching fields in the body, so
-//   we send the body for shape compatibility but always display
-//   `data.password`, `data.shortLink`, and `data.generatedText`
-//   from the response. The folder-date password is shown only as
-//   a pre-save preview hint and is replaced once the worker
-//   responds.
+//   we send the body for shape compatibility and always take the
+//   authoritative password + short link from the Worker response.
+//   The generated message is then rebuilt with the shared pure
+//   formatter, using those server-issued values.
 //
 // Auth: PasswordGate has already established the shared admin
 // session cookie before this page renders, so /api/save runs with
@@ -392,13 +391,17 @@ export function LinkGeneratorPage() {
         data.shortLink ||
         (data.shortUrl ? `${window.location.origin}${data.shortUrl}` : info.directUrl);
       const finalPassword = String(data.password || '').trim() || info.pass;
-      const finalMessage =
-        data.generatedText ||
-        buildPreviewMessage(effectiveTitle, name, {
-          ...info,
-          shortLink: finalShortLink,
-          pass: finalPassword,
-        });
+      // Rebuild from the server-issued URL/password with the same
+      // canonical formatter used by the Worker and /db View.
+      const finalMessage = buildDeliveryMessage({
+        title: effectiveTitle,
+        clientName: name,
+        folderName: info.folder,
+        eventDate: eventDateToSend,
+        link: finalShortLink,
+        password: finalPassword,
+        deliveryDone: false,
+      });
 
       setSaved({
         slug: info.slug,
