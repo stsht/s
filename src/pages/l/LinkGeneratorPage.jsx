@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { WorkspacePanels } from '../../components/WorkspacePanels.jsx';
 import { DateTimeField } from '../../components/ui/index.js';
 import { toTitleCase } from '../../utils/titleCase.js';
-import { SaveIcon, ServiceField } from './linkPrimitives.jsx';
+import { ServiceField } from './linkPrimitives.jsx';
 import {
   cleanLinkText,
   jakartaTodayISO,
@@ -148,7 +148,7 @@ export function LinkGeneratorPage() {
   // Visual flash on the clickable preview cards / textarea so
   // operators get tactile feedback after a copy or open action.
   const [copyFlash, setCopyFlash] = useState('');
-  const clientInputRef = useRef(null);
+  const clientInputRef = useRef(null);\n  const submitLockRef = useRef(false);
 
   // One-shot invoice handoff. Only fills empty fields so that a
   // mid-edit reload from /inv → /l never clobbers manual changes.
@@ -303,6 +303,12 @@ export function LinkGeneratorPage() {
 
   async function submit(event) {
     event?.preventDefault?.();
+    if (busy || submitLockRef.current) return;
+    if (saved) {
+      setMobileView('right');
+      setStatus({ text: 'Already generated. Edit the details to create another delivery.', tone: 'success' });
+      return;
+    }
     const name = cleanLinkText(clientName);
     const effectiveTitle = deliveryType === 'vendor' ? '' : title;
     if (!name) {
@@ -329,6 +335,7 @@ export function LinkGeneratorPage() {
       }))
       .filter((link) => link.originalUrl);
 
+    submitLockRef.current = true;
     setBusy(true);
     setStatus({ text: 'Saving delivery...', tone: '' });
     dbg('/l submit', {
@@ -439,6 +446,7 @@ export function LinkGeneratorPage() {
     } catch (error) {
       setStatus({ text: error.message || 'Save failed.', tone: 'error' });
     } finally {
+      submitLockRef.current = false;
       setBusy(false);
     }
   }
@@ -591,8 +599,13 @@ export function LinkGeneratorPage() {
         <button type="button" className="ghost-button compact" onClick={clearAll}>
           Clear
         </button>
-        <button type="submit" className="primary-button" disabled={busy}>
-          {busy ? 'Saving\u2026' : 'Generate'}
+        <button
+          type="submit"
+          className="primary-button"
+          disabled={busy || Boolean(saved)}
+          title={saved ? 'Edit the details to create another delivery' : 'Generate and save delivery'}
+        >
+          {busy ? 'Saving\\u2026' : saved ? 'Generated' : 'Generate'}
         </button>
       </div>
       <p className={`download-status${status.tone ? ` lg-status-${status.tone}` : ''}`}>
@@ -617,16 +630,6 @@ export function LinkGeneratorPage() {
         <div className="preview-toolbar-actions">
           <button type="button" className="ghost-button compact" onClick={copyMessage}>
             Copy
-          </button>
-          <button
-            type="button"
-            className="toolbar-icon-btn"
-            onClick={() => submit()}
-            disabled={busy}
-            aria-label={busy ? 'Saving delivery' : 'Save delivery'}
-            title={busy ? 'Saving...' : 'Save'}
-          >
-            <SaveIcon saving={busy} />
           </button>
         </div>
       </header>
