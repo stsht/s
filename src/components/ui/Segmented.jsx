@@ -2,7 +2,7 @@
  * Segmented
  *
  * Right-aligned pill control used inside the WorkspacePanels header
- * for contextual page modes (e.g. /db: Clients/Subs/Invoices,
+ * for contextual page modes (e.g. /db: Clients/Activity and /inv modes,
  * /inv: Invoice/Deposit/Paid).
  *
  * Renders the isolated .pf-pillset styles defined in
