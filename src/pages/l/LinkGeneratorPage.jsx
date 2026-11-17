@@ -605,7 +605,7 @@ export function LinkGeneratorPage() {
           disabled={busy || Boolean(saved)}
           title={saved ? 'Edit the details to create another delivery' : 'Generate and save delivery'}
         >
-          {busy ? 'Saving\\u2026' : saved ? 'Generated' : 'Generate'}
+          {busy ? 'Saving\u2026' : saved ? 'Generated' : 'Generate'}
         </button>
       </div>
       <p className={`download-status${status.tone ? ` lg-status-${status.tone}` : ''}`}>
