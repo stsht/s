@@ -659,7 +659,7 @@ input.no-spinner::-webkit-inner-spin-button{
  * Save Status button and the Generate JPG button side-by-side. The
  * ghost Save Status button is sized down with .compact so the
  * primary Generate JPG remains the visual anchor — same pattern
- * as .subs-toolbar-actions. */
+ * as a compact toolbar action. */
 .preview-toolbar-actions{
   display:flex;
   align-items:center;
@@ -1054,7 +1054,7 @@ input.no-spinner::-webkit-inner-spin-button{
    * font-size is below 16px. Root font uses -apple-system-body, so
    * `1rem` here is NOT guaranteed to be >=16px — pin an explicit
    * 16px on every interactive control (incl. the custom date/time
-   * picker's segment inputs) so focusing a Subs form field never
+   * picker's segment inputs) so focusing a form field never
    * triggers the zoom-and-jump behaviour. text-size-adjust:100%
    * (set on html/body) keeps Safari from re-inflating it. */
   input, select, textarea, .dtf-segment{
