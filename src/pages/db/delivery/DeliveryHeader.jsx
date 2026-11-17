@@ -86,7 +86,7 @@ export function DeliveryHeader({
               title={confirmDelete ? 'Confirm Delete' : 'Delete'}
             >
               <TrashIcon />
-              <span>{deleting ? 'Deleting\u2026' : (confirmDelete ? 'Confirm' : 'Delete')}</span>
+              <span>{deleting ? 'Deleting\u2026' : (confirmDelete ? 'Confirm Delete' : 'Delete')}</span>
             </button>
             <button
               type="button"
