@@ -15,7 +15,7 @@ The project is built as a Vite multi-page application and deployed to Cloudflare
 | `/t` | Standalone reading / recitation page |
 | `/eng` | Standalone English-learning page |
 
-The first five routes are the core StarShots operations surfaces. `/t` and `/eng` are standalone pages built and hosted in the same project.
+The first four routes are the core StarShots operations surfaces. `/t` and `/eng` are standalone pages built and hosted in the same project.
 
 ## Technology
 
