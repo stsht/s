@@ -42,7 +42,7 @@ const NAV_ITEMS = [
  *   showNav           - render the cross-tool nav row (default true);
  *                       pass false for public/embed pages like the
  *                       gallery delivery view, or for pages whose
- *                       only context is themselves (e.g. /subs).
+ *                       only context is themselves (for example, the gallery delivery view).
  *   navItems          - override the cross-tool nav array. Defaults
  *                       to the full NAV_ITEMS list. Pass a single
  *                       item (e.g. just Database) for pages like /l
