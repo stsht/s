@@ -1,19 +1,8 @@
 /* /db list + record-row styles.
  *
- * Extracted verbatim from inv.css (Pass 15). Owns the Clients/Subs
- * left-list rows (.db-list / .db-list-row*), the per-event RecordRow
- * stack (.record-stack / .record-row*), and the quiet per-row delete
- * affordance (.row-delete-x / .row-delete-icon). Rendered by /db
- * components (DatabaseList.jsx, RecordRow.jsx, ClientEventList.jsx,
- * SubscriptionPeriodHistory.jsx) and imported from db/main.jsx after
- * inv.css so the effective cascade is unchanged.
- *
- * The shared .event-date-pill base/tone palette, the --sub-* / --evt-*
- * CSS variables, and the .lg-event-date-pill / .delivery-event-date-pill
- * shared rules intentionally stay in inv.css (shared with /l and the
- * delivery views). The row-level tone tints below (.db-list-row.* /
- * .record-row.* and .db-list-row > span.event-date-pill) are /db-only
- * scoping that reads off those shared tokens. */
+ * Owns the Clients list, per-event RecordRow stack, and quiet per-row
+ * delete affordance. The shared event-date pill palette and status
+ * tokens remain in inv.css; the row-level tints here are /db scoped. */
 .db-list{
   min-height:0;
   display:grid;
@@ -37,13 +26,8 @@
   text-align:left;
   cursor:pointer;
 }
-/* Clients tab + Subs tab rows render an additional .event-date-pill
- * column between the row text and the quiet X. The .has-event-pill
- * marker (added in WorkspacePages.jsx for any row that ships a pill)
- * widens the grid template by one auto-sized column so the pill sits
- * flush against the X without squashing the title. Clients show the
- * representative event date; Subs show the effective expiry (latest
- * extension wins). Both pills share the same event-tone-* palette. */
+/* Clients rows with an event-date pill get an auto-sized middle column
+ * so the date sits flush against the quiet X without squashing the title. */
 .db-list-row.has-event-pill{
   grid-template-columns:minmax(0,1fr) auto 22px;
 }
@@ -91,32 +75,6 @@
   font-size:0.6875rem;
   font-weight:800;
 }
-.db-list-row.sub-active strong{
-  color:var(--sub-active);
-}
-.db-list-row.sub-active{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-active) 70%,transparent);
-}
-.db-list-row.sub-warning strong{
-  color:var(--sub-warning);
-}
-.db-list-row.sub-warning span{
-  color:color-mix(in srgb,var(--sub-warning) 70%,var(--muted) 30%);
-}
-.db-list-row.sub-warning{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-warning) 75%,transparent);
-}
-.db-list-row.sub-expired strong{
-  color:var(--sub-expired);
-}
-.db-list-row.sub-expired span{
-  color:color-mix(in srgb,var(--sub-expired) 70%,var(--muted) 30%);
-}
-.db-list-row.sub-expired{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--sub-expired) 60%,transparent);
-  opacity:.86;
-}
-
 /* Row-level tone tints. Soft, kept to a coloured left edge so the
  * row's neutral surface is preserved and a list of mixed-tone
  * rows still scans like a list, not a colour test. The row title
@@ -356,16 +314,13 @@
  * Links / Invoice (when the underlying delivery or
  * invoice exists) flip to a soft-green pill so the operator can
  * tell at a glance which side of the row is already shipped. The
- * tint is layered through color-mix() against --sub-active —
- * the same green token used by the Subs tab "active" state — so
- * light/dark modes pick the right shade automatically without a
- * second palette. The neutral "Links" / "Invoice"
- * pill is unchanged when the row is missing the corresponding
- * record. */
+ * tint is layered through the shared success-state token so
+ * light/dark modes retain the same calm green treatment. The neutral
+ * "Links" / "Invoice" pill is unchanged when the row is missing. */
 .record-row a.is-created,
 .record-row button.record-row-link.is-created,
 .record-row button.record-row-link-anchor.is-created{
-  background:color-mix(in srgb,var(--sub-active) 14%,var(--panel));
+  background:color-mix(in srgb,var(--success-state) 14%,var(--panel));
   border-color:color-mix(in srgb,var(--sub-active) 48%,var(--line));
   color:var(--sub-active);
 }
@@ -609,7 +564,7 @@
   text-transform:uppercase;
 }
 .payment-proof-status.is-pending{
-  border-color:color-mix(in srgb,var(--sub-warning) 44%,var(--line));
+  border-color:color-mix(in srgb,var(--warning-state) 44%,var(--line));
   background:color-mix(in srgb,var(--sub-warning) 12%,var(--panel));
   color:var(--sub-warning);
 }
@@ -695,10 +650,7 @@
 }
 
 
-/* Add-client / create-action pill. Live and /db-only — rendered by
- * DatabaseList.jsx (Clients "Add client" + Subs "New Subscription")
- * and styled here after inv.css so the cascade is unchanged.
- * Extracted verbatim from inv.css (Pass 23). */
+/* Create Client action pill, scoped to the /db list. */
 .add-client-button{
   min-height:44px;
   border:0;
@@ -711,8 +663,3 @@
 .add-client-button{
   width:100%;
 }
-/* Two-up actions row used by /db Subs to host the "New
- * Subscription" + "Import JPG" buttons side-by-side. The pair
- * preserves the same 44-tall pill chrome as a single full-width
- * .add-client-button (so the toolbar height matches Clients) while
- * giving the operator a one-tap route to either create flow. */
