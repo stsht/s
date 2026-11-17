@@ -24,7 +24,6 @@ The first five routes are the core StarShots operations surfaces. `/t` and `/eng
 - **Hosting and server runtime:** Cloudflare Pages, Wrangler, and the root `_worker.js`
 - **Serverless endpoints:** the root `_worker.js` (Cloudflare Pages advanced mode); it handles every `/api/*` route
 - **Data and file storage:** Supabase REST API and Storage
-- **Optional receipt parsing:** Cloudflare Workers AI binding, with an OpenAI fallback when configured
 
 ## Repository layout
 
@@ -83,6 +82,8 @@ The repository also includes `npm run secret:admin` for setting the `ADMIN_PASSW
 ## Data and migration safety
 
 The SQL files in the repository are migration/reference scripts. Their presence in Git does **not** prove that they have been applied to the live Supabase project. Check the live schema and migration state before applying or troubleshooting a database change.
+
+Legacy Subscriptions have been retired from the application. The forward cleanup is in `db-migration-part-14.sql`: it drops only `public.subscription_extensions` and `public.subscriptions`, after the code removal has been deployed. Do not re-apply historical parts 4, 7, 10, or 11 after that cleanup. The migration deliberately preserves `clients`, `invoices`, `deliveries`, `payment_proofs`, the private `payment-proofs` Storage bucket, `invoice_packages`, and the shared timestamp trigger helper.
 
 Payment/deposit state, payment-proof review state, and an active payment request are related but distinct parts of the application. Preserve their separate semantics when changing invoice or delivery flows.
 
