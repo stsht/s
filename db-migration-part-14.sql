@@ -1,5 +1,11 @@
 -- StarShots migration part 14: decommission legacy Subscriptions.
 -- Run after deploying the application code that no longer references Subs.
+-- This DROP is destructive to any rows still present in these two tables.
+-- Take a database backup first if any historical Subs data must be retained.
+-- Optional read-only preflight:
+--   SELECT 'subscriptions' AS table_name, COUNT(*) FROM public.subscriptions
+--   UNION ALL
+--   SELECT 'subscription_extensions', COUNT(*) FROM public.subscription_extensions;
 -- This migration drops only the Subs-owned tables. Historical migration
 -- files (parts 4, 7, 10, and 11) remain in Git as an audit trail and
 -- should not be re-applied after this migration.
