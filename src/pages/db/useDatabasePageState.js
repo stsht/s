@@ -146,8 +146,6 @@ export function useDatabasePageState() {
     back,
     saveClient,
     openNewClient,
-    openImportSubscription,
-    openCreateSubscription,
     deleteClient,
     deleteRecord,
     handleSelectRow,
