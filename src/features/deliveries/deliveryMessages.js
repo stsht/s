@@ -1,5 +1,17 @@
 const HONORIFIC_RE = /^(?:Mr|Ms|Mrs|Miss|Dr|Kak|Pak|Bu|Ko|Ci)\.?$/i;
 
+function formatDeliveryEventDate(value) {
+  const raw = String(value || '').trim();
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return 'TBA';
+  const date = new Date(`${raw}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return 'TBA';
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function stripMessageFormatting(text) {
   return String(text || '').replace(/[*_~`]/g, '');
 }
@@ -38,7 +50,9 @@ export function buildDeliveryMessage(input = {}) {
   const link = String(input.link || '(link unavailable)').trim();
   const pass = String(input.password || '(no password)').trim();
   const folder = String(input.folderName || '').trim();
-  const eventDate = String(input.eventDateLabel || '').trim();
+  const eventDate = input.eventDateLabel !== undefined
+    ? String(input.eventDateLabel || '').trim()
+    : formatDeliveryEventDate(input.eventDate);
 
   const lines = input.previewOnly || (!folder && !eventDate)
     ? [`• Link: ${link}`, `• Password: ${pass}`]
