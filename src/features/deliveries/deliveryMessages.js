@@ -18,7 +18,7 @@ export function stripMessageFormatting(text) {
 }
 
 function decodeUnicodeBold(text) {
-  return String(text ?? '').replace(/[\\u{1D5D4}-\\u{1D5ED}\\u{1D5EE}-\\u{1D607}\\u{1D7EC}-\\u{1D7F5}]/gu, (character) => {
+  return String(text ?? '').replace(/[\u{1D5D4}-\u{1D5ED}\u{1D5EE}-\u{1D607}\u{1D7EC}-\u{1D7F5}]/gu, (character) => {
     const code = character.codePointAt(0);
     if (code >= 0x1D5D4 && code <= 0x1D5ED) return String.fromCodePoint(65 + code - 0x1D5D4);
     if (code >= 0x1D5EE && code <= 0x1D607) return String.fromCodePoint(97 + code - 0x1D5EE);
@@ -28,11 +28,11 @@ function decodeUnicodeBold(text) {
 
 // Recover the message password from legacy Markdown and canonical Unicode-bold labels.
 export function extractDeliveryPassword(text) {
-  const lines = decodeUnicodeBold(text).split(/\\r?\\n/);
+  const lines = decodeUnicodeBold(text).split(/\r?\n/);
   for (const line of lines) {
-    const match = line.match(/^\\s*\\*{0,2}password\\*{0,2}\\s*:\\s*(.*?)\\s*$/i);
+    const match = line.match(/^\s*\*{0,2}password\*{0,2}\s*:\s*(.*?)\s*$/i);
     if (!match) continue;
-    return String(match[1] || '').trim().replace(/^[*\\x60\\s]+/, '').replace(/[*\\x60\\s]+$/, '');
+    return String(match[1] || '').trim().replace(/^[*\x60\s]+/, '').replace(/[*\x60\s]+$/, '');
   }
   return '';
 }
