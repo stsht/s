@@ -12,7 +12,6 @@ The project is built as a Vite multi-page application and deployed to Cloudflare
 | `/g` | Client delivery and gallery experience, including payment-proof actions |
 | `/l` | Delivery link generator |
 | `/inv` | Invoice generator and composer |
-| `/subs` | Subscription management |
 | `/t` | Standalone reading / recitation page |
 | `/eng` | Standalone English-learning page |
 
@@ -35,7 +34,7 @@ The first five routes are the core StarShots operations surfaces. `/t` and `/eng
 | `src/components/` | Shared React components |
 | `src/features/` | Domain-specific features |
 | `_worker.js` | Custom Cloudflare Pages Worker and API routing |
-| `db/`, `g/`, `l/`, `inv/`, `subs/`, `t/`, `eng/` | HTML entry points for the multi-page build |
+| `db/`, `g/`, `l/`, `inv/`, `t/`, `eng/` | HTML entry points for the multi-page build |
 | `scripts/copy-static.mjs` | Copies required root-level static assets and the Worker into `dist/` |
 | `*.sql` | Versioned database migration/reference scripts |
 | `.kiro/steering/` | Repository-specific development and architecture guidance |
