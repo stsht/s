@@ -20,7 +20,7 @@ const GALLERY_PASSWORD_LENGTH = 7;
 // All copy/share/send paths (WhatsApp template, Instagram DM
 // template, /db Short Link card, /l preview) are built off this
 // constant so the URL the customer sees is always the deployed
-// Pages project host. Admin/internal routes (/db, /inv, /l, /subs)
+// Pages project host. Admin/internal routes (/db, /inv, /l)
 // do not depend on this — they are served from whatever origin the
 // operator is currently logged in to.
 const PUBLIC_SITE = 'https://sshots.pages.dev';
@@ -1178,7 +1178,7 @@ async function findInvoiceForDelivery(env, delivery = {}) {
   return null;
 }
 
-function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], subscriptions = [], q = '') {
+function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], q = '') {
   const byId = new Map();
   const byNormalized = new Map();
   const legacy = new Map();
@@ -1194,10 +1194,8 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     updated_at: seed.updated_at || seed.created_at || '',
     invoice_count: 0,
     delivery_count: 0,
-    subscription_count: 0,
     invoice_ids: [],
     delivery_ids: [],
-    subscription_ids: []
   });
 
   (Array.isArray(clientRows) ? clientRows : []).forEach((client) => {
@@ -1225,24 +1223,6 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
       summary.updated_at = record.updated_at || record.created_at || summary.updated_at;
     }
     return summary;
-  };
-
-  // Subscription bucketing is intentionally narrower: a sub may
-  // ATTACH to an existing client bucket (so we can detect "this
-  // client also has a subscription") but it must NEVER create a
-  // brand-new bucket. The Clients tab is a CRM view of invoices +
-  // deliveries — subscription people belong on the Subs tab and
-  // must not surface here just because the Subs roster has them.
-  // This is the server-side enforcement of the Clients/Subs
-  // separation; the frontend `crmClients` filter is a defensive
-  // backstop against stale payloads.
-  const subsBucketFor = (record) => {
-    const clientId = String(record.client_id || '').trim();
-    if (clientId && byId.has(clientId)) return byId.get(clientId);
-    const normalized = normalizeClientName(record.client_name || record.name);
-    if (!normalized) return null;
-    if (byNormalized.has(normalized)) return byNormalized.get(normalized);
-    return null;
   };
 
   // Event dates per client, kept in a side map keyed by the summary
@@ -1277,19 +1257,11 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
     noteEventDate(summary, delivery.event_date);
   });
 
-  (Array.isArray(subscriptions) ? subscriptions : []).forEach((sub) => {
-    const summary = subsBucketFor(sub);
-    if (!summary) return;
-    summary.subscription_count += 1;
-    summary.subscription_ids.push(String(sub.id));
-  });
-
   const query = String(q || '').toLowerCase();
   return [...byId.values(), ...legacy.values()]
     .filter((client) => {
       const invoiceCount = Number(client.invoice_count || 0);
       const deliveryCount = Number(client.delivery_count || 0);
-      const subscriptionCount = Number(client.subscription_count || 0);
       const hasCrmHistory = invoiceCount > 0 || deliveryCount > 0;
 
       // Legacy buckets are denormalized stubs — only keep them
@@ -1297,14 +1269,6 @@ function buildClientSummaries(clientRows = [], invoices = [], deliveries = [], s
       // enforces this since legacy buckets are only created from
       // invoice/delivery rows above.)
       if (client.source === 'legacy') return hasCrmHistory;
-
-      // Real client rows. Subscription-only orphans (a public.clients
-      // row that exists ONLY because an older handleSubscriptionSave
-      // auto-created it) get hidden so Subs people stop appearing as
-      // TBA on the Clients tab. Fresh CRM clients with no records yet
-      // (operator just clicked "Create Client") still show because
-      // their subscription_count is zero.
-      if (subscriptionCount > 0 && !hasCrmHistory) return false;
 
       return true;
     })
@@ -1952,67 +1916,13 @@ async function handleDbSearch(request, env) {
     }
   };
 
-  const [allDeliveries, allInvoices, allSubscriptions, clientRows, allPaymentProofs] = await Promise.all([
+  const [allDeliveries, allInvoices, clientRows, allPaymentProofs] = await Promise.all([
     supabaseFetch(env, '/rest/v1/deliveries?select=*&order=created_at.desc&limit=200')
       .then((rows) => Array.isArray(rows) ? rows : []),
     tolerantSupabase('/rest/v1/invoices?select=*&order=updated_at.desc&limit=200'),
-    tolerantSupabase('/rest/v1/subscriptions?select=*&order=created_at.desc&limit=200'),
     fetchClients(env),
     tolerantSupabase('/rest/v1/payment_proofs?select=*&order=uploaded_at.asc&limit=1000'),
   ]);
-
-  // Subscription extensions for the loaded subscriptions. Fetched
-  // in a single in-list query so the whole Subs tab can render
-  // with extension state without N round-trips. tolerantSupabase
-  // returns [] when the table doesn't exist yet (pre-part-7
-  // schemas) so /db keeps working without the migration applied.
-  let allExtensions = [];
-  const subIds = allSubscriptions.map((s) => s.id).filter(Boolean);
-  if (subIds.length) {
-    const inList = subIds.join(',');
-    allExtensions = await tolerantSupabase(
-      `/rest/v1/subscription_extensions?select=*&subscription_id=in.(${inList})&order=created_at.desc&limit=1000`
-    );
-  }
-  const extensionsBySubId = new Map();
-  for (const ext of (Array.isArray(allExtensions) ? allExtensions : [])) {
-    const sid = String(ext?.subscription_id || '');
-    if (!sid) continue;
-    let bucket = extensionsBySubId.get(sid);
-    if (!bucket) { bucket = []; extensionsBySubId.set(sid, bucket); }
-    bucket.push(ext);
-  }
-  // Pick the "latest" extension per subscription for the list
-  // tone/expiry override. Priority is the same one the frontend
-  // sorts on:
-  //   1. expiry_date + expiry_time (highest wins — extends
-  //      furthest into the future)
-  //   2. start_date + start_time (fallback for extensions still
-  //      missing an expiry — operator typed only the start)
-  //   3. created_at (last resort so a fresh row still surfaces).
-  // See .kiro/steering/subscription-extensions.md — the new
-  // extension's Start Date/Time defaults to this row's expiry.
-  function extensionSortKey(ext) {
-    const e = ext || {};
-    if (e.expiry_date) {
-      return `${e.expiry_date}T${e.expiry_time || '00:00:00'}`;
-    }
-    if (e.start_date) {
-      return `${e.start_date}T${e.start_time || '00:00:00'}`;
-    }
-    return String(e.created_at || '');
-  }
-  function pickLatestExtension(list) {
-    const arr = Array.isArray(list) ? list.slice() : [];
-    if (!arr.length) return null;
-    arr.sort((a, b) => {
-      const aKey = extensionSortKey(a);
-      const bKey = extensionSortKey(b);
-      // Reverse — newest first.
-      return bKey.localeCompare(aKey);
-    });
-    return arr[0];
-  }
 
   // Delivery-scoped reads (links + access logs) depend on the
   // delivery id list, so they wait on the deliveries query — but
@@ -2197,111 +2107,10 @@ async function handleDbSearch(request, env) {
     };
   });
 
-  // Resolve a subscription row's bonus days the SAME way the /db UI
-  // does (frontend resolveBonusDays + inferBonusDaysFromDates): honour
-  // an explicit stored bonus — including a deliberate 0 — and only
-  // when it is genuinely absent (null / undefined / '') fall back to
-  // inferring it from the persisted dates as (expiry - start) -
-  // access_period, clamped to >= 0. This is what keeps the "bonus"
-  // search keyword in lockstep with the value the operator actually
-  // sees: a base/initial period whose `bonus` column was never stored
-  // (stripped on save, or a pre-bonus schema) but whose 31-day span
-  // still renders "Bonus 1 Day" in the detail panel must still match.
-  const plainDateOnly = (v) => {
-    const s = String(v || '').trim();
-    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
-  };
-  const wholeDaysBetween = (fromIso, toIso) => {
-    const a = plainDateOnly(fromIso);
-    const b = plainDateOnly(toIso);
-    if (!a || !b) return NaN;
-    const [ay, am, ad] = a.split('-').map(Number);
-    const [by, bm, bd] = b.split('-').map(Number);
-    return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000);
-  };
-  const subscriptionBonusDays = (row) => {
-    const raw = row?.bonus;
-    if (raw !== null && raw !== undefined && raw !== '') {
-      const n = Number(raw);
-      if (Number.isFinite(n) && n >= 0) return n;
-    }
-    const span = wholeDaysBetween(row?.start_date, row?.expiry_date);
-    if (!Number.isFinite(span)) return 0;
-    const periodRaw = Number(row?.access_period);
-    const period = Number.isFinite(periodRaw) && periodRaw > 0 ? periodRaw : 30;
-    const bonus = span - period;
-    return bonus > 0 ? bonus : 0;
-  };
+  // Clients is derived from client records, invoices, and deliveries.
+  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, q);
 
-  const subscriptionRows = q
-    ? allSubscriptions.filter((sub) => {
-        // Bonus search must reflect the VISIBLE bonus, which can live
-        // on the base subscription OR on a renewal period (extension).
-        // The previous base-row-only / raw-column check missed two
-        // cases: a bonus stored on an extension, and a base/initial
-        // bonus that is only inferable from the dates (never stored).
-        // Resolve both surfaces the way the UI renders them — the base
-        // period via stored-or-inferred days (matches the "Initial"
-        // history row + the no-extension top card), and each extension
-        // via its own stored bonus (matches the per-extension rows and
-        // the latest-extension top card) — before emitting the keyword.
-        const exts = extensionsBySubId.get(String(sub.id || '')) || [];
-        const hasBonus = subscriptionBonusDays(sub) > 0
-          || exts.some((ext) => Number(ext?.bonus) > 0);
-        return [
-          sub.client_name,
-          sub.client_contact,
-          sub.service,
-          sub.storage_slot,
-          sub.status,
-          sub.invoice_date,
-          sub.payment_date,
-          sub.start_date,
-          sub.expiry_date,
-          sub.created_at,
-          sub.updated_at,
-          // Searchable "bonus" keyword. Emitted when the base period
-          // (stored-or-inferred days) OR any renewal period (stored
-          // days) carries a real bonus (> 0), so typing "bonus" (any
-          // case — q is already lowercased upstream) surfaces every
-          // subscription that has a bonus applied now or in its
-          // history. Rows with no bonus anywhere — including ones whose
-          // dates imply none — produce no token and never match, while
-          // name/service searches that happen to contain "bonus" keep
-          // working through the fields above.
-          (hasBonus ? 'bonus' : ''),
-          dateSearchTokens(sub.start_date),
-          dateSearchTokens(sub.expiry_date),
-          dateSearchTokens(sub.invoice_date),
-          dateSearchTokens(sub.payment_date)
-        ].join(' ').toLowerCase().includes(q);
-      })
-    : allSubscriptions;
-
-  // Attach `extensions` and `latest_extension` to each subscription
-  // so the /db Subs detail panel can render the renewal history
-  // without an extra round-trip and the Subs list can pick the
-  // latest extension's expiry/status as the visible tone.
-  const subscriptionsWithExtensions = subscriptionRows.map((sub) => {
-    const exts = extensionsBySubId.get(String(sub.id || '')) || [];
-    return {
-      ...sub,
-      extensions: exts,
-      latest_extension: pickLatestExtension(exts)
-    };
-  });
-
-  // Clients tab is a CRM driven by invoices + deliveries only.
-  // We DO pass allSubscriptions to buildClientSummaries — but only
-  // so the summary builder can attach a subscription_count to any
-  // existing client bucket and filter out subscription-only orphans
-  // (legacy public.clients rows from older subscription saves that
-  // would otherwise leak into the Clients tab as TBA). The
-  // builder itself never creates a NEW bucket from a subscription,
-  // so the Subs roster never adds rows here.
-  const clients = buildClientSummaries(clientRows, allInvoices, allDeliveries, allSubscriptions, q);
-
-  return json({ ok: true, items, invoices: invoicesWithRelated, subscriptions: subscriptionsWithExtensions, clients });
+  return json({ ok: true, items, invoices: invoicesWithRelated, clients });
 }
 
 
@@ -2386,14 +2195,9 @@ async function handleClientSave(request, env) {
     client_name: fields.name
   };
 
-  // Merge step (only when a real-edit found a duplicate): pull the
-  // duplicate's invoice/delivery/sub rows over to the surviving
-  // currentId, then drop the duplicate client row. We do this
-  // BEFORE patching by client_id below so the surviving client
-  // ends up owning every record that used to be split between the
-  // two rows. Subscription rows are reassigned too so a sub that
-  // was tied to the merged duplicate keeps its CRM link instead of
-  // pointing at a deleted client_id.
+  // Merge step (only when a real edit found a duplicate): move the
+  // duplicate's invoice and delivery rows to the surviving client
+  // before dropping the duplicate client row.
   if (mergeSourceId && mergeSourceId !== clientId) {
     const fetchIds = async (table) => {
       try {
@@ -2404,20 +2208,12 @@ async function handleClientSave(request, env) {
         throw error;
       }
     };
-    const [dupInvoiceIds, dupDeliveryIds, dupSubIds] = await Promise.all([
+    const [dupInvoiceIds, dupDeliveryIds] = await Promise.all([
       fetchIds('invoices'),
       fetchIds('deliveries'),
-      fetchIds('subscriptions'),
     ]);
     if (dupInvoiceIds.length) await patchRowsByIds(env, 'invoices', dupInvoiceIds, invoicePayload, clientId);
     if (dupDeliveryIds.length) await patchRowsByIds(env, 'deliveries', dupDeliveryIds, deliveryPayload, clientId);
-    if (dupSubIds.length) {
-      await patchRowsByIds(env, 'subscriptions', dupSubIds, {
-        client_title: fields.title,
-        client_name: fields.name,
-        client_contact: fields.contact
-      }, clientId);
-    }
     await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(mergeSourceId)}`, {
       method: 'DELETE',
       headers: { Prefer: 'return=minimal' }
@@ -2969,27 +2765,14 @@ async function handleClientDelete(request, env) {
     }).catch(() => {});
   }
 
-  // Step 2: invoices and subscriptions both denormalize client_name,
-  // so we issue one DELETE per filter on each table. Schema-cache
-  // tolerance mirrors the rest of the worker (subscriptions table may
-  // not exist in older deploys).
+  // Step 2: invoices also denormalize client_name, so issue one
+  // DELETE per matched filter on the invoice table.
   for (const filter of filters) {
     await supabaseFetch(env, `/rest/v1/invoices?${filter}`, {
       method: 'DELETE',
       headers: { Prefer: 'return=minimal' },
     }).catch(() => {});
   }
-  for (const filter of filters) {
-    try {
-      await supabaseFetch(env, `/rest/v1/subscriptions?${filter}`, {
-        method: 'DELETE',
-        headers: { Prefer: 'return=minimal' },
-      });
-    } catch (error) {
-      if (!isSchemaError(error)) throw error;
-    }
-  }
-
   // Step 3: drop the canonical client row last so the per-record
   // FK ON DELETE SET NULL doesn't dirty the records we've already
   // queued for deletion. Legacy buckets have no client row to drop.
@@ -3645,820 +3428,6 @@ async function handleInvoiceDelete(request, env) {
   return json({ ok: true });
 }
 
-// ─── Subscriptions ────────────────────────────────────────────────
-//
-// Subscriptions live in their own table (db-migration-part-4.sql)
-// and are intentionally kept separate from the public.clients
-// roster: the /db Clients tab is a CRM driven by invoices +
-// deliveries only, while /db Subs is its own subscription roster.
-// A subscription save NEVER creates or updates a client row — the
-// denormalized client_name / client_title / client_contact on the
-// subscription row are the single source of truth for the Subs UI.
-// An optional client_id link survives for legacy rows but is only
-// honoured by lookup, never written from a subscription save.
-
-const SUBSCRIPTION_STATUSES = new Set(['invoice', 'paid']);
-const SUBSCRIPTION_RATE_MODES = new Set(['normal', 'discount']);
-
-function cleanIsoDate(value = '') {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  // Accept either YYYY-MM-DD or full ISO strings; reject anything else.
-  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
-}
-
-function cleanIsoTime(value = '') {
-  const raw = String(value || '').trim();
-  if (!raw) return null;
-  const match = raw.match(/^(\d{2}):(\d{2})(?::(\d{2}))?/);
-  if (!match) return null;
-  const hh = match[1];
-  const mm = match[2];
-  const ss = match[3] || '00';
-  return `${hh}:${mm}:${ss}`;
-}
-
-function addDaysIso(dateIso, days) {
-  const base = cleanIsoDate(dateIso);
-  if (!base || !Number.isFinite(Number(days))) return null;
-  const d = new Date(`${base}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return null;
-  d.setUTCDate(d.getUTCDate() + Number(days));
-  return d.toISOString().slice(0, 10);
-}
-
-function normalizeSubscriptionPayload(raw = {}) {
-  const cleanInt = (v, fallback = 0) => {
-    const n = Math.round(Number(v));
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  };
-  const status = SUBSCRIPTION_STATUSES.has(String(raw.status || '').toLowerCase())
-    ? String(raw.status).toLowerCase()
-    : 'invoice';
-  const rateMode = SUBSCRIPTION_RATE_MODES.has(String(raw.rate_mode || raw.rateMode || '').toLowerCase())
-    ? String(raw.rate_mode || raw.rateMode).toLowerCase()
-    : 'normal';
-
-  const accessPeriod = cleanInt(raw.access_period ?? raw.accessPeriod, 30) || 30;
-  const bonusDays = cleanInt(raw.bonus ?? raw.bonusDays ?? raw.bonus_days, 0);
-  const startDate = cleanIsoDate(raw.start_date ?? raw.startDate);
-  const startTime = cleanIsoTime(raw.start_time ?? raw.startTime);
-  // Persist an explicit expiry pair when status === 'paid' and we have a
-  // start date — saves the dashboard from recomputing it on every render.
-  // expiry = start + access_period + bonus, so a row with bonus 1 day
-  // visibly extends the expiry by exactly one extra day.
-  let expiryDate = cleanIsoDate(raw.expiry_date ?? raw.expiryDate);
-  if (!expiryDate && status === 'paid' && startDate) expiryDate = addDaysIso(startDate, accessPeriod + bonusDays);
-  const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
-
-  return {
-    client_title: String((raw.client_title || raw.clientTitle) ?? 'Ms.').slice(0, 20),
-    client_name: String(raw.client_name || raw.clientName || '').trim().slice(0, 160),
-    client_contact: String(raw.client_contact || raw.clientContact || '').trim().slice(0, 240),
-    service: String(raw.service || '').trim().slice(0, 60),
-    storage_slot: String(raw.storage_slot || raw.storageSlot || '').trim().slice(0, 40) || null,
-    access_period: accessPeriod,
-    bonus: bonusDays,
-    rate_mode: rateMode,
-    price: cleanInt(raw.price, 0),
-    manual_override: !!(raw.manual_override ?? raw.manualOverride ?? false),
-    status,
-    invoice_date: cleanIsoDate(raw.invoice_date ?? raw.invoiceDate) || new Date().toISOString().slice(0, 10),
-    payment_date: cleanIsoDate(raw.payment_date ?? raw.paymentDate),
-    payment_time: cleanIsoTime(raw.payment_time ?? raw.paymentTime),
-    start_date: startDate,
-    start_time: startTime,
-    expiry_date: expiryDate,
-    expiry_time: expiryTime,
-    // Optional per-period payment proof (URL, short reference, or an
-    // uploaded receipt image stored inline as a downscaled data URL).
-    // Nullable + backward compatible: stripped automatically on
-    // un-migrated schemas via the write-variant fallback below.
-    payment_proof: String(raw.payment_proof ?? raw.paymentProof ?? '').trim().slice(0, 800000) || null,
-    // Optional per-period admin notes (free text). Newest column;
-    // stripped first by the write-variant fallback on un-migrated
-    // schemas so saves never break before db-migration-part-11.
-    notes: String(raw.notes ?? '').trim().slice(0, 4000) || null
-  };
-}
-
-async function handleSubscriptionSave(request, env) {
-  const body = await request.json().catch(() => ({}));
-  const password = String(body.password || '').trim();
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
-
-  const subscription = normalizeSubscriptionPayload(body.subscription || body);
-  if (!subscription.client_name) return json({ error: 'Client name is required.' }, 400);
-  if (!subscription.service) return json({ error: 'Service is required.' }, 400);
-
-  const id = String((body.subscription || body).id || '').trim();
-  let existing = null;
-  if (id) {
-    existing = await supabaseFetch(env, `/rest/v1/subscriptions?select=*&id=eq.${encodeURIComponent(id)}&limit=1`)
-      .then((rows) => Array.isArray(rows) ? rows[0] : rows)
-      .catch(() => null);
-  }
-
-  // Subs and Clients are kept as separate systems on /db. We never
-  // create a public.clients row from a subscription save — Subs is
-  // its own roster, and the Clients tab is a CRM driven by invoices
-  // + deliveries only. We DO honour an explicit existing client_id
-  // (already attached on prior saves), so historical pairings keep
-  // working without forcing every subscription edit to mutate the
-  // clients table.
-  const preservedClientId = String(existing?.client_id || '').trim();
-  const existingClient = preservedClientId ? await fetchClientById(env, preservedClientId).catch(() => null) : null;
-  const linked = existingClient?.id
-    ? { ...subscription, client_id: String(existingClient.id) }
-    : { ...subscription };
-  const fallback = { ...subscription };
-
-  // Defensive payload variants for environments where the DB
-  // schema is older than this code (e.g. before db-migration-part-4
-  // added the `bonus` column or before client_id existed). Each
-  // variant strips one optional field; we try them in declining
-  // order of richness and fall through to the next on schema-cache
-  // errors. The contract is: every variant still contains the
-  // required client_name + service so a successful insert always
-  // produces a valid row, just possibly without bonus/client_id.
-  const stripBonus = (obj) => { const { bonus: _ignored, ...rest } = obj; return rest; };
-  const stripProof = (obj) => { const { payment_proof: _ignored, ...rest } = obj; return rest; };
-  const stripNotes = (obj) => { const { notes: _ignored, ...rest } = obj; return rest; };
-  const linkedNoBonus = stripBonus(linked);
-  const fallbackNoBonus = stripBonus(fallback);
-  // Each base variant is tried first WITH every column, then with the
-  // newest columns progressively stripped (notes, then payment_proof,
-  // then both), so an environment missing those columns still saves.
-  const writeVariants = [linked, linkedNoBonus, fallback, fallbackNoBonus]
-    .flatMap((variant) => [variant, stripNotes(variant), stripProof(variant), stripProof(stripNotes(variant))]);
-
-  // Tracks which write variant actually succeeded so we can tell the
-  // caller when the `notes` column was dropped by the schema-cache
-  // fallback (i.e. db-migration-part-11 hasn't been applied yet).
-  let usedVariant = null;
-  async function writeSubscription(url, method) {
-    let lastError = null;
-    for (const variant of writeVariants) {
-      try {
-        const result = await supabaseFetch(env, url, {
-          method,
-          headers: { Prefer: 'return=representation' },
-          body: JSON.stringify(variant)
-        });
-        usedVariant = variant;
-        return result;
-      } catch (error) {
-        if (!isSchemaError(error)) throw error;
-        lastError = error;
-      }
-    }
-    throw lastError || new Error('Subscription write failed for all schema variants.');
-  }
-
-  // The operator asked to save a real note, but the variant that
-  // actually wrote had `notes` stripped — surface that instead of
-  // pretending the note persisted. Empty notes never trigger this.
-  const attemptedNotes = !!subscription.notes;
-  const notesMissing = () => attemptedNotes && usedVariant && !('notes' in usedVariant);
-
-  if (id) {
-    const rows = await writeSubscription(`/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, 'PATCH');
-    const saved = Array.isArray(rows) ? rows[0] : rows;
-    return json({ ok: true, subscription: saved, ...(notesMissing() ? { migrationMissing: 'subscriptions.notes' } : {}) });
-  }
-
-  const rows = await writeSubscription('/rest/v1/subscriptions', 'POST');
-  const saved = Array.isArray(rows) ? rows[0] : rows;
-  return json({ ok: true, subscription: saved, ...(notesMissing() ? { migrationMissing: 'subscriptions.notes' } : {}) });
-}
-
-async function handleSubscriptionGet(request, env) {
-  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
-  const url = new URL(request.url);
-  const id = String(url.searchParams.get('id') || '').trim();
-  if (!id) return json({ error: 'Missing subscription id.' }, 400);
-  const rows = await supabaseFetch(env, `/rest/v1/subscriptions?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
-  const subscription = Array.isArray(rows) ? rows[0] : rows;
-  if (!subscription) return json({ error: 'Subscription not found.' }, 404);
-  return json({ ok: true, subscription });
-}
-
-async function handleSubscriptionDelete(request, env) {
-  const body = await request.json();
-  const password = String(body.password || '').trim();
-  const id = String(body.id || '').trim();
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
-  if (!id) return json({ error: 'Missing subscription id.' }, 400);
-
-  // Capture the linked client_id before the delete so we can
-  // garbage-collect a client row that only existed because of this
-  // subscription (e.g. legacy rows auto-created by older versions
-  // of handleSubscriptionSave). The reap is conditional and never
-  // touches a client that has any real CRM history.
-  const existing = await supabaseFetch(env, `/rest/v1/subscriptions?select=id,client_id&id=eq.${encodeURIComponent(id)}&limit=1`)
-    .then((rows) => Array.isArray(rows) ? rows[0] : rows)
-    .catch(() => null);
-  const linkedClientId = String(existing?.client_id || '').trim();
-
-  await supabaseFetch(env, `/rest/v1/subscriptions?id=eq.${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    headers: { Prefer: 'return=minimal' }
-  });
-
-  // Best-effort orphan-client cleanup. Rules:
-  //   • Only consider rows the subscription actually pointed at
-  //     (no name-based matching here — that would risk deleting
-  //     a real client just because the names happened to match).
-  //   • Skip if the client still has any other subscription,
-  //     invoice, or delivery rows. The Subs tab and Clients tab
-  //     never share data, so a client without any of those is by
-  //     definition a subscription-only orphan and is safe to drop.
-  //   • Schema errors and lookup failures are ignored — the
-  //     subscription delete is the contract; reaping is a hygiene
-  //     bonus that must not regress the primary action.
-  if (linkedClientId) {
-    try {
-      await reapOrphanClientIfEmpty(env, linkedClientId);
-    } catch (error) {
-      console.warn('[subs] orphan client reap skipped:', error?.message || error);
-    }
-  }
-
-  return json({ ok: true });
-}
-
-// Drop a client row when nothing else points at it. Used on
-// subscription delete to clean up legacy orphans (a sub created a
-// client row, the sub got removed later, the client row stayed
-// behind and leaked into the Clients tab). Behaves like a no-op
-// when the client still has any subscription / invoice / delivery
-// row, so a real CRM client can never be deleted by accident.
-async function reapOrphanClientIfEmpty(env, clientId) {
-  const cleanId = String(clientId || '').trim();
-  if (!cleanId || cleanId.startsWith('legacy:')) return false;
-  const filter = `client_id=eq.${encodeURIComponent(cleanId)}`;
-  const limit = '&limit=1';
-  // Run the three count queries in parallel; any non-empty result
-  // aborts the reap. We use limit=1 + select=id so we can short-
-  // circuit on the first hit instead of paying for full counts.
-  const [subs, invoices, deliveries] = await Promise.all([
-    supabaseFetch(env, `/rest/v1/subscriptions?select=id&${filter}${limit}`).catch((error) => isSchemaError(error) ? [] : Promise.reject(error)),
-    supabaseFetch(env, `/rest/v1/invoices?select=id&${filter}${limit}`).catch((error) => isSchemaError(error) ? [] : Promise.reject(error)),
-    supabaseFetch(env, `/rest/v1/deliveries?select=id&${filter}${limit}`).catch((error) => isSchemaError(error) ? [] : Promise.reject(error))
-  ]);
-  const hasAny = (Array.isArray(subs) ? subs.length : 0)
-    + (Array.isArray(invoices) ? invoices.length : 0)
-    + (Array.isArray(deliveries) ? deliveries.length : 0);
-  if (hasAny > 0) return false;
-  await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(cleanId)}`, {
-    method: 'DELETE',
-    headers: { Prefer: 'return=minimal' }
-  }).catch((error) => {
-    if (!isSchemaError(error)) throw error;
-  });
-  return true;
-}
-
-// ── Subscription extensions ────────────────────────────────────────
-// Each extension is a renewal/extension event on an existing
-// subscription. The base subscription row is treated as the
-// receipt of record (fixed Payment / Start / Expiry); extensions
-// stack on top with their own Start / Expiry / Access Period /
-// Price / Status / Service. The latest extension drives the
-// visible "active" expiry/status in the /db Subs list — the
-// frontend reads `latest_extension` off each subscription row
-// emitted by /api/db.
-
-function normalizeSubscriptionExtensionPayload(raw = {}) {
-  const cleanInt = (v, fallback = 0) => {
-    const n = Math.round(Number(v));
-    return Number.isFinite(n) && n >= 0 ? n : fallback;
-  };
-  const status = SUBSCRIPTION_STATUSES.has(String(raw.status || '').toLowerCase())
-    ? String(raw.status).toLowerCase()
-    : 'paid';
-  const accessPeriod = cleanInt(raw.access_period ?? raw.accessPeriod, 30) || 30;
-  const bonusDays = cleanInt(raw.bonus ?? raw.bonusDays ?? raw.bonus_days, 0);
-  const startDate = cleanIsoDate(raw.start_date ?? raw.startDate);
-  const startTime = cleanIsoTime(raw.start_time ?? raw.startTime);
-  let expiryDate = cleanIsoDate(raw.expiry_date ?? raw.expiryDate);
-  if (!expiryDate && startDate) expiryDate = addDaysIso(startDate, accessPeriod + bonusDays);
-  const expiryTime = cleanIsoTime(raw.expiry_time ?? raw.expiryTime) || (expiryDate ? startTime : null);
-  return {
-    service: String(raw.service || '').trim().slice(0, 60) || null,
-    status,
-    access_period: accessPeriod,
-    bonus: bonusDays,
-    price: cleanInt(raw.price, 0),
-    start_date: startDate,
-    start_time: startTime,
-    expiry_date: expiryDate,
-    expiry_time: expiryTime,
-    payment_date: cleanIsoDate(raw.payment_date ?? raw.paymentDate),
-    payment_time: cleanIsoTime(raw.payment_time ?? raw.paymentTime),
-    // Optional per-extension payment proof (URL, reference, or an
-    // uploaded receipt image stored inline as a downscaled data URL).
-    // Newest columns; stripped first by the write-variant fallback on
-    // un-migrated schemas.
-    payment_proof: String(raw.payment_proof ?? raw.paymentProof ?? '').trim().slice(0, 800000) || null,
-    notes: String(raw.notes ?? '').trim().slice(0, 4000) || null
-  };
-}
-
-async function handleSubscriptionExtensionsGet(request, env) {
-  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
-  const url = new URL(request.url);
-  const subscriptionId = String(url.searchParams.get('subscription_id') || '').trim();
-  if (!subscriptionId) return json({ error: 'Missing subscription_id.' }, 400);
-  try {
-    const rows = await supabaseFetch(
-      env,
-      `/rest/v1/subscription_extensions?select=*&subscription_id=eq.${encodeURIComponent(subscriptionId)}&order=created_at.desc`
-    );
-    return json({ ok: true, extensions: Array.isArray(rows) ? rows : [] });
-  } catch (error) {
-    // Pre-part-7 schemas don't have the table yet; return an empty
-    // list rather than 500ing so the UI can render its empty state
-    // and the migration can be applied without breaking /db.
-    if (isSchemaError(error)) return json({ ok: true, extensions: [] });
-    throw error;
-  }
-}
-
-async function handleSubscriptionExtensionSave(request, env) {
-  const body = await request.json().catch(() => ({}));
-  const password = String(body.password || '').trim();
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
-
-  const raw = body.extension || body;
-  const subscriptionId = String(raw.subscription_id || raw.subscriptionId || '').trim();
-  if (!subscriptionId) return json({ error: 'Missing subscription_id.' }, 400);
-  const id = String(raw.id || '').trim();
-
-  // Verify the parent subscription exists; refuse to write a
-  // dangling extension row.
-  const parent = await supabaseFetch(
-    env,
-    `/rest/v1/subscriptions?select=id,service&id=eq.${encodeURIComponent(subscriptionId)}&limit=1`
-  )
-    .then((rows) => Array.isArray(rows) ? rows[0] : rows)
-    .catch(() => null);
-  if (!parent?.id) return json({ error: 'Subscription not found.' }, 404);
-
-  const fields = normalizeSubscriptionExtensionPayload(raw);
-  const payload = { ...fields, subscription_id: subscriptionId };
-  // Defensive: older DB schemas may not have every column on
-  // public.subscription_extensions yet — `bonus` arrived in
-  // db-migration-part-7, and `payment_date`/`payment_time` were
-  // added later. If a write fails with a schema error we retry with
-  // the newest columns progressively stripped, newest-first, so an
-  // un-migrated environment still saves the row (losing only the
-  // columns it can't store) instead of 500ing.
-  const dropKeys = (obj, keys) => {
-    const next = { ...obj };
-    keys.forEach((k) => { delete next[k]; });
-    return next;
-  };
-  // Each fallback drops strictly more columns than the previous one.
-  // notes + payment_proof are the newest columns, so they drop first.
-  const payloadVariants = [
-    payload,
-    dropKeys(payload, ['notes']),
-    dropKeys(payload, ['notes', 'payment_proof']),
-    dropKeys(payload, ['notes', 'payment_proof', 'payment_date', 'payment_time']),
-    dropKeys(payload, ['notes', 'payment_proof', 'payment_date', 'payment_time', 'bonus'])
-  ];
-
-  // Tracks which payload variant actually wrote so we can warn the
-  // caller when `notes` got dropped by the schema fallback (i.e.
-  // db-migration-part-11 hasn't been applied to this table yet).
-  let usedBody = null;
-  async function writeExtension(url, method) {
-    let lastError = null;
-    for (const body of payloadVariants) {
-      try {
-        const result = await supabaseFetch(env, url, {
-          method,
-          headers: { Prefer: 'return=representation' },
-          body: JSON.stringify(body)
-        });
-        usedBody = body;
-        return result;
-      } catch (error) {
-        if (!isSchemaError(error)) throw error;
-        lastError = error;
-      }
-    }
-    throw lastError;
-  }
-
-  // Non-empty note requested but the successful write had `notes`
-  // stripped — report it rather than silently dropping the note.
-  const attemptedNotes = !!fields.notes;
-  const notesMissing = () => attemptedNotes && usedBody && !('notes' in usedBody);
-
-  try {
-    if (id) {
-      const rows = await writeExtension(`/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, 'PATCH');
-      const saved = Array.isArray(rows) ? rows[0] : rows;
-      return json({ ok: true, extension: saved, ...(notesMissing() ? { migrationMissing: 'subscription_extensions.notes' } : {}) });
-    }
-    const rows = await writeExtension('/rest/v1/subscription_extensions', 'POST');
-    const saved = Array.isArray(rows) ? rows[0] : rows;
-    return json({ ok: true, extension: saved, ...(notesMissing() ? { migrationMissing: 'subscription_extensions.notes' } : {}) });
-  } catch (error) {
-    if (isSchemaError(error)) {
-      return json({
-        error: 'Extensions table missing. Run db-migration-part-7.sql first.'
-      }, 503);
-    }
-    throw error;
-  }
-}
-
-async function handleSubscriptionExtensionDelete(request, env) {
-  const body = await request.json().catch(() => ({}));
-  const password = String(body.password || '').trim();
-  const id = String(body.id || '').trim();
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
-  if (!id) return json({ error: 'Missing extension id.' }, 400);
-  try {
-    await supabaseFetch(env, `/rest/v1/subscription_extensions?id=eq.${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-      headers: { Prefer: 'return=minimal' }
-    });
-    return json({ ok: true });
-  } catch (error) {
-    if (isSchemaError(error)) return json({ ok: true });
-    throw error;
-  }
-}
-
-// ── Subscription receipt import (vision-backed) ────────────────────
-// Reads a StarShots subscription receipt JPG and extracts structured
-// fields the /db Subs editor can preview before saving. The image
-// itself is never persisted: we consume the request body once,
-// hand it to a vision model, and drop the bytes when the response
-// returns.
-//
-// Provider priority:
-//   1. Cloudflare Workers AI binding (env.AI) — primary, free on Pages
-//      when the binding is added to wrangler.toml. Used with the
-//      llama-3.2 vision model.
-//   2. OpenAI Vision via env.OPENAI_API_KEY — fallback when CF AI is
-//      not bound. Uses the gpt-4o-mini multimodal endpoint.
-//   3. Otherwise → 503 with the friendly message the spec requires
-//      so the UI can prompt the operator to enter fields manually.
-//
-// The model is asked to return a single JSON object matching the
-// subscriptions schema. We also run a duplicate lookup keyed on
-// client_name + service + payment_date + start_date so the UI can
-// upsert by passing the matched id back to /api/subscriptions-save.
-
-const SUBSCRIPTION_IMPORT_PROMPT = `You are reading a StarShots subscription receipt image. Extract these fields and return ONLY a single JSON object — no prose, no code fences.
-
-{
-  "client_title": "Mr. | Ms. | Mrs. | Family",
-  "client_name": "<name from greeting>",
-  "service": "<service name, e.g. ChatGPT, iCloud, Google Drive, Dropbox, Copilot>",
-  "status": "paid | invoice | empty",
-  "payment_date": "YYYY-MM-DD or null",
-  "payment_time": "HH:MM:SS or null",
-  "access_period": "<integer days, e.g. 30, or null>",
-  "start_date": "YYYY-MM-DD or null",
-  "start_time": "HH:MM:SS or null",
-  "expiry_date": "YYYY-MM-DD or null",
-  "expiry_time": "HH:MM:SS or null",
-  "price": "<integer rupiah amount, e.g. 50000, or null>"
-}
-
-Hints:
-- Greeting "Hello, Mr. medacandra!" → client_title="Mr.", client_name="Medacandra"
-- Headline "Subscription Confirmed" or eyebrow "Payment Received" → status="paid"
-- "30 Days" → access_period=30
-- Times printed in HH.MM form (e.g. 18.41) → convert to HH:MM:SS (18:41:00)
-- Dates printed as "May 13, 2026" → convert to ISO 2026-05-13
-- Title-case the client name (e.g. "medacandra" → "Medacandra")
-- "Paid Amount" or "Total" tile printed as "Rp 50.000" or "Rp 50,000" → price=50000 (strip
-  the "Rp " prefix and any thousand separators; integer rupiah only, no decimals).
-- Set a field to null if you cannot read it confidently. Do not guess.`;
-
-function bytesToBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function base64ToBytes(b64 = '') {
-  const stripped = String(b64).replace(/^data:[^,]+,/, '');
-  const binary = atob(stripped);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
-  return out;
-}
-
-async function callVisionExtractor(env, imageBase64, mime) {
-  // Prefer Cloudflare Workers AI when the binding is present.
-  if (env && env.AI && typeof env.AI.run === 'function') {
-    try {
-      const bytes = base64ToBytes(imageBase64);
-      const result = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
-        prompt: SUBSCRIPTION_IMPORT_PROMPT,
-        image: Array.from(bytes),
-        max_tokens: 700
-      });
-      const text = String(result?.response || '').trim();
-      if (text) return text;
-    } catch (err) {
-      console.warn('[subs-import] CF AI vision error:', err?.message || err);
-    }
-  }
-
-  // Fallback: OpenAI vision via API key secret.
-  const openaiKey = String(env?.OPENAI_API_KEY || '').trim();
-  if (openaiKey) {
-    try {
-      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${openaiKey}`
-        },
-        body: JSON.stringify({
-          model: env?.OPENAI_VISION_MODEL || 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: SUBSCRIPTION_IMPORT_PROMPT },
-                { type: 'image_url', image_url: { url: `data:${mime || 'image/jpeg'};base64,${imageBase64}` } }
-              ]
-            }
-          ],
-          max_tokens: 700,
-          temperature: 0
-        })
-      });
-      const data = await resp.json().catch(() => ({}));
-      const text = String(data?.choices?.[0]?.message?.content || '').trim();
-      if (text) return text;
-    } catch (err) {
-      console.warn('[subs-import] OpenAI vision error:', err?.message || err);
-    }
-  }
-
-  return null;
-}
-
-function parseExtractorJson(raw) {
-  if (!raw) return null;
-  let text = String(raw).trim();
-  // Strip code fences from the model's output if present.
-  text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-  // Locate the first { ... } block; some models prefix with prose
-  // even when asked not to.
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try { return JSON.parse(match[0]); } catch { return null; }
-}
-
-function normalizeImportedSubscription(extracted = {}) {
-  // Title may arrive as raw "Mr." / "mr" / "MR." / "family". Normalise
-  // to the canonical four values the rest of the app uses.
-  const titleRaw = String(extracted.client_title || '').trim();
-  let titleClean = '';
-  if (/^mrs\.?$/i.test(titleRaw)) titleClean = 'Mrs.';
-  else if (/^mr\.?$/i.test(titleRaw)) titleClean = 'Mr.';
-  else if (/^ms\.?$/i.test(titleRaw)) titleClean = 'Ms.';
-  else if (/^family$/i.test(titleRaw)) titleClean = 'Family';
-  else titleClean = titleRaw || 'Mr.';
-
-  // Time fields might come in HH.MM (the receipt format) instead of
-  // HH:MM:SS. Replace dots with colons and pad seconds.
-  const normalizeTime = (raw) => {
-    if (!raw) return null;
-    const text = String(raw).replace(/\./g, ':');
-    const m = text.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-    if (!m) return null;
-    return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}`;
-  };
-
-  // Period might be "30 Days" — extract the integer.
-  const periodRaw = extracted.access_period;
-  let accessPeriod = null;
-  if (typeof periodRaw === 'number' && Number.isFinite(periodRaw)) {
-    accessPeriod = Math.round(periodRaw);
-  } else if (typeof periodRaw === 'string') {
-    const m = periodRaw.match(/\d+/);
-    if (m) accessPeriod = parseInt(m[0], 10);
-  }
-
-  // Title-case the client name so "medacandra" → "Medacandra"
-  // matches what the rest of the dashboard expects.
-  const nameRaw = String(extracted.client_name || '').trim();
-  const clientName = nameRaw
-    ? nameRaw.replace(/\b[a-z]/g, (c) => c.toUpperCase())
-    : '';
-
-  // Price may arrive under any of these aliases depending on which
-  // model variant or fallback parser produced the JSON. The Subs
-  // schema only has `price`, so collapse all of them onto that
-  // single output field. Strings like "Rp 50.000" / "Rp 50,000" /
-  // "50,000.00" are scrubbed to integer rupiah; non-numeric values
-  // and zeros come back as null so applyParsed/normalize don't
-  // accidentally clobber a sensible default with 0.
-  const priceCandidates = [
-    extracted.price,
-    extracted.paid_amount,
-    extracted.paidAmount,
-    extracted.amount,
-    extracted.total,
-  ];
-  let priceValue = null;
-  for (const candidate of priceCandidates) {
-    if (candidate === undefined || candidate === null || candidate === '') continue;
-    const digits = String(candidate).replace(/[^0-9]/g, '');
-    if (!digits) continue;
-    const num = Number(digits);
-    if (Number.isFinite(num) && num > 0) { priceValue = num; break; }
-  }
-
-  return {
-    client_title: titleClean,
-    client_name: clientName,
-    service: String(extracted.service || '').trim(),
-    status: /paid|confirmed|received/i.test(String(extracted.status || '')) ? 'paid' : '',
-    payment_date: cleanIsoDate(extracted.payment_date),
-    payment_time: normalizeTime(extracted.payment_time),
-    access_period: accessPeriod,
-    start_date: cleanIsoDate(extracted.start_date),
-    start_time: normalizeTime(extracted.start_time),
-    expiry_date: cleanIsoDate(extracted.expiry_date),
-    expiry_time: normalizeTime(extracted.expiry_time),
-    price: priceValue
-  };
-}
-
-const SUBSCRIPTION_IMPORT_SERVICE_ALIASES = [
-  { aliases: ['google-drive', 'googledrive', 'gdrive', 'drive'], label: 'Google Drive', pattern: /google\s*drive|gdrive/i },
-  { aliases: ['chatgpt', 'gpt'], label: 'ChatGPT', pattern: /chat\s*gpt|chatgpt/i },
-  { aliases: ['icloud', 'i-cloud'], label: 'iCloud', pattern: /icloud|i\s*cloud/i },
-  { aliases: ['dropbox'], label: 'Dropbox', pattern: /dropbox/i },
-  { aliases: ['copilot'], label: 'Copilot', pattern: /copilot/i }
-];
-
-function normalizeImportServiceName(value = '') {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  const normalized = raw.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const found = SUBSCRIPTION_IMPORT_SERVICE_ALIASES.find((item) => item.pattern.test(normalized));
-  return found ? found.label : titleCaseName(normalized);
-}
-
-function parseSubscriptionImportFilename(fileName = '') {
-  const base = String(fileName || '')
-    .replace(/\.[a-z0-9]+$/i, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  const match = base.match(/^subscription-(paid|invoice|confirmed)-(.+)$/i);
-  if (!match) return {};
-  const status = match[1] === 'invoice' ? 'invoice' : 'paid';
-  const tail = match[2];
-  const aliases = SUBSCRIPTION_IMPORT_SERVICE_ALIASES.flatMap((item) => item.aliases.map((alias) => ({ alias, label: item.label })));
-  const found = aliases
-    .sort((a, b) => b.alias.length - a.alias.length)
-    .find(({ alias }) => tail === alias || tail.startsWith(`${alias}-`));
-  let serviceRaw = '';
-  let clientRaw = '';
-  if (found) {
-    serviceRaw = found.label;
-    clientRaw = tail.slice(found.alias.length).replace(/^-+/, '');
-  } else {
-    const pieces = tail.split('-').filter(Boolean);
-    serviceRaw = pieces.shift() || '';
-    clientRaw = pieces.join(' ');
-  }
-  const titleMatch = clientRaw.match(/^(mr|ms|mrs|family)-(.+)$/i);
-  const titleToken = titleMatch ? titleMatch[1].toLowerCase() : '';
-  return {
-    client_title: titleToken === 'mrs' ? 'Mrs.' : titleToken === 'ms' ? 'Ms.' : titleToken === 'family' ? 'Family' : titleToken ? 'Mr.' : '',
-    client_name: titleCaseName((titleMatch ? titleMatch[2] : clientRaw).replace(/[-_]+/g, ' ')),
-    service: normalizeImportServiceName(serviceRaw),
-    status
-  };
-}
-
-function mergeImportedSubscription(...sources) {
-  return sources.reduce((merged, source) => {
-    Object.entries(source || {}).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && String(value).trim() !== '') merged[key] = value;
-    });
-    return merged;
-  }, {});
-}
-
-function hasUsefulImportedSubscription(parsed = {}) {
-  return !!(parsed.client_name || parsed.service || parsed.payment_date || parsed.start_date || parsed.expiry_date);
-}
-
-async function findExistingSubscription(env, parsed) {
-  const name = String(parsed?.client_name || '').trim();
-  const service = String(parsed?.service || '').trim();
-  if (!name || !service) return null;
-  // PostgREST `ilike` filters give us case-insensitive matching for
-  // both client_name and service, which lines up with how the rest
-  // of the dashboard groups rows. payment_date and start_date are
-  // exact matches when present so we don't false-merge across
-  // monthly renewals.
-  const filters = [
-    `client_name=ilike.${encodeURIComponent(name)}`,
-    `service=ilike.${encodeURIComponent(service)}`
-  ];
-  if (parsed.payment_date) filters.push(`payment_date=eq.${encodeURIComponent(parsed.payment_date)}`);
-  if (parsed.start_date) filters.push(`start_date=eq.${encodeURIComponent(parsed.start_date)}`);
-  const path = `/rest/v1/subscriptions?select=id,client_name,service,payment_date,start_date,status&${filters.join('&')}&limit=1`;
-  try {
-    const rows = await supabaseFetch(env, path);
-    return Array.isArray(rows) && rows.length ? rows[0] : null;
-  } catch (err) {
-    console.warn('[subs-import] dup lookup failed:', err?.message || err);
-    return null;
-  }
-}
-
-async function handleSubscriptionImport(request, env) {
-  if (!(await verifyAdminRequest(request, env))) return json({ error: 'Unauthorized.' }, 401);
-
-  // Accept either multipart/form-data with a `file` field or a JSON
-  // body { image: "base64", mime: "image/jpeg" }. The multipart
-  // path is what the /db Subs editor sends; the JSON path is
-  // retained for direct API consumers.
-  let imageBase64 = '';
-  let mime = 'image/jpeg';
-  let fileName = '';
-  const contentType = String(request.headers.get('content-type') || '').toLowerCase();
-  try {
-    if (contentType.startsWith('multipart/form-data')) {
-      const form = await request.formData();
-      const file = form.get('file');
-      if (!file || typeof file.arrayBuffer !== 'function') {
-        return json({ error: 'No image file uploaded.' }, 400);
-      }
-      mime = String(file.type || mime);
-      fileName = String(file.name || '');
-      const buf = new Uint8Array(await file.arrayBuffer());
-      imageBase64 = bytesToBase64(buf);
-    } else {
-      const body = await request.json().catch(() => ({}));
-      imageBase64 = String(body.image || '').replace(/^data:[^,]+,/, '');
-      mime = String(body.mime || mime);
-      fileName = String(body.fileName || body.filename || '');
-    }
-  } catch (err) {
-    return json({ error: 'Could not read uploaded image.' }, 400);
-  }
-  if (!imageBase64) return json({ error: 'Missing image data.' }, 400);
-
-  const filenameFallback = parseSubscriptionImportFilename(fileName);
-  const responseText = await callVisionExtractor(env, imageBase64, mime);
-  if (!responseText) {
-    if (hasUsefulImportedSubscription(filenameFallback)) {
-      return json({
-        ok: true,
-        parsed: filenameFallback,
-        existing: null,
-        needs_review: true,
-        message: 'Server OCR unavailable. Filename fields restored; review the remaining fields.'
-      });
-    }
-    return json({ ok: false, error: 'Could not read image, please enter manually.' }, 503);
-  }
-  const extracted = parseExtractorJson(responseText);
-  if (!extracted) {
-    if (hasUsefulImportedSubscription(filenameFallback)) {
-      return json({
-        ok: true,
-        parsed: filenameFallback,
-        existing: null,
-        needs_review: true,
-        message: 'Server OCR returned unreadable text. Filename fields restored; review the remaining fields.'
-      });
-    }
-    return json({ ok: false, error: 'Could not read image, please enter manually.' }, 503);
-  }
-
-  const parsed = mergeImportedSubscription(filenameFallback, normalizeImportedSubscription(extracted));
-  const existing = await findExistingSubscription(env, parsed);
-  return json({
-    ok: true,
-    parsed,
-    existing: existing ? { id: String(existing.id), status: existing.status || '' } : null
-  });
-}
-
 // ── Invoice packages (item catalogue) ──────────────────────────────
 // Powers the /inv autocomplete: 5 hardcoded defaults plus any custom
 // packages saved from the invoice generator. Schema lives in
@@ -4494,9 +3463,8 @@ async function handlePackagesGet(request, env) {
     const packages = Array.isArray(rows) ? rows : [];
     return json({ ok: true, packages });
   } catch (error) {
-    // Schema-cache / missing-table tolerance, mirroring the subscription
-    // pattern. Surface the hardcoded defaults so /inv keeps working even
-    // before the migration is run.
+    // Keep the hardcoded defaults available when the optional package
+    // catalogue table has not been created yet.
     if (isSchemaError(error)) {
       return json({ ok: true, packages: DEFAULT_INVOICE_PACKAGES, fallback: true });
     }
@@ -4804,11 +3772,6 @@ export default {
         assetUrl.pathname = '/l/';
         return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
       }
-      if (request.method === 'GET' && ['/subs', '/subs/', '/subs/index.html'].includes(url.pathname)) {
-        const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/subs/';
-        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
-      }
       if (request.method === 'GET' && ['/t', '/t/', '/t/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/t/';
@@ -4832,13 +3795,6 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/invoices-get') return await handleInvoiceGet(request, env);
       if (request.method === 'GET' && url.pathname === '/api/public-invoice') return await handlePublicInvoiceGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/invoices-delete') return await handleInvoiceDelete(request, env);
-      if (request.method === 'POST' && url.pathname === '/api/subscriptions-save') return await handleSubscriptionSave(request, env);
-      if (request.method === 'GET' && url.pathname === '/api/subscriptions-get') return await handleSubscriptionGet(request, env);
-      if (request.method === 'POST' && url.pathname === '/api/subscriptions-delete') return await handleSubscriptionDelete(request, env);
-      if (request.method === 'POST' && url.pathname === '/api/subscriptions-import') return await handleSubscriptionImport(request, env);
-      if (request.method === 'GET' && url.pathname === '/api/subscription-extensions') return await handleSubscriptionExtensionsGet(request, env);
-      if (request.method === 'POST' && url.pathname === '/api/subscription-extensions-save') return await handleSubscriptionExtensionSave(request, env);
-      if (request.method === 'POST' && url.pathname === '/api/subscription-extensions-delete') return await handleSubscriptionExtensionDelete(request, env);
       if (request.method === 'GET' && url.pathname === '/api/packages') return await handlePackagesGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-save') return await handlePackageSave(request, env);
       if (request.method === 'POST' && url.pathname === '/api/packages-delete') return await handlePackageDelete(request, env);
