@@ -785,9 +785,9 @@ async function fetchClients(env) {
 }
 
 // Whether a contact value is "human-readable enough" to use as a
-// duplicate-detection key. The Clients tab and Subs tab both
-// store free-text contacts (phone, IG handle, IG URL, email), and
-// older imports sometimes left junk values (timestamps, opaque
+// duplicate-detection key. Client records store free-text contacts
+// (phone, IG handle, IG URL, email), and older imports sometimes left
+// junk values (timestamps, opaque
 // ids, blanks). When the contact is not recognisably one of those
 // shapes we refuse to treat it as a match key — otherwise two
 // separate real people with the same name and the same blank
@@ -2136,7 +2136,7 @@ async function handleClientSave(request, env) {
   //     promoted to a real client row that already exists.
   //
   //   • currentId is a real client row  → merge the duplicate INTO
-  //     currentId. Reassign the duplicate's invoice/delivery/sub
+  //     currentId. Reassign the duplicate's invoice/delivery
   //     rows to currentId, drop the duplicate client row, then
   //     PATCH currentId with the new fields. The surviving client
   //     row is currentId so the operator's stable selection
