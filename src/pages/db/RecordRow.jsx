@@ -206,14 +206,16 @@ function ensureSmartReviewStyles() {
       letter-spacing:.06em;text-transform:uppercase;
     }
 
-    /* Payment Proof review: receipt and reconciliation share the landscape canvas. */
+    /* Payment Proof review: consistent modal width and calm compact thumbnail layout. */
     .payment-proof-viewer{
+      display:flex !important;
       align-items:center !important;
       justify-content:center !important;
       overflow:hidden !important;
     }
     .payment-proof-viewer-card{
-      width:min(1120px,100%) !important;
+      width:100% !important;
+      max-width:740px !important;
       max-height:min(840px,calc(100dvh - 48px)) !important;
       display:flex !important;
       flex-direction:column !important;
@@ -320,8 +322,8 @@ function ensureSmartReviewStyles() {
     }
     .payment-proof-entry-layout{
       display:grid;
-      grid-template-columns:minmax(220px,.72fr) minmax(0,1.28fr);
-      gap:18px;
+      grid-template-columns:auto minmax(0,1fr);
+      gap:14px 20px;
       align-items:start;
     }
     .payment-proof-receipt-col,
@@ -332,53 +334,57 @@ function ensureSmartReviewStyles() {
       gap:10px;
     }
     .payment-proof-entry-times{
-      display:flex !important;
-      flex-wrap:wrap !important;
-      gap:6px 18px !important;
+      display:grid !important;
+      gap:8px !important;
       margin:0 !important;
+      align-content:start;
     }
     .payment-proof-entry-times > div{
       display:grid !important;
-      gap:2px !important;
+      grid-template-columns:92px minmax(0,1fr) !important;
+      gap:12px !important;
+      align-items:baseline !important;
     }
     .payment-proof-entry-times dt{
       color:var(--muted) !important;
-      font-size:.62rem !important;
-      font-weight:600 !important;
+      font-size:.64rem !important;
+      font-weight:650 !important;
       letter-spacing:.08em !important;
       text-transform:uppercase;
     }
     .payment-proof-entry-times dd{
       margin:0 !important;
       color:var(--ink) !important;
-      font-size:.74rem !important;
+      font-size:.78rem !important;
       font-weight:600 !important;
       font-variant-numeric:tabular-nums;
     }
     .payment-proof-image-grid{
-      display:grid !important;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      display:flex !important;
+      flex-wrap:wrap !important;
       gap:8px !important;
-      width:100%;
+      max-width:216px;
     }
-    .payment-proof-image-grid.is-single{grid-template-columns:minmax(0,1fr) !important}
+    .payment-proof-image-grid.is-single{
+      max-width:104px;
+    }
     .payment-proof-image-grid .payment-proof-image-item{
       display:grid !important;
-      grid-template-rows:minmax(0,1fr) auto;
-      gap:6px !important;
-      width:100% !important;
-      max-width:none !important;
+      grid-template-rows:128px auto;
+      gap:5px !important;
+      width:104px !important;
+      max-width:104px !important;
       min-width:0;
     }
     .payment-proof-image-link{
       display:grid !important;
       place-items:center !important;
-      width:100% !important;
-      height:clamp(190px,34vh,330px) !important;
+      width:104px !important;
+      height:128px !important;
       min-height:0 !important;
       overflow:hidden !important;
       border:0 !important;
-      border-radius:14px !important;
+      border-radius:12px !important;
       background:var(--panel) !important;
       box-shadow:none !important;
     }
@@ -389,16 +395,16 @@ function ensureSmartReviewStyles() {
       object-fit:contain !important;
     }
     .payment-proof-save{
-      justify-self:start;
-      min-height:28px !important;
+      justify-self:center;
+      min-height:24px !important;
       display:inline-flex !important;
       align-items:center !important;
-      padding:0 10px !important;
+      padding:0 8px !important;
       border:0 !important;
       border-radius:999px !important;
       background:transparent !important;
       color:var(--muted) !important;
-      font-size:.7rem !important;
+      font-size:.68rem !important;
       font-weight:600 !important;
       text-decoration:none !important;
     }
@@ -500,11 +506,13 @@ function ensureSmartReviewStyles() {
       .payment-proof-image-grid.is-single{
         grid-column:1;
         grid-row:1;
+        display:grid !important;
         grid-auto-flow:column;
         grid-auto-columns:76px;
         grid-template-columns:none !important;
         justify-content:start;
         width:100% !important;
+        max-width:none !important;
         overflow-x:auto;
         overscroll-behavior-x:contain;
       }
@@ -608,9 +616,13 @@ function proofPaymentLabel(date, time) {
 function proofAuditLabel(value) {
   const date = new Date(value || '');
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  const datePart = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
   }).format(date);
+  const timePart = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(date);
+  return `${datePart} · ${timePart}`;
 }
 
 function formatNumericInput(value) {
@@ -1158,16 +1170,22 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                 </div>
                 <div className="payment-proof-review-col">
                   <dl className="payment-proof-entry-times">
-                    {proofPaymentLabel(entry.paymentDate, entry.paymentTime) ? (
-                      <div>
-                        <dt>Payment</dt>
-                        <dd>{proofPaymentLabel(entry.paymentDate, entry.paymentTime)}{entry.paymentProvisional ? ' · Client reported' : ''}</dd>
-                      </div>
-                    ) : null}
-                    {proofAuditLabel(entry.uploadedAt) ? <div><dt>Uploaded</dt><dd>{proofAuditLabel(entry.uploadedAt)}</dd></div> : null}
-                    {entry.reviewedAt && !entry.paymentProvisional && proofAuditLabel(entry.reviewedAt) ? (
-                      <div><dt>Confirmed</dt><dd>{proofAuditLabel(entry.reviewedAt)}</dd></div>
-                    ) : null}
+                    <div>
+                      <dt>Payment</dt>
+                      <dd>
+                        {proofPaymentLabel(entry.paymentDate, entry.paymentTime)
+                          ? `${proofPaymentLabel(entry.paymentDate, entry.paymentTime)}${entry.paymentProvisional ? ' · Client reported' : ''}`
+                          : '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Uploaded</dt>
+                      <dd>{proofAuditLabel(entry.uploadedAt) || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>Confirmed</dt>
+                      <dd>{entry.reviewedAt && !entry.paymentProvisional && proofAuditLabel(entry.reviewedAt) ? proofAuditLabel(entry.reviewedAt) : '—'}</dd>
+                    </div>
                   </dl>
                   {summary.invoiceId ? (
                     <PaymentProofEntryReview
