@@ -63,22 +63,33 @@ function ensureStyle() {
     .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--success-state, #1f8a4c) 20%,transparent);color:color-mix(in srgb,var(--success-state, #1f8a4c) 78%,var(--ink))}.public-payment-proof-status.is-rejected{background:rgba(190,58,68,.12);color:#b32939}
     .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:600;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
     .public-payment-proof-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.public-payment-proof-error{margin:0 20px 16px;color:#b32939;font-size:12px;font-weight:700}
-    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.public-payment-proof-upload-fields label{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}.public-payment-proof-upload-fields input{min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;color-scheme:light dark}
-    .public-payment-proof-ocr-status{display:flex;align-items:flex-start;gap:10px;margin:0;padding:11px 13px;border:1px solid var(--line);border-radius:14px;background:var(--field);color:var(--ink);font-size:12px;line-height:1.4}
-    .public-payment-proof-ocr-indicator{display:inline-block;flex:0 0 16px;width:16px;height:16px;margin-top:1px;border:2px solid currentColor;border-radius:50%;box-sizing:border-box}
-    .public-payment-proof-ocr-status.is-scanning{border-color:rgba(70,120,190,.35);background:rgba(70,120,190,.09);color:#416da7}
-    .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator{border-right-color:transparent;animation:public-proof-ocr-spin .8s linear infinite}
-    .public-payment-proof-button .public-payment-proof-ocr-indicator{border-right-color:transparent;animation:public-proof-ocr-spin .8s linear infinite}
-    .public-payment-proof-ocr-status.is-detected{border-color:rgba(31,138,76,.3);background:rgba(31,138,76,.08);color:var(--success-state,#1f8a4c)}
+    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .public-payment-proof-upload-fields label{display:grid;gap:8px;min-width:0;color:var(--muted);font-size:10px;font-weight:750;letter-spacing:.09em;text-transform:uppercase}
+    .public-payment-proof-date-control{position:relative;display:flex;align-items:center;min-width:0}
+    .public-payment-proof-date-control input{width:100%;min-width:0;height:48px;padding:0 42px 0 14px;border:1px solid var(--line);border-radius:14px;outline:none;background:var(--field);color:var(--ink);font:inherit;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;color-scheme:light dark;box-sizing:border-box;appearance:none;-webkit-appearance:none}
+    .public-payment-proof-date-control input:focus-visible{border-color:color-mix(in srgb,var(--ink) 35%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 7%,transparent)}
+    .public-payment-proof-date-control input::-webkit-calendar-picker-indicator{position:absolute;right:13px;width:14px;height:14px;margin:0;opacity:0;cursor:pointer}
+    .public-payment-proof-date-chevron{position:absolute;right:14px;display:grid;place-items:center;width:16px;height:16px;color:var(--muted);pointer-events:none}
+    .public-payment-proof-date-chevron svg{display:block;width:14px;height:14px}
+    .public-payment-proof-ocr-status{display:flex;align-items:center;gap:10px;margin:0;padding:2px 0;border:0;background:transparent;color:var(--muted);font-size:12px;line-height:1.45}
+    .public-payment-proof-ocr-indicator{display:inline-block;flex:0 0 15px;width:15px;height:15px;margin:0;border:1.8px solid currentColor;border-radius:50%;box-sizing:border-box}
+    .public-payment-proof-ocr-status.is-scanning{color:var(--muted)}
+    .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator{border-right-color:transparent;animation:public-proof-ocr-spin .85s linear infinite}
+    .public-payment-proof-button .public-payment-proof-ocr-indicator{flex:0 0 14px;width:14px;height:14px;margin:0;border-width:1.8px;border-right-color:transparent;animation:public-proof-ocr-spin .85s linear infinite}
+    .public-payment-proof-ocr-status.is-detected{color:var(--success-state,#1f8a4c)}
     .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator{position:relative;border:0}
-    .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator::after{content:'✓';position:absolute;inset:-3px 0 0;font-size:17px;font-weight:800}
-    .public-payment-proof-ocr-status.is-manual{border-color:var(--line);background:var(--field);color:var(--muted)}
-    .public-payment-proof-ocr-status.is-fallback{border-color:rgba(185,125,45,.32);background:rgba(185,125,45,.08);color:#916522}
-    .public-payment-proof-ocr-copy{display:grid;gap:3px;min-width:0}
-    .public-payment-proof-ocr-copy strong{font-size:12px;font-weight:750}
+    .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator::after{content:'✓';position:absolute;inset:-2px 0 0;font-size:15px;font-weight:800}
+    .public-payment-proof-ocr-status.is-manual{color:var(--muted)}
+    .public-payment-proof-ocr-status.is-fallback{color:#916522}
+    .public-payment-proof-ocr-copy{display:grid;gap:2px;min-width:0}
+    .public-payment-proof-ocr-copy strong{font-size:12px;font-weight:700;color:var(--ink)}
     .public-payment-proof-ocr-copy small{color:var(--muted);font-size:11px}
+    .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-copy strong{color:var(--ink)}
+    .public-payment-proof-button.is-primary:disabled{background:color-mix(in srgb,var(--ink) 7%,var(--panel));border-color:transparent;color:var(--muted);opacity:1;cursor:wait}
+    .public-payment-proof-button.is-primary:disabled .public-payment-proof-ocr-indicator{color:var(--muted)}
     @keyframes public-proof-ocr-spin{to{transform:rotate(360deg)}}
     @media(prefers-reduced-motion:reduce){.public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator,.public-payment-proof-button .public-payment-proof-ocr-indicator{animation:none;border-right-color:currentColor;border-top-color:transparent}}
+    @media(max-width:560px){.public-payment-proof-upload-fields{gap:10px}.public-payment-proof-date-control input{height:46px;padding-left:11px;padding-right:34px;font-size:13px}.public-payment-proof-date-chevron{right:10px}}
     .public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
     .public-payment-proof-lightbox{position:absolute;inset:0;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr);padding:18px;background:rgba(4,7,14,.94)}.public-payment-proof-lightbox-head{display:flex;justify-content:flex-end;padding-bottom:12px}.public-payment-proof-lightbox-image{width:100%;height:100%;min-height:0;object-fit:contain}
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
@@ -608,6 +619,8 @@ function renderUploadForm(sheet) {
   fields.className = 'public-payment-proof-upload-fields';
   const dateLabel = document.createElement('label');
   dateLabel.textContent = 'Payment Date';
+  const dateControl = document.createElement('span');
+  dateControl.className = 'public-payment-proof-date-control';
   const dateInput = document.createElement('input');
   dateInput.type = 'date';
   dateInput.value = draft.paymentDate;
@@ -619,9 +632,16 @@ function renderUploadForm(sheet) {
     draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
     updateTimezoneNote();
   });
-  dateLabel.appendChild(dateInput);
+  const dateChevron = document.createElement('span');
+  dateChevron.className = 'public-payment-proof-date-chevron';
+  dateChevron.setAttribute('aria-hidden', 'true');
+  dateChevron.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6 4.5 4 4.5-4"/></svg>';
+  dateControl.append(dateInput, dateChevron);
+  dateLabel.appendChild(dateControl);
   const timeLabel = document.createElement('label');
   timeLabel.textContent = 'Payment Time';
+  const timeControl = document.createElement('span');
+  timeControl.className = 'public-payment-proof-date-control';
   const timeInput = document.createElement('input');
   timeInput.type = 'time';
   timeInput.value = draft.paymentTime;
@@ -633,7 +653,12 @@ function renderUploadForm(sheet) {
     draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
     updateTimezoneNote();
   });
-  timeLabel.appendChild(timeInput);
+  const timeChevron = document.createElement('span');
+  timeChevron.className = 'public-payment-proof-date-chevron';
+  timeChevron.setAttribute('aria-hidden', 'true');
+  timeChevron.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6 4.5 4 4.5-4"/></svg>';
+  timeControl.append(timeInput, timeChevron);
+  timeLabel.appendChild(timeControl);
   fields.append(dateLabel, timeLabel);
 
   const timezone = document.createElement('div');
@@ -658,7 +683,7 @@ function renderUploadForm(sheet) {
     const title = document.createElement('strong');
     title.textContent = copy[0];
     const detail = document.createElement('small');
-    detail.textContent = `${copy[1]} ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}.`;
+    detail.textContent = `${copy[1]} · ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}.`;
     message.append(title, detail);
     timezone.replaceChildren(indicator, message);
   };
@@ -695,7 +720,9 @@ function renderUploadForm(sheet) {
     const spinner = document.createElement('span');
     spinner.className = 'public-payment-proof-ocr-indicator';
     spinner.setAttribute('aria-hidden', 'true');
-    upload.prepend(spinner);
+    const label = document.createElement('span');
+    label.textContent = 'Detecting receipt…';
+    upload.replaceChildren(spinner, label);
     upload.setAttribute('aria-busy', 'true');
   }
   cancel.disabled = proofStore.busy;
