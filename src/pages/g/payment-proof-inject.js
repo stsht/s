@@ -157,10 +157,15 @@ function ensureStyle() {
     .public-payment-proof-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .public-payment-proof-upload-grid.is-single{grid-template-columns:minmax(0,420px);justify-content:center}
     .public-payment-proof-upload-thumb{
-      display:grid;place-items:center;width:100%;height:220px;min-height:180px;max-height:300px;
+      position:relative;display:grid;place-items:center;width:100%;height:220px;min-height:180px;max-height:300px;
       padding:10px;border:0;border-radius:18px;background:#f5f6f8;
     }
     .public-payment-proof-upload-thumb img{width:100%;height:100%;object-fit:contain}
+    .public-payment-proof-zoom-hint{
+      position:absolute;right:10px;bottom:10px;padding:6px 10px;border-radius:999px;
+      background:rgba(255,255,255,.88);color:#454b55;font-size:10px;font-weight:600;
+      letter-spacing:.01em;line-height:1;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.06);
+    }
     .public-payment-proof-field-group{
       gap:0;overflow:hidden;border:0;border-radius:17px;background:color-mix(in srgb,var(--field) 76%,var(--panel));
     }
@@ -178,6 +183,7 @@ function ensureStyle() {
     .public-payment-proof-date-control input:focus-visible,.public-payment-proof-time-text:focus-visible{
       border:0;outline:2px solid color-mix(in srgb,var(--ink) 24%,transparent);outline-offset:3px;box-shadow:none;
     }
+    .public-payment-proof-time-text{padding-right:38px}
     .public-payment-proof-date-control input::-webkit-calendar-picker-indicator{right:0}
     .public-payment-proof-date-chevron{right:2px}
     .public-payment-proof-time-controls{min-height:28px}
@@ -735,7 +741,10 @@ function renderUploadForm(sheet) {
     const image = document.createElement('img');
     image.src = url;
     image.alt = `Selected payment proof ${index + 1}`;
-    thumb.appendChild(image);
+    const zoomHint = document.createElement('span');
+    zoomHint.className = 'public-payment-proof-zoom-hint';
+    zoomHint.textContent = 'Tap to zoom';
+    thumb.append(image, zoomHint);
     previews.appendChild(thumb);
   });
 
