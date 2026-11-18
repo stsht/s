@@ -1442,6 +1442,105 @@ function GalleryGate() {
     setTimeout(() => { inputRef.current?.focus(); }, 380);
   }
 
+  // A gallery session is fixed at unlock time and never slides forward.
+  // The server remains authoritative; this timer clears already-rendered
+  // client data, while focus/visibility checks catch expiry in background tabs.
+  useEffect(() => {
+    const expiresAt = Number(payload?.sessionExpiresAt || 0);
+    if (!payload || !Number.isSafeInteger(expiresAt) || expiresAt <= 0) return undefined;
+
+    let locked = false;
+    let checkingSession = false;
+    const channel = typeof BroadcastChannel !== 'undefined'
+      ? new BroadcastChannel('ss-gallery-session')
+      : null;
+
+    const lockGallery = () => {
+      if (locked) return;
+      locked = true;
+      setPayload(null);
+      setPassword('');
+      setStatus('Your session has expired. Please enter the access key again.');
+      setChecking(false);
+      try {
+        localStorage.setItem('ss-gallery-session-expired', JSON.stringify({
+          slug,
+          at: Date.now(),
+        }));
+      } catch {}
+      channel?.postMessage({ type: 'expired', slug });
+    };
+
+    const validateSession = async () => {
+      if (locked || checkingSession) return;
+      if (Date.now() >= expiresAt) {
+        lockGallery();
+        return;
+      }
+      checkingSession = true;
+      try {
+        const response = await fetch(
+          `/api/gallery-session-check?slug=${encodeURIComponent(slug)}`,
+          { method: 'GET', credentials: 'same-origin', cache: 'no-store' }
+        );
+        if (response.status === 401 || response.status === 403) {
+          lockGallery();
+          return;
+        }
+        if (response.ok) {
+          const data = await response.json().catch(() => ({}));
+          if (data?.ok && Number(data.sessionExpiresAt) !== expiresAt) {
+            // Never extend the browser deadline from a revalidation response.
+            if (Number(data.sessionExpiresAt) < expiresAt) {
+              setPayload((current) => current
+                ? { ...current, sessionExpiresAt: Number(data.sessionExpiresAt) }
+                : current);
+            }
+          }
+        }
+      } catch {
+        // A transient network issue must not log a client out prematurely.
+        // Protected API requests still enforce the signed cookie server-side.
+      } finally {
+        checkingSession = false;
+      }
+    };
+
+    const handleFocus = () => { void validateSession(); };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void validateSession();
+    };
+    const handleStorage = (event) => {
+      if (event.key !== 'ss-gallery-session-expired' || !event.newValue) return;
+      try {
+        const notice = JSON.parse(event.newValue);
+        if (notice?.slug === slug) lockGallery();
+      } catch {}
+    };
+    const handleBroadcast = (event) => {
+      if (event.data?.type === 'expired' && event.data.slug === slug) lockGallery();
+    };
+
+    const timer = window.setTimeout(
+      lockGallery,
+      Math.max(0, expiresAt - Date.now())
+    );
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('storage', handleStorage);
+    channel?.addEventListener('message', handleBroadcast);
+    void validateSession();
+
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('storage', handleStorage);
+      channel?.removeEventListener('message', handleBroadcast);
+      channel?.close();
+    };
+  }, [payload?.sessionExpiresAt, slug]);
+
   // Admin auto-unlock + public gate metadata probe.
   //
   // POSTs an empty-password unlock with credentials so the worker
@@ -1518,6 +1617,7 @@ function GalleryGate() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) throw new Error(data.error || 'Wrong password.');
+      setStatus('');
       setPayload(data);
     } catch (error) {
       if (import.meta.env.DEV) {
