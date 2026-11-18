@@ -356,7 +356,17 @@ async function verifyAdminSessionCookiePayload(request, env) {
   if (parts.length !== 3) return { valid: false, expiresAt: 0 };
   const [expiresAtRaw, nonce, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now() || !nonce || !signature) {
+  const now = Date.now();
+  if (
+    !Number.isSafeInteger(expiresAt)
+    || expiresAt <= now
+    // Reject legacy admin cookies minted while PR #191 temporarily
+    // issued 12-hour tokens. New admin sessions may never have more
+    // than ADMIN_SESSION_MS remaining, regardless of cookie Max-Age.
+    || expiresAt - now > ADMIN_SESSION_MS
+    || !nonce
+    || !signature
+  ) {
     return { valid: false, expiresAt: 0 };
   }
   const payload = `${expiresAtRaw}.${nonce}`;
