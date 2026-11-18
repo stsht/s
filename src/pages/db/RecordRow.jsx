@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { compactEventDateLabel, jakartaTodayISO } from './dbHelpers.js';
 import { invoicePaymentProofs, paymentState, vendorSummaryState } from './vendorStatus.js';
 import { rupiah } from '../../utils/rupiah.js';
@@ -11,9 +12,29 @@ function ensureSmartReviewStyles() {
   const style = document.createElement('style');
   style.id = SMART_REVIEW_STYLE_ID;
   style.textContent = `
+    .payment-proof-viewer{
+      z-index:10050 !important;
+      padding:24px 16px !important;
+    }
+    .payment-proof-viewer-card{
+      max-height:min(840px, calc(100dvh - 48px)) !important;
+    }
+    .payment-proof-viewer-head{
+      padding:16px 20px !important;
+    }
+    .payment-proof-viewer-body{
+      padding:16px 20px 24px !important;
+      gap:16px !important;
+    }
+    .payment-proof-image-grid.is-single{
+      grid-template-columns:minmax(0, 1fr);
+    }
+    .payment-proof-image-grid.is-single .payment-proof-image-item{
+      max-width:360px;
+    }
     .payment-proof-invoice-summary{
       display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
-      margin:0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:18px;background:var(--field);
+      margin:16px 20px 0;padding:12px 16px;border:1px solid var(--line);border-radius:18px;background:var(--field);
     }
     .payment-proof-summary-metrics{
       display:flex;flex-wrap:wrap;gap:14px 20px;align-items:center;
@@ -644,7 +665,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
     }
   }
 
-  return (
+  const modalContent = (
     <div className="payment-proof-viewer" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
       <div className="payment-proof-viewer-card" onClick={(event) => event.stopPropagation()}>
         <header className="payment-proof-viewer-head">
@@ -707,7 +728,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                   <div><dt>Confirmed</dt><dd>{proofAuditLabel(entry.reviewedAt)}</dd></div>
                 ) : null}
               </dl>
-              <div className="payment-proof-image-grid">
+              <div className={`payment-proof-image-grid${entry.images.length === 1 ? ' is-single' : ''}`}>
                 {entry.images.map((image, imageIndex) => (
                   <div className="payment-proof-image-item" key={`${entry.id || entryIndex}-${imageIndex}`}>
                     <button type="button" className="payment-proof-image-link" onClick={() => setPreviewImage(image)} aria-label={`View payment proof ${entryIndex + 1}.${imageIndex + 1}`}>
@@ -738,6 +759,8 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 export function RecordRow({

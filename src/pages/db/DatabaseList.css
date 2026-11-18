@@ -12,6 +12,7 @@
   padding-right:2px;
 }
 .db-list-row{
+  position:relative;
   width:100%;
   min-height:58px;
   display:grid;
@@ -20,7 +21,7 @@
   column-gap:10px;
   border:1px solid transparent;
   border-radius:18px;
-  padding:10px 14px;
+  padding:10px 14px 10px 18px;
   background:transparent;
   color:var(--ink);
   text-align:left;
@@ -88,21 +89,42 @@
  * `border-color` shorthand and would otherwise wipe a coloured
  * left border). The 3px shadow spans only the left edge so it
  * reads as a status accent without affecting layout. */
-.db-list-row.event-tone-soon,
-.record-row.event-tone-soon{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-soon) 75%,transparent);
+.db-list-row.event-tone-soon::before,
+.db-list-row.event-tone-future::before,
+.db-list-row.event-tone-tba::before,
+.db-list-row.event-tone-past::before,
+.record-row.event-tone-soon::before,
+.record-row.event-tone-future::before,
+.record-row.event-tone-tba::before,
+.record-row.event-tone-past::before{
+  content:'';
+  position:absolute;
+  left:6px;
+  top:50%;
+  transform:translateY(-50%);
+  width:3px;
+  height:24px;
+  border-radius:999px;
+  pointer-events:none;
 }
-.db-list-row.event-tone-future,
-.record-row.event-tone-future{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-future) 65%,transparent);
+.db-list-row.event-tone-soon::before,
+.record-row.event-tone-soon::before{
+  background:color-mix(in srgb,var(--evt-soon) 78%,transparent);
 }
-.db-list-row.event-tone-tba,
-.record-row.event-tone-tba{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-tba) 60%,transparent);
+.db-list-row.event-tone-future::before,
+.record-row.event-tone-future::before{
+  background:color-mix(in srgb,var(--evt-future) 68%,transparent);
+}
+.db-list-row.event-tone-tba::before,
+.record-row.event-tone-tba::before{
+  background:color-mix(in srgb,var(--evt-tba) 65%,transparent);
+}
+.db-list-row.event-tone-past::before,
+.record-row.event-tone-past::before{
+  background:color-mix(in srgb,var(--evt-past) 55%,transparent);
 }
 .db-list-row.event-tone-past,
 .record-row.event-tone-past{
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-past) 55%,transparent);
   opacity:.86;
 }
 .db-list-row.event-tone-past strong,
@@ -229,7 +251,8 @@
   align-items:center;
   gap:var(--evt-rail-gap);
   min-height:56px;
-  padding:10px var(--evt-rail-gutter) 10px 12px;
+  position:relative;
+  padding:10px var(--evt-rail-gutter) 10px 18px;
   border:1px solid var(--line);
   border-radius:18px;
   background:var(--field);
