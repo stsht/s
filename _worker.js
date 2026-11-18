@@ -323,12 +323,22 @@ function getCookie(request, name) {
   return match ? decodeURIComponent(match.slice(prefix.length)) : '';
 }
 
-async function createAdminSessionCookie(env) {
+async function createAdminSessionData(env) {
   const expiresAt = Date.now() + ADMIN_SESSION_MS;
   const nonce = randomToken(12);
   const payload = `${expiresAt}.${nonce}`;
   const signature = await hmacSha256(getAdminPassword(env), payload);
-  return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+  const cookie = `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(ADMIN_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
+  return { cookie, expiresAt };
+}
+
+async function createAdminSessionCookie(env) {
+  const { cookie } = await createAdminSessionData(env);
+  return cookie;
+}
+
+function clearAdminSessionCookie() {
+  return `${ADMIN_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 }
 
 async function createGallerySessionCookie(env, deliveryId) {
@@ -340,16 +350,24 @@ async function createGallerySessionCookie(env, deliveryId) {
   return `${GALLERY_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(GALLERY_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
 }
 
-async function verifyAdminSessionCookie(request, env) {
+async function verifyAdminSessionCookiePayload(request, env) {
   const token = getCookie(request, ADMIN_SESSION_COOKIE);
   const parts = token.split('.');
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return { valid: false, expiresAt: 0 };
   const [expiresAtRaw, nonce, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
-  if (!Number.isFinite(expiresAt) || expiresAt < Date.now() || !nonce || !signature) return false;
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now() || !nonce || !signature) {
+    return { valid: false, expiresAt: 0 };
+  }
   const payload = `${expiresAtRaw}.${nonce}`;
   const expected = await hmacSha256(getAdminPassword(env), payload);
-  return safeEqual(signature, expected);
+  if (!safeEqual(signature, expected)) return { valid: false, expiresAt: 0 };
+  return { valid: true, expiresAt };
+}
+
+async function verifyAdminSessionCookie(request, env) {
+  const session = await verifyAdminSessionCookiePayload(request, env);
+  return session.valid;
 }
 
 async function verifyGallerySessionCookie(request, env, deliveryId) {
@@ -367,7 +385,22 @@ async function verifyGallerySessionCookie(request, env, deliveryId) {
 
 async function verifyAdminRequest(request, env, password = '') {
   if (await verifyAdminSessionCookie(request, env)) return true;
-  return verifyAdminPassword(env, password);
+
+  const cleanPass = String(password || '').trim();
+  if (!cleanPass) return false;
+
+  // All password fallbacks share the same failure-only budget as /api/admin-check.
+  const lockout = checkLockout(request, 'admin-check');
+  if (lockout.limited) return false;
+
+  const valid = await verifyAdminPassword(env, cleanPass);
+  if (!valid) {
+    recordFailure(request, 'admin-check', { limit: 8, windowMs: 60 * 1000, blockMs: 30 * 1000 });
+    return false;
+  }
+
+  clearRateLimit(request, 'admin-check');
+  return true;
 }
 
 async function deriveGalleryPasswordDigest(password, salt, iterations = GALLERY_HASH_ITERATIONS) {
@@ -1581,39 +1614,37 @@ function animateAssets() {
 
 async function handleAdminCheck(request, env) {
   const body = await request.json().catch(() => ({}));
-  const password = String(body.password || '').trim();
-
-  // Empty-password POSTs are session-revalidation pings from the
-  // PasswordGate useEffect (and the cross-tab cookie probe). They
-  // can only succeed with a valid signed cookie, so they are not a
-  // brute-force surface. They MUST NOT count toward the lockout —
-  // routine page loads and tab refreshes would otherwise drain the
-  // budget and lock the owner out.
-  if (!password) {
-    if (await verifyAdminSessionCookie(request, env)) {
-      return json({ ok: true }, 200);
-    }
-    return json({ error: 'Unauthorized.' }, 401);
+  if (body.logout === true) {
+    return json({ ok: true, loggedOut: true }, 200, { 'Set-Cookie': clearAdminSessionCookie() });
   }
 
-  // If this IP is currently locked out, refuse the attempt without
-  // verifying the password and without incrementing any counter.
-  // Block window is capped at 30s (see recordFailure default).
+  const password = String(body.password || '').trim();
+
+  // Revalidation returns the original signed expiry without renewing the
+  // cookie. The 15-minute window is strictly measured from login.
+  if (!password) {
+    const session = await verifyAdminSessionCookiePayload(request, env);
+    if (session.valid) {
+      return json({ ok: true, expiresAt: session.expiresAt }, 200);
+    }
+    return json(
+      { error: 'Unauthorized.' },
+      401,
+      { 'Set-Cookie': clearAdminSessionCookie() }
+    );
+  }
+
   const lockout = checkLockout(request, 'admin-check');
   if (lockout.limited) return rateLimitedResponse(lockout.retryAfter);
 
   if (!(await verifyAdminPassword(env, password))) {
-    // ONLY failed attempts count toward the lockout. A correct
-    // password no longer increments the counter, so legitimate
-    // re-authentication never trips the limiter.
     recordFailure(request, 'admin-check', { limit: 8, windowMs: 60 * 1000, blockMs: 30 * 1000 });
     return json({ error: 'Unauthorized.' }, 401);
   }
 
-  // Correct password: drop the failure counter for this IP entirely.
-  // Subsequent attempts in the same window start fresh.
   clearRateLimit(request, 'admin-check');
-  return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
+  const { cookie, expiresAt } = await createAdminSessionData(env);
+  return json({ ok: true, expiresAt }, 200, { 'Set-Cookie': cookie });
 }
 
 async function handleSave(request, env) {
@@ -2037,8 +2068,7 @@ async function handleOpenLink(request, env) {
 
 async function handleDbSearch(request, env) {
   const url = new URL(request.url);
-  const password = url.searchParams.get('password') || '';
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
 
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
 
@@ -3947,8 +3977,7 @@ async function handlePaymentProofReview(request, env) {
 
 async function handlePaymentProofImageGet(request, env) {
   const url = new URL(request.url);
-  const password = String(url.searchParams.get('password') || '').trim();
-  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401);
+  if (!(await verifyAdminSessionCookie(request, env))) return json({ error: 'Unauthorized.' }, 401);
   const id = String(url.searchParams.get('id') || '').trim();
   if (!id) return json({ error: 'Missing payment proof id.' }, 400);
 
@@ -4295,18 +4324,26 @@ function notFoundPage(path = '') {
  * responses), so the immutable-cache benefit on the heavy assets
  * is preserved.
  */
-function withFreshHtmlHeaders(response) {
+function withFreshHtmlHeaders(response, options = {}) {
   if (!response) return response;
   const contentType = String(response.headers.get('content-type') || '').toLowerCase();
   if (!contentType.includes('text/html')) return response;
   const headers = new Headers(response.headers);
   headers.set('Cache-Control', 'no-cache, must-revalidate, max-age=0');
+
+  if (options.securityHeaders !== false) {
+    headers.set('X-Content-Type-Options', 'nosniff');
+    headers.set('X-Frame-Options', 'SAMEORIGIN');
+    headers.set('Referrer-Policy', 'no-referrer');
+  }
+
   const existingVary = headers.get('Vary');
   if (!existingVary) {
     headers.set('Vary', 'Cookie');
   } else if (!/\bcookie\b/i.test(existingVary)) {
     headers.set('Vary', `${existingVary}, Cookie`);
   }
+
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -4342,7 +4379,10 @@ export default {
       if (request.method === 'GET' && ['/t', '/t/', '/t/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
         assetUrl.pathname = '/t/';
-        return withFreshHtmlHeaders(await env.ASSETS.fetch(new Request(assetUrl.toString(), request)));
+        return withFreshHtmlHeaders(
+          await env.ASSETS.fetch(new Request(assetUrl.toString(), request)),
+          { securityHeaders: false }
+        );
       }
       if (request.method === 'GET' && ['/db', '/db/', '/db/index.html'].includes(url.pathname)) {
         const assetUrl = new URL(request.url);
