@@ -1124,21 +1124,6 @@ function GalleryLinks({ payload }) {
             // request resolves.
             <div className="public-invoice-viewer-card">
               <header className="public-invoice-viewer-toolbar desktop-only-header">
-                <strong>Invoice</strong>
-                <div className="public-invoice-viewer-actions">
-                  <button
-                    type="button"
-                    className="public-invoice-action public-invoice-action--ghost"
-                    onClick={() => setInvoiceOpen(false)}
-                    aria-label="Close"
-                    style={{ padding: 0, width: '38px' }}
-                  >
-                    <IconClose />
-                  </button>
-                </div>
-              </header>
-              <header className="public-invoice-viewer-header-mobile mobile-only-header">
-                <strong>Invoice</strong>
                 <button
                   type="button"
                   className="public-invoice-close-btn"
@@ -1147,6 +1132,18 @@ function GalleryLinks({ payload }) {
                 >
                   <IconClose />
                 </button>
+                <strong>Invoice</strong>
+              </header>
+              <header className="public-invoice-viewer-header-mobile mobile-only-header">
+                <button
+                  type="button"
+                  className="public-invoice-close-btn"
+                  onClick={() => setInvoiceOpen(false)}
+                  aria-label="Close"
+                >
+                  <IconClose />
+                </button>
+                <strong>Invoice</strong>
               </header>
               <div className="public-invoice-viewer-body">
                 <p style={{ padding: '28px 4px', textAlign: 'center', opacity: 0.7 }}>
@@ -1158,32 +1155,29 @@ function GalleryLinks({ payload }) {
           <div className="public-invoice-viewer-card">
             {/* Desktop Toolbar (hidden on mobile) */}
             <header className="public-invoice-viewer-toolbar desktop-only-header">
-              <strong>Invoice</strong>
-              <div className="public-invoice-viewer-actions">
                 <button
                   type="button"
-                  className="public-invoice-action public-invoice-action--ghost"
+                  className="public-invoice-close-btn"
                   onClick={() => setInvoiceOpen(false)}
                   aria-label="Close"
-                  style={{ padding: 0, width: '38px' }}
                 >
                   <IconClose />
                 </button>
-              </div>
-            </header>
+                <strong>Invoice</strong>
+              </header>
 
             {/* Mobile Header (hidden on desktop) */}
             <header className="public-invoice-viewer-header-mobile mobile-only-header">
-              <strong>Invoice</strong>
-              <button
-                type="button"
-                className="public-invoice-close-btn"
-                onClick={() => setInvoiceOpen(false)}
-                aria-label="Close"
-              >
-                <IconClose />
-              </button>
-            </header>
+                <button
+                  type="button"
+                  className="public-invoice-close-btn"
+                  onClick={() => setInvoiceOpen(false)}
+                  aria-label="Close"
+                >
+                  <IconClose />
+                </button>
+                <strong>Invoice</strong>
+              </header>
 
             {/* Scrollable Body container for mobile, standard flow for desktop */}
             <div className="public-invoice-viewer-body">
