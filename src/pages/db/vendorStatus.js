@@ -38,8 +38,8 @@ export function invoicePaymentProofs(invoice = {}) {
     .filter((entry) => entry.images.length);
 }
 
-// Preserve the existing payment-state semantics: the latest visible proof is
-// complete only when its status is confirmed; otherwise it remains created.
+// The latest visible proof determines the payment pill: confirmed is complete,
+// rejected is explicitly rejected, and pending/other submissions remain created.
 export function paymentState(entries = []) {
   if (!entries.length) return '';
   const latestStatus = String(entries[entries.length - 1]?.status || '').toLowerCase();
