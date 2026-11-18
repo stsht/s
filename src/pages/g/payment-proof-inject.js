@@ -71,6 +71,17 @@ function ensureStyle() {
     .public-payment-proof-date-control input::-webkit-calendar-picker-indicator{position:absolute;right:13px;width:14px;height:14px;margin:0;opacity:0;cursor:pointer}
     .public-payment-proof-date-chevron{position:absolute;right:14px;display:grid;place-items:center;width:16px;height:16px;color:var(--muted);pointer-events:none}
     .public-payment-proof-date-chevron svg{display:block;width:14px;height:14px}
+    .public-payment-proof-time-entry{display:grid;gap:5px;min-width:0}
+    .public-payment-proof-time-controls{position:relative;display:flex;align-items:center;min-width:0}
+    .public-payment-proof-time-text{width:100%;min-width:0;height:48px;padding:0 48px 0 14px;border:1px solid var(--line);border-radius:14px;outline:none;background:var(--field);color:var(--ink);font:inherit;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:.02em;box-sizing:border-box}
+    .public-payment-proof-time-text:focus-visible{border-color:color-mix(in srgb,var(--ink) 35%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 7%,transparent)}
+    .public-payment-proof-time-text[aria-invalid="true"]{border-color:color-mix(in srgb,var(--danger,#c93b42) 65%,var(--line))}
+    .public-payment-proof-native-time{position:absolute;right:7px;top:50%;display:grid;place-items:center;width:34px;height:34px;transform:translateY(-50%);border-radius:10px;color:var(--muted);cursor:pointer}
+    .public-payment-proof-native-time svg{display:block;width:17px;height:17px;pointer-events:none}
+    .public-payment-proof-native-time input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;color-scheme:light dark}
+    .public-payment-proof-native-time:focus-within{outline:2px solid color-mix(in srgb,var(--ink) 24%,transparent);outline-offset:1px}
+    .public-payment-proof-time-error{display:block;margin:0;color:var(--danger,#c93b42);font-size:10px;font-weight:700;letter-spacing:0;text-transform:none}
+    .public-payment-proof-time-error[hidden]{display:none}
     .public-payment-proof-ocr-status{display:flex;align-items:center;gap:10px;margin:0;padding:2px 0;border:0;background:transparent;color:var(--muted);font-size:12px;line-height:1.45}
     .public-payment-proof-ocr-indicator{display:inline-block;flex:0 0 15px;width:15px;height:15px;margin:0;border:1.8px solid currentColor;border-radius:50%;box-sizing:border-box}
     .public-payment-proof-ocr-status.is-scanning{color:var(--muted)}
@@ -87,9 +98,13 @@ function ensureStyle() {
     .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-copy strong{color:var(--ink)}
     .public-payment-proof-button.is-primary:disabled{background:color-mix(in srgb,var(--ink) 7%,var(--panel));border-color:transparent;color:var(--muted);opacity:1;cursor:wait}
     .public-payment-proof-button.is-primary:disabled .public-payment-proof-ocr-indicator{color:var(--muted)}
+    .public-payment-proof-actions .public-payment-proof-button.is-primary{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:188px;padding-inline:18px;white-space:nowrap;line-height:1}
+    .public-payment-proof-actions .public-payment-proof-button.is-primary:disabled{background:var(--soft);border:1px solid var(--line);color:var(--muted);opacity:1;cursor:wait}
+    .public-payment-proof-actions .public-payment-proof-button .public-payment-proof-ocr-indicator{display:block;flex:0 0 14px;width:14px;height:14px;margin:0}
+    .public-payment-proof-actions .public-payment-proof-button.is-primary:disabled .public-payment-proof-ocr-indicator{color:var(--muted)}
     @keyframes public-proof-ocr-spin{to{transform:rotate(360deg)}}
     @media(prefers-reduced-motion:reduce){.public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator,.public-payment-proof-button .public-payment-proof-ocr-indicator{animation:none;border-right-color:currentColor;border-top-color:transparent}}
-    @media(max-width:560px){.public-payment-proof-upload-fields{gap:10px}.public-payment-proof-date-control input{height:46px;padding-left:11px;padding-right:34px;font-size:13px}.public-payment-proof-date-chevron{right:10px}}
+    @media(max-width:560px){.public-payment-proof-upload-fields{gap:10px}.public-payment-proof-date-control input{height:46px;padding-left:11px;padding-right:34px;font-size:13px}.public-payment-proof-date-chevron{right:10px}.public-payment-proof-time-text{height:46px;padding-left:11px;font-size:13px}.public-payment-proof-native-time{right:5px;width:32px;height:32px}}
     .public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
     .public-payment-proof-lightbox{position:absolute;inset:0;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr);padding:18px;background:rgba(4,7,14,.94)}.public-payment-proof-lightbox-head{display:flex;justify-content:flex-end;padding-bottom:12px}.public-payment-proof-lightbox-image{width:100%;height:100%;min-height:0;object-fit:contain}
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
@@ -313,6 +328,19 @@ function timezoneOffsetForLocalPayment(date, time, fallback) {
   return Number.isNaN(local.getTime()) ? fallback : -local.getTimezoneOffset();
 }
 
+function normalizeTimeEntry(value = '') {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+}
+
+function isValidTimeEntry(value = '') {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(value || ''));
+  if (!match) return false;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+}
+
 function cardMode() {
   const currentProofs = proofStore.proofs.filter((proof) => proof.current_request !== false);
   const statuses = currentProofs.map((proof) => String(proof.status || '').toLowerCase());
@@ -452,7 +480,7 @@ function chooseFiles() {
 
 async function uploadProof(draft = proofStore.uploadDraft) {
   const selected = Array.from(draft?.files || []).slice(0, MAX_IMAGES);
-  if (!selected.length || proofStore.busy || draft !== proofStore.uploadDraft || draft.ocrStatus === 'scanning') return;
+  if (!selected.length || proofStore.busy || draft !== proofStore.uploadDraft || draft.ocrStatus === 'scanning' || !isValidTimeEntry(draft.paymentTime)) return;
   proofStore.busy = true;
   proofStore.error = '';
   updateAllCards();
@@ -640,24 +668,73 @@ function renderUploadForm(sheet) {
   dateLabel.appendChild(dateControl);
   const timeLabel = document.createElement('label');
   timeLabel.textContent = 'Payment Time';
+  let uploadAction = null;
   const timeControl = document.createElement('span');
-  timeControl.className = 'public-payment-proof-date-control';
+  timeControl.className = 'public-payment-proof-time-entry';
   const timeInput = document.createElement('input');
-  timeInput.type = 'time';
+  timeInput.type = 'text';
+  timeInput.className = 'public-payment-proof-time-text';
+  timeInput.inputMode = 'numeric';
+  timeInput.autocomplete = 'off';
+  timeInput.maxLength = 5;
+  timeInput.placeholder = 'HH:MM';
   timeInput.value = draft.paymentTime;
+  timeInput.setAttribute('aria-label', 'Payment time, enter four digits such as 1309');
   timeInput.disabled = proofStore.busy;
-  timeInput.addEventListener('input', () => {
+
+  const timeError = document.createElement('small');
+  timeError.className = 'public-payment-proof-time-error';
+  timeError.hidden = true;
+  timeError.textContent = 'Enter a valid 24-hour time, for example 1309.';
+
+  const syncTimeValidity = () => {
+    const valid = isValidTimeEntry(draft.paymentTime);
+    timeInput.setAttribute('aria-invalid', valid ? 'false' : 'true');
+    timeError.hidden = valid;
+    if (uploadAction) uploadAction.disabled = proofStore.busy || draft.ocrStatus === 'scanning' || !valid;
+  };
+
+  let nativeTimeInput = null;
+  const applyTimeValue = (value) => {
+    const normalized = normalizeTimeEntry(value);
+    timeInput.value = normalized;
+    if (nativeTimeInput) nativeTimeInput.value = isValidTimeEntry(normalized) ? normalized : '';
+    draft.paymentTime = normalized;
     draft.userEdited = true;
     if (draft.ocrStatus !== 'scanning') draft.ocrStatus = 'manual';
-    draft.paymentTime = timeInput.value;
-    draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
+    draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(
+      draft.paymentDate,
+      draft.paymentTime,
+      draft.timezoneOffsetMinutes
+    );
+    syncTimeValidity();
     updateTimezoneNote();
+  };
+
+  timeInput.addEventListener('focus', () => timeInput.select());
+  timeInput.addEventListener('input', () => applyTimeValue(timeInput.value));
+
+  const nativeTimeControl = document.createElement('span');
+  nativeTimeControl.className = 'public-payment-proof-native-time';
+  nativeTimeControl.setAttribute('title', 'Use device time picker');
+  nativeTimeControl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>';
+  nativeTimeInput = document.createElement('input');
+  nativeTimeInput.type = 'time';
+  nativeTimeInput.step = '60';
+  nativeTimeInput.value = isValidTimeEntry(draft.paymentTime) ? draft.paymentTime : '';
+  nativeTimeInput.disabled = proofStore.busy;
+  nativeTimeInput.setAttribute('aria-label', 'Open device time picker');
+  nativeTimeInput.addEventListener('input', () => {
+    if (isValidTimeEntry(nativeTimeInput.value)) applyTimeValue(nativeTimeInput.value);
   });
-  const timeChevron = document.createElement('span');
-  timeChevron.className = 'public-payment-proof-date-chevron';
-  timeChevron.setAttribute('aria-hidden', 'true');
-  timeChevron.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3.5 6 4.5 4 4.5-4"/></svg>';
-  timeControl.append(timeInput, timeChevron);
+  nativeTimeInput.addEventListener('change', () => {
+    if (isValidTimeEntry(nativeTimeInput.value)) applyTimeValue(nativeTimeInput.value);
+  });
+  nativeTimeControl.appendChild(nativeTimeInput);
+  const timeControls = document.createElement('span');
+  timeControls.className = 'public-payment-proof-time-controls';
+  timeControls.append(timeInput, nativeTimeControl);
+  timeControl.append(timeControls, timeError);
   timeLabel.appendChild(timeControl);
   fields.append(dateLabel, timeLabel);
 
@@ -692,6 +769,11 @@ function renderUploadForm(sheet) {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     if (draft.ocrStatus === 'scanning') return;
+    if (!isValidTimeEntry(draft.paymentTime)) {
+      syncTimeValidity();
+      timeInput.focus();
+      return;
+    }
     uploadProof(draft);
   });
 
@@ -712,7 +794,7 @@ function renderUploadForm(sheet) {
   });
   const isScanning = draft.ocrStatus === 'scanning';
   const upload = createButton(
-    proofStore.busy ? 'Uploading…' : isScanning ? 'Detecting receipt…' : 'Upload Proof',
+    proofStore.busy ? 'Uploading…' : isScanning ? 'Scanning receipt…' : 'Upload Proof',
     'is-primary',
     () => uploadProof(draft)
   );
@@ -721,12 +803,14 @@ function renderUploadForm(sheet) {
     spinner.className = 'public-payment-proof-ocr-indicator';
     spinner.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
-    label.textContent = 'Detecting receipt…';
+    label.textContent = 'Scanning receipt…';
     upload.replaceChildren(spinner, label);
     upload.setAttribute('aria-busy', 'true');
   }
+  uploadAction = upload;
   cancel.disabled = proofStore.busy;
-  upload.disabled = proofStore.busy || isScanning;
+  syncTimeValidity();
+  upload.disabled = proofStore.busy || isScanning || !isValidTimeEntry(draft.paymentTime);
   actions.append(cancel, upload);
   sheet.appendChild(actions);
 }
