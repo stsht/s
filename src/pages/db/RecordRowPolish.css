@@ -87,3 +87,19 @@
     height:14px;
   }
 }
+
+
+/* Rejected payment proof — distinct from "created" green and "complete" blue. */
+.record-row a.is-rejected,
+.record-row button.record-row-link.is-rejected,
+.record-row button.record-row-link-anchor.is-rejected{
+  background:color-mix(in srgb,var(--danger, #c93b42) 11%,var(--panel));
+  border-color:color-mix(in srgb,var(--danger, #c93b42) 42%,var(--line));
+  color:var(--danger, #c93b42);
+}
+.record-row a.is-rejected:hover,
+.record-row button.record-row-link.is-rejected:hover,
+.record-row button.record-row-link-anchor.is-rejected:hover{
+  background:color-mix(in srgb,var(--danger, #c93b42) 17%,var(--panel));
+  border-color:var(--danger, #c93b42);
+}
