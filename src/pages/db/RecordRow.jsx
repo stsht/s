@@ -424,23 +424,28 @@ function ensureSmartReviewStyles() {
         gap:10px !important;
       }
       .payment-proof-entry-layout{
-        grid-template-columns:minmax(0,1fr);
-        gap:12px;
-      }
-      .payment-proof-receipt-col{
-        display:grid;
         grid-template-columns:76px minmax(0,1fr);
         gap:10px;
         align-items:center;
       }
+      .payment-proof-receipt-col,
+      .payment-proof-review-col{display:contents !important}
       .payment-proof-image-grid,
       .payment-proof-image-grid.is-single{
-        grid-template-columns:minmax(0,1fr) !important;
-        width:76px !important;
+        grid-column:1;
+        grid-row:1;
+        grid-auto-flow:column;
+        grid-auto-columns:76px;
+        grid-template-columns:none !important;
+        justify-content:start;
+        width:100% !important;
+        overflow-x:auto;
+        overscroll-behavior-x:contain;
       }
       .payment-proof-image-grid .payment-proof-image-item{
         grid-template-rows:96px auto !important;
         gap:3px !important;
+        width:76px !important;
       }
       .payment-proof-image-link{
         height:96px !important;
@@ -454,9 +459,15 @@ function ensureSmartReviewStyles() {
         font-size:.62rem !important;
       }
       .payment-proof-entry-times{
+        grid-column:2;
+        grid-row:1;
         display:grid !important;
         gap:8px !important;
         align-content:center;
+      }
+      .payment-proof-review-box,
+      .payment-proof-review-locked{
+        grid-column:1 / -1;
       }
       .payment-proof-review-grid{
         grid-template-columns:repeat(2,minmax(0,1fr)) !important;
