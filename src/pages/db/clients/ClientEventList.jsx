@@ -1,95 +1,79 @@
-import React from 'react';
 import { ClientEventRow } from './ClientEventRow.jsx';
 import { clientEventRecordKey } from './clientEventHelpers.js';
 
-const cn = (...parts) => parts.join('');
-const cls = (value) => ({ ['class' + 'Name']: value });
-const prop = (name) => ['re', 'cords'].join('') === name ? name : name;
-const createActionLink = (url, closeSheet, label) => React.createElement(
-  'a',
-  {
-    ...cls(cn('ghost', '-button compact')),
-    ['hr' + 'ef']: url,
-    target: '_blank',
-    ['re' + 'l']: 'noopener noreferrer',
-    onClick: closeSheet,
-  },
-  label,
-);
-
-export function ClientEventList(props) {
-  const eventRows = props[prop(['re', 'cords'].join(''))];
-  const {
-    title,
-    name,
-    contact,
-    parentClientId,
-    newEventLinkHref,
-    newEventInvoiceHref,
-    newEventVendorLinkHref,
-    newEventVendorInvoiceHref,
-    todayIso,
-    armedDeleteKey,
-    onEventDelete,
-    onViewLinks,
-    createOpen,
-    onOpenCreate,
-    onCloseCreate,
-  } = props;
-
-  return React.createElement(
-    React.Fragment,
-    null,
-    React.createElement(
-      'div',
-      cls(cn('re', 'cord', '-stack')),
-      eventRows.map((row, index) => React.createElement(ClientEventRow, {
-        key: clientEventRecordKey(row, index),
-        row,
-        index,
-        title,
-        name,
-        contact,
-        parentClientId,
-        newEventLinkHref,
-        todayIso,
-        armedDeleteKey,
-        onEventDelete,
-        onViewLinks,
-      })),
-      !eventRows.length ? React.createElement('p', cls(cn('empty', '-state')), 'No events yet.') : null,
-    ),
-    createOpen
-      ? React.createElement(
-          'div',
-          { ...cls(cn('create', '-event-sheet')), role: 'group', ['aria-label']: 'Create event' },
-          React.createElement('p', cls(cn('create', '-event-eyebrow')), 'New Event'),
-          React.createElement(
-            'div',
-            cls(cn('create', '-event-choices')),
-            createActionLink(newEventLinkHref, onCloseCreate, 'Create Client Links'),
-            createActionLink(newEventInvoiceHref, onCloseCreate, 'Create Client Invoice'),
-            createActionLink(newEventVendorLinkHref, onCloseCreate, 'Create Vendor Links'),
-            createActionLink(newEventVendorInvoiceHref, onCloseCreate, 'Create Vendor Invoice'),
-          ),
-          React.createElement(
-            'button',
-            {
-              type: 'button',
-              ...cls(cn('ghost', '-button compact create', '-event-cancel')),
-              onClick: onCloseCreate,
-            },
-            'Cancel',
-          ),
-        )
-      : React.createElement(
-          'button',
-          {
-            ...cls(cn('ghost', '-button compact create', '-event-trigger')),
-            type: 'button',
-            onClick: onOpenCreate,
-          },
-          'Create Events',
-        ),
+export function ClientEventList({
+  records = [],
+  title,
+  name,
+  contact,
+  parentClientId,
+  newEventLinkHref,
+  newEventInvoiceHref,
+  newEventVendorLinkHref,
+  newEventVendorInvoiceHref,
+  todayIso,
+  armedDeleteKey,
+  onEventDelete,
+  onViewLinks,
+  createOpen,
+  onOpenCreate,
+  onCloseCreate,
+}) {
+  return (
+    <>
+      <div className="record-stack">
+        {records.map((row, index) => (
+          <ClientEventRow
+            key={clientEventRecordKey(row, index)}
+            row={row}
+            index={index}
+            title={title}
+            name={name}
+            contact={contact}
+            parentClientId={parentClientId}
+            newEventLinkHref={newEventLinkHref}
+            todayIso={todayIso}
+            armedDeleteKey={armedDeleteKey}
+            onEventDelete={onEventDelete}
+            onViewLinks={onViewLinks}
+          />
+        ))}
+        {!records.length ? <p className="empty-state">No events yet.</p> : null}
+      </div>
+      {createOpen ? (
+        <div className="create-event-sheet" role="group" aria-label="Create event">
+          <p className="create-event-eyebrow">New Event</p>
+          <div className="create-event-choices">
+            <a className="ghost-button compact" href={newEventLinkHref} target="_blank" rel="noopener noreferrer">
+              Create Client Links
+            </a>
+            <a className="ghost-button compact" href={newEventInvoiceHref} target="_blank" rel="noopener noreferrer">
+              Create Client Invoice
+            </a>
+            <a className="ghost-button compact" href={newEventVendorLinkHref} target="_blank" rel="noopener noreferrer">
+              Create Vendor Links
+            </a>
+            <a className="ghost-button compact" href={newEventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
+              Create Vendor Invoice
+            </a>
+          </div>
+          <button
+            type="button"
+            className="ghost-button compact create-event-cancel"
+            onClick={onCloseCreate}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          className="ghost-button compact create-event-trigger"
+          type="button"
+          onClick={onOpenCreate}
+        >
+          Create Events
+        </button>
+      )}
+    </>
   );
 }
