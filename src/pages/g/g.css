@@ -76,7 +76,7 @@
 }
 .public-delivery-logo{width:min(224px,62vw);height:auto;align-self:center;margin-bottom:0}
 .public-delivery-header{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:18px}
-.public-delivery-folder{margin:0;color:var(--muted);font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;text-align:center}
+.public-delivery-folder{margin:0;color:var(--muted);font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;text-align:center}
 .public-delivery-divider{height:1px;margin:0 0 22px;background:linear-gradient(90deg,transparent 0%,rgba(17,17,17,.065) 14%,rgba(17,17,17,.105) 50%,rgba(17,17,17,.065) 86%,transparent 100%);border:0}
 .public-delivery-kicker{margin:0 0 12px;padding-top:12px;border-top:1px solid var(--line);color:var(--muted);font-size:.75rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
 .public-delivery-greeting,.public-delivery-card h1{
@@ -156,10 +156,10 @@
 .public-delivery-invoice:active{transform:translateY(0) scale(.995)}
 .public-delivery-invoice.is-paid{border-color:transparent;background:#f0f4f9;box-shadow:none}
 .public-delivery-invoice.is-paid:hover{border-color:transparent;background:#e8eef5;box-shadow:none}
-.public-delivery-invoice-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#e2e9f2;color:#303846;font-size:11px;font-weight:900;letter-spacing:.06em}
+.public-delivery-invoice-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#e2e9f2;color:#303846;font-size:11px;font-weight:700;letter-spacing:.04em}
 .public-delivery-invoice.is-paid .public-delivery-invoice-icon{background:#e2e9f2;color:#303846}
-.public-delivery-invoice-label{min-width:0;font-size:15px;font-weight:700}
-.public-delivery-invoice-cta{color:#596579;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;opacity:1}
+.public-delivery-invoice-label{min-width:0;font-size:15px;font-weight:600}
+.public-delivery-invoice-cta{color:#596579;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:1}
 .public-delivery-invoice.is-paid .public-delivery-invoice-cta{color:#596579}
 .public-delivery-list{display:grid;gap:12px}
 .public-delivery-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border:1px solid transparent;border-radius:20px;background:#f0f4f9;box-shadow:none;color:var(--ink);text-decoration:none;transition:background .15s ease,transform .15s ease}
@@ -168,11 +168,11 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
 .public-delivery-row.is-active{cursor:pointer}
 .public-delivery-row.is-disabled{cursor:default;opacity:1;color:#858d99;background:#f5f7fa;border-color:transparent;border-style:solid;box-shadow:none}
 .public-delivery-row.is-disabled .public-delivery-icon,.public-delivery-row.is-disabled .public-delivery-name,.public-delivery-row.is-disabled .public-delivery-state{color:#858d99}
-.public-delivery-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#e2e9f2;box-shadow:none;color:#303846;font-size:11px;font-weight:900;letter-spacing:.06em}
-.public-delivery-name{min-width:0;font-size:15px;font-weight:700}
-.public-delivery-state{color:#596579;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}
+.public-delivery-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#e2e9f2;box-shadow:none;color:#303846;font-size:11px;font-weight:700;letter-spacing:.04em}
+.public-delivery-name{min-width:0;font-size:15px;font-weight:600}
+.public-delivery-state{color:#596579;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
 .public-delivery-row.is-preview .public-delivery-state{color:#737d8c;letter-spacing:.14em}
-.public-delivery-signoff{margin:auto 0 0;padding-top:34px;color:var(--muted);font-size:13px;font-weight:900;letter-spacing:.08em;text-align:center}
+.public-delivery-signoff{margin:auto 0 0;padding-top:34px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.04em;text-align:center}
 @media(prefers-color-scheme:dark){
   .public-delivery-divider{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.08) 14%,rgba(255,255,255,.13) 50%,rgba(255,255,255,.08) 86%,transparent 100%)}
   .public-delivery-invoice,.public-delivery-invoice.is-paid{

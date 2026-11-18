@@ -42,28 +42,28 @@ function ensureStyle() {
     .public-payment-proof-card:focus-visible,.public-payment-proof-button:focus-visible,.public-payment-proof-close:focus-visible,.public-payment-proof-thumb:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 62%,transparent);outline-offset:2px}
     .public-payment-proof-card.is-confirmed{border-color:color-mix(in srgb,var(--success-state, #1f8a4c) 36%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--success-state, #1f8a4c) 18%,transparent),color-mix(in srgb,var(--success-state, #1f8a4c) 11%,transparent))}
     .public-payment-proof-card.is-pending,.public-payment-proof-card.is-rejected{border-color:color-mix(in srgb,var(--line) 78%,transparent);background:color-mix(in srgb,var(--soft) 14%,transparent)}
-    .public-payment-proof-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:color-mix(in srgb,var(--accent) 30%,transparent);color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-size:11px;font-weight:900;letter-spacing:.06em}
+    .public-payment-proof-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:color-mix(in srgb,var(--accent) 30%,transparent);color:color-mix(in srgb,var(--accent) 78%,var(--ink));font-size:11px;font-weight:700;letter-spacing:.04em}
     .public-payment-proof-card.is-confirmed .public-payment-proof-icon{background:color-mix(in srgb,var(--success-state, #1f8a4c) 30%,transparent);color:color-mix(in srgb,var(--success-state, #1f8a4c) 82%,var(--ink))}
     .public-payment-proof-card.is-pending .public-payment-proof-icon,.public-payment-proof-card.is-rejected .public-payment-proof-icon{background:color-mix(in srgb,var(--field) 55%,transparent);color:var(--muted)}
-    .public-payment-proof-copy{min-width:0}.public-payment-proof-label{display:block;font-size:15px;font-weight:900}.public-payment-proof-note{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-weight:500;line-height:1.35}
-    .public-payment-proof-action{color:color-mix(in srgb,var(--accent) 82%,var(--ink));font-size:11px;font-weight:900;line-height:1;letter-spacing:.18em;text-transform:uppercase;white-space:nowrap}
+    .public-payment-proof-copy{min-width:0}.public-payment-proof-label{display:block;font-size:15px;font-weight:600}.public-payment-proof-note{display:block;margin-top:2px;color:var(--muted);font-size:12px;font-weight:400;line-height:1.4}
+    .public-payment-proof-action{color:color-mix(in srgb,var(--accent) 82%,var(--ink));font-size:11px;font-weight:600;line-height:1;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
     .public-payment-proof-card.is-confirmed .public-payment-proof-action{color:color-mix(in srgb,var(--success-state, #1f8a4c) 84%,var(--ink))}
     .public-payment-proof-input{display:none}
     .public-payment-proof-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:20px;background:rgba(8,13,25,.64);backdrop-filter:blur(10px)}
     .public-payment-proof-sheet{width:min(680px,100%);max-height:min(780px,calc(100dvh - 40px));display:flex;flex-direction:column;overflow:hidden;border:1px solid color-mix(in srgb,var(--line) 78%,transparent);border-radius:24px;background:var(--panel);box-shadow:0 30px 90px rgba(0,0,0,.32);color:var(--ink)}
     .public-payment-proof-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;border-bottom:1px solid var(--line)}
-    .public-payment-proof-head p{margin:0 0 3px;color:var(--muted);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.public-payment-proof-head strong{font-size:20px}
+    .public-payment-proof-head p{margin:0 0 3px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}.public-payment-proof-head strong{font-size:19px;font-weight:600}
     .public-payment-proof-close{display:grid;place-items:center;width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:22px;cursor:pointer}
     .public-payment-proof-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px 20px;overflow:auto}.public-payment-proof-empty{grid-column:1/-1;margin:18px 0;text-align:center;color:var(--muted)}
     .public-payment-proof-entry{display:flex;min-width:0;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--line);border-radius:18px;background:color-mix(in srgb,var(--field) 52%,transparent)}
     .public-payment-proof-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:0;border-radius:13px;background:var(--soft);cursor:zoom-in}.public-payment-proof-thumb img{width:100%;height:100%;display:block;object-fit:cover}
     .public-payment-proof-meta{min-width:0}.public-payment-proof-meta-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.public-payment-proof-meta strong{display:block}
     .public-payment-proof-times{display:grid;gap:9px;margin:10px 0 0}.public-payment-proof-times div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}.public-payment-proof-times dt,.public-payment-proof-times dd{margin:0}.public-payment-proof-times dt{color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.public-payment-proof-times dd{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35;text-align:right}.public-payment-proof-times small{color:var(--muted);font-size:10px;font-weight:650}
-    .public-payment-proof-status{display:inline-flex;padding:5px 8px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+    .public-payment-proof-status{display:inline-flex;padding:4px 9px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
     .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--success-state, #1f8a4c) 20%,transparent);color:color-mix(in srgb,var(--success-state, #1f8a4c) 78%,var(--ink))}.public-payment-proof-status.is-rejected{background:rgba(190,58,68,.12);color:#b32939}
-    .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:900;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
+    .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:600;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
     .public-payment-proof-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.public-payment-proof-error{margin:0 20px 16px;color:#b32939;font-size:12px;font-weight:700}
-    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.public-payment-proof-upload-fields label{display:grid;gap:7px;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}.public-payment-proof-upload-fields input{min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;color-scheme:light dark}.public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.public-payment-proof-upload-fields label{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}.public-payment-proof-upload-fields input{min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;color-scheme:light dark}.public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
     .public-payment-proof-lightbox{position:absolute;inset:0;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr);padding:18px;background:rgba(4,7,14,.94)}.public-payment-proof-lightbox-head{display:flex;justify-content:flex-end;padding-bottom:12px}.public-payment-proof-lightbox-image{width:100%;height:100%;min-height:0;object-fit:contain}
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
     @media(max-width:1023px){.public-payment-proof-card{grid-template-columns:44px minmax(0,1fr) auto;gap:14px;min-height:64px;padding:10px 16px;box-sizing:border-box}.public-payment-proof-icon{width:36px;height:36px;border-radius:12px;font-size:11px}.public-payment-proof-label{font-size:15px}.public-payment-proof-action{font-size:11px;letter-spacing:.16em}}
@@ -185,6 +185,82 @@ function paymentLabel(dateValue = '', timeValue = '') {
   return time ? `${dateLabel} · ${time[1]}:${time[2]}` : dateLabel;
 }
 
+const MONTH_NAME_MAP = {
+  jan: '01', januari: '01', january: '01',
+  feb: '02', februari: '02', february: '02',
+  mar: '03', maret: '03', march: '03',
+  apr: '04', april: '04',
+  mei: '05', may: '05',
+  jun: '06', juni: '06', june: '06',
+  jul: '07', juli: '07', july: '07',
+  agu: '08', ags: '08', agustus: '08', aug: '08', august: '08',
+  sep: '09', sept: '09', september: '09',
+  okt: '10', oktober: '10', oct: '10', october: '10',
+  nov: '11', november: '11',
+  des: '12', desember: '12', dec: '12', december: '12',
+};
+
+function extractReceiptDateTime(rawText = '') {
+  const text = String(rawText || '').replace(/\s+/g, ' ').trim();
+  if (!text) return { date: '', time: '' };
+
+  let date = '';
+  let time = '';
+
+  // 1. Named month format: e.g. "18 Nov 2026", "18 November 2026"
+  const namedMatch = text.match(/\b(0?[1-9]|[12]\d|3[01])[\s\-./]+([A-Za-z]{3,10})[\s\-./]+(20\d{2})\b/);
+  if (namedMatch) {
+    const day = String(namedMatch[1]).padStart(2, '0');
+    const mon = MONTH_NAME_MAP[String(namedMatch[2] || '').toLowerCase()] || '';
+    const year = namedMatch[3];
+    if (mon) date = `${year}-${mon}-${day}`;
+  }
+
+  // 2. Numeric DD/MM/YYYY or DD-MM-YYYY: e.g. "11/10/2026"
+  if (!date) {
+    const dmyMatch = text.match(/\b(0?[1-9]|[12]\d|3[01])[\/\-.](0?[1-9]|1[0-2])[\/\-.](20\d{2})\b/);
+    if (dmyMatch) {
+      date = `${dmyMatch[3]}-${String(dmyMatch[2]).padStart(2, '0')}-${String(dmyMatch[1]).padStart(2, '0')}`;
+    }
+  }
+
+  // 3. ISO YYYY-MM-DD: e.g. "2026-11-18"
+  if (!date) {
+    const isoMatch = text.match(/\b(20\d{2})[\/\-.](0?[1-9]|1[0-2])[\/\-.](0?[1-9]|[12]\d|3[01])\b/);
+    if (isoMatch) {
+      date = `${isoMatch[1]}-${String(isoMatch[2]).padStart(2, '0')}-${String(isoMatch[3]).padStart(2, '0')}`;
+    }
+  }
+
+  // Extract transfer time HH:MM(:SS)? — skip status-bar times by preferring times near date/label or with seconds
+  const timeMatches = [...text.matchAll(/\b([01]?\d|2[0-3])[:.]([0-5]\d)(?:[:.]([0-5]\d))?\b/g)];
+  if (timeMatches.length) {
+    const withSeconds = timeMatches.find((m) => m[3] !== undefined);
+    const picked = withSeconds || timeMatches[timeMatches.length - 1];
+    time = `${String(picked[1]).padStart(2, '0')}:${picked[2]}`;
+  }
+
+  return { date, time };
+}
+
+async function detectReceiptDateTimeFromFile(file) {
+  if (!file) return null;
+  try {
+    const url = URL.createObjectURL(file);
+    try {
+      const mod = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+      const Tesseract = mod.default || mod;
+      const result = await Tesseract.recognize(url, 'eng+ind');
+      const parsed = extractReceiptDateTime(result?.data?.text || '');
+      return (parsed.date || parsed.time) ? parsed : null;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch {
+    return null;
+  }
+}
+
 function localPaymentParts() {
   const now = new Date();
   const pad = (value) => String(value).padStart(2, '0');
@@ -295,16 +371,36 @@ function openUploadDetails(files) {
   if (!selected.length) return;
   clearUploadDraft();
   const local = localPaymentParts();
-  proofStore.uploadDraft = {
+  const draft = {
     files: selected,
     previews: selected.map((file) => URL.createObjectURL(file)),
     paymentDate: local.date,
     paymentTime: local.time,
-    timezoneOffsetMinutes: local.timezoneOffsetMinutes
+    timezoneOffsetMinutes: local.timezoneOffsetMinutes,
+    ocrStatus: 'scanning',
+    userEdited: false,
   };
+  proofStore.uploadDraft = draft;
   proofStore.error = '';
   if (proofStore.modal) renderModal();
   else openModal(document.activeElement);
+
+  detectReceiptDateTimeFromFile(selected[0]).then((detected) => {
+    if (proofStore.uploadDraft !== draft) return;
+    if (detected && !draft.userEdited) {
+      if (detected.date) draft.paymentDate = detected.date;
+      if (detected.time) draft.paymentTime = detected.time;
+      draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(
+        draft.paymentDate,
+        draft.paymentTime,
+        draft.timezoneOffsetMinutes
+      );
+      draft.ocrStatus = 'detected';
+    } else {
+      draft.ocrStatus = 'fallback';
+    }
+    if (proofStore.modal) renderModal();
+  });
 }
 
 function chooseFiles() {
@@ -499,6 +595,7 @@ function renderUploadForm(sheet) {
   dateInput.value = draft.paymentDate;
   dateInput.disabled = proofStore.busy;
   dateInput.addEventListener('input', () => {
+    draft.userEdited = true;
     draft.paymentDate = dateInput.value;
     draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
     updateTimezoneNote();
@@ -511,6 +608,7 @@ function renderUploadForm(sheet) {
   timeInput.value = draft.paymentTime;
   timeInput.disabled = proofStore.busy;
   timeInput.addEventListener('input', () => {
+    draft.userEdited = true;
     draft.paymentTime = timeInput.value;
     draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
     updateTimezoneNote();
@@ -521,7 +619,12 @@ function renderUploadForm(sheet) {
   const timezone = document.createElement('p');
   timezone.className = 'public-payment-proof-timezone';
   const updateTimezoneNote = () => {
-    timezone.textContent = `Prefilled from this device · ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}. This is the transfer time you report; upload time is recorded separately by the server.`;
+    const sourceText = draft.ocrStatus === 'scanning'
+      ? 'Reading transfer time from receipt…'
+      : draft.ocrStatus === 'detected' && !draft.userEdited
+        ? 'Auto-detected from receipt — please verify'
+        : 'Prefilled from this device';
+    timezone.textContent = `${sourceText} · ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}.`;
   };
   updateTimezoneNote();
   form.append(previews, fields, timezone);
