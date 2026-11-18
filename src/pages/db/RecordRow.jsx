@@ -400,13 +400,16 @@ function ensureSmartReviewStyles() {
     }
     @media(max-width:760px){
       .payment-proof-viewer{
-        align-items:flex-end !important;
-        padding:0 !important;
+        display:grid !important;
+        place-items:center !important;
+        align-items:center !important;
+        justify-items:center !important;
+        padding:16px !important;
       }
       .payment-proof-viewer-card{
-        width:100% !important;
-        max-height:94dvh !important;
-        border-radius:24px 24px 0 0 !important;
+        width:min(540px, 100%) !important;
+        max-height:calc(100dvh - 32px) !important;
+        border-radius:24px !important;
       }
       .payment-proof-viewer-head{padding:14px 18px !important}
       .payment-proof-invoice-summary{
