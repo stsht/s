@@ -4337,11 +4337,13 @@ function withFreshHtmlHeaders(response, options = {}) {
     headers.set('Referrer-Policy', 'no-referrer');
   }
 
-  const existingVary = headers.get('Vary');
-  if (!existingVary) {
-    headers.set('Vary', 'Cookie');
-  } else if (!/\bcookie\b/i.test(existingVary)) {
-    headers.set('Vary', `${existingVary}, Cookie`);
+  if (options.varyCookie !== false) {
+    const existingVary = headers.get('Vary');
+    if (!existingVary) {
+      headers.set('Vary', 'Cookie');
+    } else if (!/\bcookie\b/i.test(existingVary)) {
+      headers.set('Vary', `${existingVary}, Cookie`);
+    }
   }
 
   return new Response(response.body, {
@@ -4381,7 +4383,7 @@ export default {
         assetUrl.pathname = '/t/';
         return withFreshHtmlHeaders(
           await env.ASSETS.fetch(new Request(assetUrl.toString(), request)),
-          { securityHeaders: false }
+          { securityHeaders: false, varyCookie: false }
         );
       }
       if (request.method === 'GET' && ['/db', '/db/', '/db/index.html'].includes(url.pathname)) {
