@@ -346,7 +346,10 @@ async function createGallerySession(env, deliveryId) {
   if (!cleanId) throw new Error('Cannot create a gallery session without a delivery ID.');
   const expiresAt = Date.now() + GALLERY_SESSION_MS;
   const nonce = randomToken(12);
-  const payload = `${cleanId}.${expiresAt}.${nonce}`;
+  // Version the token so all pre-two-hour (six-hour) gallery cookies
+  // are rejected immediately after deployment, not merely capped by
+  // their remaining lifetime.
+  const payload = `${v2.${cleanId}.${expiresAt}.${nonce}`;
   const signature = await hmacSha256(getAdminPassword(env), payload);
   const cookie = `${GALLERY_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(GALLERY_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
   return { cookie, expiresAt };
@@ -386,23 +389,21 @@ async function readGallerySessionCookie(request, env, deliveryId) {
   const expectedId = String(deliveryId || '').trim();
   const token = getCookie(request, GALLERY_SESSION_COOKIE);
   const parts = token.split('.');
-  if (!expectedId || parts.length !== 4) return { valid: false, expiresAt: 0 };
-  const [sessionDeliveryId, expiresAtRaw, nonce, signature] = parts;
+  if (!expectedId || parts.length !== 5 || parts[0] !== 'v2') return { valid: false, expiresAt: 0 };
+  const [, sessionDeliveryId, expiresAtRaw, nonce, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
   const now = Date.now();
   if (
     sessionDeliveryId !== expectedId
     || !Number.isSafeInteger(expiresAt)
     || expiresAt <= now
-    // Reject gallery cookies issued under the previous six-hour lifetime
-    // when they have more than the new two-hour maximum remaining.
     || expiresAt - now > GALLERY_SESSION_MS
     || !nonce
     || !signature
   ) {
     return { valid: false, expiresAt: 0 };
   }
-  const payload = `${sessionDeliveryId}.${expiresAtRaw}.${nonce}`;
+  const payload = `${parts[0]}.${sessionDeliveryId}.${expiresAtRaw}.${nonce}`;
   const expected = await hmacSha256(getAdminPassword(env), payload);
   if (!safeEqual(signature, expected)) return { valid: false, expiresAt: 0 };
   return { valid: true, expiresAt };
