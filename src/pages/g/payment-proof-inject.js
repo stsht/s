@@ -71,7 +71,8 @@ function ensureStyle() {
     .public-payment-proof-date-control input::-webkit-calendar-picker-indicator{position:absolute;right:13px;width:14px;height:14px;margin:0;opacity:0;cursor:pointer}
     .public-payment-proof-date-chevron{position:absolute;right:14px;display:grid;place-items:center;width:16px;height:16px;color:var(--muted);pointer-events:none}
     .public-payment-proof-date-chevron svg{display:block;width:14px;height:14px}
-    .public-payment-proof-time-entry{position:relative;display:flex;align-items:center;min-width:0}
+    .public-payment-proof-time-entry{display:grid;gap:5px;min-width:0}
+    .public-payment-proof-time-controls{position:relative;display:flex;align-items:center;min-width:0}
     .public-payment-proof-time-text{width:100%;min-width:0;height:48px;padding:0 48px 0 14px;border:1px solid var(--line);border-radius:14px;outline:none;background:var(--field);color:var(--ink);font:inherit;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:.02em;box-sizing:border-box}
     .public-payment-proof-time-text:focus-visible{border-color:color-mix(in srgb,var(--ink) 35%,var(--line));box-shadow:0 0 0 3px color-mix(in srgb,var(--ink) 7%,transparent)}
     .public-payment-proof-time-text[aria-invalid="true"]{border-color:color-mix(in srgb,var(--danger,#c93b42) 65%,var(--line))}
@@ -79,7 +80,8 @@ function ensureStyle() {
     .public-payment-proof-native-time svg{display:block;width:17px;height:17px;pointer-events:none}
     .public-payment-proof-native-time input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;color-scheme:light dark}
     .public-payment-proof-native-time:focus-within{outline:2px solid color-mix(in srgb,var(--ink) 24%,transparent);outline-offset:1px}
-    .public-payment-proof-time-error{display:block;margin-top:5px;color:var(--danger,#c93b42);font-size:10px;font-weight:700;letter-spacing:0;text-transform:none}
+    .public-payment-proof-time-error{display:block;margin:0;color:var(--danger,#c93b42);font-size:10px;font-weight:700;letter-spacing:0;text-transform:none}
+    .public-payment-proof-time-error[hidden]{display:none}
     .public-payment-proof-ocr-status{display:flex;align-items:center;gap:10px;margin:0;padding:2px 0;border:0;background:transparent;color:var(--muted);font-size:12px;line-height:1.45}
     .public-payment-proof-ocr-indicator{display:inline-block;flex:0 0 15px;width:15px;height:15px;margin:0;border:1.8px solid currentColor;border-radius:50%;box-sizing:border-box}
     .public-payment-proof-ocr-status.is-scanning{color:var(--muted)}
@@ -692,9 +694,11 @@ function renderUploadForm(sheet) {
     if (uploadAction) uploadAction.disabled = proofStore.busy || draft.ocrStatus === 'scanning' || !valid;
   };
 
+  let nativeTimeInput = null;
   const applyTimeValue = (value) => {
     const normalized = normalizeTimeEntry(value);
     timeInput.value = normalized;
+    if (nativeTimeInput) nativeTimeInput.value = isValidTimeEntry(normalized) ? normalized : '';
     draft.paymentTime = normalized;
     draft.userEdited = true;
     if (draft.ocrStatus !== 'scanning') draft.ocrStatus = 'manual';
@@ -714,7 +718,7 @@ function renderUploadForm(sheet) {
   nativeTimeControl.className = 'public-payment-proof-native-time';
   nativeTimeControl.setAttribute('title', 'Use device time picker');
   nativeTimeControl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg>';
-  const nativeTimeInput = document.createElement('input');
+  nativeTimeInput = document.createElement('input');
   nativeTimeInput.type = 'time';
   nativeTimeInput.step = '60';
   nativeTimeInput.value = isValidTimeEntry(draft.paymentTime) ? draft.paymentTime : '';
@@ -727,7 +731,10 @@ function renderUploadForm(sheet) {
     if (isValidTimeEntry(nativeTimeInput.value)) applyTimeValue(nativeTimeInput.value);
   });
   nativeTimeControl.appendChild(nativeTimeInput);
-  timeControl.append(timeInput, nativeTimeControl, timeError);
+  const timeControls = document.createElement('span');
+  timeControls.className = 'public-payment-proof-time-controls';
+  timeControls.append(timeInput, nativeTimeControl);
+  timeControl.append(timeControls, timeError);
   timeLabel.appendChild(timeControl);
   fields.append(dateLabel, timeLabel);
 
