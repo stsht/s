@@ -148,6 +148,350 @@ function ensureSmartReviewStyles() {
       color:var(--danger, #c93b42);font-size:.68rem;font-weight:900;
       letter-spacing:.06em;text-transform:uppercase;
     }
+
+    /* Payment Proof review: receipt and reconciliation share the landscape canvas. */
+    .payment-proof-viewer{
+      align-items:center !important;
+      justify-content:center !important;
+      overflow:hidden !important;
+    }
+    .payment-proof-viewer-card{
+      width:min(1120px,100%) !important;
+      max-height:min(840px,calc(100dvh - 48px)) !important;
+      display:flex !important;
+      flex-direction:column !important;
+      overflow:hidden !important;
+    }
+    .payment-proof-viewer-head{
+      flex:0 0 auto !important;
+      min-height:68px;
+      display:flex !important;
+      align-items:center !important;
+      justify-content:space-between !important;
+      gap:16px !important;
+    }
+    .payment-proof-viewer-head > div{min-width:0}
+    .payment-proof-viewer-head p{
+      margin:0 0 3px !important;
+      font-size:.66rem !important;
+      font-weight:650 !important;
+      letter-spacing:.12em !important;
+    }
+    .payment-proof-viewer-head strong{
+      font-size:1.12rem !important;
+      font-weight:650 !important;
+      letter-spacing:-.025em;
+    }
+    .payment-proof-viewer-head > button{
+      display:grid !important;
+      place-items:center !important;
+      flex:0 0 34px !important;
+      width:34px !important;
+      height:34px !important;
+      min-height:34px !important;
+      padding:0 !important;
+      border:0 !important;
+      border-radius:50% !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      color:var(--muted) !important;
+      font:inherit !important;
+      font-size:23px !important;
+      font-weight:400 !important;
+      line-height:1 !important;
+    }
+    .payment-proof-viewer-head > button:hover{
+      border:0 !important;
+      background:var(--field) !important;
+      color:var(--ink) !important;
+    }
+    .payment-proof-viewer-head > button:focus-visible{
+      outline:2px solid color-mix(in srgb,var(--ink) 38%,transparent);
+      outline-offset:3px;
+    }
+    .payment-proof-invoice-summary{
+      flex:0 0 auto;
+      margin:12px 20px 0 !important;
+      padding:11px 14px !important;
+      border:0 !important;
+      border-radius:16px !important;
+      background:var(--field) !important;
+    }
+    .payment-proof-summary-metrics{gap:10px 22px !important}
+    .payment-proof-summary-metric span{
+      font-size:.62rem !important;
+      font-weight:600 !important;
+      letter-spacing:.09em !important;
+    }
+    .payment-proof-summary-metric strong{
+      font-size:.84rem !important;
+      font-weight:700 !important;
+    }
+    .payment-proof-viewer-body{
+      display:grid !important;
+      grid-template-columns:minmax(0,1fr) !important;
+      align-content:start !important;
+      flex:1 1 auto !important;
+      min-height:0 !important;
+      overflow-y:auto !important;
+      overscroll-behavior:contain;
+      padding:14px 20px 20px !important;
+      gap:12px !important;
+    }
+    .payment-proof-entry{
+      display:grid !important;
+      gap:12px !important;
+      padding:14px !important;
+      border:0 !important;
+      border-radius:18px !important;
+      background:var(--field) !important;
+    }
+    .payment-proof-entry-head{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:space-between !important;
+      gap:12px !important;
+      min-height:28px;
+    }
+    .payment-proof-entry-head > strong{
+      font-size:.88rem !important;
+      font-weight:650 !important;
+      letter-spacing:-.015em;
+    }
+    .payment-proof-entry-layout{
+      display:grid;
+      grid-template-columns:minmax(220px,.72fr) minmax(0,1.28fr);
+      gap:18px;
+      align-items:start;
+    }
+    .payment-proof-receipt-col,
+    .payment-proof-review-col{
+      min-width:0;
+      display:grid;
+      align-content:start;
+      gap:10px;
+    }
+    .payment-proof-entry-times{
+      display:flex !important;
+      flex-wrap:wrap !important;
+      gap:6px 18px !important;
+      margin:0 !important;
+    }
+    .payment-proof-entry-times > div{
+      display:grid !important;
+      gap:2px !important;
+    }
+    .payment-proof-entry-times dt{
+      color:var(--muted) !important;
+      font-size:.62rem !important;
+      font-weight:600 !important;
+      letter-spacing:.08em !important;
+      text-transform:uppercase;
+    }
+    .payment-proof-entry-times dd{
+      margin:0 !important;
+      color:var(--ink) !important;
+      font-size:.74rem !important;
+      font-weight:600 !important;
+      font-variant-numeric:tabular-nums;
+    }
+    .payment-proof-image-grid{
+      display:grid !important;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px !important;
+      width:100%;
+    }
+    .payment-proof-image-grid.is-single{grid-template-columns:minmax(0,1fr) !important}
+    .payment-proof-image-grid .payment-proof-image-item{
+      display:grid !important;
+      grid-template-rows:minmax(0,1fr) auto;
+      gap:6px !important;
+      width:100% !important;
+      max-width:none !important;
+      min-width:0;
+    }
+    .payment-proof-image-link{
+      display:grid !important;
+      place-items:center !important;
+      width:100% !important;
+      height:clamp(190px,34vh,330px) !important;
+      min-height:0 !important;
+      overflow:hidden !important;
+      border:0 !important;
+      border-radius:14px !important;
+      background:var(--panel) !important;
+      box-shadow:none !important;
+    }
+    .payment-proof-image-link img{
+      display:block !important;
+      width:100% !important;
+      height:100% !important;
+      object-fit:contain !important;
+    }
+    .payment-proof-save{
+      justify-self:start;
+      min-height:28px !important;
+      display:inline-flex !important;
+      align-items:center !important;
+      padding:0 10px !important;
+      border:0 !important;
+      border-radius:999px !important;
+      background:transparent !important;
+      color:var(--muted) !important;
+      font-size:.7rem !important;
+      font-weight:600 !important;
+      text-decoration:none !important;
+    }
+    .payment-proof-save:hover{background:var(--panel) !important;color:var(--ink) !important}
+    .payment-proof-review-box{
+      margin-top:0 !important;
+      padding:12px !important;
+      border:0 !important;
+      border-radius:15px !important;
+      background:var(--panel) !important;
+      gap:9px !important;
+    }
+    .payment-proof-review-title{
+      font-size:.63rem !important;
+      font-weight:650 !important;
+      letter-spacing:.09em !important;
+    }
+    .payment-proof-mode-badge{
+      min-height:22px !important;
+      font-size:.64rem !important;
+      font-weight:650 !important;
+    }
+    .payment-proof-review-grid{gap:8px !important}
+    .payment-proof-field{gap:4px !important}
+    .payment-proof-field span{
+      font-size:.61rem !important;
+      font-weight:600 !important;
+      letter-spacing:.05em !important;
+    }
+    .payment-proof-field input{
+      min-height:36px !important;
+      border:1px solid var(--line) !important;
+      border-radius:10px !important;
+      font-size:.78rem !important;
+      font-weight:600 !important;
+    }
+    .payment-proof-chip{
+      min-height:28px !important;
+      font-size:.66rem !important;
+      font-weight:600 !important;
+    }
+    .payment-proof-smart-banner{
+      padding:8px 10px !important;
+      border:0 !important;
+      border-radius:11px !important;
+      font-size:.69rem !important;
+      font-weight:550 !important;
+    }
+    .payment-proof-review-actions{gap:8px !important}
+    .payment-proof-btn-confirm{
+      min-height:38px !important;
+      font-size:.72rem !important;
+      font-weight:700 !important;
+    }
+    .payment-proof-btn-reject{
+      min-height:38px !important;
+      font-size:.7rem !important;
+      font-weight:650 !important;
+    }
+    @media(max-width:760px){
+      .payment-proof-viewer{
+        align-items:flex-end !important;
+        padding:0 !important;
+      }
+      .payment-proof-viewer-card{
+        width:100% !important;
+        max-height:94dvh !important;
+        border-radius:24px 24px 0 0 !important;
+      }
+      .payment-proof-viewer-head{padding:14px 18px !important}
+      .payment-proof-invoice-summary{
+        margin:10px 14px 0 !important;
+        padding:10px 12px !important;
+      }
+      .payment-proof-summary-metrics{
+        display:grid !important;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:9px 12px !important;
+        width:100%;
+      }
+      .payment-proof-viewer-body{
+        padding:12px 14px 20px !important;
+      }
+      .payment-proof-entry{
+        padding:12px !important;
+        gap:10px !important;
+      }
+      .payment-proof-entry-layout{
+        grid-template-columns:76px minmax(0,1fr);
+        gap:10px;
+        align-items:center;
+      }
+      .payment-proof-receipt-col,
+      .payment-proof-review-col{display:contents !important}
+      .payment-proof-image-grid,
+      .payment-proof-image-grid.is-single{
+        grid-column:1;
+        grid-row:1;
+        grid-auto-flow:column;
+        grid-auto-columns:76px;
+        grid-template-columns:none !important;
+        justify-content:start;
+        width:100% !important;
+        overflow-x:auto;
+        overscroll-behavior-x:contain;
+      }
+      .payment-proof-image-grid .payment-proof-image-item{
+        grid-template-rows:96px auto !important;
+        gap:3px !important;
+        width:76px !important;
+      }
+      .payment-proof-image-link{
+        height:96px !important;
+        border-radius:10px !important;
+        background:var(--panel) !important;
+      }
+      .payment-proof-save{
+        justify-self:center;
+        min-height:22px !important;
+        padding:0 5px !important;
+        font-size:.62rem !important;
+      }
+      .payment-proof-entry-times{
+        grid-column:2;
+        grid-row:1;
+        display:grid !important;
+        gap:8px !important;
+        align-content:center;
+      }
+      .payment-proof-review-box,
+      .payment-proof-review-locked,
+      .payment-proof-entry-layout > .payment-proof-quick-row{
+        grid-column:1 / -1;
+      }
+      .payment-proof-review-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+      }
+      .payment-proof-review-grid .payment-proof-field:first-child{
+        grid-column:1 / -1;
+      }
+      .payment-proof-review-box{padding:11px !important}
+      .payment-proof-quick-row{gap:5px !important}
+      .payment-proof-review-actions{
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) auto;
+      }
+      .payment-proof-btn-confirm{min-width:0;flex-basis:auto !important}
+    }
+    @media(max-width:380px){
+      .payment-proof-summary-metric strong{font-size:.76rem !important}
+      .payment-proof-review-actions{grid-template-columns:1fr}
+      .payment-proof-btn-reject{width:100%}
+    }
   `;
   document.head.appendChild(style);
 }
@@ -736,37 +1080,43 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                 <strong>Payment {entryIndex + 1}{entry.images.length > 1 ? ` (${entry.images.length} photos)` : ''}</strong>
                 <span className={`payment-proof-status is-${entry.status || 'pending'}`}>{entry.status || 'pending'}</span>
               </div>
-              <dl className="payment-proof-entry-times">
-                {proofPaymentLabel(entry.paymentDate, entry.paymentTime) ? (
-                  <div>
-                    <dt>Payment</dt>
-                    <dd>{proofPaymentLabel(entry.paymentDate, entry.paymentTime)}{entry.paymentProvisional ? ' · Client reported' : ''}</dd>
+              <div className="payment-proof-entry-layout">
+                <div className="payment-proof-receipt-col">
+                  <div className={`payment-proof-image-grid${entry.images.length === 1 ? ' is-single' : ''}`}>
+                    {entry.images.map((image, imageIndex) => (
+                      <div className="payment-proof-image-item" key={`${entry.id || entryIndex}-${imageIndex}`}>
+                        <button type="button" className="payment-proof-image-link" onClick={() => setPreviewImage(image)} aria-label={`View payment proof ${entryIndex + 1}.${imageIndex + 1}`}>
+                          <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
+                        </button>
+                        <a className="payment-proof-save" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
+                          Save Image
+                        </a>
+                      </div>
+                    ))}
                   </div>
-                ) : null}
-                {proofAuditLabel(entry.uploadedAt) ? <div><dt>Uploaded</dt><dd>{proofAuditLabel(entry.uploadedAt)}</dd></div> : null}
-                {entry.reviewedAt && !entry.paymentProvisional && proofAuditLabel(entry.reviewedAt) ? (
-                  <div><dt>Confirmed</dt><dd>{proofAuditLabel(entry.reviewedAt)}</dd></div>
-                ) : null}
-              </dl>
-              <div className={`payment-proof-image-grid${entry.images.length === 1 ? ' is-single' : ''}`}>
-                {entry.images.map((image, imageIndex) => (
-                  <div className="payment-proof-image-item" key={`${entry.id || entryIndex}-${imageIndex}`}>
-                    <button type="button" className="payment-proof-image-link" onClick={() => setPreviewImage(image)} aria-label={`View payment proof ${entryIndex + 1}.${imageIndex + 1}`}>
-                      <img src={image} alt={`Payment proof ${entryIndex + 1}.${imageIndex + 1}`} />
-                    </button>
-                    <a className="payment-proof-save" href={image} download={entry.filename || `payment-proof-${entryIndex + 1}-${imageIndex + 1}.jpg`}>
-                      Save Image
-                    </a>
-                  </div>
-                ))}
+                </div>
+                <div className="payment-proof-review-col">
+                  <dl className="payment-proof-entry-times">
+                    {proofPaymentLabel(entry.paymentDate, entry.paymentTime) ? (
+                      <div>
+                        <dt>Payment</dt>
+                        <dd>{proofPaymentLabel(entry.paymentDate, entry.paymentTime)}{entry.paymentProvisional ? ' · Client reported' : ''}</dd>
+                      </div>
+                    ) : null}
+                    {proofAuditLabel(entry.uploadedAt) ? <div><dt>Uploaded</dt><dd>{proofAuditLabel(entry.uploadedAt)}</dd></div> : null}
+                    {entry.reviewedAt && !entry.paymentProvisional && proofAuditLabel(entry.reviewedAt) ? (
+                      <div><dt>Confirmed</dt><dd>{proofAuditLabel(entry.reviewedAt)}</dd></div>
+                    ) : null}
+                  </dl>
+                  {summary.invoiceId ? (
+                    <PaymentProofEntryReview
+                      entry={entry}
+                      summary={summary}
+                      onReviewed={onInvoiceUpdated}
+                    />
+                  ) : null}
+                </div>
               </div>
-              {summary.invoiceId ? (
-                <PaymentProofEntryReview
-                  entry={entry}
-                  summary={summary}
-                  onReviewed={onInvoiceUpdated}
-                />
-              ) : null}
             </section>
           ))}
         </div>
