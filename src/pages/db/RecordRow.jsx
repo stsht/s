@@ -12,6 +12,63 @@ function ensureSmartReviewStyles() {
   const style = document.createElement('style');
   style.id = SMART_REVIEW_STYLE_ID;
   style.textContent = `
+    .payment-proof-full-preview{
+      z-index:10060 !important;
+      display:flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      padding:64px 20px 24px !important;
+    }
+    .payment-proof-full-preview > button{
+      border:0 !important;
+      background:rgba(255,255,255,.10) !important;
+      color:rgba(255,255,255,.88) !important;
+      font-weight:400 !important;
+      line-height:1 !important;
+      display:grid !important;
+      place-items:center !important;
+    }
+    .payment-proof-full-preview > button:hover{
+      background:rgba(255,255,255,.18) !important;
+      color:#fff !important;
+    }
+    .payment-proof-full-preview img{
+      width:auto !important;
+      height:auto !important;
+      max-width:100% !important;
+      max-height:100% !important;
+      object-fit:contain !important;
+      border-radius:10px;
+    }
+    .payment-proof-review-col:has(.payment-proof-reconciled-bar){
+      display:contents !important;
+    }
+    .payment-proof-reconciled-bar{
+      grid-column:1 / -1 !important;
+      grid-row:2 !important;
+      width:100% !important;
+      display:flex !important;
+      align-items:center !important;
+      justify-content:space-between !important;
+      gap:12px !important;
+      padding-top:10px;
+      margin-top:2px;
+      border-top:1px solid var(--line);
+    }
+    .payment-proof-reconciled-bar span{
+      color:var(--muted);
+      font-size:.76rem;
+      font-weight:500;
+    }
+    .payment-proof-reopen-btn{
+      min-height:32px !important;
+      padding:0 12px !important;
+      border:1px solid var(--line-strong, var(--line)) !important;
+      background:var(--panel) !important;
+      color:var(--ink) !important;
+      font-size:.72rem !important;
+      font-weight:600 !important;
+    }
     .payment-proof-viewer{
       z-index:10050 !important;
       padding:24px 16px !important;
@@ -173,14 +230,17 @@ function ensureSmartReviewStyles() {
     .payment-proof-viewer-head > div{min-width:0}
     .payment-proof-viewer-head p{
       margin:0 0 3px !important;
-      font-size:.66rem !important;
-      font-weight:650 !important;
-      letter-spacing:.12em !important;
+      font-size:1.05rem !important;
+      font-weight:600 !important;
+      letter-spacing:-.02em !important;
+      text-transform:none !important;
+      color:var(--ink) !important;
     }
     .payment-proof-viewer-head strong{
-      font-size:1.12rem !important;
-      font-weight:650 !important;
-      letter-spacing:-.025em;
+      font-size:.78rem !important;
+      font-weight:500 !important;
+      letter-spacing:0 !important;
+      color:var(--muted) !important;
     }
     .payment-proof-viewer-head > button{
       display:grid !important;
@@ -781,16 +841,14 @@ function PaymentProofEntryReview({ entry, summary, onReviewed }) {
 
   if (isConfirmed && !editingConfirmed) {
     return (
-      <div className="payment-proof-quick-row" style={{ justifyContent: 'space-between', marginTop: '4px' }}>
-        <span style={{ color: 'var(--muted)', fontSize: '.74rem', fontWeight: 750 }}>
-          Reconciled with invoice ledger.
-        </span>
+      <div className="payment-proof-reconciled-bar">
+        <span>Matched to invoice</span>
         <button
           type="button"
           className="payment-proof-chip"
           onClick={() => setEditingConfirmed(true)}
         >
-          Edit Review
+          Edit
         </button>
       </div>
     );
@@ -1038,7 +1096,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
         <header className="payment-proof-viewer-head">
           <div>
             <p>{title}</p>
-            <strong>{totalImages} image{totalImages !== 1 ? 's' : ''} · {entries.length} submission{entries.length !== 1 ? 's' : ''}</strong>
+            <strong>{entries.length === 1 ? (totalImages === 1 ? '1 receipt' : `${totalImages} photos`) : `${entries.length} receipts`}</strong>
           </div>
           <button type="button" onClick={onClose} aria-label="Close payment proofs">×</button>
         </header>
@@ -1070,7 +1128,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                 onClick={handleReopenPaymentRequest}
                 disabled={reopening}
               >
-                {reopening ? 'Opening…' : 'Request Next Payment (Open Upload)'}
+                {reopening ? 'Opening…' : 'Request Next Payment'}
               </button>
             ) : null}
           </section>
@@ -1080,7 +1138,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
           {entries.map((entry, entryIndex) => (
             <section className="payment-proof-entry" key={entry.id || entryIndex}>
               <div className="payment-proof-entry-head">
-                <strong>Payment {entryIndex + 1}{entry.images.length > 1 ? ` (${entry.images.length} photos)` : ''}</strong>
+                <strong>{entries.length === 1 ? 'Transfer Receipt' : `Payment ${entryIndex + 1}`}{entry.images.length > 1 ? ` (${entry.images.length} photos)` : ''}</strong>
                 <span className={`payment-proof-status is-${entry.status || 'pending'}`}>{entry.status || 'pending'}</span>
               </div>
               <div className="payment-proof-entry-layout">
