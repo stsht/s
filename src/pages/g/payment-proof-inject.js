@@ -87,6 +87,10 @@ function ensureStyle() {
     .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-copy strong{color:var(--ink)}
     .public-payment-proof-button.is-primary:disabled{background:color-mix(in srgb,var(--ink) 7%,var(--panel));border-color:transparent;color:var(--muted);opacity:1;cursor:wait}
     .public-payment-proof-button.is-primary:disabled .public-payment-proof-ocr-indicator{color:var(--muted)}
+    .public-payment-proof-actions .public-payment-proof-button.is-primary{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-width:188px;padding-inline:18px;white-space:nowrap;line-height:1}
+    .public-payment-proof-actions .public-payment-proof-button.is-primary:disabled{background:var(--soft);border:1px solid var(--line);color:var(--muted);opacity:1}
+    .public-payment-proof-actions .public-payment-proof-button .public-payment-proof-ocr-indicator{display:block;flex:0 0 14px;width:14px;height:14px;margin:0}
+    .public-payment-proof-actions .public-payment-proof-button.is-primary:disabled .public-payment-proof-ocr-indicator{color:var(--muted)}
     @keyframes public-proof-ocr-spin{to{transform:rotate(360deg)}}
     @media(prefers-reduced-motion:reduce){.public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator,.public-payment-proof-button .public-payment-proof-ocr-indicator{animation:none;border-right-color:currentColor;border-top-color:transparent}}
     @media(max-width:560px){.public-payment-proof-upload-fields{gap:10px}.public-payment-proof-date-control input{height:46px;padding-left:11px;padding-right:34px;font-size:13px}.public-payment-proof-date-chevron{right:10px}}
@@ -721,7 +725,7 @@ function renderUploadForm(sheet) {
     spinner.className = 'public-payment-proof-ocr-indicator';
     spinner.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
-    label.textContent = 'Detecting receipt…';
+    label.textContent = 'Scanning receipt…';
     upload.replaceChildren(spinner, label);
     upload.setAttribute('aria-busy', 'true');
   }
