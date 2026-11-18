@@ -169,42 +169,67 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
     return !!clientName && !!recordName && clientName === recordName;
   };
 
-  function recordIdentifiers(record) {
+  function resolveRecordSlot(record, kind) {
+    const cName = String(record?.client_name || record?.name || '').trim();
+    const cTitle = String(record?.client_title || record?.title || '').trim();
+    const likelyVendorDelivery =
+      kind === 'delivery'
+      && !cTitle
+      && !!clientName
+      && !!cName
+      && cName.toLowerCase() !== clientName;
+    const isVendor = record?.type === 'vendor'
+      || record?.invoice_type === 'vendor'
+      || record?.invoice_data?.invoiceType === 'vendor'
+      || likelyVendorDelivery;
+    if (kind === 'delivery') {
+      return { isVendor, slot: isVendor ? 'vendorDelivery' : 'delivery' };
+    }
+    return { isVendor, slot: isVendor ? 'vendorInvoice' : 'invoice' };
+  }
+
+  function recordIdentifiers(record, kind) {
+    const { isVendor, slot } = resolveRecordSlot(record, kind);
     return {
       eventKey: String(record?.event_key || '').trim(),
       eventDate: plainEventDate(record?.event_date),
       recordId: String(record?.id || '').trim(),
+      isVendor,
+      slot,
     };
   }
 
-  function findGroup({ eventKey, eventDate, recordId }) {
+  function findGroup({ eventKey, eventDate, recordId, slot }) {
     return groups.find((g) => {
-      const datesCompatible = !eventDate || !g.eventDates.size || g.eventDates.has(eventDate);
-      // 1. Direct event_key match — the strongest signal.
-      if (eventKey && g.eventKeys.has(eventKey)) return datesCompatible;
+      // Never merge two records that compete for the exact same slot
+      // (e.g. two Client Deliveries or two Client Invoices on the same
+      // day such as Morning and Afternoon sessions). A group only has
+      // one slot per artifact type, so merging would overwrite and hide
+      // the earlier record.
+      if (slot && g[slot]) return false;
+
+      // 1. Direct event_key match — the strongest signal. Even if the
+      //    operator edited event_date on one side later, a shared
+      //    event_key means they explicitly belong to the same event.
+      if (eventKey && g.eventKeys.has(eventKey)) return true;
       // 2. Cross-ref: this record's event_key points at the
-      //    sibling record's id (or vice versa). Used when one tool
-      //    was launched from a row that did not yet carry an
-      //    event_key, so the new save stamped the existing row's
-      //    id as its event_key.
-      if (eventKey && g.recordIds.has(eventKey)) return datesCompatible;
-      if (recordId && g.eventKeys.has(recordId)) return datesCompatible;
-      // 3. Date fallback — but only when event_key cannot
-      //    adjudicate. If both sides carry a (different) event_key
-      //    they are explicitly different events, and a coincidental
-      //    same-day match must not merge them. event_key wins over
-      //    date grouping, per the /db spec.
+      //    sibling record's id (or vice versa).
+      if (eventKey && g.recordIds.has(eventKey)) return true;
+      if (recordId && g.eventKeys.has(recordId)) return true;
+      // 3. Date fallback — ONLY when NEITHER side carries an event_key.
+      //    If either side already has an event_key that did not match
+      //    above, they are separate events on the same day.
       if (eventDate && g.eventDates.has(eventDate)) {
         const recordHasKey = !!eventKey;
         const groupHasKey = g.eventKeys.size > 0;
-        if (!recordHasKey || !groupHasKey) return true;
+        if (!recordHasKey && !groupHasKey) return true;
       }
       return false;
     });
   }
 
   function attach(record, kind) {
-    const ids = recordIdentifiers(record);
+    const ids = recordIdentifiers(record, kind);
     let group = findGroup(ids);
     if (!group) {
       group = {
@@ -303,8 +328,46 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
   invoices.filter(matches).forEach((invoice) => attach(invoice, 'invoice'));
   deliveries.filter(matches).forEach((delivery) => attach(delivery, 'delivery'));
 
+  // Count how many event groups share the same real eventDate so we can
+  // surface a compact session/time label (e.g. "Pagi", "Sore", "08:00")
+  // whenever a client has multiple sessions on the same day.
+  const dateCounts = new Map();
+  for (const g of groups) {
+    if (g.eventDate) dateCounts.set(g.eventDate, (dateCounts.get(g.eventDate) || 0) + 1);
+  }
+
+  function deriveSessionLabel(g, sameDayIndex) {
+    const invData = g.invoice?.invoice_data && typeof g.invoice.invoice_data === 'object'
+      ? g.invoice.invoice_data
+      : {};
+    const folderRaw = String(
+      g.delivery?.folder_name
+      || g.vendorDelivery?.folder_name
+      || invData.folderName
+      || ''
+    ).trim();
+    const parenMatch = folderRaw.match(/\(\s*([^)]+?)\s*\)/);
+    if (parenMatch && parenMatch[1]) {
+      return parenMatch[1].trim().slice(0, 24);
+    }
+    const timeRaw = String(g.invoice?.event_time || invData.eventTime || '').trim();
+    const timeMatch = /^(\d{2}:\d{2})/.exec(timeRaw);
+    if (timeMatch) return timeMatch[1];
+    return sameDayIndex > 0 ? `#${sameDayIndex}` : '';
+  }
+
+  const seenPerDate = new Map();
   return groups
-    .map(({ eventKeys, eventDates, recordIds, ...rest }) => rest)
+    .map(({ eventKeys, eventDates, recordIds, ...rest }) => {
+      const d = rest.eventDate;
+      let sessionLabel = '';
+      if (d && (dateCounts.get(d) || 0) > 1) {
+        const idx = (seenPerDate.get(d) || 0) + 1;
+        seenPerDate.set(d, idx);
+        sessionLabel = deriveSessionLabel(rest, idx);
+      }
+      return { ...rest, sessionLabel };
+    })
     .sort((a, b) => {
       // Tone-aware sort. Buckets:
       //   0 = upcoming (today/future event_date) — nearest first.
