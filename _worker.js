@@ -349,7 +349,7 @@ async function createGallerySession(env, deliveryId) {
   // Version the token so all pre-two-hour (six-hour) gallery cookies
   // are rejected immediately after deployment, not merely capped by
   // their remaining lifetime.
-  const payload = `${v2.${cleanId}.${expiresAt}.${nonce}`;
+  const payload = `v2.${cleanId}.${expiresAt}.${nonce}`;
   const signature = await hmacSha256(getAdminPassword(env), payload);
   const cookie = `${GALLERY_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(GALLERY_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
   return { cookie, expiresAt };
