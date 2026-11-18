@@ -48,7 +48,7 @@ const GALLERY_PASSWORD_LENGTH = 7;
 const PUBLIC_SITE = 'https://sshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
 const ADMIN_SESSION_COOKIE = 'ss_admin_session';
-const ADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
+const ADMIN_SESSION_MS = 15 * 60 * 1000;
 const GALLERY_SESSION_COOKIE = 'ss_gallery_session';
 const GALLERY_SESSION_MS = 6 * 60 * 60 * 1000;
 const GALLERY_HASH_ALGO = 'pbkdf2_sha256';
@@ -328,7 +328,7 @@ async function createAdminSessionCookie(env) {
   const nonce = randomToken(12);
   const payload = `${expiresAt}.${nonce}`;
   const signature = await hmacSha256(getAdminPassword(env), payload);
-  return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(ADMIN_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
+  return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; HttpOnly; Secure; SameSite=Lax`;
 }
 
 async function createGallerySessionCookie(env, deliveryId) {
@@ -1591,7 +1591,7 @@ async function handleAdminCheck(request, env) {
   // budget and lock the owner out.
   if (!password) {
     if (await verifyAdminSessionCookie(request, env)) {
-      return json({ ok: true }, 200, { 'Set-Cookie': await createAdminSessionCookie(env) });
+      return json({ ok: true }, 200);
     }
     return json({ error: 'Unauthorized.' }, 401);
   }
