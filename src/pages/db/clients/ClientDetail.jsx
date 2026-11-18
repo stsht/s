@@ -35,8 +35,9 @@ function eventInvoicesForRow(row, invoices, client) {
 
       if (currentInvoiceId && invoiceId === currentInvoiceId) return true;
       if (rowDeliveryId && invoiceDeliveryId === rowDeliveryId) return true;
+      if (invoiceDeliveryId && rowDeliveryId && invoiceDeliveryId !== rowDeliveryId) return false;
       if (rowEventKey && invoiceEventKey) return rowEventKey === invoiceEventKey;
-      return !!rowEventDate && rowEventDate === invoiceEventDate && (!rowEventKey || !invoiceEventKey);
+      return !!rowEventDate && rowEventDate === invoiceEventDate && !rowEventKey && !invoiceEventKey;
     })
     .sort((a, b) => (
       (Date.parse(b?.updated_at || b?.created_at || '') || 0)
@@ -109,6 +110,15 @@ export function ClientDetail({ client, invoices, deliveries, onDeleteClient, onE
     setArmedDeleteKey(null);
   }, [clientIdentity, recordsSignature, clearArmedDeleteTimer]);
   useEffect(() => () => clearArmedDeleteTimer(), [clearArmedDeleteTimer]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof onRefresh !== 'function') return undefined;
+    const handleRefreshEvent = () => {
+      onRefresh();
+    };
+    window.addEventListener('ss:db-refresh', handleRefreshEvent);
+    return () => window.removeEventListener('ss:db-refresh', handleRefreshEvent);
+  }, [onRefresh]);
 
   const parentClientId = String(client?.client_id || '').trim();
   const vendorName = stripVendorName(name) || name;

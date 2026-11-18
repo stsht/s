@@ -90,6 +90,17 @@ function readInvoiceHandoff() {
   return null;
 }
 
+function generateFreshEventKey() {
+  try {
+    const uuid = window.crypto?.randomUUID?.();
+    if (uuid) return String(uuid).slice(0, 80);
+  } catch {
+    /* fall through */
+  }
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `evt-${Date.now().toString(36)}-${rand}`.slice(0, 80);
+}
+
 async function copyToClipboard(text) {
   if (!text) return false;
   try {
@@ -164,7 +175,7 @@ export function LinkGeneratorPage() {
     // handoff (including a deliberate TBA / empty date) always wins.
     if (!handoff || !handoffName) {
       setEventDateHandoff((current) => current || jakartaTodayISO());
-      dateSourceRef.current = 'locked';
+      dateSourceRef.current = '';
       return;
     }
     const handoffType = String(handoff.type || '').trim().toLowerCase() === 'vendor' ? 'vendor' : 'client';
@@ -249,7 +260,16 @@ export function LinkGeneratorPage() {
   // status banner so editing-after-generate never shows a stale
   // link or "Saved" message tied to the previous inputs.
   function markDirty() {
-    setSaved((current) => (current ? null : current));
+    if (saved) {
+      setSaved(null);
+      // When editing fields after a completed save to create a second
+      // delivery (e.g. a Morning vs Afternoon session on the same day),
+      // assign a fresh eventKey and detach the previous invoiceId so
+      // the new delivery becomes its own event row instead of merging
+      // into or overwriting the first delivery.
+      setEventKey(generateFreshEventKey());
+      setLinkedInvoiceId('');
+    }
     setStatus({ text: '', tone: '' });
   }
 
@@ -328,6 +348,10 @@ export function LinkGeneratorPage() {
     }
 
     const eventDateToSend = applyAutoEventDate(info.folder);
+    const eventKeyToSend = eventKey || (linkedInvoiceId ? '' : generateFreshEventKey());
+    if (eventKeyToSend && eventKeyToSend !== eventKey) {
+      setEventKey(eventKeyToSend);
+    }
 
     const links = LINK_SERVICES
       .map((service) => ({
@@ -381,7 +405,7 @@ export function LinkGeneratorPage() {
           // the worker only writes the columns when they're non-
           // empty and falls back to the legacy schema-tolerant
           // insert when the columns don't exist yet.
-          eventKey,
+          eventKey: eventKeyToSend,
           eventDate: eventDateToSend,
           links,
         }),

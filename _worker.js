@@ -1,9 +1,29 @@
 import { buildDeliveryMessage, extractDeliveryPassword } from './src/features/deliveries/deliveryMessages.js';
 
+const ALLOWED_ORIGINS = new Set([
+  'https://sshots.pages.dev',
+  'https://www.sshots.pages.dev',
+  'https://starshots.pages.dev',
+  'https://www.starshots.pages.dev',
+]);
+
+function resolveAllowedOrigin(request) {
+  if (!request) return 'https://sshots.pages.dev';
+  const origin = String(request.headers?.get?.('origin') || '').trim();
+  if (!origin) return 'https://sshots.pages.dev';
+  if (ALLOWED_ORIGINS.has(origin)) return origin;
+  try {
+    const reqOrigin = new URL(request.url).origin;
+    if (origin === reqOrigin) return origin;
+  } catch {}
+  return 'https://sshots.pages.dev';
+}
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://sshots.pages.dev',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type'
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Vary': 'Origin'
 };
 
 const SERVICES = [
@@ -28,9 +48,9 @@ const GALLERY_PASSWORD_LENGTH = 7;
 const PUBLIC_SITE = 'https://sshots.pages.dev';
 const LOGO_PATH = '/logo-hero.png';
 const ADMIN_SESSION_COOKIE = 'ss_admin_session';
-const ADMIN_SESSION_MS = 15 * 60 * 1000;
+const ADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
 const GALLERY_SESSION_COOKIE = 'ss_gallery_session';
-const GALLERY_SESSION_MS = 2 * 60 * 60 * 1000;
+const GALLERY_SESSION_MS = 6 * 60 * 60 * 1000;
 const GALLERY_HASH_ALGO = 'pbkdf2_sha256';
 const GALLERY_HASH_ITERATIONS = 100000;
 const RATE_LIMITS = new Map();
@@ -52,6 +72,26 @@ function cleanPublicProofImages(images = []) {
   return list;
 }
 
+function hasValidImageSignature(bytes, extension) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
+  if (extension === 'jpg') {
+    return bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+  }
+  if (extension === 'png') {
+    return (
+      bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47
+      && bytes[4] === 0x0D && bytes[5] === 0x0A && bytes[6] === 0x1A && bytes[7] === 0x0A
+    );
+  }
+  if (extension === 'webp') {
+    return (
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+    );
+  }
+  return false;
+}
+
 function parsePaymentProofDataUrl(value) {
   const match = /^data:image\/(png|jpe?g|webp);base64,([a-z0-9+/=\s]+)$/i.exec(String(value || '').trim());
   if (!match) throw new Error('Payment proof must be an image.');
@@ -61,6 +101,9 @@ function parsePaymentProofDataUrl(value) {
   const binary = atob(match[2].replace(/\s+/g, ''));
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  if (!hasValidImageSignature(bytes, extension)) {
+    throw new Error('Invalid image file content.');
+  }
   return { bytes, extension, mimeType };
 }
 
@@ -95,10 +138,18 @@ function escapeHtml(value = '') {
     .replace(/'/g, '&#39;');
 }
 
-function json(data, status = 200, headers = {}) {
+function responseCorsHeaders(request = null) {
+  if (!request) return corsHeaders;
+  return {
+    ...corsHeaders,
+    'Access-Control-Allow-Origin': resolveAllowedOrigin(request),
+  };
+}
+
+function json(data, status = 200, headers = {}, request = null) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8', ...headers }
+    headers: { ...responseCorsHeaders(request), 'Content-Type': 'application/json; charset=utf-8', ...headers }
   });
 }
 
@@ -277,7 +328,7 @@ async function createAdminSessionCookie(env) {
   const nonce = randomToken(12);
   const payload = `${expiresAt}.${nonce}`;
   const signature = await hmacSha256(getAdminPassword(env), payload);
-  return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; HttpOnly; Secure; SameSite=Lax`;
+  return `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(ADMIN_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 async function createGallerySessionCookie(env, deliveryId) {
@@ -433,17 +484,99 @@ function shortCodeFromText(value = '') {
   return match ? cleanShortCode(match[1]) : '';
 }
 
-function deliveryPasswordForDisplay(delivery = {}) {
-  const plain = String(delivery.password || '').trim();
-  if (plain) return plain;
-  const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\n');
-  return extractDeliveryPassword(text);
+const PASSWORD_HISTORY_MARKER_RE = /\n?\[SS_PASSWORD_HISTORY:([^\]]*)\]\s*/g;
+const ENC_PASSWORD_MARKER_RE = /\n?\[SS_ENC_PASS:v1:([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\]\s*/;
+
+function base64UrlDecodeBytes(value = '') {
+  const base64 = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
-const PASSWORD_HISTORY_MARKER_RE = /\n?\[SS_PASSWORD_HISTORY:([^\]]*)\]\s*$/;
+async function deriveGalleryCipherKeys(env) {
+  const secrets = [
+    env?.ENCRYPTION_KEY,
+    env?.ADMIN_PASSWORD,
+    env?.SUPABASE_SECRET_KEY,
+  ].map((s) => String(s || '').trim()).filter(Boolean);
+  const uniqueSecrets = [...new Set(secrets)];
+  const keys = [];
+  for (const secret of uniqueSecrets) {
+    const keyBytes = await sha256Bytes(`ss-gallery-aes-gcm-v1|${secret}`);
+    const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+    keys.push(key);
+  }
+  return keys;
+}
+
+async function encryptGalleryPasswordToken(env, password = '') {
+  const clean = String(password || '').trim();
+  if (!clean) return '';
+  try {
+    const keys = await deriveGalleryCipherKeys(env);
+    if (!keys.length) return '';
+    const iv = new Uint8Array(12);
+    crypto.getRandomValues(iv);
+    const data = new TextEncoder().encode(clean);
+    const cipherBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, keys[0], data);
+    const cipherBytes = new Uint8Array(cipherBuffer);
+    return `[SS_ENC_PASS:v1:${base64UrlEncode(iv)}.${base64UrlEncode(cipherBytes)}]`;
+  } catch {
+    return '';
+  }
+}
+
+async function decryptGalleryPasswordToken(env, text = '') {
+  const match = String(text || '').match(ENC_PASSWORD_MARKER_RE);
+  if (!match?.[1] || !match?.[2]) return '';
+  try {
+    const iv = base64UrlDecodeBytes(match[1]);
+    const cipherBytes = base64UrlDecodeBytes(match[2]);
+    const keys = await deriveGalleryCipherKeys(env);
+    for (const key of keys) {
+      try {
+        const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, cipherBytes);
+        const decoded = new TextDecoder().decode(plainBuffer).trim();
+        if (decoded) return decoded;
+      } catch {
+        /* try next key */
+      }
+    }
+  } catch {
+    /* ignore malformed token */
+  }
+  return '';
+}
+
+function hasStoredDeliveryPassword(delivery = {}) {
+  const plain = String(delivery.password || '').trim();
+  if (plain && plain !== '[protected]') return true;
+  const text = [delivery.generated_text_whatsapp, delivery.generated_text_instagram].filter(Boolean).join('\n');
+  if (ENC_PASSWORD_MARKER_RE.test(text)) return true;
+  const extracted = extractDeliveryPassword(text);
+  return Boolean(extracted && extracted !== '[protected]');
+}
+
+async function deliveryPasswordForDisplay(delivery = {}, env = null) {
+  const plain = String(delivery.password || '').trim();
+  if (plain && plain !== '[protected]') return plain;
+  const text = [delivery.generated_text_instagram, delivery.generated_text_whatsapp].filter(Boolean).join('\n');
+  if (env && ENC_PASSWORD_MARKER_RE.test(text)) {
+    const decrypted = await decryptGalleryPasswordToken(env, text);
+    if (decrypted) return decrypted;
+  }
+  const extracted = extractDeliveryPassword(text);
+  return extracted === '[protected]' ? '' : extracted;
+}
 
 function stripPasswordHistoryMarker(value = '') {
-  return String(value || '').replace(PASSWORD_HISTORY_MARKER_RE, '').trim();
+  return String(value || '')
+    .replace(PASSWORD_HISTORY_MARKER_RE, '')
+    .replace(ENC_PASSWORD_MARKER_RE, '')
+    .trim();
 }
 
 function encodePasswordHistoryMarker(history = []) {
@@ -455,10 +588,18 @@ function encodePasswordHistoryMarker(history = []) {
   }
 }
 
-function withPasswordHistoryMarker(value = '', history = []) {
+async function withPasswordHistoryMarker(value = '', history = [], plainPassword = '', env = null) {
   const clean = stripPasswordHistoryMarker(value);
-  if (!Array.isArray(history) || history.length === 0) return clean;
-  return `${clean}\n\n${encodePasswordHistoryMarker(history)}`;
+  const markers = [];
+  if (Array.isArray(history) && history.length > 0) {
+    markers.push(encodePasswordHistoryMarker(history));
+  }
+  if (plainPassword && env) {
+    const encToken = await encryptGalleryPasswordToken(env, plainPassword);
+    if (encToken) markers.push(encToken);
+  }
+  if (!markers.length) return clean;
+  return `${clean}\n\n${markers.join('\n')}`;
 }
 
 function parsePasswordHistoryValue(value) {
@@ -474,7 +615,7 @@ function parsePasswordHistoryValue(value) {
 
 function passwordHistoryFromGeneratedText(delivery = {}) {
   const text = [delivery.generated_text_instagram, delivery.generated_text_whatsapp].filter(Boolean).join('\n');
-  const match = text.match(PASSWORD_HISTORY_MARKER_RE);
+  const match = /\[SS_PASSWORD_HISTORY:([^\]]*)\]/.exec(text);
   if (!match?.[1]) return [];
   try {
     const parsed = JSON.parse(decodeURIComponent(match[1]));
@@ -947,7 +1088,7 @@ function explicitShortCode(delivery = {}) {
 function shouldBlockFolderSlug(delivery = {}) {
   if (!delivery) return false;
   const hasPassword = String(delivery.password_hash || delivery.password || '').trim()
-    || deliveryPasswordForDisplay(delivery);
+    || hasStoredDeliveryPassword(delivery);
   return !!(explicitShortCode(delivery) && hasPassword);
 }
 
@@ -1009,8 +1150,15 @@ function invoiceDeliveryScore(invoice = {}, delivery = {}) {
 
   if (deliveryId && String(data.delivery_id || '') === deliveryId) return 100;
   if (deliveryEventKey && invoiceEventKey && deliveryEventKey === invoiceEventKey) return 90;
-  if (deliveryClientId && invoiceClientId && deliveryClientId === invoiceClientId && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 80;
-  if (deliveryName && invoiceName && deliveryName === invoiceName && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 70;
+  // If both carry an explicit event_key (or delivery_id) and they differ,
+  // they are separate events on the same day (e.g. Morning vs Evening)
+  // and must never cross-match by date alone.
+  if (deliveryId && data.delivery_id && String(data.delivery_id) !== deliveryId) return 0;
+  if (deliveryEventKey && invoiceEventKey && deliveryEventKey !== invoiceEventKey) return 0;
+  if (!deliveryEventKey && !invoiceEventKey) {
+    if (deliveryClientId && invoiceClientId && deliveryClientId === invoiceClientId && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 80;
+    if (deliveryName && invoiceName && deliveryName === invoiceName && deliveryDate && invoiceDate && deliveryDate === invoiceDate) return 70;
+  }
   return 0;
 }
 
@@ -1508,7 +1656,9 @@ async function handleSave(request, env) {
     password
   });
   const generatedText = buildDeliveryMessage(messageInput);
-  const generatedTextIg = generatedText;
+  const redactedMessage = buildDeliveryMessage({ ...messageInput, password: '[protected]' });
+  const storedGeneratedTextWa = redactedMessage;
+  const storedGeneratedTextIg = await withPasswordHistoryMarker(redactedMessage, [], password, env);
   const passwordSecurity = await hashGalleryPassword(password);
   const invoiceId = String(body.invoiceId || '').trim();
   let linkedInvoice = null;
@@ -1546,8 +1696,8 @@ async function handleSave(request, env) {
     password,
     delivery_year: deliveryYear,
     delivery_month: deliveryMonth,
-    generated_text_whatsapp: generatedText,
-    generated_text_instagram: generatedTextIg
+    generated_text_whatsapp: storedGeneratedTextWa,
+    generated_text_instagram: storedGeneratedTextIg
   };
   // Optional event grouping fields. event_date stays a bare
   // YYYY-MM-DD (or empty for TBA); event_key is whatever the
@@ -1808,12 +1958,37 @@ async function handleUnlock(request, env) {
   return json({ ok: true, ...payload }, 200, headers);
 }
 
+const ALLOWED_PUBLIC_CLICK_EVENTS = new Set([
+  'button_click',
+  'service_click',
+  'invoice_view',
+  'invoice_fullscreen',
+  'invoice_download',
+  'payment_bank_copy',
+  'payment_bank',
+  'payment_qr_download',
+  'payment_qr'
+]);
+
 async function handleClick(request, env) {
+  const limited = enforceRateLimit(request, 'gallery-click', { limit: 60, windowMs: 60 * 1000, blockMs: 5 * 60 * 1000 });
+  if (limited) return limited;
+
   const body = await request.json().catch(() => ({}));
+  const deliveryId = String(body.deliveryId || '').trim();
   const service = cleanLogService(body.service);
-  const eventType = cleanLogEvent(body.eventType || body.event_type || 'button_click');
-  if (!body.deliveryId || !service) return json({ ok: false }, 400);
-  await insertLog(env, request, String(body.deliveryId), eventType, service);
+  const rawEventType = cleanLogEvent(body.eventType || body.event_type || 'button_click');
+  if (!deliveryId || !service) return json({ ok: false }, 400);
+
+  const isAdmin = await verifyAdminSessionCookie(request, env);
+  const isGalleryUnlocked = isAdmin || await verifyGallerySessionCookie(request, env, deliveryId);
+  if (!isGalleryUnlocked) return json({ ok: false, error: 'Unauthorized.' }, 401);
+
+  // Never allow external callers to spoof admin_* or password_* events,
+  // and skip logging admin preview clicks as client activity.
+  if (isAdmin) return json({ ok: true });
+  const safeEventType = ALLOWED_PUBLIC_CLICK_EVENTS.has(rawEventType) ? rawEventType : 'button_click';
+  await insertLog(env, request, deliveryId, safeEventType, service);
   return json({ ok: true });
 }
 
@@ -1823,6 +1998,23 @@ async function handleOpenLink(request, env) {
   const service = cleanService(url.searchParams.get('service'));
   if (!deliveryId || !service) return new Response('Missing link.', { status: 400 });
 
+  const isAdmin = await verifyAdminSessionCookie(request, env);
+  const isGalleryUnlocked = isAdmin || await verifyGallerySessionCookie(request, env, deliveryId);
+  if (!isGalleryUnlocked) {
+    const delivery = await getDeliveryById(env, deliveryId).catch(() => null);
+    const shortCode = delivery ? (deliveryShortCode(delivery) || explicitShortCode(delivery)) : '';
+    if (shortCode) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: `/${encodeURIComponent(shortCode)}`,
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
+    return new Response('Unauthorized. Please unlock the delivery page first.', { status: 401 });
+  }
+
   const rows = await supabaseFetch(
     env,
     `/rest/v1/delivery_links?select=*&delivery_id=eq.${encodeURIComponent(deliveryId)}&service=eq.${encodeURIComponent(service)}&limit=1`
@@ -1831,7 +2023,9 @@ async function handleOpenLink(request, env) {
   const target = String(row?.original_url || '').trim();
   if (!target) return new Response('Link unavailable.', { status: 404 });
 
-  await insertLog(env, request, deliveryId, 'service_click', service);
+  if (!isAdmin) {
+    await insertLog(env, request, deliveryId, 'service_click', service);
+  }
   return new Response(null, {
     status: 302,
     headers: {
@@ -1936,7 +2130,7 @@ async function handleDbSearch(request, env) {
     }
   }
 
-  const items = allDeliveries.map((d) => {
+  const items = await Promise.all(allDeliveries.map(async (d) => {
     const key = String(d.id);
     const dl = linksByDelivery.get(key) || [];
     const lg = logsByDelivery.get(key) || [];
@@ -1965,7 +2159,7 @@ async function handleDbSearch(request, env) {
     }
     const shortCode = deliveryShortCode(d);
     const shortPath = shortCode ? `/${shortCode}` : '';
-    const displayPassword = deliveryPasswordForDisplay(d);
+    const displayPassword = await deliveryPasswordForDisplay(d, env);
     const deliveryDoneBool = !!d.delivery_done;
     // Rebuild generated messages from canonical delivery fields so
     // older rows pick up template changes without a manual repair.
@@ -2042,7 +2236,7 @@ async function handleDbSearch(request, env) {
       links: dl,
       stats: { opens, clicks, logs: publicLogs.slice(0, 50) }
     };
-  });
+  }));
 
   const invoicesWithRelated = invoiceRows.map((inv) => {
     // Effective event grouping key for invoices. Same priority as
@@ -2150,25 +2344,88 @@ async function handleClientSave(request, env) {
     client_name: fields.name
   };
 
-  // Merge step (only when a real edit found a duplicate): move the
-  // duplicate's invoice and delivery rows to the surviving client
-  // before dropping the duplicate client row.
-  if (mergeSourceId && mergeSourceId !== clientId) {
-    const fetchIds = async (table) => {
+  // Helper to fetch rows by client_id or explicit id list so we can
+  // separate client-scoped rows from vendor-scoped rows before patching.
+  // Vendor invoices (invoice_type === 'vendor') and vendor deliveries
+  // (type === 'vendor' or empty honorific title) share the parent
+  // client_id for event grouping, so we must ONLY update their client_id
+  // pointer and NEVER overwrite their vendor client_name or title.
+  const fetchCandidateRows = async (table, ownerIds = [], extraIds = []) => {
+    const byId = new Map();
+    for (const ownerId of ownerIds.filter(Boolean)) {
       try {
-        const rows = await supabaseFetch(env, `/rest/v1/${table}?select=id&client_id=eq.${encodeURIComponent(mergeSourceId)}`);
-        return (Array.isArray(rows) ? rows : []).map((row) => String(row.id || '')).filter(Boolean);
+        const rows = await supabaseFetch(env, `/rest/v1/${table}?select=*&client_id=eq.${encodeURIComponent(ownerId)}`);
+        for (const r of (Array.isArray(rows) ? rows : [])) {
+          if (r?.id) byId.set(String(r.id), r);
+        }
       } catch (error) {
-        if (isSchemaError(error)) return [];
-        throw error;
+        if (!isSchemaError(error)) throw error;
       }
-    };
-    const [dupInvoiceIds, dupDeliveryIds] = await Promise.all([
-      fetchIds('invoices'),
-      fetchIds('deliveries'),
-    ]);
-    if (dupInvoiceIds.length) await patchRowsByIds(env, 'invoices', dupInvoiceIds, invoicePayload, clientId);
-    if (dupDeliveryIds.length) await patchRowsByIds(env, 'deliveries', dupDeliveryIds, deliveryPayload, clientId);
+    }
+    const cleanExtra = uniqueIds(extraIds);
+    if (cleanExtra.length) {
+      try {
+        const rows = await supabaseFetch(env, `/rest/v1/${table}?select=*&id=in.(${inFilter(cleanExtra)})`);
+        for (const r of (Array.isArray(rows) ? rows : [])) {
+          if (r?.id) byId.set(String(r.id), r);
+        }
+      } catch (error) {
+        if (!isSchemaError(error)) throw error;
+      }
+    }
+    return [...byId.values()];
+  };
+
+  const ownerClientIds = [clientId, ...(mergeSourceId && mergeSourceId !== clientId ? [mergeSourceId] : [])];
+  const [candidateInvoices, candidateDeliveries] = await Promise.all([
+    fetchCandidateRows('invoices', ownerClientIds, body.invoiceIds),
+    fetchCandidateRows('deliveries', ownerClientIds, body.deliveryIds),
+  ]);
+
+  const vendorDeliveryIdsFromInvoices = new Set();
+  const vendorEventKeys = new Set();
+  const clientScopedInvoiceIds = [];
+  const vendorScopedInvoiceIds = [];
+
+  for (const inv of candidateInvoices) {
+    const invId = String(inv?.id || '');
+    if (!invId) continue;
+    if (invoiceRecordType(inv) === 'vendor') {
+      vendorScopedInvoiceIds.push(invId);
+      const data = inv?.invoice_data && typeof inv.invoice_data === 'object' ? inv.invoice_data : {};
+      if (data.delivery_id) vendorDeliveryIdsFromInvoices.add(String(data.delivery_id));
+      const ek = String(inv.event_key || data.event_key || '').trim();
+      if (ek) vendorEventKeys.add(ek);
+    } else {
+      clientScopedInvoiceIds.push(invId);
+    }
+  }
+
+  const clientScopedDeliveryIds = [];
+  const vendorScopedDeliveryIds = [];
+  for (const del of candidateDeliveries) {
+    const delId = String(del?.id || '');
+    if (!delId) continue;
+    const isVendorDel =
+      String(del?.type || '').trim().toLowerCase() === 'vendor'
+      || String(del?.title ?? 'Ms.').trim() === ''
+      || vendorDeliveryIdsFromInvoices.has(delId)
+      || (del?.event_key && vendorEventKeys.has(String(del.event_key).trim()) && normalizeClientName(del.client_name) !== fields.normalized_name);
+    if (isVendorDel) {
+      vendorScopedDeliveryIds.push(delId);
+    } else {
+      clientScopedDeliveryIds.push(delId);
+    }
+  }
+
+  const [patchedClientInvoices, patchedVendorInvoices, patchedClientDeliveries, patchedVendorDeliveries] = await Promise.all([
+    clientScopedInvoiceIds.length ? patchRowsByIds(env, 'invoices', clientScopedInvoiceIds, invoicePayload, clientId) : [],
+    vendorScopedInvoiceIds.length ? patchRowsByIds(env, 'invoices', vendorScopedInvoiceIds, {}, clientId) : [],
+    clientScopedDeliveryIds.length ? patchRowsByIds(env, 'deliveries', clientScopedDeliveryIds, deliveryPayload, clientId) : [],
+    vendorScopedDeliveryIds.length ? patchRowsByIds(env, 'deliveries', vendorScopedDeliveryIds, {}, clientId) : [],
+  ]);
+
+  if (mergeSourceId && mergeSourceId !== clientId) {
     await supabaseFetch(env, `/rest/v1/clients?id=eq.${encodeURIComponent(mergeSourceId)}`, {
       method: 'DELETE',
       headers: { Prefer: 'return=minimal' }
@@ -2177,13 +2434,8 @@ async function handleClientSave(request, env) {
     });
   }
 
-  const invoiceByClient = await patchRowsByClientId(env, 'invoices', clientId, invoicePayload);
-  const deliveryByClient = await patchRowsByClientId(env, 'deliveries', clientId, deliveryPayload);
-  const invoiceByIds = await patchRowsByIds(env, 'invoices', body.invoiceIds, invoicePayload, clientId);
-  const deliveryByIds = await patchRowsByIds(env, 'deliveries', body.deliveryIds, deliveryPayload, clientId);
-
-  const invoiceIds = new Set([...invoiceByClient, ...invoiceByIds].map((row) => String(row.id || '')).filter(Boolean));
-  const deliveryIds = new Set([...deliveryByClient, ...deliveryByIds].map((row) => String(row.id || '')).filter(Boolean));
+  const invoiceIds = new Set([...patchedClientInvoices, ...patchedVendorInvoices].map((row) => String(row.id || '')).filter(Boolean));
+  const deliveryIds = new Set([...patchedClientDeliveries, ...patchedVendorDeliveries].map((row) => String(row.id || '')).filter(Boolean));
 
   return json({
     ok: true,
@@ -2287,7 +2539,7 @@ async function handleDbRepairDelivery(request, env) {
         title: delivery.title || ''
       });
 
-  let displayPassword = rotatePassword ? '' : deliveryPasswordForDisplay(delivery);
+  let displayPassword = rotatePassword ? '' : await deliveryPasswordForDisplay(delivery, env);
   if (customPassword) displayPassword = customPassword;
 
   const hasStoredHash = !!(String(delivery.password_hash || '').trim() && String(delivery.password_salt || '').trim());
@@ -2325,11 +2577,12 @@ async function handleDbRepairDelivery(request, env) {
   });
   const generatedText = buildDeliveryMessage(messageInput);
   const generatedTextIg = generatedText;
-  const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, password_history);
+  const redactedMessage = buildDeliveryMessage({ ...messageInput, password: '[protected]' });
+  const storedGeneratedTextIg = await withPasswordHistoryMarker(redactedMessage, password_history, displayPassword, env);
   const patch = {
     short_code: shortCode,
     password: '',
-    generated_text_whatsapp: generatedText,
+    generated_text_whatsapp: redactedMessage,
     generated_text_instagram: storedGeneratedTextIg,
     password_history
   };
@@ -2424,7 +2677,7 @@ async function handleDbUpdateDelivery(request, env) {
       || body.deliveryDone === 1
       || body.deliveryDone === '1';
     try {
-      const displayPassword = deliveryPasswordForDisplay(delivery);
+      const displayPassword = await deliveryPasswordForDisplay(delivery, env);
       const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery) || '';
       const messageInput = deliveryMessageInput({
         title: delivery.title ?? 'Ms.',
@@ -2437,13 +2690,14 @@ async function handleDbUpdateDelivery(request, env) {
       });
       const generatedText = buildDeliveryMessage(messageInput);
       const generatedTextIg = generatedText;
+      const redactedMessage = buildDeliveryMessage({ ...messageInput, password: '[protected]' });
       const passwordHistory = deliveryPasswordHistory(delivery);
-      const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
+      const storedGeneratedTextIg = await withPasswordHistoryMarker(redactedMessage, passwordHistory, displayPassword, env);
 
       const patched = await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({ delivery_done: nextDone, generated_text_whatsapp: generatedText, generated_text_instagram: storedGeneratedTextIg })
+        body: JSON.stringify({ delivery_done: nextDone, generated_text_whatsapp: redactedMessage, generated_text_instagram: storedGeneratedTextIg })
       });
       const patchedRow = Array.isArray(patched) ? patched[0] : patched;
       let patchedLinks = [];
@@ -2588,12 +2842,12 @@ async function handleDbUpdateDelivery(request, env) {
   }).catch(() => {});
 
   const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
-  const displayPassword = deliveryPasswordForDisplay(delivery);
+  const displayPassword = await deliveryPasswordForDisplay(delivery, env);
   const deliveryDone = !!delivery.delivery_done;
   const messageInput = displayPassword && shortCode
     ? deliveryMessageInput({
         title: delivery.title ?? 'Ms.',
-        clientName: delivery.client_name || '',
+        clientName: updatedClientName || delivery.client_name || '',
         folderName: updatedFolderName,
         eventDate: updatedEventDate,
         shortCode,
@@ -2607,15 +2861,18 @@ async function handleDbUpdateDelivery(request, env) {
   const generatedTextIg = messageInput
     ? generatedText
     : stripPasswordHistoryMarker(delivery.generated_text_instagram);
+  const redactedMessage = messageInput
+    ? buildDeliveryMessage({ ...messageInput, password: '[protected]' })
+    : generatedText;
   const passwordHistory = deliveryPasswordHistory(delivery);
-  const storedGeneratedTextIg = withPasswordHistoryMarker(generatedTextIg, passwordHistory);
+  const storedGeneratedTextIg = await withPasswordHistoryMarker(redactedMessage, passwordHistory, displayPassword, env);
 
-  if (generatedText || storedGeneratedTextIg) {
+  if (redactedMessage || storedGeneratedTextIg) {
     await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
-        generated_text_whatsapp: generatedText,
+        generated_text_whatsapp: redactedMessage,
         generated_text_instagram: storedGeneratedTextIg
       })
     }).catch((error) => {
@@ -3207,6 +3464,8 @@ async function handlePublicPaymentProofImageGet(request, env) {
 }
 
 async function handlePublicPaymentProofDelete(request, env) {
+  const limited = enforceRateLimit(request, 'payment-proof-write', { limit: 10, windowMs: 60 * 1000, blockMs: 5 * 60 * 1000 });
+  if (limited) return limited;
   try {
     const body = await request.json().catch(() => ({}));
     const proofId = String(body.proofId || '').trim();
@@ -3252,6 +3511,8 @@ async function handlePublicPaymentProofDelete(request, env) {
 }
 
 async function handlePaymentProofSubmit(request, env) {
+  const limited = enforceRateLimit(request, 'payment-proof-write', { limit: 10, windowMs: 60 * 1000, blockMs: 5 * 60 * 1000 });
+  if (limited) return limited;
   const uploadedPaths = [];
   try {
     const body = await request.json().catch(() => ({}));
@@ -3364,6 +3625,326 @@ async function handlePaymentProofSubmit(request, env) {
   }
 }
 
+async function handlePaymentProofReview(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const password = String(body.password || '').trim();
+  if (!(await verifyAdminRequest(request, env, password))) return json({ error: 'Unauthorized.' }, 401, {}, request);
+
+  const invoiceId = String(body.invoiceId || body.invoice_id || '').trim();
+  const proofId = String(body.proofId || body.proof_id || '').trim();
+  const rawProofIds = Array.isArray(body.proofIds) ? body.proofIds : (proofId ? [proofId] : []);
+  const requestedProofIds = [...new Set(rawProofIds.map((id) => String(id || '').trim()).filter(Boolean))];
+  const action = String(body.action || '').trim().toLowerCase();
+  if (!invoiceId) return json({ error: 'Missing invoice id.' }, 400, {}, request);
+  if (!['confirm', 'reject', 'reopen_request'].includes(action)) {
+    return json({ error: 'Invalid review action.' }, 400, {}, request);
+  }
+
+  const invRows = await supabaseFetch(
+    env,
+    `/rest/v1/invoices?select=*&id=eq.${encodeURIComponent(invoiceId)}&limit=1`
+  );
+  const invoice = Array.isArray(invRows) ? invRows[0] : invRows;
+  if (!invoice?.id) return json({ error: 'Invoice not found.' }, 404, {}, request);
+
+  const existingData = (invoice.invoice_data && typeof invoice.invoice_data === 'object')
+    ? { ...invoice.invoice_data }
+    : {};
+  const grandTotal = Math.max(
+    0,
+    Math.round(Number(invoice.grand_total || invoice.total || invoice.price) || 0)
+  );
+  const expectedUpdatedAt = String(invoice.updated_at || '').trim();
+  const invoiceOptimisticPath = expectedUpdatedAt
+    ? `/rest/v1/invoices?id=eq.${encodeURIComponent(invoiceId)}&updated_at=eq.${encodeURIComponent(expectedUpdatedAt)}`
+    : `/rest/v1/invoices?id=eq.${encodeURIComponent(invoiceId)}`;
+
+  if (action === 'reopen_request') {
+    const nextData = {
+      ...existingData,
+      depositAskOpen: true,
+      depositAskOpenedAt: new Date().toISOString(),
+    };
+    const nextStatus = String(invoice.status || '').toLowerCase() === 'paid' ? 'deposit' : (invoice.status || 'deposit');
+    const patchedInvRows = await supabaseFetch(
+      env,
+      invoiceOptimisticPath,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          status: nextStatus,
+          invoice_data: nextData,
+        }),
+      }
+    );
+    const updatedList = Array.isArray(patchedInvRows) ? patchedInvRows : [patchedInvRows].filter(Boolean);
+    if (!updatedList.length && expectedUpdatedAt) {
+      return json({ error: 'Invoice was updated by another request. Please refresh and try again.' }, 409, {}, request);
+    }
+    return json({ ok: true, invoice: updatedList[0] || { ...invoice, status: nextStatus, invoice_data: nextData } }, 200, {}, request);
+  }
+
+  const primaryProofId = proofId || requestedProofIds[0] || '';
+  if (!primaryProofId) return json({ error: 'Missing payment proof id.' }, 400, {}, request);
+
+  const allInvoiceProofs = await supabaseFetch(
+    env,
+    `/rest/v1/payment_proofs?select=*&invoice_id=eq.${encodeURIComponent(invoiceId)}&order=uploaded_at.asc`
+  ).then((rows) => (Array.isArray(rows) ? rows : []));
+
+  const proof = allInvoiceProofs.find((p) => String(p?.id || '') === primaryProofId);
+  if (!proof?.id) return json({ error: 'Payment proof not found.' }, 404, {}, request);
+
+  const targetUploadedAt = String(proof.uploaded_at || '').trim();
+  const batchProofs = allInvoiceProofs.filter((p) => {
+    const pid = String(p?.id || '');
+    if (!pid) return false;
+    if (requestedProofIds.includes(pid)) return true;
+    if (targetUploadedAt && String(p?.uploaded_at || '').trim() === targetUploadedAt) return true;
+    return false;
+  });
+  const batchProofIds = batchProofs.map((p) => String(p.id));
+  const batchFilter = `invoice_id=eq.${encodeURIComponent(invoiceId)}&id=in.(${inFilter(batchProofIds)})`;
+
+  const reviewedAt = new Date().toISOString();
+
+  if (action === 'reject') {
+    let updatedInvoice = invoice;
+    if (String(invoice.status || '').toLowerCase() === 'deposit' && existingData.depositAskOpen === false) {
+      const nextData = { ...existingData, depositAskOpen: true };
+      const iRows = await supabaseFetch(
+        env,
+        invoiceOptimisticPath,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ invoice_data: nextData }),
+        }
+      );
+      const updatedList = Array.isArray(iRows) ? iRows : [iRows].filter(Boolean);
+      if (!updatedList.length && expectedUpdatedAt) {
+        return json({ error: 'Invoice was updated by another request. Please refresh and try again.' }, 409, {}, request);
+      }
+      updatedInvoice = updatedList[0] || { ...invoice, invoice_data: nextData };
+    }
+
+    let patchedProofs = [];
+    try {
+      const pRows = await supabaseFetch(
+        env,
+        `/rest/v1/payment_proofs?${batchFilter}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ status: 'rejected', reviewed_at: reviewedAt }),
+        }
+      );
+      patchedProofs = Array.isArray(pRows) ? pRows : [pRows].filter(Boolean);
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+    }
+
+    const fallbackProofs = batchProofs.map((p) => ({ ...p, status: 'rejected', reviewed_at: reviewedAt }));
+    return json({
+      ok: true,
+      invoice: updatedInvoice,
+      proof: patchedProofs[0] || fallbackProofs[0],
+      proofs: patchedProofs.length ? patchedProofs : fallbackProofs,
+    }, 200, {}, request);
+  }
+
+  // action === 'confirm' — strict server-side accounting validation
+  const amount = Math.max(0, Math.round(Number(body.amount) || 0));
+  if (amount <= 0) return json({ error: 'Transfer amount must be greater than zero.' }, 400, {}, request);
+
+  const wibNow = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const fallbackDate = wibNow.toISOString().slice(0, 10);
+  const fallbackTime = wibNow.toISOString().slice(11, 16);
+  const paymentDate = cleanPaymentProofDate(body.paymentDate || proof.payment_date || proof.reported_payment_date) || fallbackDate;
+  const paymentTime = cleanPaymentProofTime(body.paymentTime || proof.payment_time || proof.reported_payment_time) || fallbackTime;
+
+  let depositPayments = Array.isArray(existingData.depositPayments)
+    ? existingData.depositPayments.map((item) => ({ ...item }))
+    : [];
+
+  if (
+    !depositPayments.length
+    && String(invoice.status || '').toLowerCase() === 'deposit'
+    && Math.round(Number(invoice.paid_amount) || 0) > 0
+  ) {
+    depositPayments.push({
+      id: crypto.randomUUID(),
+      paid: true,
+      paidAtDate: cleanPaymentProofDate(invoice.invoice_date) || fallbackDate,
+      paidAtTime: '',
+      amount: Math.max(0, Math.round(Number(invoice.paid_amount) || 0)),
+    });
+  }
+
+  const existingLinkedId = batchProofs
+    .map((p) => String(p?.linked_payment_id || '').trim())
+    .find(Boolean) || '';
+
+  const paidDepositsBefore = depositPayments
+    .filter((p) => p?.paid && (!existingLinkedId || String(p.id || '') !== existingLinkedId))
+    .reduce((sum, p) => sum + Math.max(0, Math.round(Number(p.amount) || 0)), 0);
+
+  const remainingBalance = grandTotal > 0 ? Math.max(0, grandTotal - paidDepositsBefore) : 0;
+
+  if (grandTotal > 0 && amount > remainingBalance) {
+    return json({
+      error: `Transfer amount (${amount}) exceeds the remaining balance due (${remainingBalance}). Please verify the amount.`,
+    }, 400, {}, request);
+  }
+
+  const requestedMode = String(body.mode || '').trim().toLowerCase();
+  if (requestedMode === 'paid' && grandTotal > 0 && (paidDepositsBefore + amount < grandTotal)) {
+    return json({
+      error: `Cannot mark Full Paid: transfer amount (${amount}) is less than the remaining balance due (${remainingBalance}).`,
+    }, 400, {}, request);
+  }
+
+  const isFullSettlement = grandTotal > 0
+    ? (paidDepositsBefore + amount === grandTotal)
+    : (requestedMode === 'paid');
+
+  let nextStatus = 'deposit';
+  let nextPaidAmount = 0;
+  let nextBalanceDue = 0;
+  let linkedPaymentId = existingLinkedId || '';
+  const nextData = { ...existingData };
+
+  if (isFullSettlement) {
+    nextStatus = 'paid';
+    if (existingLinkedId && existingLinkedId !== 'paid-receipt') {
+      depositPayments = depositPayments.filter((p) => String(p?.id || '') !== existingLinkedId);
+    }
+    nextData.depositPayments = depositPayments;
+    nextData.depositAskOpen = false;
+    nextData.paidReceipt = {
+      paid: true,
+      paidAtDate: paymentDate,
+      paidAtTime: paymentTime,
+      amount: grandTotal || (paidDepositsBefore + amount),
+    };
+    nextPaidAmount = grandTotal || (paidDepositsBefore + amount);
+    nextBalanceDue = 0;
+    linkedPaymentId = 'paid-receipt';
+  } else {
+    nextStatus = 'deposit';
+    if (existingLinkedId && existingLinkedId !== 'paid-receipt' && depositPayments.some((p) => String(p?.id || '') === existingLinkedId)) {
+      depositPayments = depositPayments.map((p) =>
+        String(p?.id || '') === existingLinkedId
+          ? { ...p, paid: true, paidAtDate: paymentDate, paidAtTime: paymentTime, amount }
+          : p
+      );
+    } else {
+      linkedPaymentId = crypto.randomUUID();
+      depositPayments.push({
+        id: linkedPaymentId,
+        paid: true,
+        paidAtDate: paymentDate,
+        paidAtTime: paymentTime,
+        amount,
+      });
+    }
+    nextData.depositPayments = depositPayments;
+    nextData.depositAskOpen = false;
+    nextData.requestBalanceDue = true;
+    nextPaidAmount = depositPayments
+      .filter((p) => p?.paid)
+      .reduce((sum, p) => sum + Math.max(0, Math.round(Number(p.amount) || 0)), 0);
+    nextBalanceDue = Math.max(0, grandTotal - nextPaidAmount);
+  }
+
+  // Step 1: Update the invoice FIRST with optimistic concurrency lock (updated_at).
+  // If another concurrent request already modified the invoice, abort with 409 Conflict
+  // before touching payment_proofs.
+  const patchedInvRows = await supabaseFetch(
+    env,
+    invoiceOptimisticPath,
+    {
+      method: 'PATCH',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify({
+        status: nextStatus,
+        paid_amount: nextPaidAmount,
+        balance_due: nextBalanceDue,
+        invoice_data: nextData,
+      }),
+    }
+  );
+  const updatedInvList = Array.isArray(patchedInvRows) ? patchedInvRows : [patchedInvRows].filter(Boolean);
+  if (!updatedInvList.length && expectedUpdatedAt) {
+    return json({ error: 'Invoice was modified by another request. Please refresh and try again.' }, 409, {}, request);
+  }
+  const updatedInvoice = updatedInvList[0] || {
+    ...invoice,
+    status: nextStatus,
+    paid_amount: nextPaidAmount,
+    balance_due: nextBalanceDue,
+    invoice_data: nextData,
+  };
+
+  // Step 2: Update the payment_proofs batch. If this fails for a non-schema reason,
+  // compensate by restoring the invoice to its previous snapshot so both tables stay in sync.
+  const richProofPatch = {
+    status: 'confirmed',
+    reviewed_at: reviewedAt,
+    payment_date: paymentDate,
+    payment_time: paymentTime || null,
+    linked_payment_id: linkedPaymentId || null,
+  };
+  let patchedProofs = [];
+  try {
+    try {
+      const pRows = await supabaseFetch(
+        env,
+        `/rest/v1/payment_proofs?${batchFilter}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify(richProofPatch),
+        }
+      );
+      patchedProofs = Array.isArray(pRows) ? pRows : [pRows].filter(Boolean);
+    } catch (error) {
+      if (!isSchemaError(error)) throw error;
+      const pRows = await supabaseFetch(
+        env,
+        `/rest/v1/payment_proofs?${batchFilter}`,
+        {
+          method: 'PATCH',
+          headers: { Prefer: 'return=representation' },
+          body: JSON.stringify({ status: 'confirmed', reviewed_at: reviewedAt }),
+        }
+      );
+      patchedProofs = Array.isArray(pRows) ? pRows : [pRows].filter(Boolean);
+    }
+  } catch (proofError) {
+    await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(invoiceId)}`, {
+      method: 'PATCH',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        status: invoice.status,
+        paid_amount: invoice.paid_amount,
+        balance_due: invoice.balance_due,
+        invoice_data: existingData,
+      }),
+    }).catch(() => {});
+    throw proofError;
+  }
+
+  const fallbackProofs = batchProofs.map((p) => ({ ...p, ...richProofPatch }));
+  return json({
+    ok: true,
+    invoice: updatedInvoice,
+    proof: patchedProofs[0] || fallbackProofs[0],
+    proofs: patchedProofs.length ? patchedProofs : fallbackProofs,
+  }, 200, {}, request);
+}
+
 async function handlePaymentProofImageGet(request, env) {
   const url = new URL(request.url);
   const password = String(url.searchParams.get('password') || '').trim();
@@ -3384,7 +3965,9 @@ async function handlePaymentProofImageGet(request, env) {
     headers: {
       'Content-Type': proof.mime_type || stored.headers.get('Content-Type') || 'image/jpeg',
       'Content-Disposition': `inline; filename="${String(proof.original_filename || 'payment-proof.jpg').replace(/[\"\\]/g, '')}"`,
-      'Cache-Control': 'private, no-store'
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'"
     }
   });
 }
@@ -3733,7 +4316,7 @@ function withFreshHtmlHeaders(response) {
 
 export default {
   async fetch(request, env) {
-    if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+    if (request.method === 'OPTIONS') return new Response(null, { headers: responseCorsHeaders(request) });
     const url = new URL(request.url);
 
     try {
@@ -3790,6 +4373,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/public-payment-proof-delete') return await handlePublicPaymentProofDelete(request, env);
       if (request.method === 'POST' && url.pathname === '/api/payment-proof-submit') return await handlePaymentProofSubmit(request, env);
       if (request.method === 'GET' && url.pathname === '/api/payment-proof-image') return await handlePaymentProofImageGet(request, env);
+      if (request.method === 'POST' && url.pathname === '/api/payment-proof-review') return await handlePaymentProofReview(request, env);
       if (request.method === 'POST' && url.pathname === '/api/click') return await handleClick(request, env);
       if (request.method === 'GET' && url.pathname === '/api/open-link') return await handleOpenLink(request, env);
 	      if (request.method === 'GET' && url.pathname === '/api/db') return await handleDbSearch(request, env);
