@@ -291,9 +291,14 @@ export function PasswordGate({ title, children }) {
           const data = await response.json().catch(() => ({}));
           const serverExpiry = Number(data?.expiresAt);
           if (!response.ok || data?.ok !== true
-            || !Number.isSafeInteger(serverExpiry)
-            || serverExpiry <= Date.now()
-            || serverExpiry !== sessionExpiresAt) {
+            || !Number.isSafeInteger(serverExpiry) || serverExpiry <= Date.now()) {
+            lockSession('Session expired. Please sign in again.', sessionExpiresAt);
+          } else if (serverExpiry > sessionExpiresAt) {
+            // Another tab completed a fresh login. Adopt its server-issued
+            // expiry instead of letting an older tab invalidate that session.
+            setSessionExpiresAt(serverExpiry);
+            safeLocalSet(key, JSON.stringify({ expiresAt: serverExpiry }));
+          } else if (serverExpiry !== sessionExpiresAt) {
             lockSession('Session expired. Please sign in again.', sessionExpiresAt);
           }
         })
