@@ -228,6 +228,9 @@ function ensureSmartReviewStyles() {
       font-weight:700 !important;
     }
     .payment-proof-viewer-body{
+      display:grid !important;
+      grid-template-columns:minmax(0,1fr) !important;
+      align-content:start !important;
       flex:1 1 auto !important;
       min-height:0 !important;
       overflow-y:auto !important;
@@ -466,7 +469,8 @@ function ensureSmartReviewStyles() {
         align-content:center;
       }
       .payment-proof-review-box,
-      .payment-proof-review-locked{
+      .payment-proof-review-locked,
+      .payment-proof-entry-layout > .payment-proof-quick-row{
         grid-column:1 / -1;
       }
       .payment-proof-review-grid{
