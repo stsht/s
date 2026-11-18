@@ -1615,6 +1615,14 @@ function animateAssets() {
 async function handleAdminCheck(request, env) {
   const body = await request.json().catch(() => ({}));
   if (body.logout === true) {
+    const expectedExpiry = Number(body.expiresAt);
+    if (Number.isSafeInteger(expectedExpiry) && expectedExpiry > 0) {
+      const cookieExpiry = Number(getCookie(request, ADMIN_SESSION_COOKIE).split('.')[0]);
+      // A delayed logout from an older tab must not clear a newer login.
+      if (cookieExpiry !== expectedExpiry) {
+        return json({ ok: true, loggedOut: false }, 200);
+      }
+    }
     return json({ ok: true, loggedOut: true }, 200, { 'Set-Cookie': clearAdminSessionCookie() });
   }
 
