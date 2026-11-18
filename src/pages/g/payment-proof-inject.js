@@ -68,6 +68,7 @@ function ensureStyle() {
     .public-payment-proof-ocr-indicator{display:inline-block;flex:0 0 16px;width:16px;height:16px;margin-top:1px;border:2px solid currentColor;border-radius:50%;box-sizing:border-box}
     .public-payment-proof-ocr-status.is-scanning{border-color:rgba(70,120,190,.35);background:rgba(70,120,190,.09);color:#416da7}
     .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator{border-right-color:transparent;animation:public-proof-ocr-spin .8s linear infinite}
+    .public-payment-proof-button .public-payment-proof-ocr-indicator{border-right-color:transparent;animation:public-proof-ocr-spin .8s linear infinite}
     .public-payment-proof-ocr-status.is-detected{border-color:rgba(31,138,76,.3);background:rgba(31,138,76,.08);color:var(--success-state,#1f8a4c)}
     .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator{position:relative;border:0}
     .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator::after{content:'✓';position:absolute;inset:-3px 0 0;font-size:17px;font-weight:800}
