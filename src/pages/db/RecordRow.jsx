@@ -139,6 +139,15 @@ function ensureSmartReviewStyles() {
     .payment-proof-review-error{
       margin:0;color:var(--danger, #c93b42);font-size:.74rem;font-weight:800;
     }
+    .payment-proof-review-locked{
+      display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+      margin-top:4px;padding:10px 12px;border:1px solid var(--line);border-radius:13px;
+      background:var(--field);color:var(--muted);font-size:.72rem;line-height:1.45;
+    }
+    .payment-proof-review-locked strong{
+      color:var(--danger, #c93b42);font-size:.68rem;font-weight:900;
+      letter-spacing:.06em;text-transform:uppercase;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -414,7 +423,9 @@ function PaymentProofEntryReview({ entry, summary, onReviewed }) {
   const [error, setError] = useState('');
   const [editingConfirmed, setEditingConfirmed] = useState(false);
 
-  const isConfirmed = String(entry.status || '').toLowerCase() === 'confirmed';
+  const entryStatus = String(entry.status || '').toLowerCase();
+  const isConfirmed = entryStatus === 'confirmed';
+  const isRejected = entryStatus === 'rejected';
   const numericAmount = parseNumericInput(amountInput);
   const classification = useMemo(
     () => classifyTransferAmount(numericAmount, summary),
@@ -434,6 +445,15 @@ function PaymentProofEntryReview({ entry, summary, onReviewed }) {
         >
           Edit Review
         </button>
+      </div>
+    );
+  }
+
+  if (isRejected) {
+    return (
+      <div className="payment-proof-review-locked" role="status">
+        <strong>Proof rejected</strong>
+        <span>This submission is closed. The client can upload a replacement proof.</span>
       </div>
     );
   }
@@ -819,8 +839,13 @@ export function RecordRow({
   const currentAskProofs = askDpActive && askOpenedAt
     ? paymentProofs.filter((proof) => !proof.uploadedAt || Date.parse(proof.uploadedAt) >= Date.parse(askOpenedAt))
     : paymentProofs;
-  const paymentStateClass = askDpActive && !currentAskProofs.some((proof) => String(proof.status || '').toLowerCase() === 'confirmed')
-    ? ' is-created'
+  const currentAskPaymentState = paymentState(currentAskProofs);
+  const paymentStateClass = askDpActive
+    ? (currentAskPaymentState === ' is-rejected'
+      ? ' is-rejected'
+      : currentAskPaymentState === ' is-complete'
+        ? ' is-complete'
+        : ' is-created')
     : paymentState(paymentProofs);
   const vendorPaymentStateClass = paymentState(vendorPaymentProofs);
   const vendorSummaryStateClass = vendorSummaryState({
