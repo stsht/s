@@ -50,7 +50,7 @@ const LOGO_PATH = '/logo-hero.png';
 const ADMIN_SESSION_COOKIE = 'ss_admin_session';
 const ADMIN_SESSION_MS = 15 * 60 * 1000;
 const GALLERY_SESSION_COOKIE = 'ss_gallery_session';
-const GALLERY_SESSION_MS = 6 * 60 * 60 * 1000;
+const GALLERY_SESSION_MS = 2 * 60 * 60 * 1000;
 const GALLERY_HASH_ALGO = 'pbkdf2_sha256';
 const GALLERY_HASH_ITERATIONS = 100000;
 const RATE_LIMITS = new Map();
@@ -341,13 +341,15 @@ function clearAdminSessionCookie() {
   return `${ADMIN_SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
 }
 
-async function createGallerySessionCookie(env, deliveryId) {
+async function createGallerySession(env, deliveryId) {
   const cleanId = String(deliveryId || '').trim();
+  if (!cleanId) throw new Error('Cannot create a gallery session without a delivery ID.');
   const expiresAt = Date.now() + GALLERY_SESSION_MS;
   const nonce = randomToken(12);
   const payload = `${cleanId}.${expiresAt}.${nonce}`;
   const signature = await hmacSha256(getAdminPassword(env), payload);
-  return `${GALLERY_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(GALLERY_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
+  const cookie = `${GALLERY_SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; Path=/; Max-Age=${Math.floor(GALLERY_SESSION_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`;
+  return { cookie, expiresAt };
 }
 
 async function verifyAdminSessionCookiePayload(request, env) {
@@ -380,17 +382,35 @@ async function verifyAdminSessionCookie(request, env) {
   return session.valid;
 }
 
-async function verifyGallerySessionCookie(request, env, deliveryId) {
+async function readGallerySessionCookie(request, env, deliveryId) {
   const expectedId = String(deliveryId || '').trim();
   const token = getCookie(request, GALLERY_SESSION_COOKIE);
   const parts = token.split('.');
-  if (!expectedId || parts.length !== 4) return false;
+  if (!expectedId || parts.length !== 4) return { valid: false, expiresAt: 0 };
   const [sessionDeliveryId, expiresAtRaw, nonce, signature] = parts;
   const expiresAt = Number(expiresAtRaw);
-  if (sessionDeliveryId !== expectedId || !Number.isFinite(expiresAt) || expiresAt < Date.now() || !nonce || !signature) return false;
+  const now = Date.now();
+  if (
+    sessionDeliveryId !== expectedId
+    || !Number.isSafeInteger(expiresAt)
+    || expiresAt <= now
+    // Reject gallery cookies issued under the previous six-hour lifetime
+    // when they have more than the new two-hour maximum remaining.
+    || expiresAt - now > GALLERY_SESSION_MS
+    || !nonce
+    || !signature
+  ) {
+    return { valid: false, expiresAt: 0 };
+  }
   const payload = `${sessionDeliveryId}.${expiresAtRaw}.${nonce}`;
   const expected = await hmacSha256(getAdminPassword(env), payload);
-  return safeEqual(signature, expected);
+  if (!safeEqual(signature, expected)) return { valid: false, expiresAt: 0 };
+  return { valid: true, expiresAt };
+}
+
+async function verifyGallerySessionCookie(request, env, deliveryId) {
+  const session = await readGallerySessionCookie(request, env, deliveryId);
+  return session.valid;
 }
 
 async function verifyAdminRequest(request, env, password = '') {
@@ -1915,11 +1935,12 @@ async function handleAdminOpenDelivery(request, env) {
   const shortCode = deliveryShortCode(delivery) || explicitShortCode(delivery);
   if (!shortCode) return json({ error: 'Delivery short link is unavailable.' }, 404);
 
+  const gallerySession = await createGallerySession(env, delivery.id);
   return new Response(null, {
     status: 302,
     headers: {
       Location: `/${encodeURIComponent(shortCode)}`,
-      'Set-Cookie': await createGallerySessionCookie(env, delivery.id),
+      'Set-Cookie': gallerySession.cookie,
       'Cache-Control': 'no-store'
     }
   });
@@ -1945,7 +1966,8 @@ async function handleUnlock(request, env) {
   //
   // Public visitors are unaffected: with no admin cookie they go down
   // the existing password / rate-limit path.
-  const adminBypass = await verifyAdminSessionCookie(request, env);
+  const adminSession = await verifyAdminSessionCookiePayload(request, env);
+  const adminBypass = adminSession.valid;
 
   // Rate-limit only real password attempts. Two reasons:
   //   1. The gallery page now does an empty-password probe on mount
@@ -1962,15 +1984,15 @@ async function handleUnlock(request, env) {
   const delivery = await getDeliveryByLookup(env, lookup);
   if (!delivery) return json({ error: 'Delivery not found.' }, 404);
 
+  const gallerySession = await readGallerySessionCookie(request, env, delivery.id);
   if (adminBypass) {
     // Distinct event so admin previews don't pollute the
     // password_success / opens stats with operator-side traffic.
     await insertLog(env, request, delivery.id, 'admin_unlock');
   } else {
-    const galleryBypass = await verifyGallerySessionCookie(request, env, delivery.id);
-    if (galleryBypass && !password) {
+    if (gallerySession.valid && !password) {
       const payload = await publicDeliveryPayload(env, delivery);
-      return json({ ok: true, ...payload });
+      return json({ ok: true, sessionExpiresAt: gallerySession.expiresAt, ...payload });
     }
 
     // Empty-password probe by a non-admin visitor.
@@ -2003,8 +2025,39 @@ async function handleUnlock(request, env) {
   }
 
   const payload = await publicDeliveryPayload(env, delivery);
-  const headers = adminBypass ? {} : { 'Set-Cookie': await createGallerySessionCookie(env, delivery.id) };
-  return json({ ok: true, ...payload }, 200, headers);
+  if (adminBypass) {
+    // /api/admin-open-delivery also mints a two-hour, delivery-bound
+    // gallery cookie. Prefer that fixed expiry when present; otherwise
+    // the admin session itself remains the authority (15 minutes).
+    const sessionExpiresAt = gallerySession.valid ? gallerySession.expiresAt : adminSession.expiresAt;
+    return json({ ok: true, sessionExpiresAt, ...payload });
+  }
+  const newGallerySession = await createGallerySession(env, delivery.id);
+  return json(
+    { ok: true, sessionExpiresAt: newGallerySession.expiresAt, ...payload },
+    200,
+    { 'Set-Cookie': newGallerySession.cookie, 'Cache-Control': 'no-store' }
+  );
+}
+
+async function handleGallerySessionCheck(request, env) {
+  const url = new URL(request.url);
+  const lookup = String(url.searchParams.get('slug') || url.searchParams.get('shortCode') || '').trim();
+  if (!lookup) return json({ ok: false }, 400, { 'Cache-Control': 'no-store' });
+
+  const delivery = await getDeliveryByLookup(env, lookup);
+  if (!delivery?.id) return json({ ok: false }, 404, { 'Cache-Control': 'no-store' });
+
+  // The gallery cookie is delivery-bound. An admin session may also
+  // access the page, but this endpoint never returns delivery data.
+  const gallerySession = await readGallerySessionCookie(request, env, delivery.id);
+  const adminSession = await verifyAdminSessionCookiePayload(request, env);
+  const session = gallerySession.valid ? gallerySession : adminSession;
+  if (!session.valid || !Number.isSafeInteger(session.expiresAt) || session.expiresAt <= Date.now()) {
+    return json({ ok: false, error: 'Gallery session is no longer active.' }, 401, { 'Cache-Control': 'no-store' });
+  }
+
+  return json({ ok: true, sessionExpiresAt: session.expiresAt }, 200, { 'Cache-Control': 'no-store' });
 }
 
 const ALLOWED_PUBLIC_CLICK_EVENTS = new Set([
@@ -4428,6 +4481,7 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/save') return await handleSave(request, env);
       if (request.method === 'GET' && url.pathname === '/api/admin-open-delivery') return await handleAdminOpenDelivery(request, env);
       if (request.method === 'POST' && url.pathname === '/api/unlock') return await handleUnlock(request, env);
+      if (request.method === 'GET' && url.pathname === '/api/gallery-session-check') return await handleGallerySessionCheck(request, env);
       if (request.method === 'GET' && url.pathname === '/api/public-payment-proofs') return await handlePublicPaymentProofsGet(request, env);
       if (request.method === 'GET' && url.pathname === '/api/public-payment-proof-image') return await handlePublicPaymentProofImageGet(request, env);
       if (request.method === 'POST' && url.pathname === '/api/public-payment-proof-delete') return await handlePublicPaymentProofDelete(request, env);
