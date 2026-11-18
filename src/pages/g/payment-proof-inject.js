@@ -135,6 +135,101 @@ function ensureStyle() {
     .public-payment-proof-history{grid-column:1;justify-self:end;min-width:64px;min-height:36px;padding:0 14px;border:1px solid transparent;border-radius:18px;background:#f0f4f9;color:#596579;font:inherit;font-size:10px;font-weight:900;letter-spacing:.14em;cursor:pointer}
     .public-payment-proof-history[hidden]{display:none}
     .public-payment-proof-history:disabled{opacity:.6;cursor:wait}
+    /* Payment Details — calm, centered, receipt-first presentation. */
+    .public-payment-proof-head.is-upload{
+      position:relative;display:grid;grid-template-columns:1fr;justify-items:center;
+      padding:28px 64px 14px;border:0;text-align:center;
+    }
+    .public-payment-proof-head.is-upload > div{display:grid;justify-items:center;gap:7px}
+    .public-payment-proof-head.is-upload strong{font-size:22px;font-weight:600;letter-spacing:-.035em;line-height:1.2}
+    .public-payment-proof-head.is-upload .public-payment-proof-subtitle{
+      margin:0;color:var(--muted);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;text-transform:none;
+    }
+    .public-payment-proof-close{
+      position:absolute;top:16px;right:16px;width:34px;height:34px;
+      border:0;border-radius:50%;background:color-mix(in srgb,var(--field) 78%,transparent);
+      color:var(--muted);font-size:21px;font-weight:400;line-height:1;
+      transition:background .16s ease,color .16s ease;
+    }
+    .public-payment-proof-close:hover{background:var(--soft);color:var(--ink)}
+    .public-payment-proof-close:focus-visible{outline:2px solid color-mix(in srgb,var(--ink) 36%,transparent);outline-offset:3px}
+    .public-payment-proof-upload-form{gap:16px;padding:10px 24px 0}
+    .public-payment-proof-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .public-payment-proof-upload-grid.is-single{grid-template-columns:minmax(0,420px);justify-content:center}
+    .public-payment-proof-upload-thumb{
+      display:grid;place-items:center;width:100%;height:220px;min-height:180px;max-height:300px;
+      padding:10px;border:0;border-radius:18px;background:#f5f6f8;
+    }
+    .public-payment-proof-upload-thumb img{width:100%;height:100%;object-fit:contain}
+    .public-payment-proof-field-group{
+      gap:0;overflow:hidden;border:0;border-radius:17px;background:color-mix(in srgb,var(--field) 76%,var(--panel));
+    }
+    .public-payment-proof-field-group > label{
+      min-width:0;gap:7px;padding:13px 16px;color:var(--muted);
+      font-size:11px;font-weight:600;letter-spacing:.01em;text-transform:none;
+    }
+    .public-payment-proof-field-group > label + label{
+      border-left:1px solid color-mix(in srgb,var(--line) 72%,transparent);
+    }
+    .public-payment-proof-date-control input,.public-payment-proof-time-text{
+      height:28px;padding:0;border:0;border-radius:0;background:transparent;
+      color:var(--ink);font-size:15px;font-weight:600;box-shadow:none;
+    }
+    .public-payment-proof-date-control input:focus-visible,.public-payment-proof-time-text:focus-visible{
+      border:0;outline:2px solid color-mix(in srgb,var(--ink) 24%,transparent);outline-offset:3px;box-shadow:none;
+    }
+    .public-payment-proof-date-control input::-webkit-calendar-picker-indicator{right:0}
+    .public-payment-proof-date-chevron{right:2px}
+    .public-payment-proof-time-controls{min-height:28px}
+    .public-payment-proof-native-time{right:0;width:28px;height:28px}
+    .public-payment-proof-ocr-status{
+      gap:10px;padding:12px 14px;border-radius:14px;
+      background:color-mix(in srgb,var(--field) 76%,var(--panel));font-size:12px;
+    }
+    .public-payment-proof-ocr-copy strong{font-size:12px;font-weight:650}
+    .public-payment-proof-ocr-copy small{font-size:11px;line-height:1.4}
+    .public-payment-proof-actions{
+      align-items:center;gap:10px;padding:14px 24px 22px;
+    }
+    .public-payment-proof-actions .public-payment-proof-button{
+      min-height:44px;border-radius:999px;font-size:12px;font-weight:600;
+    }
+    .public-payment-proof-actions .public-payment-proof-button:not(.is-primary){
+      min-width:96px;padding-inline:18px;border:0;background:transparent;color:var(--muted);
+    }
+    .public-payment-proof-actions .public-payment-proof-button:not(.is-primary):hover{
+      background:color-mix(in srgb,var(--field) 80%,transparent);color:var(--ink);
+    }
+    .public-payment-proof-actions .public-payment-proof-button.is-primary{
+      min-width:172px;padding-inline:24px;border:0;background:var(--ink);color:var(--panel);
+    }
+    .public-payment-proof-actions .public-payment-proof-button.is-primary:disabled{
+      background:color-mix(in srgb,var(--ink) 8%,var(--panel));color:var(--muted);cursor:not-allowed;
+    }
+    @media(prefers-color-scheme:dark){
+      .public-payment-proof-upload-thumb{background:#202228}
+      .public-payment-proof-field-group,.public-payment-proof-ocr-status{background:#202228}
+      .public-payment-proof-field-group > label + label{border-left-color:rgba(255,255,255,.09)}
+      .public-payment-proof-close{background:#292b32;color:#b8bac2}
+      .public-payment-proof-close:hover{background:#34363e;color:#fff}
+    }
+    @media(max-width:600px){
+      .public-payment-proof-head.is-upload{padding:25px 58px 12px}
+      .public-payment-proof-head.is-upload strong{font-size:20px}
+      .public-payment-proof-upload-form{gap:14px;padding:8px 18px 0}
+      .public-payment-proof-upload-grid.is-single{grid-template-columns:minmax(0,1fr)}
+      .public-payment-proof-upload-thumb{height:190px;max-height:240px}
+      .public-payment-proof-field-group{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .public-payment-proof-field-group > label{padding:11px 12px;font-size:10px}
+      .public-payment-proof-field-group > label + label{border-left:1px solid color-mix(in srgb,var(--line) 72%,transparent)}
+      .public-payment-proof-date-control input,.public-payment-proof-time-text{font-size:14px}
+      .public-payment-proof-actions{
+        grid-template-columns:minmax(0,.85fr) minmax(0,1.4fr);gap:8px;
+        padding:12px 18px calc(16px + env(safe-area-inset-bottom));
+      }
+      .public-payment-proof-actions .public-payment-proof-button{width:100%;min-width:0;padding-inline:12px}
+      .public-payment-proof-actions .public-payment-proof-button.is-primary{min-width:0;padding-inline:14px}
+    }
     @media(prefers-color-scheme:dark){
       .public-payment-proof-history{background:#202228;color:#a1a1aa}
       .public-payment-proof-card,.public-payment-proof-card.is-confirmed,.public-payment-proof-card.is-pending,.public-payment-proof-card.is-rejected{
@@ -611,13 +706,14 @@ function renderUploadForm(sheet) {
   if (!draft) return;
 
   const head = document.createElement('header');
-  head.className = 'public-payment-proof-head';
+  head.className = 'public-payment-proof-head is-upload';
   const heading = document.createElement('div');
-  const eyebrow = document.createElement('p');
-  eyebrow.textContent = 'Upload';
   const title = document.createElement('strong');
   title.textContent = 'Payment Details';
-  heading.append(eyebrow, title);
+  const subtitle = document.createElement('p');
+  subtitle.className = 'public-payment-proof-subtitle';
+  subtitle.textContent = 'Verify transfer date and time before uploading';
+  heading.append(title, subtitle);
   const close = document.createElement('button');
   close.type = 'button';
   close.className = 'public-payment-proof-close';
@@ -629,7 +725,7 @@ function renderUploadForm(sheet) {
   const form = document.createElement('form');
   form.className = 'public-payment-proof-upload-form';
   const previews = document.createElement('div');
-  previews.className = 'public-payment-proof-upload-grid';
+  previews.className = `public-payment-proof-upload-grid${draft.previews.length === 1 ? ' is-single' : ''}`;
   draft.previews.forEach((url, index) => {
     const thumb = document.createElement('button');
     thumb.type = 'button';
@@ -644,7 +740,7 @@ function renderUploadForm(sheet) {
   });
 
   const fields = document.createElement('div');
-  fields.className = 'public-payment-proof-upload-fields';
+  fields.className = 'public-payment-proof-upload-fields public-payment-proof-field-group';
   const dateLabel = document.createElement('label');
   dateLabel.textContent = 'Payment Date';
   const dateControl = document.createElement('span');
@@ -794,19 +890,11 @@ function renderUploadForm(sheet) {
   });
   const isScanning = draft.ocrStatus === 'scanning';
   const upload = createButton(
-    proofStore.busy ? 'Uploading…' : isScanning ? 'Scanning receipt…' : 'Upload Proof',
+    proofStore.busy ? 'Uploading…' : 'Upload Proof',
     'is-primary',
     () => uploadProof(draft)
   );
-  if (isScanning && !proofStore.busy) {
-    const spinner = document.createElement('span');
-    spinner.className = 'public-payment-proof-ocr-indicator';
-    spinner.setAttribute('aria-hidden', 'true');
-    const label = document.createElement('span');
-    label.textContent = 'Scanning receipt…';
-    upload.replaceChildren(spinner, label);
-    upload.setAttribute('aria-busy', 'true');
-  }
+  if (proofStore.busy) upload.setAttribute('aria-busy', 'true');
   uploadAction = upload;
   cancel.disabled = proofStore.busy;
   syncTimeValidity();
