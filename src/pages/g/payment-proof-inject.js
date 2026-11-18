@@ -146,13 +146,23 @@ function ensureStyle() {
       margin:0;color:var(--muted);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;text-transform:none;
     }
     .public-payment-proof-close{
-      position:absolute;top:16px;right:16px;width:34px;height:34px;
-      border:0;border-radius:50%;background:color-mix(in srgb,var(--field) 78%,transparent);
-      color:var(--muted);font-size:21px;font-weight:400;line-height:1;
-      transition:background .16s ease,color .16s ease;
+      position:static;display:grid;place-items:center;flex:0 0 32px;
+      width:32px;height:32px;min-height:32px;padding:0;
+      border:0;border-radius:0;background:transparent;color:var(--muted);
+      font:inherit;font-size:23px;font-weight:400;line-height:1;box-shadow:none;
+      transition:color .16s ease;
     }
-    .public-payment-proof-close:hover{background:var(--soft);color:var(--ink)}
+    .public-payment-proof-close:hover{border:0;background:transparent;color:var(--ink)}
     .public-payment-proof-close:focus-visible{outline:2px solid color-mix(in srgb,var(--ink) 36%,transparent);outline-offset:3px}
+    .public-payment-proof-head.is-upload .public-payment-proof-close{
+      position:absolute;top:16px;left:16px;right:auto;
+    }
+    .public-payment-proof-head:not(.is-upload){
+      justify-content:flex-start;gap:14px;padding:18px 24px 12px;border-bottom:0;
+    }
+    .public-payment-proof-head:not(.is-upload) > div{display:grid;gap:4px}
+    .public-payment-proof-head:not(.is-upload) p{margin:0;font-size:10px;letter-spacing:.14em}
+    .public-payment-proof-head:not(.is-upload) strong{font-size:21px;font-weight:600;letter-spacing:-.025em}
     .public-payment-proof-upload-form{gap:16px;padding:10px 24px 0}
     .public-payment-proof-upload-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .public-payment-proof-upload-grid.is-single{grid-template-columns:minmax(0,420px);justify-content:center}
@@ -212,12 +222,41 @@ function ensureStyle() {
     .public-payment-proof-actions .public-payment-proof-button.is-primary:disabled{
       background:color-mix(in srgb,var(--ink) 8%,var(--panel));color:var(--muted);cursor:not-allowed;
     }
+    /* Proof history mirrors the receipt-first upload surface. */
+    .public-payment-proof-body{
+      grid-template-columns:minmax(0,1fr);align-content:start;
+      gap:12px;padding:12px 24px 24px;
+    }
+    .public-payment-proof-entry{
+      display:grid;grid-template-columns:minmax(0,1fr);gap:12px;
+      width:min(100%,580px);justify-self:center;box-sizing:border-box;
+      padding:14px;border:0;border-radius:18px;background:#f5f5f4;
+    }
+    .public-payment-proof-thumb{
+      display:grid;place-items:center;height:240px;padding:8px;
+      border:0;border-radius:14px;background:#e9e9e8;box-sizing:border-box;
+    }
+    .public-payment-proof-thumb img{object-fit:contain}
+    .public-payment-proof-meta-head{align-items:center}
+    .public-payment-proof-meta strong{font-size:14px;font-weight:600;letter-spacing:-.01em}
+    .public-payment-proof-times{gap:10px;margin-top:12px}
+    .public-payment-proof-times dt{font-size:10px;font-weight:600;letter-spacing:.1em}
+    .public-payment-proof-times dd{font-size:13px;font-weight:600}
+    @media(prefers-color-scheme:dark){
+      .public-payment-proof-entry{background:#222329}
+      .public-payment-proof-thumb{background:#33343a}
+    }
+    @media(max-width:600px){
+      .public-payment-proof-body{padding:10px 18px 20px}
+      .public-payment-proof-entry{padding:12px}
+      .public-payment-proof-thumb{height:220px}
+    }
     @media(prefers-color-scheme:dark){
       .public-payment-proof-upload-thumb{background:#202228}
       .public-payment-proof-field-group,.public-payment-proof-ocr-status{background:#202228}
       .public-payment-proof-field-group > label + label{border-left-color:rgba(255,255,255,.09)}
-      .public-payment-proof-close{background:#292b32;color:#b8bac2}
-      .public-payment-proof-close:hover{background:#34363e;color:#fff}
+      .public-payment-proof-close{background:transparent;color:#b8bac2}
+      .public-payment-proof-close:hover{background:transparent;color:#fff}
     }
     @media(max-width:600px){
       .public-payment-proof-head.is-upload{padding:25px 58px 12px}
@@ -936,7 +975,7 @@ function renderModal() {
   close.setAttribute('aria-label', 'Close payment proof');
   close.textContent = '×';
   close.addEventListener('click', closeModal);
-  head.append(heading, close);
+  head.append(close, heading);
 
   const body = document.createElement('div');
   body.className = 'public-payment-proof-body';
