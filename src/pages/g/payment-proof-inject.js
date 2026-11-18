@@ -63,7 +63,22 @@ function ensureStyle() {
     .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--success-state, #1f8a4c) 20%,transparent);color:color-mix(in srgb,var(--success-state, #1f8a4c) 78%,var(--ink))}.public-payment-proof-status.is-rejected{background:rgba(190,58,68,.12);color:#b32939}
     .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:600;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
     .public-payment-proof-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.public-payment-proof-error{margin:0 20px 16px;color:#b32939;font-size:12px;font-weight:700}
-    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.public-payment-proof-upload-fields label{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}.public-payment-proof-upload-fields input{min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;color-scheme:light dark}.public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+    .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.public-payment-proof-upload-fields label{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}.public-payment-proof-upload-fields input{min-width:0;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:14px;color-scheme:light dark}
+    .public-payment-proof-ocr-status{display:flex;align-items:flex-start;gap:10px;margin:0;padding:11px 13px;border:1px solid var(--line);border-radius:14px;background:var(--field);color:var(--ink);font-size:12px;line-height:1.4}
+    .public-payment-proof-ocr-indicator{display:inline-block;flex:0 0 16px;width:16px;height:16px;margin-top:1px;border:2px solid currentColor;border-radius:50%;box-sizing:border-box}
+    .public-payment-proof-ocr-status.is-scanning{border-color:rgba(70,120,190,.35);background:rgba(70,120,190,.09);color:#416da7}
+    .public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator{border-right-color:transparent;animation:public-proof-ocr-spin .8s linear infinite}
+    .public-payment-proof-ocr-status.is-detected{border-color:rgba(31,138,76,.3);background:rgba(31,138,76,.08);color:var(--success-state,#1f8a4c)}
+    .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator{position:relative;border:0}
+    .public-payment-proof-ocr-status.is-detected .public-payment-proof-ocr-indicator::after{content:'✓';position:absolute;inset:-3px 0 0;font-size:17px;font-weight:800}
+    .public-payment-proof-ocr-status.is-manual{border-color:var(--line);background:var(--field);color:var(--muted)}
+    .public-payment-proof-ocr-status.is-fallback{border-color:rgba(185,125,45,.32);background:rgba(185,125,45,.08);color:#916522}
+    .public-payment-proof-ocr-copy{display:grid;gap:3px;min-width:0}
+    .public-payment-proof-ocr-copy strong{font-size:12px;font-weight:750}
+    .public-payment-proof-ocr-copy small{color:var(--muted);font-size:11px}
+    @keyframes public-proof-ocr-spin{to{transform:rotate(360deg)}}
+    @media(prefers-reduced-motion:reduce){.public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator{animation:none;border-right-color:currentColor;border-top-color:transparent}}
+    .public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
     .public-payment-proof-lightbox{position:absolute;inset:0;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr);padding:18px;background:rgba(4,7,14,.94)}.public-payment-proof-lightbox-head{display:flex;justify-content:flex-end;padding-bottom:12px}.public-payment-proof-lightbox-image{width:100%;height:100%;min-height:0;object-fit:contain}
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
     @media(max-width:1023px){.public-payment-proof-card{grid-template-columns:44px minmax(0,1fr) auto;gap:14px;min-height:64px;padding:10px 16px;box-sizing:border-box}.public-payment-proof-icon{width:36px;height:36px;border-radius:12px;font-size:11px}.public-payment-proof-label{font-size:15px}.public-payment-proof-action{font-size:11px;letter-spacing:.16em}}
@@ -396,6 +411,8 @@ function openUploadDetails(files) {
         draft.timezoneOffsetMinutes
       );
       draft.ocrStatus = 'detected';
+    } else if (draft.userEdited) {
+      draft.ocrStatus = 'manual';
     } else {
       draft.ocrStatus = 'fallback';
     }
@@ -423,7 +440,7 @@ function chooseFiles() {
 
 async function uploadProof(draft = proofStore.uploadDraft) {
   const selected = Array.from(draft?.files || []).slice(0, MAX_IMAGES);
-  if (!selected.length || proofStore.busy) return;
+  if (!selected.length || proofStore.busy || draft !== proofStore.uploadDraft || draft.ocrStatus === 'scanning') return;
   proofStore.busy = true;
   proofStore.error = '';
   updateAllCards();
@@ -596,6 +613,7 @@ function renderUploadForm(sheet) {
   dateInput.disabled = proofStore.busy;
   dateInput.addEventListener('input', () => {
     draft.userEdited = true;
+    if (draft.ocrStatus !== 'scanning') draft.ocrStatus = 'manual';
     draft.paymentDate = dateInput.value;
     draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
     updateTimezoneNote();
@@ -609,6 +627,7 @@ function renderUploadForm(sheet) {
   timeInput.disabled = proofStore.busy;
   timeInput.addEventListener('input', () => {
     draft.userEdited = true;
+    if (draft.ocrStatus !== 'scanning') draft.ocrStatus = 'manual';
     draft.paymentTime = timeInput.value;
     draft.timezoneOffsetMinutes = timezoneOffsetForLocalPayment(draft.paymentDate, draft.paymentTime, draft.timezoneOffsetMinutes);
     updateTimezoneNote();
@@ -616,20 +635,37 @@ function renderUploadForm(sheet) {
   timeLabel.appendChild(timeInput);
   fields.append(dateLabel, timeLabel);
 
-  const timezone = document.createElement('p');
-  timezone.className = 'public-payment-proof-timezone';
+  const timezone = document.createElement('div');
+  timezone.className = 'public-payment-proof-ocr-status';
+  timezone.setAttribute('role', 'status');
+  timezone.setAttribute('aria-live', 'polite');
+  timezone.setAttribute('aria-atomic', 'true');
   const updateTimezoneNote = () => {
-    const sourceText = draft.ocrStatus === 'scanning'
-      ? 'Reading transfer time from receipt…'
-      : draft.ocrStatus === 'detected' && !draft.userEdited
-        ? 'Auto-detected from receipt — please verify'
-        : 'Prefilled from this device';
-    timezone.textContent = `${sourceText} · ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}.`;
+    const status = draft.ocrStatus || 'fallback';
+    const copy = {
+      scanning: ['Reading receipt date & time…', 'Upload Proof will be available when scanning finishes.'],
+      detected: ['Receipt details detected', 'Please verify the date and time before uploading.'],
+      manual: ['Manual edits retained', 'Your changes were kept. Please verify before uploading.'],
+      fallback: ['Couldn’t read receipt automatically', 'Check or enter the transfer date and time manually.'],
+    }[status] || ['Check transfer details', 'Please verify the date and time before uploading.'];
+    timezone.className = `public-payment-proof-ocr-status is-${status}`;
+    const indicator = document.createElement('span');
+    indicator.className = 'public-payment-proof-ocr-indicator';
+    indicator.setAttribute('aria-hidden', 'true');
+    const message = document.createElement('span');
+    message.className = 'public-payment-proof-ocr-copy';
+    const title = document.createElement('strong');
+    title.textContent = copy[0];
+    const detail = document.createElement('small');
+    detail.textContent = `${copy[1]} ${timezoneOffsetLabel(draft.timezoneOffsetMinutes)}.`;
+    message.append(title, detail);
+    timezone.replaceChildren(indicator, message);
   };
   updateTimezoneNote();
   form.append(previews, fields, timezone);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
+    if (draft.ocrStatus === 'scanning') return;
     uploadProof(draft);
   });
 
@@ -648,9 +684,21 @@ function renderUploadForm(sheet) {
     if (proofStore.proofs.length) renderModal();
     else closeModal();
   });
-  const upload = createButton(proofStore.busy ? 'Uploading…' : 'Upload Proof', 'is-primary', () => uploadProof(draft));
+  const isScanning = draft.ocrStatus === 'scanning';
+  const upload = createButton(
+    proofStore.busy ? 'Uploading…' : isScanning ? 'Detecting receipt…' : 'Upload Proof',
+    'is-primary',
+    () => uploadProof(draft)
+  );
+  if (isScanning && !proofStore.busy) {
+    const spinner = document.createElement('span');
+    spinner.className = 'public-payment-proof-ocr-indicator';
+    spinner.setAttribute('aria-hidden', 'true');
+    upload.prepend(spinner);
+    upload.setAttribute('aria-busy', 'true');
+  }
   cancel.disabled = proofStore.busy;
-  upload.disabled = proofStore.busy;
+  upload.disabled = proofStore.busy || isScanning;
   actions.append(cancel, upload);
   sheet.appendChild(actions);
 }
