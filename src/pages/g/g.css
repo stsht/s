@@ -371,3 +371,193 @@ button.public-delivery-row{background:#f5f5f4}
 @media(prefers-reduced-motion:reduce){
   .public-delivery-invoice,.public-delivery-row{transition:none}
 }
+
+
+/* Client invoice + payment surfaces — shared quiet monochrome language. */
+.public-invoice-viewer-toolbar{
+  justify-content:flex-start;
+  gap:14px;
+}
+.public-invoice-viewer-toolbar .public-invoice-close-btn,
+.public-invoice-viewer-header-mobile .public-invoice-close-btn{
+  display:grid;
+  place-items:center;
+  flex:0 0 32px;
+  width:32px;
+  min-width:32px;
+  height:32px;
+  min-height:32px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:var(--ink);
+  cursor:pointer;
+}
+.public-invoice-viewer-toolbar .public-invoice-close-btn:hover,
+.public-invoice-viewer-header-mobile .public-invoice-close-btn:hover,
+.public-invoice-viewer-toolbar .public-invoice-close-btn:active,
+.public-invoice-viewer-header-mobile .public-invoice-close-btn:active{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+}
+.public-invoice-viewer-toolbar .public-invoice-close-btn:focus-visible,
+.public-invoice-viewer-header-mobile .public-invoice-close-btn:focus-visible{
+  outline:2px solid color-mix(in srgb,var(--ink) 42%,transparent);
+  outline-offset:3px;
+}
+.public-invoice-viewer-header-mobile.mobile-only-header{
+  justify-content:flex-start;
+  gap:14px;
+}
+.public-invoice-viewer-toolbar > strong,
+.public-invoice-viewer-header-mobile > strong{
+  order:1;
+}
+.public-invoice-fullscreen-header > .public-invoice-fullscreen-btn:first-child{
+  min-width:36px;
+  width:36px;
+  min-height:36px;
+  height:36px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.public-invoice-fullscreen-header > .public-invoice-fullscreen-btn:first-child:hover,
+.public-invoice-fullscreen-header > .public-invoice-fullscreen-btn:first-child:active{
+  background:transparent;
+}
+.public-invoice-fullscreen-header > .public-invoice-fullscreen-btn:first-child:focus-visible{
+  outline:2px solid rgba(255,255,255,.7);
+  outline-offset:3px;
+}
+
+.public-invoice-viewer-card .public-invoice-mobile-preview-trigger{
+  min-height:88px;
+  padding:14px 16px;
+  border:0;
+  border-radius:18px;
+  background:#f5f5f4;
+  box-shadow:none;
+  transition:background .18s ease,transform .18s ease;
+}
+.public-invoice-viewer-card .public-invoice-mobile-preview-trigger:hover,
+.public-invoice-viewer-card .public-invoice-mobile-preview-trigger:active{
+  border:0;
+  background:#ebebea;
+  transform:translateY(-1px);
+}
+.public-invoice-viewer-card .public-invoice-mobile-preview-trigger:focus-visible{
+  outline:2px solid rgba(35,35,35,.38);
+  outline-offset:3px;
+}
+.public-invoice-viewer-card .public-invoice-mobile-preview-thumbnail{
+  border:0;
+  border-radius:12px;
+  background:#e9e9e8;
+}
+.public-invoice-viewer-card .public-invoice-mobile-preview-arrow{
+  border:0;
+  border-radius:12px;
+  background:#e9e9e8;
+  box-shadow:none;
+}
+.public-invoice-viewer-card .public-invoice-mobile-actions .public-invoice-action--primary,
+.public-invoice-viewer-card .public-invoice-viewer-toolbar .public-invoice-action--primary{
+  border:0;
+  border-radius:999px;
+  background:#f0f0ef;
+  color:#292929;
+  box-shadow:none;
+}
+.public-invoice-viewer-card .public-invoice-mobile-actions .public-invoice-action--primary:hover,
+.public-invoice-viewer-card .public-invoice-viewer-toolbar .public-invoice-action--primary:hover{
+  background:#e8e8e7;
+  color:#202020;
+  box-shadow:none;
+  filter:none;
+}
+
+.public-invoice-viewer-card .public-pay{
+  gap:14px;
+  padding:20px;
+  border:1px solid rgba(20,20,20,.055);
+  border-radius:24px;
+  background:#fff;
+  box-shadow:0 14px 38px rgba(20,20,20,.035);
+}
+.public-invoice-viewer-card .public-pay-head{gap:12px}
+.public-invoice-viewer-card .public-pay-title{
+  color:#777;
+  font-size:11px;
+  font-weight:650;
+  letter-spacing:.14em;
+}
+.public-invoice-viewer-card .public-pay-bank{
+  gap:10px;
+  padding:16px 18px;
+  border:0;
+  border-radius:17px;
+  background:#f5f5f4;
+}
+.public-invoice-viewer-card .public-pay-bank-row dt{
+  color:#777;
+  font-weight:550;
+}
+.public-invoice-viewer-card .public-pay-bank-row dd{
+  color:#292929;
+  font-weight:650;
+}
+.public-invoice-viewer-card .public-pay-note{
+  padding:13px 16px;
+  border:0;
+  border-radius:16px;
+  background:#f5f5f4;
+  color:#686868;
+  font-size:12px;
+  font-weight:450;
+}
+.public-invoice-viewer-card .public-pay-note a{
+  color:#303030;
+  font-weight:650;
+}
+@media(prefers-color-scheme:dark){
+  .public-invoice-viewer-toolbar .public-invoice-close-btn,
+  .public-invoice-viewer-header-mobile .public-invoice-close-btn{color:#f1f1f2}
+  .public-invoice-viewer-toolbar .public-invoice-close-btn:hover,
+  .public-invoice-viewer-header-mobile .public-invoice-close-btn:hover{color:#b5b5bb}
+  .public-invoice-fullscreen-header > .public-invoice-fullscreen-btn:first-child{background:transparent}
+  .public-invoice-viewer-card .public-invoice-mobile-preview-trigger{
+    background:#25262b;color:#f1f1f2;
+  }
+  .public-invoice-viewer-card .public-invoice-mobile-preview-trigger:hover,
+  .public-invoice-viewer-card .public-invoice-mobile-preview-trigger:active{background:#2d2e34}
+  .public-invoice-viewer-card .public-invoice-mobile-preview-thumbnail,
+  .public-invoice-viewer-card .public-invoice-mobile-preview-arrow{background:#33343a;color:#f1f1f2}
+  .public-invoice-viewer-card .public-invoice-mobile-actions .public-invoice-action--primary,
+  .public-invoice-viewer-card .public-invoice-viewer-toolbar .public-invoice-action--primary{
+    background:#25262b;color:#f1f1f2;
+  }
+  .public-invoice-viewer-card .public-invoice-mobile-actions .public-invoice-action--primary:hover,
+  .public-invoice-viewer-card .public-invoice-viewer-toolbar .public-invoice-action--primary:hover{background:#2d2e34;color:#fff}
+  .public-invoice-viewer-card .public-pay{
+    border-color:rgba(255,255,255,.07);
+    background:#191a1e;
+    box-shadow:0 18px 48px rgba(0,0,0,.24);
+  }
+  .public-invoice-viewer-card .public-pay-bank,
+  .public-invoice-viewer-card .public-pay-note{background:#25262b}
+  .public-invoice-viewer-card .public-pay-title,
+  .public-invoice-viewer-card .public-pay-bank-row dt,
+  .public-invoice-viewer-card .public-pay-note{color:#b5b5bb}
+  .public-invoice-viewer-card .public-pay-bank-row dd,
+  .public-invoice-viewer-card .public-pay-note a{color:#f1f1f2}
+}
+@media(max-width:600px){
+  .public-invoice-viewer-card .public-pay{padding:16px;border-radius:20px}
+  .public-invoice-viewer-card .public-pay-bank{padding:14px}
+}
