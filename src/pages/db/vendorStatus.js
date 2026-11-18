@@ -42,8 +42,10 @@ export function invoicePaymentProofs(invoice = {}) {
 // complete only when its status is confirmed; otherwise it remains created.
 export function paymentState(entries = []) {
   if (!entries.length) return '';
-  const latest = entries[entries.length - 1];
-  return String(latest?.status || '').toLowerCase() === 'confirmed' ? ' is-complete' : ' is-created';
+  const latestStatus = String(entries[entries.length - 1]?.status || '').toLowerCase();
+  if (latestStatus === 'confirmed') return ' is-complete';
+  if (latestStatus === 'rejected') return ' is-rejected';
+  return ' is-created';
 }
 
 function appendInvoiceArtifacts(artifactCompletion, invoice) {
