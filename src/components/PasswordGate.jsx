@@ -171,8 +171,18 @@ export function PasswordGate({ title, children }) {
     setTimeout(() => { inputRef.current?.focus(); }, 380);
   }
 
-  const lockSession = useCallback((message = '') => {
+  const lockSession = useCallback((message = '', expectedExpiresAt = 0) => {
     if (lockInProgressRef.current) return;
+
+    // A new login in another tab may race an old tab's expiry timer.
+    // Keep the newer server-issued session instead of deleting its cache.
+    const currentStoredExpiry = readSessionExpiry(key);
+    if (expectedExpiresAt && currentStoredExpiry && currentStoredExpiry !== expectedExpiresAt) {
+      setSessionExpiresAt(currentStoredExpiry);
+      setUnlocked(true);
+      return;
+    }
+
     lockInProgressRef.current = true;
     safeLocalRemove(key);
     setSessionExpiresAt(0);
@@ -181,14 +191,14 @@ export function PasswordGate({ title, children }) {
     setRevealed(true);
     if (message) setStatus(message);
 
-    // Clear the HttpOnly cookie as well as the shared local cache.
-    // The request is best-effort; the signed token still expires server-side.
+    // Clear only the cookie belonging to the session being locked. This
+    // prevents a delayed logout from an older tab clearing a newer login.
     if (!import.meta.env.DEV) {
       fetch('/api/admin-check', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logout: true }),
+        body: JSON.stringify({ logout: true, expiresAt: expectedExpiresAt }),
       }).catch(() => {});
     }
   }, [key]);
@@ -250,11 +260,11 @@ export function PasswordGate({ title, children }) {
     if (!unlocked || !sessionExpiresAt) return undefined;
     const remaining = sessionExpiresAt - Date.now();
     if (remaining <= 0) {
-      lockSession('Session expired. Please sign in again.');
+      lockSession('Session expired. Please sign in again.', sessionExpiresAt);
       return undefined;
     }
     const timer = setTimeout(() => {
-      lockSession('Session expired. Please sign in again.');
+      lockSession('Session expired. Please sign in again.', sessionExpiresAt);
     }, remaining);
     return () => clearTimeout(timer);
   }, [unlocked, sessionExpiresAt, lockSession]);
@@ -266,7 +276,7 @@ export function PasswordGate({ title, children }) {
 
     const verifyActiveSession = () => {
       if (sessionExpiresAt && Date.now() >= sessionExpiresAt) {
-        lockSession('Session expired. Please sign in again.');
+        lockSession('Session expired. Please sign in again.', sessionExpiresAt);
         return;
       }
       if (import.meta.env.DEV) return;
@@ -284,7 +294,7 @@ export function PasswordGate({ title, children }) {
             || !Number.isSafeInteger(serverExpiry)
             || serverExpiry <= Date.now()
             || serverExpiry !== sessionExpiresAt) {
-            lockSession('Session expired. Please sign in again.');
+            lockSession('Session expired. Please sign in again.', sessionExpiresAt);
           }
         })
         .catch(() => {
@@ -299,19 +309,19 @@ export function PasswordGate({ title, children }) {
     const handleStorage = (event) => {
       if (event.key !== key) return;
       if (!event.newValue) {
-        lockSession('Session ended in another tab.');
+        lockSession('Session ended in another tab.', sessionExpiresAt);
         return;
       }
 
       try {
         const expiresAt = Number(JSON.parse(event.newValue)?.expiresAt);
         if (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now()) {
-          lockSession('Session expired. Please sign in again.');
+          lockSession('Session expired. Please sign in again.', sessionExpiresAt);
         } else if (expiresAt !== sessionExpiresAt) {
           setSessionExpiresAt(expiresAt);
         }
       } catch {
-        lockSession('Session expired. Please sign in again.');
+        lockSession('Session expired. Please sign in again.', sessionExpiresAt);
       }
     };
 
