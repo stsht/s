@@ -45,21 +45,28 @@ function safeLocalRemove(key) {
   }
 }
 
-function readSession(key) {
+function readSessionExpiry(key) {
   const raw = safeLocalGet(key);
-  if (!raw) return false;
+  if (!raw) return 0;
   try {
-    const saved = JSON.parse(raw);
-    if (saved && Number(saved.expiresAt) > Date.now()) return true;
+    const expiresAt = Number(JSON.parse(raw)?.expiresAt);
+    if (Number.isSafeInteger(expiresAt) && expiresAt > Date.now()) return expiresAt;
   } catch {
-    safeLocalRemove(key);
+    // Clear malformed local session state below.
   }
-  return false;
+  safeLocalRemove(key);
+  return 0;
+}
+
+function readSession(key) {
+  return readSessionExpiry(key) > Date.now();
 }
 
 export function PasswordGate({ title, children }) {
   const key = useMemo(() => sessionKey(), []);
   const [unlocked, setUnlocked] = useState(false);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState(0);
+  const lockInProgressRef = useRef(false);
   // Probe the HttpOnly cookie on every private-page mount, even when
   // localStorage still has time left. That prevents an expired server
   // session from leaving /db, /l, /subs, or /inv visibly "open" while
@@ -160,28 +167,45 @@ export function PasswordGate({ title, children }) {
   function handleReveal() {
     if (revealed) return;
     setRevealed(true);
-    // Two focus attempts:
-    //   1) Synchronous, inside the user-gesture task — this is the
-    //      only window in which iOS Safari / Android Chrome will
-    //      pop up the soft keyboard from a programmatic focus().
-    //   2) Deferred ~380 ms after the card's fade/scale transition
-    //      completes, in case the synchronous focus was preempted
-    //      by React's re-render flipping pointer-events on the
-    //      input from none → auto.
     inputRef.current?.focus();
     setTimeout(() => { inputRef.current?.focus(); }, 380);
   }
 
-  // One-shot cookie probe. Runs only when localStorage had no
-  // unexpired entry; success flips us to unlocked, failure leaves
-  // the gate visible.
+  const lockSession = useCallback((message = '') => {
+    if (lockInProgressRef.current) return;
+    lockInProgressRef.current = true;
+    safeLocalRemove(key);
+    setSessionExpiresAt(0);
+    setUnlocked(false);
+    setPassword('');
+    setRevealed(true);
+    if (message) setStatus(message);
+
+    // Clear the HttpOnly cookie as well as the shared local cache.
+    // The request is best-effort; the signed token still expires server-side.
+    if (!import.meta.env.DEV) {
+      fetch('/api/admin-check', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logout: true }),
+      }).catch(() => {});
+    }
+  }, [key]);
+
+  // Probe the server on every private-page mount and use only its
+  // signed-cookie expiry. Never synthesize or extend an expiry in the browser.
   useEffect(() => {
     if (!checking) return undefined;
+
     if (import.meta.env.DEV) {
-      setUnlocked(readSession(key));
+      const expiresAt = readSessionExpiry(key);
+      setSessionExpiresAt(expiresAt);
+      setUnlocked(expiresAt > Date.now());
       setChecking(false);
       return undefined;
     }
+
     let alive = true;
     fetch('/api/admin-check', {
       method: 'POST',
@@ -189,12 +213,21 @@ export function PasswordGate({ title, children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
-      .then((response) => {
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
         if (!alive) return;
-        if (response.ok) {
+        const expiresAt = Number(data?.expiresAt);
+        const valid = response.ok && data?.ok === true
+          && Number.isSafeInteger(expiresAt) && expiresAt > Date.now();
+
+        if (valid) {
+          setSessionExpiresAt(expiresAt);
+          safeLocalSet(key, JSON.stringify({ expiresAt }));
+          lockInProgressRef.current = false;
           setUnlocked(true);
         } else {
           safeLocalRemove(key);
+          setSessionExpiresAt(0);
           setUnlocked(false);
         }
         setChecking(false);
@@ -202,19 +235,95 @@ export function PasswordGate({ title, children }) {
       .catch(() => {
         if (alive) {
           safeLocalRemove(key);
+          setSessionExpiresAt(0);
           setUnlocked(false);
           setChecking(false);
         }
       });
+
     return () => { alive = false; };
   }, [checking, key]);
 
-  // Refresh the local cache whenever we're in an unlocked state so
-  // other tabs see the same SESSION_MS expiry window.
+  // Lock the visible workspace precisely at the server-issued expiry.
+  // Browser timer throttling is handled again on focus/visibility return.
   useEffect(() => {
-    if (!unlocked) return;
-    safeLocalSet(key, JSON.stringify({ expiresAt: Date.now() + SESSION_MS }));
-  }, [key, unlocked]);
+    if (!unlocked || !sessionExpiresAt) return undefined;
+    const remaining = sessionExpiresAt - Date.now();
+    if (remaining <= 0) {
+      lockSession('Session expired. Please sign in again.');
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      lockSession('Session expired. Please sign in again.');
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [unlocked, sessionExpiresAt, lockSession]);
+
+  // Revalidate on tab return without renewing the cookie. Shared storage
+  // removal locks every other open private workspace tab.
+  useEffect(() => {
+    if (!unlocked) return undefined;
+
+    const verifyActiveSession = () => {
+      if (sessionExpiresAt && Date.now() >= sessionExpiresAt) {
+        lockSession('Session expired. Please sign in again.');
+        return;
+      }
+      if (import.meta.env.DEV) return;
+
+      fetch('/api/admin-check', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+        .then(async (response) => {
+          const data = await response.json().catch(() => ({}));
+          const serverExpiry = Number(data?.expiresAt);
+          if (!response.ok || data?.ok !== true
+            || !Number.isSafeInteger(serverExpiry)
+            || serverExpiry <= Date.now()
+            || serverExpiry !== sessionExpiresAt) {
+            lockSession('Session expired. Please sign in again.');
+          }
+        })
+        .catch(() => {
+          // A transient network error does not extend the session.
+          // The local server-issued expiry timer remains authoritative.
+        });
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') verifyActiveSession();
+    };
+    const handleStorage = (event) => {
+      if (event.key !== key) return;
+      if (!event.newValue) {
+        lockSession('Session ended in another tab.');
+        return;
+      }
+
+      try {
+        const expiresAt = Number(JSON.parse(event.newValue)?.expiresAt);
+        if (!Number.isSafeInteger(expiresAt) || expiresAt <= Date.now()) {
+          lockSession('Session expired. Please sign in again.');
+        } else if (expiresAt !== sessionExpiresAt) {
+          setSessionExpiresAt(expiresAt);
+        }
+      } catch {
+        lockSession('Session expired. Please sign in again.');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', verifyActiveSession);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', verifyActiveSession);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [unlocked, sessionExpiresAt, key, lockSession]);
 
   // Drive the visible countdown while a lockout is active.
   useEffect(() => {
@@ -271,12 +380,19 @@ export function PasswordGate({ title, children }) {
       }
 
       const data = await response.json().catch(() => ({}));
-      if (!response.ok || !data.ok) throw new Error(data.error || 'Unauthorized.');
+      const expiresAt = Number(data?.expiresAt);
+      if (!response.ok || data?.ok !== true
+        || !Number.isSafeInteger(expiresAt) || expiresAt <= Date.now()) {
+        throw new Error(data.error || 'Unable to verify session expiry. Please sign in again.');
+      }
 
-      // Success: clear any lingering lockout/status and unlock.
+      // Success: store only the server-issued expiry, shared across tabs.
       setLockUntil(0);
       setLockSeconds(0);
       setStatus('');
+      lockInProgressRef.current = false;
+      setSessionExpiresAt(expiresAt);
+      safeLocalSet(key, JSON.stringify({ expiresAt }));
       setUnlocked(true);
     } catch (error) {
       if (import.meta.env.DEV) {
