@@ -78,7 +78,7 @@ function ensureStyle() {
     .public-payment-proof-ocr-copy strong{font-size:12px;font-weight:750}
     .public-payment-proof-ocr-copy small{color:var(--muted);font-size:11px}
     @keyframes public-proof-ocr-spin{to{transform:rotate(360deg)}}
-    @media(prefers-reduced-motion:reduce){.public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator{animation:none;border-right-color:currentColor;border-top-color:transparent}}
+    @media(prefers-reduced-motion:reduce){.public-payment-proof-ocr-status.is-scanning .public-payment-proof-ocr-indicator,.public-payment-proof-button .public-payment-proof-ocr-indicator{animation:none;border-right-color:currentColor;border-top-color:transparent}}
     .public-payment-proof-timezone{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
     .public-payment-proof-lightbox{position:absolute;inset:0;z-index:2;display:grid;grid-template-rows:auto minmax(0,1fr);padding:18px;background:rgba(4,7,14,.94)}.public-payment-proof-lightbox-head{display:flex;justify-content:flex-end;padding-bottom:12px}.public-payment-proof-lightbox-image{width:100%;height:100%;min-height:0;object-fit:contain}
     .public-payment-proof-confirm{position:absolute;inset:0;z-index:3;display:grid;place-items:center;padding:20px;background:rgba(4,7,14,.7)}.public-payment-proof-confirm-card{width:min(430px,100%);padding:22px;border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.35)}.public-payment-proof-confirm-card h2{margin:0 0 10px;font-size:20px}.public-payment-proof-confirm-card p{margin:0;color:var(--muted);line-height:1.55}.public-payment-proof-confirm-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
