@@ -246,12 +246,22 @@ function invoiceItems(invoice) {
 function paymentDueInfo(invoice) {
   const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
   const grandTotal = Math.max(0, Math.round(Number(invoice?.grand_total) || 0));
+  const amount = Math.max(0, Math.round(Number(invoice?.deposit_amount) || 0));
+  const paidDeposits = (Array.isArray(data.depositPayments) ? data.depositPayments : []).filter((p) => p?.paid);
+  const paidDepositTotal = paidDeposits.reduce(
+    (sum, p) => sum + Math.max(0, Math.round(Number(p?.amount) || 0)),
+    0,
+  );
+  const remainingBalance = Math.max(0, grandTotal - paidDepositTotal);
   const requestedFullPayment = String(data.depositMode || '') === '100'
     || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
     || isFullPayment(invoice);
+  const isFinalSettlementRequest = paidDepositTotal > 0 && amount > 0 && amount >= remainingBalance;
   return {
-    label: requestedFullPayment ? 'Full Payment Due' : 'Deposit Due',
-    amount: Math.max(0, Math.round(Number(invoice?.deposit_amount) || 0)),
+    label: requestedFullPayment
+      ? 'Full Payment Due'
+      : (isFinalSettlementRequest ? 'Final Payment Due' : 'Deposit Due'),
+    amount,
   };
 }
 
@@ -298,10 +308,14 @@ function PublicInvoiceDocument({ invoice }) {
   const billToName = invoiceType === 'vendor'
     ? displayName
     : `${invoice?.client_title || 'Ms.'} ${displayName}`.trim();
+  const depositAmount = Math.max(0, Math.round(Number(invoice?.deposit_amount) || 0));
+  const isFinalSettlementRequest = paidDepositTotal > 0 && depositAmount > 0 && depositAmount >= remainingPaid;
   const requestedFullPayment = String(data.depositMode || '') === '100'
     || Math.max(0, Math.round(Number(data.depositCustomAmount) || 0)) >= grandTotal
     || isFullPayment(invoice);
-  const dueLabel = requestedFullPayment ? 'Full Payment Due' : 'Deposit Due';
+  const dueLabel = requestedFullPayment
+    ? 'Full Payment Due'
+    : (isFinalSettlementRequest ? 'Final Payment Due' : 'Deposit Due');
   const depositAskOpen = data.depositAskOpen !== false;
 
   return (

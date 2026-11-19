@@ -41,8 +41,16 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
   // When the requested amount is the full grand total (100% preset
   // or a custom amount >= total) the wording switches to "Full
   // Payment Due" instead of calling it a deposit.
-  const dueLabel = isFullPayment(totals) ? 'Full Payment Due' : 'Deposit Due';
   const dueAmount = Math.max(0, Math.round(Number(requestedDue) || 0));
+  const paidDepositTotal = paidDeposits.reduce(
+    (sum, payment) => sum + Math.max(0, Math.round(Number(payment?.amount) || 0)),
+    0,
+  );
+  const remainingBalance = Math.max(0, Math.round(Number(balanceDue) || 0));
+  const isFinalSettlementRequest = paidDepositTotal > 0 && dueAmount > 0 && dueAmount >= remainingBalance;
+  const dueLabel = isFullPayment(totals)
+    ? 'Full Payment Due'
+    : (isFinalSettlementRequest ? 'Final Payment Due' : 'Deposit Due');
   const selectedPaymentMethod = cleanPaymentMethod(paymentMethod);
   const previewCanvasRef = useRef(null);
   const [previewMetrics, setPreviewMetrics] = useState({

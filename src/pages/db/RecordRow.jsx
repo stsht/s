@@ -496,7 +496,7 @@ function ensureSmartReviewStyles() {
         gap:10px !important;
       }
       .payment-proof-entry-layout{
-        grid-template-columns:76px minmax(0,1fr);
+        grid-template-columns:82px minmax(0,1fr);
         gap:10px;
         align-items:center;
       }
@@ -508,7 +508,7 @@ function ensureSmartReviewStyles() {
         grid-row:1;
         display:grid !important;
         grid-auto-flow:column;
-        grid-auto-columns:76px;
+        grid-auto-columns:82px;
         grid-template-columns:none !important;
         justify-content:start;
         width:100% !important;
@@ -519,9 +519,11 @@ function ensureSmartReviewStyles() {
       .payment-proof-image-grid .payment-proof-image-item{
         grid-template-rows:96px auto !important;
         gap:3px !important;
-        width:76px !important;
+        width:82px !important;
+        max-width:82px !important;
       }
       .payment-proof-image-link{
+        width:82px !important;
         height:96px !important;
         border-radius:10px !important;
         background:var(--panel) !important;
@@ -529,8 +531,9 @@ function ensureSmartReviewStyles() {
       .payment-proof-save{
         justify-self:center;
         min-height:22px !important;
-        padding:0 5px !important;
-        font-size:.62rem !important;
+        padding:0 4px !important;
+        font-size:.61rem !important;
+        white-space:nowrap !important;
       }
       .payment-proof-entry-times{
         grid-column:2;
