@@ -92,6 +92,12 @@ function ensureSmartReviewStyles() {
         box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 24px 64px rgba(0,0,0,.46) !important;
       }
     }
+    .payment-proof-request-actions{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      gap:8px;
+    }
     .payment-proof-requested-pill{
       display:inline-flex;
       align-items:center;
@@ -106,6 +112,26 @@ function ensureSmartReviewStyles() {
       letter-spacing:.01em;
       white-space:nowrap;
     }
+    .payment-proof-cancel-req-btn{
+      min-height:30px;
+      padding:0 11px;
+      border:1px solid var(--line-strong, var(--line));
+      border-radius:999px;
+      background:transparent;
+      color:var(--muted);
+      font:inherit;
+      font-size:.7rem;
+      font-weight:600;
+      cursor:pointer;
+      white-space:nowrap;
+      transition:color .14s ease, border-color .14s ease, background .14s ease;
+    }
+    .payment-proof-cancel-req-btn:hover{
+      color:var(--danger, #c93b42);
+      border-color:color-mix(in srgb,var(--danger, #c93b42) 48%,var(--line));
+      background:color-mix(in srgb,var(--danger, #c93b42) 10%,transparent);
+    }
+    .payment-proof-cancel-req-btn:disabled{opacity:.55;cursor:wait}
     .payment-proof-viewer-head{
       padding:16px 20px !important;
     }
@@ -1113,7 +1139,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
     [entries]
   );
 
-  async function handleReopenPaymentRequest() {
+  async function handleTogglePaymentRequest(action) {
     if (!summary.invoiceId || reopening) return;
     setReopening(true);
     try {
@@ -1123,7 +1149,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoiceId: summary.invoiceId,
-          action: 'reopen_request',
+          action,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -1168,12 +1194,22 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
             </div>
             {summary.status === 'deposit' && summary.remainingBalance > 0 ? (
               summary.depositAskOpen ? (
-                <span className="payment-proof-requested-pill">Payment Requested</span>
+                <div className="payment-proof-request-actions">
+                  <span className="payment-proof-requested-pill">Payment Requested</span>
+                  <button
+                    type="button"
+                    className="payment-proof-cancel-req-btn"
+                    onClick={() => handleTogglePaymentRequest('close_request')}
+                    disabled={reopening}
+                  >
+                    {reopening ? 'Cancelling…' : 'Cancel Request'}
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
                   className="payment-proof-reopen-btn"
-                  onClick={handleReopenPaymentRequest}
+                  onClick={() => handleTogglePaymentRequest('reopen_request')}
                   disabled={reopening}
                 >
                   {reopening ? 'Requesting…' : (summary.paidSoFar > 0 ? 'Request Final Payment' : 'Request Next Payment')}
