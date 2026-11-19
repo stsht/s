@@ -1168,7 +1168,6 @@ async function publicDeliveryPayload(env, delivery) {
       service: service.key,
       label: service.label,
       url: openUrl,
-      originalUrl: row?.original_url || '',
       openUrl,
       link_done: row ? !!row.link_done : false
     };
