@@ -149,7 +149,13 @@ function responseCorsHeaders(request = null) {
 function json(data, status = 200, headers = {}, request = null) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { ...responseCorsHeaders(request), 'Content-Type': 'application/json; charset=utf-8', ...headers }
+    headers: {
+      ...responseCorsHeaders(request),
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      ...headers
+    }
   });
 }
 
@@ -414,24 +420,10 @@ async function verifyGallerySessionCookie(request, env, deliveryId) {
   return session.valid;
 }
 
-async function verifyAdminRequest(request, env, password = '') {
-  if (await verifyAdminSessionCookie(request, env)) return true;
-
-  const cleanPass = String(password || '').trim();
-  if (!cleanPass) return false;
-
-  // All password fallbacks share the same failure-only budget as /api/admin-check.
-  const lockout = checkLockout(request, 'admin-check');
-  if (lockout.limited) return false;
-
-  const valid = await verifyAdminPassword(env, cleanPass);
-  if (!valid) {
-    recordFailure(request, 'admin-check', { limit: 8, windowMs: 60 * 1000, blockMs: 30 * 1000 });
-    return false;
-  }
-
-  clearRateLimit(request, 'admin-check');
-  return true;
+async function verifyAdminRequest(request, env) {
+  // Admin authentication is strictly HttpOnly session cookie only;
+  // /api/admin-check is the sole password verification endpoint.
+  return await verifyAdminSessionCookie(request, env);
 }
 
 async function deriveGalleryPasswordDigest(password, salt, iterations = GALLERY_HASH_ITERATIONS) {
@@ -3557,7 +3549,8 @@ async function handlePublicPaymentProofImageGet(request, env) {
         'Content-Type': proof.mime_type || stored.headers.get('Content-Type') || 'image/jpeg',
         'Content-Disposition': `inline; filename="${String(proof.original_filename || 'payment-proof.jpg').replace(/["\\]/g, '')}"`,
         'Cache-Control': 'private, no-store',
-        'X-Content-Type-Options': 'nosniff'
+        'X-Content-Type-Options': 'nosniff',
+        'Content-Security-Policy': "default-src 'none'"
       }
     });
   } catch (error) {
