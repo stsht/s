@@ -75,6 +75,36 @@ function ensureSmartReviewStyles() {
     }
     .payment-proof-viewer-card{
       max-height:min(840px, calc(100dvh - 48px)) !important;
+      border-radius:24px !important;
+    }
+    @media(prefers-color-scheme:dark){
+      .payment-proof-viewer-card{
+        --panel:#1b1d22;
+        --field:#23262d;
+        --soft:#17191e;
+        --ink:#f4f4f6;
+        --muted:#9ba0ab;
+        --line:#32353d;
+        --line-strong:#434752;
+        --accent:#8ab4ff;
+        background:#1b1d22 !important;
+        border-color:#34363c !important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 24px 64px rgba(0,0,0,.46) !important;
+      }
+    }
+    .payment-proof-requested-pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:0 12px;
+      border:1px solid color-mix(in srgb,var(--accent) 36%,var(--line));
+      border-radius:999px;
+      background:color-mix(in srgb,var(--accent) 11%,var(--panel));
+      color:var(--ink);
+      font-size:.7rem;
+      font-weight:650;
+      letter-spacing:.01em;
+      white-space:nowrap;
     }
     .payment-proof-viewer-head{
       padding:16px 20px !important;
@@ -273,9 +303,9 @@ function ensureSmartReviewStyles() {
     }
     .payment-proof-invoice-summary{
       flex:0 0 auto;
-      margin:12px 20px 0 !important;
-      padding:11px 14px !important;
-      border:0 !important;
+      margin:14px 20px 0 !important;
+      padding:12px 16px !important;
+      border:1px solid color-mix(in srgb,var(--line) 72%,transparent) !important;
       border-radius:16px !important;
       background:var(--field) !important;
     }
@@ -303,8 +333,8 @@ function ensureSmartReviewStyles() {
     .payment-proof-entry{
       display:grid !important;
       gap:12px !important;
-      padding:14px !important;
-      border:0 !important;
+      padding:15px 16px !important;
+      border:1px solid color-mix(in srgb,var(--line) 72%,transparent) !important;
       border-radius:18px !important;
       background:var(--field) !important;
     }
@@ -857,7 +887,7 @@ function PaymentProofEntryReview({ entry, summary, onReviewed }) {
   if (isConfirmed && !editingConfirmed) {
     return (
       <div className="payment-proof-reconciled-bar">
-        <span>Matched to invoice</span>
+        <span>Matched to Invoice</span>
         <button
           type="button"
           className="payment-proof-chip"
@@ -1111,7 +1141,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
         <header className="payment-proof-viewer-head">
           <div>
             <p>{title}</p>
-            <strong>{entries.length === 1 ? (totalImages === 1 ? '1 receipt' : `${totalImages} photos`) : `${entries.length} receipts`}</strong>
+            <strong>{entries.length === 1 ? (totalImages === 1 ? '1 Receipt' : `${totalImages} Photos`) : `${entries.length} Receipts`}</strong>
           </div>
           <button type="button" onClick={onClose} aria-label="Close payment proofs">×</button>
         </header>
@@ -1124,7 +1154,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                 <strong>{rupiah(summary.grandTotal)}</strong>
               </div>
               <div className="payment-proof-summary-metric">
-                <span>DP Request</span>
+                <span>{summary.paidSoFar > 0 && summary.depositDue >= summary.remainingBalance ? 'Final Request' : 'DP Request'}</span>
                 <strong>{rupiah(summary.depositDue)}</strong>
               </div>
               <div className="payment-proof-summary-metric">
@@ -1136,15 +1166,19 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                 <strong>{rupiah(summary.remainingBalance)}</strong>
               </div>
             </div>
-            {summary.status === 'deposit' && !summary.depositAskOpen && summary.remainingBalance > 0 ? (
-              <button
-                type="button"
-                className="payment-proof-reopen-btn"
-                onClick={handleReopenPaymentRequest}
-                disabled={reopening}
-              >
-                {reopening ? 'Opening…' : 'Request Next Payment'}
-              </button>
+            {summary.status === 'deposit' && summary.remainingBalance > 0 ? (
+              summary.depositAskOpen ? (
+                <span className="payment-proof-requested-pill">Payment Requested</span>
+              ) : (
+                <button
+                  type="button"
+                  className="payment-proof-reopen-btn"
+                  onClick={handleReopenPaymentRequest}
+                  disabled={reopening}
+                >
+                  {reopening ? 'Requesting…' : (summary.paidSoFar > 0 ? 'Request Final Payment' : 'Request Next Payment')}
+                </button>
+              )
             ) : null}
           </section>
         ) : null}
@@ -1153,7 +1187,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
           {entries.map((entry, entryIndex) => (
             <section className="payment-proof-entry" key={entry.id || entryIndex}>
               <div className="payment-proof-entry-head">
-                <strong>{entries.length === 1 ? 'Transfer Receipt' : `Payment ${entryIndex + 1}`}{entry.images.length > 1 ? ` (${entry.images.length} photos)` : ''}</strong>
+                <strong>{entries.length === 1 ? 'Transfer Receipt' : `Payment ${entryIndex + 1}`}{entry.images.length > 1 ? ` (${entry.images.length} Photos)` : ''}</strong>
                 <span className={`payment-proof-status is-${entry.status || 'pending'}`}>{entry.status || 'pending'}</span>
               </div>
               <div className="payment-proof-entry-layout">
@@ -1177,7 +1211,7 @@ function PaymentProofViewer({ entries, invoice, title = 'Payment Proof', onClose
                       <dt>Payment</dt>
                       <dd>
                         {proofPaymentLabel(entry.paymentDate, entry.paymentTime)
-                          ? `${proofPaymentLabel(entry.paymentDate, entry.paymentTime)}${entry.paymentProvisional ? ' · Client reported' : ''}`
+                          ? `${proofPaymentLabel(entry.paymentDate, entry.paymentTime)}${entry.paymentProvisional ? ' · Client Reported' : ''}`
                           : '—'}
                       </dd>
                     </div>
