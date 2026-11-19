@@ -3762,29 +3762,44 @@ async function handlePaymentProofReview(request, env) {
     : `/rest/v1/invoices?id=eq.${encodeURIComponent(invoiceId)}`;
 
   if (action === 'reopen_request') {
+    const depositPayments = Array.isArray(existingData.depositPayments) ? existingData.depositPayments : [];
+    const paidFromArray = depositPayments
+      .filter((p) => p?.paid)
+      .reduce((sum, p) => sum + Math.max(0, Math.round(Number(p.amount) || 0)), 0);
+    const paidSoFar = paidFromArray > 0
+      ? paidFromArray
+      : Math.max(0, Math.round(Number(invoice.paid_amount) || 0));
+    const remainingBalance = grandTotal > 0 ? Math.max(0, grandTotal - paidSoFar) : 0;
+
     const nextData = {
       ...existingData,
       depositAskOpen: true,
       depositAskOpenedAt: new Date().toISOString(),
     };
     const nextStatus = String(invoice.status || '').toLowerCase() === 'paid' ? 'deposit' : (invoice.status || 'deposit');
+    const patchPayload = {
+      status: nextStatus,
+      invoice_data: nextData,
+    };
+    if (paidSoFar > 0 && remainingBalance > 0) {
+      nextData.depositMode = 'custom';
+      nextData.depositCustomAmount = String(remainingBalance);
+      patchPayload.deposit_amount = remainingBalance;
+    }
     const patchedInvRows = await supabaseFetch(
       env,
       invoiceOptimisticPath,
       {
         method: 'PATCH',
         headers: { Prefer: 'return=representation' },
-        body: JSON.stringify({
-          status: nextStatus,
-          invoice_data: nextData,
-        }),
+        body: JSON.stringify(patchPayload),
       }
     );
     const updatedList = Array.isArray(patchedInvRows) ? patchedInvRows : [patchedInvRows].filter(Boolean);
     if (!updatedList.length && expectedUpdatedAt) {
       return json({ error: 'Invoice was updated by another request. Please refresh and try again.' }, 409, {}, request);
     }
-    return json({ ok: true, invoice: updatedList[0] || { ...invoice, status: nextStatus, invoice_data: nextData } }, 200, {}, request);
+    return json({ ok: true, invoice: updatedList[0] || { ...invoice, ...patchPayload } }, 200, {}, request);
   }
 
   const primaryProofId = proofId || requestedProofIds[0] || '';
