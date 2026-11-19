@@ -3738,7 +3738,7 @@ async function handlePaymentProofReview(request, env) {
   const requestedProofIds = [...new Set(rawProofIds.map((id) => String(id || '').trim()).filter(Boolean))];
   const action = String(body.action || '').trim().toLowerCase();
   if (!invoiceId) return json({ error: 'Missing invoice id.' }, 400, {}, request);
-  if (!['confirm', 'reject', 'reopen_request'].includes(action)) {
+  if (!['confirm', 'reject', 'reopen_request', 'close_request'].includes(action)) {
     return json({ error: 'Invalid review action.' }, 400, {}, request);
   }
 
@@ -3800,6 +3800,29 @@ async function handlePaymentProofReview(request, env) {
       return json({ error: 'Invoice was updated by another request. Please refresh and try again.' }, 409, {}, request);
     }
     return json({ ok: true, invoice: updatedList[0] || { ...invoice, ...patchPayload } }, 200, {}, request);
+  }
+
+  if (action === 'close_request') {
+    const nextData = {
+      ...existingData,
+      depositAskOpen: false,
+    };
+    const patchedInvRows = await supabaseFetch(
+      env,
+      invoiceOptimisticPath,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify({
+          invoice_data: nextData,
+        }),
+      }
+    );
+    const updatedList = Array.isArray(patchedInvRows) ? patchedInvRows : [patchedInvRows].filter(Boolean);
+    if (!updatedList.length && expectedUpdatedAt) {
+      return json({ error: 'Invoice was updated by another request. Please refresh and try again.' }, 409, {}, request);
+    }
+    return json({ ok: true, invoice: updatedList[0] || { ...invoice, invoice_data: nextData } }, 200, {}, request);
   }
 
   const primaryProofId = proofId || requestedProofIds[0] || '';
