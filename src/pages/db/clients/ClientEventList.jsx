@@ -20,8 +20,52 @@ export function ClientEventList({
   onCloseCreate,
 }) {
   return (
-    <>
-      <div className="record-stack">
+    <div className="client-events-section">
+      <div className="client-events-bar">
+        <span className="client-events-label">
+          Events{records.length ? ` · ${records.length}` : ''}
+        </span>
+        {!createOpen ? (
+          <button
+            className="client-new-event-link"
+            type="button"
+            onClick={onOpenCreate}
+          >
+            + New Event
+          </button>
+        ) : null}
+      </div>
+
+      {createOpen ? (
+        <div className="create-event-sheet client-create-sheet" role="group" aria-label="Create event">
+          <div className="client-create-sheet-head">
+            <p className="create-event-eyebrow">New Event</p>
+            <button
+              type="button"
+              className="client-create-cancel-link"
+              onClick={onCloseCreate}
+            >
+              Cancel
+            </button>
+          </div>
+          <div className="create-event-choices">
+            <a className="ghost-button compact" href={newEventLinkHref} target="_blank" rel="noopener noreferrer">
+              Create Client Links
+            </a>
+            <a className="ghost-button compact" href={newEventInvoiceHref} target="_blank" rel="noopener noreferrer">
+              Create Client Invoice
+            </a>
+            <a className="ghost-button compact" href={newEventVendorLinkHref} target="_blank" rel="noopener noreferrer">
+              Create Vendor Links
+            </a>
+            <a className="ghost-button compact" href={newEventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
+              Create Vendor Invoice
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="record-stack client-record-stack">
         {records.map((row, index) => (
           <ClientEventRow
             key={clientEventRecordKey(row, index)}
@@ -40,40 +84,6 @@ export function ClientEventList({
         ))}
         {!records.length ? <p className="empty-state">No events yet.</p> : null}
       </div>
-      {createOpen ? (
-        <div className="create-event-sheet" role="group" aria-label="Create event">
-          <p className="create-event-eyebrow">New Event</p>
-          <div className="create-event-choices">
-            <a className="ghost-button compact" href={newEventLinkHref} target="_blank" rel="noopener noreferrer">
-              Create Client Links
-            </a>
-            <a className="ghost-button compact" href={newEventInvoiceHref} target="_blank" rel="noopener noreferrer">
-              Create Client Invoice
-            </a>
-            <a className="ghost-button compact" href={newEventVendorLinkHref} target="_blank" rel="noopener noreferrer">
-              Create Vendor Links
-            </a>
-            <a className="ghost-button compact" href={newEventVendorInvoiceHref} target="_blank" rel="noopener noreferrer">
-              Create Vendor Invoice
-            </a>
-          </div>
-          <button
-            type="button"
-            className="ghost-button compact create-event-cancel"
-            onClick={onCloseCreate}
-          >
-            Cancel
-          </button>
-        </div>
-      ) : (
-        <button
-          className="ghost-button compact create-event-trigger"
-          type="button"
-          onClick={onOpenCreate}
-        >
-          Create Events
-        </button>
-      )}
-    </>
+    </div>
   );
 }

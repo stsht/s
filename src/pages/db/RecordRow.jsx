@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { compactEventDateLabel, jakartaTodayISO } from './dbHelpers.js';
 import { invoicePaymentProofs, paymentState, vendorSummaryState } from './vendorStatus.js';
@@ -1299,8 +1299,30 @@ export function RecordRow({
 }) {
   const [proofViewer, setProofViewer] = useState(null);
   const [vendorOpen, setVendorOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const touchStartRef = useRef({ x: 0, y: 0, active: false });
+  const menuRef = useRef(null);
   const [clientInvoiceOverride, setClientInvoiceOverride] = useState(null);
   const [vendorInvoiceOverride, setVendorInvoiceOverride] = useState(null);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const handleOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutside);
+    return () => document.removeEventListener('pointerdown', handleOutside);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!armed && swipeOffset !== 0) {
+      setSwipeOffset(0);
+    }
+  }, [armed]);
 
   useEffect(() => {
     setClientInvoiceOverride(null);
@@ -1394,117 +1416,224 @@ export function RecordRow({
   const viewerInvoice = viewerKind === 'vendor' ? activeVendorInvoice : activeClientInvoice;
   const viewerEntries = viewerKind === 'vendor' ? vendorPaymentProofs : paymentProofs;
 
+  function handleTouchStart(event) {
+    if (!onDelete || event.touches.length !== 1) return;
+    touchStartRef.current = {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+      active: true,
+    };
+    setIsSwiping(true);
+  }
+
+  function handleTouchMove(event) {
+    if (!touchStartRef.current.active || event.touches.length !== 1) return;
+    const dx = event.touches[0].clientX - touchStartRef.current.x;
+    const dy = event.touches[0].clientY - touchStartRef.current.y;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dx) < 12) return;
+    const next = Math.max(-92, Math.min(0, dx));
+    setSwipeOffset(next);
+  }
+
+  function handleTouchEnd() {
+    if (!touchStartRef.current.active) return;
+    touchStartRef.current.active = false;
+    setIsSwiping(false);
+    setSwipeOffset((prev) => (prev < -44 ? -92 : 0));
+  }
+
   return (
     <>
-      <article className={`record-row${toneClass ? ` ${toneClass}` : ''}`} data-key={recordKey}>
-        <div className="record-row-meta">
-          <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
-          {priceText ? <span className="record-row-price">{priceText}</span> : null}
-        </div>
-
-        <div className="record-row-action-group record-row-primary-actions" aria-label="Client actions">
-          {hasDelivery ? (
+      <div className="record-row-swipe-wrap">
+        {onDelete ? (
+          <div className="record-row-swipe-bg" aria-hidden={swipeOffset === 0}>
             <button
               type="button"
-              className={actionClass(linkStateClass)}
-              title={deliveryDone ? 'Links complete' : 'Links'}
+              className="record-row-swipe-delete"
               onClick={(event) => {
                 event.stopPropagation();
-                onViewLinks?.(row.delivery);
+                onDelete();
               }}
             >
-              <LinkIcon /> <span>Links</span>
-            </button>
-          ) : (
-            <a className={actionClass()} href={eventLinkHref} target="_blank" rel="noopener noreferrer" title="Links">
-              <LinkIcon /> <span>Links</span>
-            </a>
-          )}
-
-          <a
-            className={actionClass(invoiceStateClass)}
-            href={eventInvoiceHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={invoicePaid ? 'Invoice fully paid' : 'Invoice'}
-          >
-            <PaperIcon /> <span>Invoice</span>
-          </a>
-
-          <button
-            type="button"
-            className={actionClass(paymentStateClass)}
-            disabled={!paymentProofs.length}
-            aria-disabled={!paymentProofs.length}
-            title={paymentProofs.length ? 'Payments' : 'No payment proof'}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (paymentProofs.length) setProofViewer({ kind: 'client', title: 'Client Payment Proof' });
-            }}
-          >
-            <PaymentIcon /> <span>Payments</span>
-          </button>
-
-          <button
-            type="button"
-            className={`record-row-link-anchor${vendorSummaryStateClass} record-row-pill record-row-vendor-toggle`}
-            aria-expanded={vendorOpen}
-            onClick={(event) => {
-              event.stopPropagation();
-              setVendorOpen((open) => !open);
-            }}
-          >
-            <span>Vendor</span> <span aria-hidden="true">{vendorOpen ? '▴' : '▾'}</span>
-          </button>
-        </div>
-
-        {vendorOpen ? (
-          <div className="record-row-vendor-panel" role="group" aria-label="Vendor actions">
-            {hasVendorDelivery ? (
-              <button
-                type="button"
-                className={actionClass(vendorLinkStateClass)}
-                title={vendorDeliveryDone ? 'Vendor links complete' : 'Vendor Links'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onViewLinks?.(row.vendorDelivery);
-                }}
-              >
-                <LinkIcon /> <span>Links</span>
-              </button>
-            ) : (
-              <a className={actionClass()} href={eventVendorDeliveryHref} target="_blank" rel="noopener noreferrer" title="Vendor Links">
-                <LinkIcon /> <span>Links</span>
-              </a>
-            )}
-
-            <a
-              className={actionClass(vendorInvoiceStateClass)}
-              href={eventVendorInvoiceHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={vendorInvoicePaid ? 'Vendor invoice fully paid' : 'Vendor Invoice'}
-            >
-              <PaperIcon /> <span>Invoice</span>
-            </a>
-
-            <button
-              type="button"
-              className={actionClass(vendorPaymentStateClass)}
-              disabled={!vendorPaymentProofs.length}
-              aria-disabled={!vendorPaymentProofs.length}
-              title={vendorPaymentProofs.length ? 'Vendor Payments' : 'No vendor payment proof'}
-              onClick={(event) => {
-                event.stopPropagation();
-                if (vendorPaymentProofs.length) setProofViewer({ kind: 'vendor', title: 'Vendor Payment Proof' });
-              }}
-            >
-              <PaymentIcon /> <span>Payments</span>
+              {armed ? 'Confirm' : 'Delete'}
             </button>
           </div>
         ) : null}
+        <article
+          className={`record-row${toneClass ? ` ${toneClass}` : ''}${isSwiping ? ' is-swiping' : ''}`}
+          data-key={recordKey}
+          style={swipeOffset ? { transform: `translateX(${swipeOffset}px)` } : undefined}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="record-row-meta">
+            <span className={`event-date-pill${toneClass ? ` ${toneClass}` : ''}`}>{dateText}</span>
+            <div className="record-row-meta-right" ref={menuRef}>
+              {priceText ? <span className="record-row-price">{priceText}</span> : null}
+              {onDelete ? (
+                <>
+                  <button
+                    type="button"
+                    className="record-row-more-btn"
+                    aria-expanded={menuOpen}
+                    aria-label="Event options"
+                    title="More"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuOpen((open) => !open);
+                    }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="1.2" />
+                      <circle cx="19" cy="12" r="1.2" />
+                      <circle cx="5" cy="12" r="1.2" />
+                    </svg>
+                  </button>
+                  {menuOpen ? (
+                    <div className="record-row-overflow-menu" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="client-overflow-item is-danger"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDelete();
+                          if (armed) setMenuOpen(false);
+                        }}
+                      >
+                        {armed ? 'Confirm Delete Event' : 'Delete Event'}
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </div>
 
-      </article>
+          <div className="record-row-action-group record-row-primary-actions" aria-label="Client actions">
+            {hasDelivery ? (
+              <button
+                type="button"
+                className={actionClass(linkStateClass)}
+                title={deliveryDone ? 'Links complete' : 'Links'}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onViewLinks?.(row.delivery);
+                }}
+              >
+                <span className="record-row-status-dot" aria-hidden="true" />
+                <span>Links</span>
+              </button>
+            ) : (
+              <a className={actionClass()} href={eventLinkHref} target="_blank" rel="noopener noreferrer" title="Links">
+                <span className="record-row-status-dot" aria-hidden="true" />
+                <span>Links</span>
+              </a>
+            )}
+
+            <span className="record-row-sep" aria-hidden="true">/</span>
+
+            <a
+              className={actionClass(invoiceStateClass)}
+              href={eventInvoiceHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={invoicePaid ? 'Invoice fully paid' : 'Invoice'}
+            >
+              <span className="record-row-status-dot" aria-hidden="true" />
+              <span>Invoice</span>
+            </a>
+
+            <span className="record-row-sep" aria-hidden="true">/</span>
+
+            <button
+              type="button"
+              className={actionClass(paymentStateClass)}
+              disabled={!paymentProofs.length}
+              aria-disabled={!paymentProofs.length}
+              title={paymentProofs.length ? 'Payments' : 'No payment proof'}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (paymentProofs.length) setProofViewer({ kind: 'client', title: 'Client Payment Proof' });
+              }}
+            >
+              <span className="record-row-status-dot" aria-hidden="true" />
+              <span>Payments</span>
+              {paymentProofs.length ? <span className="record-row-count">{paymentProofs.length}</span> : null}
+            </button>
+
+            <button
+              type="button"
+              className={`record-row-link-anchor${vendorSummaryStateClass} record-row-pill record-row-vendor-toggle`}
+              aria-expanded={vendorOpen}
+              onClick={(event) => {
+                event.stopPropagation();
+                setVendorOpen((open) => !open);
+              }}
+            >
+              <span>Vendor</span> <span aria-hidden="true">{vendorOpen ? '▴' : '▾'}</span>
+            </button>
+          </div>
+
+          {vendorOpen ? (
+            <div className="record-row-vendor-panel" role="group" aria-label="Vendor actions">
+              <span className="record-row-vendor-label">Vendor</span>
+              {hasVendorDelivery ? (
+                <button
+                  type="button"
+                  className={actionClass(vendorLinkStateClass)}
+                  title={vendorDeliveryDone ? 'Vendor links complete' : 'Vendor Links'}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onViewLinks?.(row.vendorDelivery);
+                  }}
+                >
+                  <span className="record-row-status-dot" aria-hidden="true" />
+                  <span>Links</span>
+                </button>
+              ) : (
+                <a className={actionClass()} href={eventVendorDeliveryHref} target="_blank" rel="noopener noreferrer" title="Vendor Links">
+                  <span className="record-row-status-dot" aria-hidden="true" />
+                  <span>Links</span>
+                </a>
+              )}
+
+              <span className="record-row-sep" aria-hidden="true">/</span>
+
+              <a
+                className={actionClass(vendorInvoiceStateClass)}
+                href={eventVendorInvoiceHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={vendorInvoicePaid ? 'Vendor invoice fully paid' : 'Vendor Invoice'}
+              >
+                <span className="record-row-status-dot" aria-hidden="true" />
+                <span>Invoice</span>
+              </a>
+
+              <span className="record-row-sep" aria-hidden="true">/</span>
+
+              <button
+                type="button"
+                className={actionClass(vendorPaymentStateClass)}
+                disabled={!vendorPaymentProofs.length}
+                aria-disabled={!vendorPaymentProofs.length}
+                title={vendorPaymentProofs.length ? 'Vendor Payments' : 'No vendor payment proof'}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (vendorPaymentProofs.length) setProofViewer({ kind: 'vendor', title: 'Vendor Payment Proof' });
+                }}
+              >
+                <span className="record-row-status-dot" aria-hidden="true" />
+                <span>Payments</span>
+                {vendorPaymentProofs.length ? <span className="record-row-count">{vendorPaymentProofs.length}</span> : null}
+              </button>
+            </div>
+          ) : null}
+
+        </article>
+      </div>
 
       {proofViewer ? (
         <PaymentProofViewer

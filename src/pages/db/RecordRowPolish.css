@@ -1,105 +1,393 @@
-.record-row .row-delete-x{
-  grid-column:4;
-  grid-row:1;
+/* Editorial Minimalist Redesign — Client Detail Header & Event Rows */
+
+.client-detail-heading {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 18px;
 }
 
-.record-row-primary-actions{
-  grid-column:2 / 4;
-  display:grid;
-  grid-template-columns:repeat(4,minmax(78px,auto));
-  gap:7px;
+.client-detail-identity {
+  min-width: 0;
 }
 
-.record-row .record-row-status-pill,
-.record-row .record-row-vendor-toggle{
-  min-width:0;
-  min-height:34px;
-  gap:6px;
-  padding-inline:10px;
-  white-space:nowrap;
+.client-detail-identity h2 {
+  letter-spacing: -0.03em;
+  font-weight: 650;
 }
 
-.record-row .record-row-status-pill .btn-icon{
-  flex:0 0 auto;
+.client-detail-actions {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  flex-shrink: 0;
 }
 
-.record-row .record-row-status-pill:disabled{
-  cursor:default;
-  opacity:1;
+.client-quiet-icon {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--muted) !important;
+  box-shadow: none !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 50% !important;
 }
 
-.record-row-vendor-toggle{
-  justify-content:center;
+.client-quiet-icon:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent) !important;
+  color: var(--ink) !important;
 }
 
-.record-row-vendor-panel{
-  grid-column:2 / 4;
-  grid-row:2;
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:7px;
-  padding:8px;
-  border:1px solid var(--line);
-  border-radius:16px;
-  background:color-mix(in srgb,var(--panel) 58%,transparent);
+.client-overflow-menu,
+.record-row-overflow-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 164px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+  z-index: 40;
+  display: grid;
+  gap: 2px;
 }
 
-.record-row .record-row-vendor-panel .record-row-status-pill{
-  width:100%;
+.client-overflow-item {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 550;
+  padding: 8px 11px;
+  border-radius: 9px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-@media(max-width:1023px){
-  .record-row-primary-actions{
-    grid-column:1;
-    grid-row:auto;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    width:100%;
+.client-overflow-item:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.client-overflow-item.is-danger {
+  color: var(--danger, #c93b42);
+}
+
+.client-overflow-item.is-danger:hover {
+  background: color-mix(in srgb, var(--danger, #c93b42) 11%, transparent);
+}
+
+/* Events Section Header */
+.client-events-section {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.client-events-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+}
+
+.client-events-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.client-new-event-link {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 550;
+  padding: 5px 10px;
+  margin-right: -10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.client-new-event-link:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.client-create-sheet {
+  margin: 12px 0 8px !important;
+  padding: 14px 16px !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 16px !important;
+  background: var(--field) !important;
+}
+
+.client-create-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.client-create-cancel-link {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 550;
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.client-create-cancel-link:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+/* Hairline Editorial Event Stack (Zero Box-in-Box) */
+.client-record-stack {
+  display: grid !important;
+  gap: 0 !important;
+}
+
+.record-row-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  touch-action: pan-y;
+}
+
+.record-row-swipe-wrap:last-child {
+  border-bottom: 0;
+}
+
+.record-row-swipe-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+  background: var(--danger, #c93b42);
+}
+
+.record-row-swipe-delete {
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.client-record-stack .record-row {
+  position: relative;
+  z-index: 2;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 10px !important;
+  padding: 18px 2px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--panel) !important;
+  box-shadow: none !important;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.client-record-stack .record-row::before {
+  display: none !important;
+}
+
+.client-record-stack .record-row.is-swiping {
+  transition: none;
+}
+
+.client-record-stack .record-row-meta {
+  grid-column: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100%;
+}
+
+.client-record-stack .event-date-pill {
+  padding: 0 !important;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.015em !important;
+}
+
+.record-row-meta-right {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.client-record-stack .record-row-price {
+  font-size: 0.9rem !important;
+  font-weight: 550 !important;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink) !important;
+}
+
+.record-row-more-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: -6px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.record-row-more-btn:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+
+/* Borderless Editorial Action Strip */
+.client-record-stack .record-row-primary-actions {
+  grid-column: 1 !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 2px 4px !important;
+  margin-left: -10px;
+}
+
+.client-record-stack .record-row-status-pill,
+.client-record-stack .record-row-vendor-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: auto !important;
+  min-width: 0 !important;
+  min-height: 30px !important;
+  padding: 4px 10px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+  color: var(--muted) !important;
+  font-size: 0.8rem !important;
+  font-weight: 550 !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.client-record-stack .record-row-status-pill:not(:disabled):hover,
+.client-record-stack .record-row-vendor-toggle:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent) !important;
+  color: var(--ink) !important;
+}
+
+.client-record-stack .record-row-status-pill:disabled {
+  opacity: 0.45 !important;
+  cursor: default !important;
+}
+
+.client-record-stack .record-row-status-pill.is-created,
+.client-record-stack .record-row-status-pill.is-complete {
+  color: var(--ink) !important;
+}
+
+.client-record-stack .record-row-status-pill.is-rejected {
+  color: var(--danger, #c93b42) !important;
+}
+
+.record-row-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  flex: 0 0 6px;
+}
+
+.is-created .record-row-status-dot {
+  background: var(--success-state, #22c55e);
+}
+
+.is-complete .record-row-status-dot {
+  background: var(--accent, #60a5fa);
+}
+
+.is-rejected .record-row-status-dot {
+  background: var(--danger, #c93b42);
+}
+
+.record-row-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent, #60a5fa);
+  font-variant-numeric: tabular-nums;
+}
+
+.record-row-sep {
+  color: color-mix(in srgb, var(--line) 90%, transparent);
+  font-size: 0.72rem;
+  user-select: none;
+}
+
+.client-record-stack .record-row-vendor-toggle {
+  margin-left: auto !important;
+  margin-right: -10px !important;
+  font-size: 0.76rem !important;
+}
+
+/* Quiet Indented Vendor Drawer */
+.client-record-stack .record-row-vendor-panel {
+  grid-column: 1 !important;
+  grid-row: auto !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 2px 4px !important;
+  padding: 6px 0 2px 12px !important;
+  margin-left: 2px !important;
+  border: 0 !important;
+  border-left: 1.5px solid var(--line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.record-row-vendor-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 6px;
+}
+
+@media (max-width: 520px) {
+  .client-record-stack .record-row-vendor-toggle {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
-
-  .record-row-primary-actions .record-row-vendor-toggle{
-    grid-column:1 / -1;
-  }
-
-  .record-row .record-row-status-pill,
-  .record-row .record-row-vendor-toggle{
-    width:100%;
-    padding-inline:8px;
-  }
-
-  .record-row-vendor-panel{
-    grid-column:1;
-    grid-row:auto;
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    width:100%;
-  }
-}
-
-@media(max-width:420px){
-  .record-row .record-row-status-pill,
-  .record-row .record-row-vendor-toggle{
-    gap:5px;
-    padding-inline:6px;
-    font-size:.64rem;
-  }
-
-  .record-row .record-row-status-pill .btn-icon{
-    width:14px;
-    height:14px;
-  }
-}
-
-
-/* Rejected payment proof — distinct from "created" green and "complete" blue. */
-.record-row a.is-rejected,
-.record-row button.record-row-link.is-rejected,
-.record-row button.record-row-link-anchor.is-rejected{
-  background:color-mix(in srgb,var(--danger, #c93b42) 11%,var(--panel));
-  border-color:color-mix(in srgb,var(--danger, #c93b42) 42%,var(--line));
-  color:var(--danger, #c93b42);
-}
-.record-row a.is-rejected:hover,
-.record-row button.record-row-link.is-rejected:hover,
-.record-row button.record-row-link-anchor.is-rejected:hover{
-  background:color-mix(in srgb,var(--danger, #c93b42) 17%,var(--panel));
-  border-color:var(--danger, #c93b42);
 }
