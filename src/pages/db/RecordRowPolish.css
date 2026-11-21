@@ -12,9 +12,32 @@
   min-width: 0;
 }
 
+.client-detail-identity .eyebrow {
+  margin: 0 0 4px !important;
+  font-size: 0.65rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.11em !important;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+}
+
 .client-detail-identity h2 {
-  letter-spacing: -0.03em;
-  font-weight: 650;
+  margin: 0 !important;
+  font-size: 1.42rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.028em !important;
+  line-height: 1.18 !important;
+  color: var(--ink) !important;
+}
+
+.client-detail-identity > span {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.82rem !important;
+  font-weight: 450 !important;
+  color: var(--muted) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
 }
 
 .client-detail-actions {
@@ -277,8 +300,8 @@
   display: flex !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  gap: 2px 4px !important;
-  margin-left: -10px;
+  gap: 4px 10px !important;
+  margin-left: -8px;
 }
 
 .client-record-stack .record-row-status-pill,
@@ -356,7 +379,7 @@
 
 .client-record-stack .record-row-vendor-toggle {
   margin-left: auto !important;
-  margin-right: -10px !important;
+  margin-right: 0 !important;
   font-size: 0.76rem !important;
 }
 
@@ -367,7 +390,7 @@
   display: flex !important;
   flex-wrap: wrap !important;
   align-items: center !important;
-  gap: 2px 4px !important;
+  gap: 4px 10px !important;
   padding: 6px 0 2px 12px !important;
   margin-left: 2px !important;
   border: 0 !important;
@@ -390,4 +413,138 @@
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
+}
+
+
+/* StarShots Identity — Left Panel (Search, + New Client, Calm Clients List) */
+.pf-list-tools {
+  display: grid;
+  gap: 8px;
+}
+
+.pf-list-tools .pf-search {
+  min-height: 38px !important;
+  padding: 0 13px !important;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent) !important;
+  border-radius: 12px !important;
+  background: var(--field) !important;
+  color: var(--ink) !important;
+  font-size: 0.84rem !important;
+  font-weight: 450 !important;
+  box-shadow: none !important;
+}
+
+.pf-list-tools .pf-search:focus {
+  border-color: var(--line-strong, var(--line)) !important;
+  outline: none !important;
+}
+
+.pf-list-tools .add-client-button {
+  min-height: 36px !important;
+  padding: 0 14px !important;
+  border: 1px solid color-mix(in srgb, var(--line) 90%, transparent) !important;
+  border-radius: 12px !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font-size: 0.8rem !important;
+  font-weight: 550 !important;
+  letter-spacing: -0.01em !important;
+  box-shadow: none !important;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.pf-list-tools .add-client-button:hover {
+  background: color-mix(in srgb, var(--ink) 5.5%, transparent) !important;
+  border-color: var(--line-strong, var(--line)) !important;
+}
+
+.db-list {
+  gap: 2px !important;
+}
+
+.db-list-row {
+  min-height: 54px !important;
+  padding: 10px 12px !important;
+  border: 0 !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  transition: background 0.14s ease;
+}
+
+.db-list-row.has-event-pill {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.db-list-row::before {
+  display: none !important;
+}
+
+.db-list-row:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent) !important;
+}
+
+.db-list-row.active {
+  background: color-mix(in srgb, var(--ink) 6.5%, transparent) !important;
+}
+
+.db-list-row-text {
+  gap: 2px !important;
+}
+
+.db-list-row strong {
+  font-size: 0.88rem !important;
+  font-weight: 550 !important;
+  letter-spacing: -0.012em !important;
+  color: var(--ink) !important;
+}
+
+.db-list-row.event-tone-past {
+  opacity: 0.72 !important;
+}
+
+.db-list-row-text span {
+  font-size: 0.76rem !important;
+  font-weight: 450 !important;
+  color: var(--muted) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-list-row > span.event-date-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--muted) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.db-list-row > span.event-date-pill .db-date-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 6px;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+
+.db-list-row > span.event-date-pill.event-tone-soon .db-date-dot {
+  background: var(--evt-soon, #3b82f6);
+}
+
+.db-list-row > span.event-date-pill.event-tone-future .db-date-dot {
+  background: var(--evt-future, #22c55e);
+}
+
+.db-list-row > span.event-date-pill.event-tone-tba .db-date-dot {
+  background: var(--evt-tba, #f59e0b);
+}
+
+.db-list-row > span.event-date-pill.event-tone-past .db-date-dot {
+  background: color-mix(in srgb, var(--muted) 38%, transparent);
 }
