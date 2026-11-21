@@ -1532,8 +1532,6 @@ export function RecordRow({
               </a>
             )}
 
-            <span className="record-row-sep" aria-hidden="true">/</span>
-
             <a
               className={actionClass(invoiceStateClass)}
               href={eventInvoiceHref}
@@ -1544,8 +1542,6 @@ export function RecordRow({
               <span className="record-row-status-dot" aria-hidden="true" />
               <span>Invoice</span>
             </a>
-
-            <span className="record-row-sep" aria-hidden="true">/</span>
 
             <button
               type="button"
@@ -1599,8 +1595,6 @@ export function RecordRow({
                 </a>
               )}
 
-              <span className="record-row-sep" aria-hidden="true">/</span>
-
               <a
                 className={actionClass(vendorInvoiceStateClass)}
                 href={eventVendorInvoiceHref}
@@ -1611,8 +1605,6 @@ export function RecordRow({
                 <span className="record-row-status-dot" aria-hidden="true" />
                 <span>Invoice</span>
               </a>
-
-              <span className="record-row-sep" aria-hidden="true">/</span>
 
               <button
                 type="button"
