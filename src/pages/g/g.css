@@ -103,37 +103,55 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  width:min(100%,360px);
-  max-width:360px;
-  height:60px;
-  min-height:60px;
-  flex:0 0 60px;
-  margin:0 auto 28px;
+  width:min(100%,340px);
+  max-width:340px;
+  min-height:36px;
+  flex:0 0 auto;
+  margin:0 auto 26px;
   padding-inline:2px;
   color:var(--ink);
   font-family:var(--font),sans-serif;
-  font-size:clamp(24px,3.1vw,30px);
-  font-weight:500;
-  line-height:1.22;
-  letter-spacing:-.02em;
+  font-size:clamp(22px,2.8vw,26px);
+  font-weight:600;
+  line-height:1.24;
+  letter-spacing:-.025em;
   text-align:center;
   white-space:normal;
   overflow-wrap:anywhere;
   word-break:normal;
 }
 .gate-page .gate-card .client-delivery-greeting-text{display:block;width:100%}
-/* Keep greetings sleek and let the personalized name carry one restrained accent. */
-.public-delivery-greeting-name,.gate-greeting-name{
+/* Gemini-inspired smooth blue name bloom: starts in calm ink, fades gently
+ * into luminous blue after the card settles (350ms gap), holds briefly so it
+ * is clearly noticed, then fades smoothly back to ink (2.4s total).
+ * On the Password Gate it waits until .gate-page.is-revealed so it never
+ * finishes invisibly behind the splash screen. */
+.gate-greeting-name{
   color:var(--ink);
-  animation:client-greeting-name-burst 1000ms cubic-bezier(.22,.61,.36,1) 500ms both;
 }
-@keyframes client-greeting-name-burst{
-  0%{color:#3978F6}
-  20%{color:#789BEA}
+.gate-page.is-revealed .gate-greeting-name{
+  animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
+}
+.public-delivery-greeting-name{
+  color:var(--ink);
+  animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
+}
+@keyframes client-greeting-name-bloom{
+  0%{color:var(--ink)}
+  22%{color:#3b82f6}
+  54%{color:#5a95f8}
   100%{color:var(--ink)}
 }
+@media(prefers-color-scheme:dark){
+  @keyframes client-greeting-name-bloom{
+    0%{color:var(--ink)}
+    22%{color:#7cacf8}
+    54%{color:#95bdf9}
+    100%{color:var(--ink)}
+  }
+}
 @media(prefers-reduced-motion:reduce){
-  .public-delivery-greeting-name,.gate-greeting-name{animation:none;color:var(--ink)}
+  .public-delivery-greeting-name,.gate-page.is-revealed .gate-greeting-name{animation:none;color:var(--ink)}
 }
 .public-delivery-subcopy{margin:14px 0 22px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.01em;text-align:center}
 .public-delivery-invoice{
@@ -258,7 +276,9 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
   letter-spacing:-.035em;
   line-height:1.2;
 }
-.public-delivery-greeting-name,.gate-greeting-name{animation:none;color:var(--ink)}
+.public-delivery-greeting-name,.gate-greeting-name{color:var(--ink)}
+.public-delivery-greeting-name{animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both}
+.gate-page.is-revealed .gate-greeting-name{animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both}
 .public-delivery-subcopy{
   margin:12px 0 18px;
   color:#858585;
