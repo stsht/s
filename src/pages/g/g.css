@@ -244,7 +244,7 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
   letter-spacing:-.035em;
   line-height:1.2;
 }
-/* Single authoritative greeting rule: Password Gate stays calm; Delivery Page gets one smooth Gemini-style blue gradient sweep. */
+/* Single authoritative greeting rule: Password Gate stays calm; Delivery Page gets a 3x Gemini-style blue gradient sweep with clean rests. */
 .gate-greeting-name{color:var(--ink)}
 .public-delivery-greeting-name{
   display:inline-block;
@@ -252,22 +252,23 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
   background-image:linear-gradient(
     100deg,
     var(--ink) 0%,
-    var(--ink) 28%,
-    #2563eb 44%,
-    #3b82f6 52%,
-    #60a5fa 59%,
-    var(--ink) 74%,
+    var(--ink) 35%,
+    #2563eb 46%,
+    #3b82f6 50%,
+    #60a5fa 54%,
+    var(--ink) 65%,
     var(--ink) 100%
   );
-  background-size:260% 100%;
+  background-size:320% 100%;
   background-position:100% 0;
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
-  animation:client-greeting-gradient-sweep 2600ms cubic-bezier(.37,0,.63,1) 450ms both;
+  animation:client-greeting-gradient-sweep 3400ms cubic-bezier(.37,0,.63,1) 800ms 3 both;
 }
 @keyframes client-greeting-gradient-sweep{
   0%{background-position:100% 0}
+  55%{background-position:0% 0}
   100%{background-position:0% 0}
 }
 @media(prefers-color-scheme:dark){
@@ -275,11 +276,11 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
     background-image:linear-gradient(
       100deg,
       var(--ink) 0%,
-      var(--ink) 28%,
-      #60a5fa 44%,
-      #7cacf8 52%,
-      #93c5fd 59%,
-      var(--ink) 74%,
+      var(--ink) 35%,
+      #60a5fa 46%,
+      #7cacf8 50%,
+      #93c5fd 54%,
+      var(--ink) 65%,
       var(--ink) 100%
     );
   }
