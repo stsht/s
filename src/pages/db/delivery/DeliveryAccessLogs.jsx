@@ -1,51 +1,43 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DeleteIcon } from '../RecordRow.jsx';
 import {
   visitorActionSummary,
+  visitorPrimaryAction,
   classifyAccessNetwork,
   accessActorType,
-  isRealInAppBrowser,
-  maskIpAddress,
+  partitionAccessVisitors,
   visitorWhenLabel,
   accessLogRowDetail,
   formatAccessLogStamp,
   accessLogEventLabel,
+  pluralCount,
 } from './deliveryHelpers.js';
 
 function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   const [open, setOpen] = useState(false);
   const actions = visitorActionSummary(visitor.events);
-  const device = visitor.device;
   const rep = visitor.first || visitor.last || {};
   const network = classifyAccessNetwork(rep);
   const actor = accessActorType(visitor);
-  const realApp = isRealInAppBrowser(rep.user_agent || visitor.last?.user_agent || '');
+  const primaryAction = visitorPrimaryAction(visitor.events, actor);
+  const extraActions = actions.filter((label) => label !== primaryAction);
   const canDelete = typeof onRequestDelete === 'function';
-  // Title identity, in priority order:
-  //   1. Meta link-preview/scanner  -> "Meta Preview" (never counted
-  //      as a real in-app open).
-  //   2. A GENUINE in-app browser   -> the app label ("Instagram
-  //      Browser" / "WhatsApp Browser") even if it rode a Meta IP.
-  //   3. A known ISP / network owner-> that name ("Telkomsel",
-  //      "Cloudflare / Proxy", "Apple Private Relay", ...).
-  //   4. Otherwise                  -> the device/browser label.
-  let headline;
-  if (actor.key === 'meta') headline = actor.label || 'Meta Preview';
-  else if (actor.key === 'proxy' && actor.label === 'Crawler') headline = 'Crawler';
-  else if (realApp && device) headline = device;
-  else headline = network.name || device || 'Unknown device';
-  // Supporting line is always "City, Country · Browser/App · IP"
-  // (IP masked here; full IP lives in the expanded rows). Keeping the
-  // browser/app here even when it is also the title gives the operator
-  // a consistent, scannable identity strip on every card.
-  const support = [visitor.place, device, maskIpAddress(visitor.ip)]
-    .filter(Boolean)
-    .join(' · ');
+
+  // Organized profiling strip: Device · Browser · Location (no duplicates).
+  const profileParts = [];
+  if (visitor.platform) profileParts.push(visitor.platform);
+  if (visitor.browser) profileParts.push(visitor.browser);
+  else if (!visitor.platform && network.name) profileParts.push(network.name);
+  else if (!visitor.platform && visitor.device) profileParts.push(visitor.device);
+  if (visitor.place) profileParts.push(visitor.place);
+  if (visitor.isp && !profileParts.includes(visitor.isp)) profileParts.push(visitor.isp);
+
+  const fullIp = String(visitor.ip || '').trim();
   const whenLabel = visitorWhenLabel(visitor);
-  // Expanded timeline reads newest-to-oldest to stay consistent with
-  // the newest-first card ordering (events are stored chronological,
-  // so reverse a copy here for display).
-  const timelineRows = [...visitor.events].reverse();
+  const eventCount = Array.isArray(visitor.events) ? visitor.events.length : 0;
+
+  // Expanded timeline reads newest-to-oldest to stay consistent with card order.
+  const timelineRows = [...(visitor.events || [])].reverse();
   const toggle = () => setOpen((cur) => !cur);
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
@@ -53,61 +45,87 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
       toggle();
     }
   };
+
   return (
     <article
-      className={`dd-visitor-card${open ? ' is-open' : ''}`}
+      className={`dd-visitor-card is-actor-${actor.key}${open ? ' is-open' : ''}`}
       role="button"
       tabIndex={0}
       aria-expanded={open}
       onClick={toggle}
       onKeyDown={handleKeyDown}
     >
-      {/* Summary row: the stacked text block on the left, and the
-          clear (X) control on the right. align-items:center on the
-          row keeps the X vertically centered against the WHOLE
-          summary block (title + meta + when + actions), not just the
-          title line — and it stays out of the expanded timeline. */}
       <div className="dd-visitor-head">
         <div className="dd-visitor-info">
-          <div className="dd-visitor-titleline">
-            <strong className="dd-visitor-name">{headline}</strong>
-            {actor.label ? (
-              <span className={`dd-visitor-pill is-${actor.key}`}>{actor.label}</span>
-            ) : null}
+          <div className="dd-visitor-toprow">
+            <div className="dd-visitor-titleline">
+              <span className={`dd-visitor-dot-status is-${actor.key}`} aria-hidden="true" />
+              <strong className="dd-visitor-name">{primaryAction}</strong>
+              {actor.label ? (
+                <span className={`dd-visitor-pill is-${actor.key}`}>{actor.label}</span>
+              ) : null}
+            </div>
+            <div className="dd-visitor-right">
+              {whenLabel ? <span className="dd-visitor-when">{whenLabel}</span> : null}
+              {canDelete ? (
+                <button
+                  type="button"
+                  className="dd-visitor-delete"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRequestDelete?.();
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
+                      event.stopPropagation();
+                    }
+                  }}
+                  title="Remove this session log"
+                  aria-label="Remove this session log"
+                >
+                  <DeleteIcon />
+                </button>
+              ) : null}
+            </div>
           </div>
-          {support ? <p className="dd-visitor-meta">{support}</p> : null}
-          {whenLabel ? <p className="dd-visitor-when">{whenLabel}</p> : null}
-          {actions.length ? <p className="dd-visitor-actions">{actions.join(' · ')}</p> : null}
+
+          {profileParts.length ? (
+            <p className="dd-visitor-profile">
+              {profileParts.map((part, idx) => (
+                <span key={`${part}-${idx}`} className="dd-visitor-profile-item">
+                  {idx > 0 ? <span className="dd-visitor-sep" aria-hidden="true">·</span> : null}
+                  <span>{part}</span>
+                </span>
+              ))}
+              {eventCount > 1 ? (
+                <span className="dd-visitor-profile-item dd-visitor-count">
+                  <span className="dd-visitor-sep" aria-hidden="true">·</span>
+                  <span>{pluralCount(eventCount, 'event')}</span>
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+
+          {extraActions.length ? (
+            <p className="dd-visitor-trail">Also: {extraActions.join(' · ')}</p>
+          ) : null}
+
+          {fullIp ? (
+            <p className="dd-visitor-ip-row">
+              <span className="dd-visitor-ip-label">IP</span>
+              <span className="dd-visitor-ip-val">{fullIp}</span>
+            </p>
+          ) : null}
         </div>
-        {/* Per-card clear: removes ONLY this visitor/session's log
-            rows, immediately (no confirm). stopPropagation on click +
-            Enter/Space keeps the whole-card expand/collapse gesture
-            from also firing. No separate expand arrow. */}
-        {canDelete ? (
-          <button
-            type="button"
-            className="dd-visitor-delete"
-            onClick={(event) => {
-              event.stopPropagation();
-              onRequestDelete?.();
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar') {
-                event.stopPropagation();
-              }
-            }}
-            title="Clear this log"
-            aria-label="Clear this log"
-          >
-            <DeleteIcon />
-          </button>
-        ) : null}
       </div>
+
       {open ? (
         <ol className="dd-visitor-timeline">
           {timelineRows.map((event, i) => {
             const type = String(event.event_type || '').toLowerCase();
-            const strong = type === 'password_success' || type === 'service_click' || type === 'button_click';
+            const strong = type === 'password_success' || type === 'service_click' || type === 'button_click'
+              || type === 'invoice_fullscreen' || type === 'invoice_download'
+              || type === 'payment_bank_copy' || type === 'payment_qr_download';
             const weak = type === 'page_view';
             const detail = accessLogRowDetail(event);
             return (
@@ -130,12 +148,30 @@ function AccessLogVisitorCard({ visitor, onRequestDelete }) {
   );
 }
 
-export function DeliveryAccessLogs({ accessSummaryText, accessVisitors, handleDeleteVisitor }) {
+export function DeliveryAccessLogs({
+  accessSummaryText,
+  accessVisitors,
+  handleDeleteVisitor,
+  hideHead = false,
+}) {
+  const [showHidden, setShowHidden] = useState(false);
+  const { human, bots, admin } = useMemo(
+    () => partitionAccessVisitors(accessVisitors),
+    [accessVisitors]
+  );
+
+  const hiddenCount = bots.length + admin.length;
+  const hiddenLabelParts = [];
+  if (bots.length) hiddenLabelParts.push(pluralCount(bots.length, 'link preview'));
+  if (admin.length) hiddenLabelParts.push(pluralCount(admin.length, 'admin preview'));
+  const hiddenToggleLabel = `${showHidden ? 'Hide' : 'Show'} ${hiddenLabelParts.join(' · ')}`;
+
   return (
-          <section className="dd-access-log" aria-label="Delivery access activity">
-            <div className="dd-access-log-head">
-              <p className="eyebrow">Access Activity</p>
-              {accessSummaryText ? <span>{accessSummaryText}</span> : null}
+    <section className="dd-access-log" aria-label="Delivery access activity">
+      {!hideHead ? (
+        <div className="dd-access-log-head">
+          <p className="eyebrow">Access Activity</p>
+          {accessSummaryText ? <span>{accessSummaryText}</span> : null}
             </div>
             {accessVisitors.length ? (
               <div className="dd-visitor-list">
