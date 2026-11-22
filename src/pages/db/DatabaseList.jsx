@@ -138,8 +138,7 @@ export function DatabaseList({
                   className={`event-date-pill${clientPillTone ? ` event-tone-${clientPillTone}` : ''}`}
                   aria-label={`Event ${compactEventDateLabel(clientPillDate)}`}
                 >
-                  <span className="db-date-dot" aria-hidden="true" />
-                  <span>{compactEventDateLabel(clientPillDate)}</span>
+                  {compactEventDateLabel(clientPillDate)}
                 </span>
               ) : null}
             </div>

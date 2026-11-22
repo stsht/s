@@ -512,39 +512,36 @@
 .db-list-row > span.event-date-pill {
   display: inline-flex !important;
   align-items: center !important;
-  gap: 6px !important;
-  min-height: 0 !important;
-  padding: 0 !important;
+  justify-content: center !important;
+  min-height: 24px !important;
+  padding: 3px 9px !important;
   border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
+  border-radius: 8px !important;
+  background: color-mix(in srgb, var(--ink) 5%, transparent) !important;
   color: var(--muted) !important;
-  font-size: 0.75rem !important;
-  font-weight: 500 !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.db-list-row > span.event-date-pill .db-date-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: 0 0 6px;
-  background: color-mix(in srgb, var(--muted) 45%, transparent);
+.db-list-row > span.event-date-pill.event-tone-soon {
+  background: color-mix(in srgb, var(--evt-soon, #3b82f6) 11%, transparent) !important;
+  color: var(--evt-soon, #2563eb) !important;
 }
 
-.db-list-row > span.event-date-pill.event-tone-soon .db-date-dot {
-  background: var(--evt-soon, #3b82f6);
+.db-list-row > span.event-date-pill.event-tone-future {
+  background: color-mix(in srgb, var(--evt-future, #22c55e) 11%, transparent) !important;
+  color: var(--evt-future, #16a34a) !important;
 }
 
-.db-list-row > span.event-date-pill.event-tone-future .db-date-dot {
-  background: var(--evt-future, #22c55e);
+.db-list-row > span.event-date-pill.event-tone-tba {
+  background: color-mix(in srgb, var(--evt-tba, #f59e0b) 13%, transparent) !important;
+  color: var(--evt-tba, #d97706) !important;
 }
 
-.db-list-row > span.event-date-pill.event-tone-tba .db-date-dot {
-  background: var(--evt-tba, #f59e0b);
-}
-
-.db-list-row > span.event-date-pill.event-tone-past .db-date-dot {
-  background: color-mix(in srgb, var(--muted) 38%, transparent);
+.db-list-row > span.event-date-pill.event-tone-past {
+  background: color-mix(in srgb, var(--ink) 4.5%, transparent) !important;
+  color: var(--muted) !important;
 }

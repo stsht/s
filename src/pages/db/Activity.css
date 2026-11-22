@@ -1,100 +1,123 @@
-/* /db Activity tab polish. Loaded after DatabaseDetail.css so these
- * focused overrides can refine only the Activity list/detail surfaces. */
+/* /db Activity tab — StarShots Identity editorial polish.
+ * Removes curved left inset stripes, alternating row tints, and
+ * heavy display weights so Activity matches Clients & Payment Proof. */
 
 .db-list-row.activity-row{
-  grid-template-columns:minmax(0,1fr);
-  min-height:auto;
+  grid-template-columns:minmax(0,1fr) !important;
+  min-height:auto !important;
   align-items:start;
-  padding:14px 16px;
-  border-color:var(--line);
-  background:color-mix(in srgb,var(--field) 62%,transparent);
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-future) 50%,transparent);
+  padding:11px 12px !important;
+  border:0 !important;
+  border-radius:14px !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  transition:background .14s ease;
 }
 .db-list-row.activity-row:nth-child(even){
-  background:color-mix(in srgb,var(--panel) 72%,var(--field) 28%);
-  box-shadow:inset 3px 0 0 0 color-mix(in srgb,var(--evt-tba) 56%,transparent);
+  background:transparent !important;
+  box-shadow:none !important;
 }
-.db-list-row.activity-row:hover,
+.db-list-row.activity-row:hover{
+  border-color:transparent !important;
+  background:color-mix(in srgb,var(--ink) 4%,transparent) !important;
+}
 .db-list-row.activity-row.active{
-  border-color:var(--line-strong);
-  background:var(--field);
+  border-color:transparent !important;
+  background:color-mix(in srgb,var(--ink) 6.5%,transparent) !important;
 }
 .db-list-row.activity-row .db-list-row-text{
-  gap:6px;
+  gap:3px !important;
 }
 .db-list-row.activity-row strong{
   white-space:normal;
   overflow:visible;
   text-overflow:clip;
-  line-height:1.18;
+  font-size:.88rem !important;
+  font-weight:550 !important;
+  letter-spacing:-.012em !important;
+  line-height:1.25;
+  color:var(--ink) !important;
 }
 .db-list-row.activity-row span{
   white-space:normal;
   overflow:visible;
   text-overflow:clip;
-  line-height:1.3;
+  line-height:1.35;
 }
 .db-list-row.activity-row .activity-folder-line{
   display:block;
-  color:var(--muted);
-  font-size:.8125rem;
-  font-weight:720;
+  color:var(--muted) !important;
+  font-size:.76rem !important;
+  font-weight:450 !important;
   overflow-wrap:anywhere;
 }
 .db-list-row.activity-row .activity-action-line{
   display:block;
-  color:color-mix(in srgb,var(--ink) 72%,var(--muted) 28%);
-  font-size:.75rem;
-  font-weight:760;
+  margin-top:2px;
+  color:color-mix(in srgb,var(--ink) 78%,var(--muted) 22%) !important;
+  font-size:.74rem !important;
+  font-weight:500 !important;
 }
 .db-list-row.activity-row .activity-stats-line{
   display:block;
-  color:var(--muted);
-  font-size:.6875rem;
-  font-weight:700;
-  letter-spacing:.01em;
+  color:var(--muted) !important;
+  font-size:.7rem !important;
+  font-weight:450 !important;
+  letter-spacing:0;
+  font-variant-numeric:tabular-nums;
 }
 
 .activity-detail-heading{
   position:relative;
-  display:grid;
-  grid-template-columns:minmax(0,1fr) 44px;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
   gap:16px;
-  align-items:start;
-  margin-bottom:24px;
+  padding-bottom:18px;
+  margin-bottom:4px;
 }
 .activity-detail-titleblock{
   min-width:0;
   display:grid;
-  gap:8px;
+  gap:4px;
 }
 .activity-detail-titleblock .eyebrow{
-  margin:0;
+  margin:0 0 2px !important;
+  font-size:.65rem !important;
+  font-weight:600 !important;
+  letter-spacing:.11em !important;
+  text-transform:uppercase;
+  color:var(--muted) !important;
 }
 .activity-detail-titleblock h2{
-  margin:0;
-  line-height:.98;
-  letter-spacing:-.045em;
+  margin:0 !important;
+  font-size:1.42rem !important;
+  font-weight:600 !important;
+  line-height:1.18 !important;
+  letter-spacing:-.028em !important;
+  color:var(--ink) !important;
 }
 .activity-detail-meta{
-  margin:0;
-  color:var(--muted);
-  font-size:.875rem;
-  font-weight:800;
+  margin:2px 0 0 !important;
+  color:var(--muted) !important;
+  font-size:.8rem !important;
+  font-weight:450 !important;
   line-height:1.35;
+  font-variant-numeric:tabular-nums;
 }
 .activity-close-button{
-  justify-self:end;
+  flex-shrink:0;
 }
 
 .activity-folder-marquee{
   position:relative;
   max-width:100%;
   overflow:hidden;
-  color:var(--muted);
-  font-size:1rem;
-  font-weight:850;
-  line-height:1.28;
+  margin-top:2px;
+  color:var(--muted) !important;
+  font-size:.84rem !important;
+  font-weight:500 !important;
+  line-height:1.32;
   mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
   -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
 }
@@ -124,50 +147,65 @@
 .activity-last-card{
   display:grid;
   grid-template-columns:minmax(0,1fr) auto;
-  gap:10px 14px;
+  gap:8px 14px;
   align-items:center;
   padding:14px 0 18px;
-  margin-bottom:18px;
-  border-bottom:1px solid var(--line);
+  margin-bottom:16px;
+  border-top:1px solid color-mix(in srgb,var(--line) 80%,transparent);
+  border-bottom:1px solid color-mix(in srgb,var(--line) 80%,transparent);
 }
 .activity-last-card .eyebrow{
   grid-column:1 / -1;
-  margin:0;
+  margin:0 !important;
+  font-size:.65rem !important;
+  font-weight:600 !important;
+  letter-spacing:.1em !important;
+  color:var(--muted) !important;
 }
 .activity-last-card strong,
 .activity-last-card span{
   display:block;
 }
 .activity-last-card strong{
-  color:var(--ink);
-  font-size:1rem;
-  font-weight:900;
+  color:var(--ink) !important;
+  font-size:.92rem !important;
+  font-weight:600 !important;
+  letter-spacing:-.012em;
 }
 .activity-last-card span{
   margin-top:3px;
-  color:var(--muted);
-  font-size:.8125rem;
-  font-weight:720;
+  color:var(--muted) !important;
+  font-size:.78rem !important;
+  font-weight:450 !important;
+  font-variant-numeric:tabular-nums;
 }
 .activity-short-link{
-  color:var(--ink);
-  font-size:.875rem;
-  font-weight:900;
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:0 12px;
+  border-radius:999px;
+  background:color-mix(in srgb,var(--ink) 5.5%,transparent);
+  color:var(--ink) !important;
+  font-size:.78rem !important;
+  font-weight:550 !important;
+  font-variant-numeric:tabular-nums;
   text-decoration:none;
   white-space:nowrap;
+  transition:background .14s ease;
 }
 .activity-short-link:hover{
-  text-decoration:underline;
+  background:color-mix(in srgb,var(--ink) 10%,transparent);
+  text-decoration:none;
 }
 
 @media(max-width:640px){
   .activity-detail-heading{
-    grid-template-columns:minmax(0,1fr) 40px;
     gap:12px;
-    margin-bottom:22px;
+    padding-bottom:16px;
   }
   .activity-detail-titleblock h2{
-    font-size:clamp(2.15rem,12vw,3.45rem);
+    font-size:1.35rem !important;
   }
   .activity-last-card{
     grid-template-columns:1fr;
