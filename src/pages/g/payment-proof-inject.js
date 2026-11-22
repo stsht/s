@@ -59,8 +59,8 @@ function ensureStyle() {
     .public-payment-proof-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:0;border-radius:13px;background:var(--soft);cursor:zoom-in}.public-payment-proof-thumb img{width:100%;height:100%;display:block;object-fit:cover}
     .public-payment-proof-meta{min-width:0}.public-payment-proof-meta-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.public-payment-proof-meta strong{display:block}
     .public-payment-proof-times{display:grid;gap:9px;margin:10px 0 0}.public-payment-proof-times div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px}.public-payment-proof-times dt,.public-payment-proof-times dd{margin:0}.public-payment-proof-times dt{color:var(--muted);font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.public-payment-proof-times dd{color:var(--ink);font-size:12px;font-weight:700;line-height:1.35;text-align:right}.public-payment-proof-times small{color:var(--muted);font-size:10px;font-weight:650}
-    .public-payment-proof-status{display:inline-flex;padding:4px 9px;border-radius:999px;background:var(--soft);color:var(--muted);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-    .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--success-state, #1f8a4c) 20%,transparent);color:color-mix(in srgb,var(--success-state, #1f8a4c) 78%,var(--ink))}.public-payment-proof-status.is-rejected{background:rgba(190,58,68,.12);color:#b32939}
+    .public-payment-proof-status{display:inline-flex;align-items:center;min-height:24px;padding:3px 9px;border:0;border-radius:8px;background:color-mix(in srgb,var(--ink) 5.5%,transparent);color:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:-.005em;text-transform:none}
+    .public-payment-proof-status.is-confirmed{background:color-mix(in srgb,var(--success-state, #16a34a) 12%,transparent);color:var(--success-state, #16a34a)}.public-payment-proof-status.is-pending{background:color-mix(in srgb,#d97706 13%,transparent);color:#d97706}.public-payment-proof-status.is-rejected{background:rgba(220,38,38,.11);color:#dc2626}
     .public-payment-proof-button{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--ink);font:inherit;font-size:12px;font-weight:600;cursor:pointer}.public-payment-proof-entry>.public-payment-proof-button{width:100%;margin-top:auto}.public-payment-proof-button.is-danger{border-color:rgba(190,58,68,.25);color:#b32939}.public-payment-proof-button.is-primary{border-color:transparent;background:var(--ink);color:var(--panel)}.public-payment-proof-button:disabled{opacity:.55;cursor:wait}
     .public-payment-proof-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px}.public-payment-proof-error{margin:0 20px 16px;color:#b32939;font-size:12px;font-weight:700}
     .public-payment-proof-upload-form{display:grid;gap:18px;padding:18px 20px;overflow:auto}.public-payment-proof-upload-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.public-payment-proof-upload-thumb{width:100%;height:170px;padding:0;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:var(--soft);cursor:zoom-in}.public-payment-proof-upload-thumb img{width:100%;height:100%;display:block;object-fit:cover}.public-payment-proof-upload-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
@@ -351,10 +351,14 @@ function statusLabel(status = '') {
 
 function uploadedLabel(value = '') {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Upload time unavailable';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  if (Number.isNaN(date.getTime())) return '—';
+  const datePart = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric'
   }).format(date);
+  const timePart = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(date);
+  return `${datePart} · ${timePart}`;
 }
 
 function paymentLabel(dateValue = '', timeValue = '') {
@@ -484,14 +488,19 @@ function isValidTimeEntry(value = '') {
 function cardMode() {
   const currentProofs = proofStore.proofs.filter((proof) => proof.current_request !== false);
   const statuses = currentProofs.map((proof) => String(proof.status || '').toLowerCase());
+  const isFullPaid = typeof document !== 'undefined' && Boolean(document.querySelector('.public-delivery-invoice.is-paid'));
   if (proofStore.locked || statuses.includes('confirmed')) {
-    return { className: 'is-confirmed', note: 'Payment confirmed', action: 'View' };
+    return {
+      className: 'is-confirmed',
+      note: isFullPaid ? 'Full payment confirmed' : 'Deposit confirmed',
+      action: 'View'
+    };
   }
   if (statuses.includes('pending')) return { className: 'is-pending', note: 'Waiting for review', action: 'Manage' };
   if (!proofStore.askOpen) {
     return {
       className: '',
-      note: proofStore.proofs.length ? 'No active request. View previous payment proof.' : 'No active payment request.',
+      note: proofStore.proofs.length ? (isFullPaid ? 'Full payment confirmed' : 'Deposit confirmed') : 'No active payment request.',
       action: proofStore.proofs.length ? 'View' : 'Pending'
     };
   }
@@ -1004,7 +1013,7 @@ function renderModal() {
       const metaHead = document.createElement('div');
       metaHead.className = 'public-payment-proof-meta-head';
       const name = document.createElement('strong');
-      name.textContent = `Proof ${index + 1}${proof.current_request === false ? ' · Previous request' : ' · Current request'}`;
+      name.textContent = proofStore.proofs.length === 1 ? 'Transfer Receipt' : `Receipt ${index + 1}`;
       const status = document.createElement('span');
       status.className = `public-payment-proof-status is-${String(proof.status || 'processed').toLowerCase()}`;
       status.textContent = statusLabel(proof.status);
@@ -1026,10 +1035,8 @@ function renderModal() {
         times.appendChild(row);
       };
       const paymentTimeLabel = paymentLabel(proof.payment_date || proof.reported_payment_date, proof.payment_time || proof.reported_payment_time);
-      addTime('Payment Time', paymentTimeLabel || 'Not recorded');
-      if (String(proof.status || '').toLowerCase() === 'confirmed' && proof.reviewed_at) {
-        addTime('Confirmed', uploadedLabel(proof.reviewed_at));
-      }
+      addTime('Payment Time', paymentTimeLabel || '—');
+      addTime('Upload Time', proof.uploaded_at ? uploadedLabel(proof.uploaded_at) : '—');
       meta.append(metaHead, times);
       entry.append(thumb, meta);
 
