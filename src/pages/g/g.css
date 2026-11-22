@@ -276,7 +276,9 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
   letter-spacing:-.035em;
   line-height:1.2;
 }
-.public-delivery-greeting-name,.gate-greeting-name{animation:none;color:var(--ink)}
+.public-delivery-greeting-name,.gate-greeting-name{color:var(--ink)}
+.public-delivery-greeting-name{animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both}
+.gate-page.is-revealed .gate-greeting-name{animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both}
 .public-delivery-subcopy{
   margin:12px 0 18px;
   color:#858585;
