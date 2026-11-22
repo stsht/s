@@ -4,22 +4,24 @@
   color:var(--ink);
 }
 .public-delivery-greeting-name{
+  display:inline-block;
   color:var(--ink);
   background-image:linear-gradient(
-    90deg,
+    100deg,
     var(--ink) 0%,
-    var(--ink) 34%,
-    #2563eb 48%,
-    #60a5fa 56%,
-    var(--ink) 70%,
+    var(--ink) 28%,
+    #2563eb 44%,
+    #3b82f6 52%,
+    #60a5fa 59%,
+    var(--ink) 74%,
     var(--ink) 100%
   );
-  background-size:320% 100%;
+  background-size:260% 100%;
   background-position:100% 0;
   -webkit-background-clip:text;
   background-clip:text;
   -webkit-text-fill-color:transparent;
-  animation:client-greeting-gradient-sweep 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
+  animation:client-greeting-gradient-sweep 2600ms cubic-bezier(.37,0,.63,1) 450ms both;
 }
 @keyframes client-greeting-gradient-sweep{
   0%{background-position:100% 0}
@@ -28,18 +30,19 @@
 @media(prefers-color-scheme:dark){
   .public-delivery-greeting-name{
     background-image:linear-gradient(
-      90deg,
+      100deg,
       var(--ink) 0%,
-      var(--ink) 34%,
-      #60a5fa 48%,
-      #93c5fd 56%,
-      var(--ink) 70%,
+      var(--ink) 28%,
+      #60a5fa 44%,
+      #7cacf8 52%,
+      #93c5fd 59%,
+      var(--ink) 74%,
       var(--ink) 100%
     );
   }
 }
 @media(prefers-reduced-motion:reduce){
-  .public-delivery-greeting-name{
+  html:not(.ss-force-motion) .public-delivery-greeting-name{
     animation:none;
     background:none;
     -webkit-text-fill-color:var(--ink);
