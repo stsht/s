@@ -629,3 +629,113 @@
 .pf-mobile-tabs button {
   -webkit-touch-callout: none;
 }
+
+
+
+/* StarShots Identity — Minimalist Collapsible Search & Quiet + New Bar (Zero Hard Divider) */
+.pf-list-tools.db-minimal-tools {
+  padding: 6px 18px 6px !important;
+  border-bottom: 0 !important;
+  background: transparent !important;
+  gap: 0 !important;
+}
+
+.pf-panel--left .pf-panel-scroll > .pf-list-tools.db-minimal-tools + * {
+  margin-top: 4px !important;
+}
+
+.db-tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  padding: 0 2px;
+}
+
+.db-tools-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.db-tools-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: -6px;
+}
+
+.db-tool-icon-btn {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.db-tool-icon-btn:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--ink);
+}
+
+.db-new-client-link {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 550;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.14s ease;
+}
+
+.db-new-client-link:hover {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+.db-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 4px 0 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.db-search-icon {
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+
+.pf-list-tools.db-minimal-tools .pf-search.db-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  font-size: 0.84rem !important;
+  font-weight: 450 !important;
+  box-shadow: none !important;
+}
+
+.pf-list-tools.db-minimal-tools .pf-search.db-search-input:focus {
+  outline: none !important;
+  border: 0 !important;
+}

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { EmptyState } from '../../components/ui/index.js';
 import { compactEventDateLabel } from './dbHelpers.js';
 import { formatClientContact } from './clients/clientContact.js';
@@ -56,22 +57,84 @@ export function DatabaseList({
   onCreateClient,
 }) {
   const isActivityTab = tab === 'activity';
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
+  const showSearch = searchOpen || Boolean(query);
+
+  useEffect(() => {
+    if (searchOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [searchOpen]);
+
+  useEffect(() => {
+    if (!query) setSearchOpen(false);
+  }, [tab]);
+
+  function handleCloseSearch() {
+    if (query) onQueryChange('');
+    setSearchOpen(false);
+  }
   return (
     <>
-      <div className="pf-list-tools">
-        <input
-          className="pf-search"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={isActivityTab ? 'Search activity' : 'Search'}
-          type="search"
-          aria-label="Search database"
-        />
-        {tab === 'clients' ? (
-          <button className="add-client-button" type="button" onClick={onCreateClient}>
-            + New Client
-          </button>
-        ) : null}
+      <div className="pf-list-tools db-minimal-tools">
+        {showSearch ? (
+          <div className="db-search-bar">
+            <svg className="db-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              className="pf-search db-search-input"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') handleCloseSearch();
+              }}
+              placeholder={isActivityTab ? 'Search activity…' : 'Search clients…'}
+              type="search"
+              aria-label={isActivityTab ? 'Search activity' : 'Search clients'}
+            />
+            <button
+              type="button"
+              className="db-tool-icon-btn"
+              onClick={handleCloseSearch}
+              aria-label="Close search"
+              title="Close search"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="db-tools-row">
+            <span className="db-tools-label">
+              {isActivityTab ? 'Activity' : 'Clients'}{activeRows.length ? ` · ${activeRows.length}` : ''}
+            </span>
+            <div className="db-tools-actions">
+              <button
+                type="button"
+                className="db-tool-icon-btn"
+                onClick={() => setSearchOpen(true)}
+                aria-label={isActivityTab ? 'Search activity' : 'Search clients'}
+                title="Search"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </button>
+              {tab === 'clients' ? (
+                <button className="db-new-client-link" type="button" onClick={onCreateClient}>
+                  + New
+                </button>
+              ) : null}
+            </div>
+          </div>
+        )}
       </div>
       {status ? <EmptyState>{status}</EmptyState> : null}
       <div className="db-list">
