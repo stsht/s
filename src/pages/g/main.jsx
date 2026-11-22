@@ -18,21 +18,13 @@ import './g.css';
  * normalize the short-code so existing links keep working unchanged.
  */
 /**
- * Public delivery greetings retain the full first/last name while
- * shortening every middle name to an initial for a cleaner heading.
- * The stored client name is never modified.
+ * Public delivery greetings use the client's first name for a warm,
+ * boutique single-line salutation (matching the WhatsApp greeting).
+ * Full client names remain intact in the database and formal invoice.
  */
 function formatDeliveryGreetingName(value = '') {
   const words = String(value || '').trim().split(/\s+/).filter(Boolean);
-  if (words.length <= 2) return words.join(' ');
-
-  const middleInitials = words.slice(1, -1).map((word) => {
-    const clean = word.replace(/[.]+$/, '');
-    const initial = Array.from(clean || word)[0] || '';
-    return initial ? `${initial.toLocaleUpperCase()}.` : '';
-  }).filter(Boolean);
-
-  return [words[0], ...middleInitials, words[words.length - 1]].join(' ');
+  return words[0] || '';
 }
 
 /**
