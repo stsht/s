@@ -208,6 +208,14 @@
   justify-content: flex-end;
   padding-right: 12px;
   background: var(--danger, #c93b42);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.record-row-swipe-bg[aria-hidden="false"] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .record-row-swipe-delete {
@@ -237,6 +245,10 @@
 
 .client-record-stack .record-row::before {
   display: none !important;
+}
+
+.client-record-stack .record-row.event-tone-past {
+  opacity: 1 !important;
 }
 
 .client-record-stack .record-row.is-swiping {
