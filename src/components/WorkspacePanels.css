@@ -82,9 +82,9 @@
 
 .pf-panel--right .pf-panel-scroll {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(var(--pill-count, 2), minmax(0, 1fr));
+  display: flex;
   flex-direction: column;
+  align-items: stretch;
 }
 
 /* Scrollbar chrome for the whole workspace frame is hidden by the
