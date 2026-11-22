@@ -112,29 +112,30 @@
 .activity-folder-marquee{
   position:relative;
   max-width:100%;
-  overflow:hidden;
+  overflow-x:auto;
+  overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
   margin-top:2px;
   color:var(--muted) !important;
   font-size:.84rem !important;
   font-weight:500 !important;
   line-height:1.32;
-  mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
-  -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 34px),transparent 100%);
+  mask-image:none !important;
+  -webkit-mask-image:none !important;
+}
+.activity-folder-marquee::-webkit-scrollbar{
+  display:none;
 }
 .activity-folder-marquee span{
   display:inline-block;
-  max-width:100%;
   white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
   vertical-align:top;
   transform:translateX(0);
 }
 .activity-folder-marquee.is-overflowing span{
-  max-width:none;
-  min-width:max-content;
-  padding-right:48px;
-  animation:ss-activity-marquee 9s ease-in-out 1.1s infinite alternate;
+  padding-right:16px;
+  animation:none;
 }
 @keyframes ss-activity-marquee{
   0%,12%{transform:translateX(0)}
@@ -213,4 +214,82 @@
   .activity-short-link{
     justify-self:start;
   }
+}
+
+/* StarShots Identity — Access Activity & Visitor Timeline Cards */
+.dd-access-log{
+  gap:12px !important;
+  padding:4px 0 0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+}
+.dd-access-log-head{
+  flex-wrap:wrap;
+  padding-bottom:10px;
+  border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);
+}
+.dd-access-log-head .eyebrow{
+  font-size:.65rem !important;
+  font-weight:600 !important;
+  letter-spacing:.1em !important;
+  color:var(--muted) !important;
+}
+.dd-access-log-head span,
+.dd-access-log-empty{
+  font-size:.76rem !important;
+  font-weight:450 !important;
+  color:var(--muted) !important;
+  font-variant-numeric:tabular-nums;
+}
+.dd-visitor-list{gap:0 !important;}
+.dd-visitor-card{
+  gap:4px !important;
+  padding:13px 2px !important;
+  border:0 !important;
+  border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent) !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+.dd-visitor-card:last-child{border-bottom:0 !important;}
+.dd-visitor-card:hover{background:color-mix(in srgb,var(--ink) 2.5%,transparent) !important;}
+.dd-visitor-name{
+  font-size:.88rem !important;
+  font-weight:600 !important;
+  letter-spacing:-.012em !important;
+  color:var(--ink) !important;
+}
+.dd-visitor-meta,
+.dd-visitor-when{
+  font-size:.76rem !important;
+  font-weight:450 !important;
+  color:var(--muted) !important;
+  font-variant-numeric:tabular-nums;
+}
+.dd-visitor-actions{
+  font-size:.78rem !important;
+  font-weight:500 !important;
+  color:var(--ink) !important;
+}
+.dd-visitor-pill{
+  border:0 !important;
+  border-radius:7px !important;
+  padding:2px 8px !important;
+  min-height:20px !important;
+  font-size:.64rem !important;
+  font-weight:600 !important;
+  letter-spacing:.04em !important;
+}
+.dd-visitor-pill.is-client{
+  background:color-mix(in srgb,var(--evt-future, #22c55e) 12%,transparent) !important;
+  color:var(--evt-future, #16a34a) !important;
+}
+.dd-visitor-pill.is-meta{
+  background:color-mix(in srgb,var(--evt-soon, #3b82f6) 12%,transparent) !important;
+  color:var(--evt-soon, #2563eb) !important;
+}
+.dd-visitor-pill.is-unknown{
+  background:color-mix(in srgb,var(--ink) 6%,transparent) !important;
+  color:var(--muted) !important;
 }

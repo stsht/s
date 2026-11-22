@@ -33,7 +33,7 @@ function isHumanReadableContact(value) {
 
 function activityStatsLine(row = {}) {
   return [
-    row.lastActivityDisplay ? `Last ${row.lastActivityDisplay}` : '',
+    row.lastActivityDisplay ? `Latest ${row.lastActivityDisplay}` : '',
     `${Number(row.visitors || 0)} visitors`,
     `${Number(row.opens || 0)} opens`,
     `${Number(row.clicks || 0)} clicks`,

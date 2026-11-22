@@ -545,3 +545,38 @@
   background: color-mix(in srgb, var(--ink) 4.5%, transparent) !important;
   color: var(--muted) !important;
 }
+
+/* StarShots Identity — Empty States & Mobile Bottom Bar (/db scoped) */
+.empty-state {
+  margin: 0 !important;
+  padding: 20px 2px !important;
+  font-size: 0.84rem !important;
+  font-weight: 450 !important;
+  color: var(--muted) !important;
+  letter-spacing: -0.005em;
+}
+
+@media (max-width: 1023px) {
+  .pf-mobile-tabs {
+    padding: 4px !important;
+    border: 1px solid color-mix(in srgb, var(--line) 85%, transparent) !important;
+    border-radius: 999px !important;
+    background: color-mix(in srgb, var(--panel) 94%, transparent) !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .pf-mobile-tabs button {
+    min-height: 38px !important;
+    font-size: 0.82rem !important;
+    font-weight: 550 !important;
+    letter-spacing: -0.01em !important;
+    color: var(--muted) !important;
+    border-radius: 999px !important;
+  }
+
+  .pf-mobile-tabs button.active {
+    background: var(--ink) !important;
+    color: var(--panel) !important;
+    font-weight: 600 !important;
+  }
+}

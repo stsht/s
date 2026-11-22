@@ -52,7 +52,7 @@ export function ActivityDetail({ activity, onClose }) {
     pluralCount(accessVisitors.length, 'visitor'),
     pluralCount(accessStats.opens, 'open'),
     pluralCount(accessStats.clicks, 'click'),
-    accessStats.lastActivity ? `Last activity ${accessStats.lastActivity}` : '',
+    accessStats.lastActivity ? `Latest activity ${accessStats.lastActivity}` : '',
   ].filter(Boolean).join(' · ');
 
   const name = String(activity?.client_name || delivery?.client_name || 'Delivery').trim();
@@ -84,7 +84,7 @@ export function ActivityDetail({ activity, onClose }) {
         </button>
       </div>
       <section className="activity-last-card" aria-label="Latest activity summary">
-        <p className="eyebrow">Last Activity</p>
+        <p className="eyebrow">Latest Activity</p>
         <div>
           <strong>{activity?.lastActivityLabel || 'Latest delivery activity'}</strong>
           <span>{activity?.lastActivityDisplay || 'No recent time'}</span>
