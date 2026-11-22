@@ -168,37 +168,53 @@
   word-break:normal;
 }
 .gate-page .gate-card .client-delivery-greeting-text{display:block;width:100%}
-/* Gemini-inspired smooth blue name bloom: starts in calm ink, fades gently
- * into luminous blue after the card settles (350ms gap), holds briefly so it
- * is clearly noticed, then fades smoothly back to ink (2.4s total).
- * On the Password Gate it waits until .gate-page.is-revealed so it never
- * finishes invisibly behind the splash screen. */
+/* Keep Password Gate greeting calm and neutral; reserve the smooth
+ * Gemini-style gradient sweep as a welcome moment after unlock. */
 .gate-greeting-name{
   color:var(--ink);
 }
-.gate-page.is-revealed .gate-greeting-name{
-  animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
-}
 .public-delivery-greeting-name{
   color:var(--ink);
-  animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
+  background-image:linear-gradient(
+    90deg,
+    var(--ink) 0%,
+    var(--ink) 34%,
+    #2563eb 48%,
+    #60a5fa 56%,
+    var(--ink) 70%,
+    var(--ink) 100%
+  );
+  background-size:320% 100%;
+  background-position:100% 0;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:client-greeting-gradient-sweep 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
 }
-@keyframes client-greeting-name-bloom{
-  0%{color:var(--ink)}
-  22%{color:#3b82f6}
-  54%{color:#5a95f8}
-  100%{color:var(--ink)}
+@keyframes client-greeting-gradient-sweep{
+  0%{background-position:100% 0}
+  100%{background-position:0% 0}
 }
 @media(prefers-color-scheme:dark){
-  @keyframes client-greeting-name-bloom{
-    0%{color:var(--ink)}
-    22%{color:#7cacf8}
-    54%{color:#95bdf9}
-    100%{color:var(--ink)}
+  .public-delivery-greeting-name{
+    background-image:linear-gradient(
+      90deg,
+      var(--ink) 0%,
+      var(--ink) 34%,
+      #60a5fa 48%,
+      #93c5fd 56%,
+      var(--ink) 70%,
+      var(--ink) 100%
+    );
   }
 }
 @media(prefers-reduced-motion:reduce){
-  .public-delivery-greeting-name,.gate-page.is-revealed .gate-greeting-name{animation:none;color:var(--ink)}
+  .public-delivery-greeting-name{
+    animation:none;
+    background:none;
+    -webkit-text-fill-color:var(--ink);
+    color:var(--ink);
+  }
 }
 .public-delivery-subcopy{margin:14px 0 22px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.01em;text-align:center}
 .public-delivery-invoice{
@@ -219,16 +235,16 @@
 }
 .public-delivery-invoice:hover{transform:translateY(-1px);border-color:transparent;background:#eceef2;box-shadow:none}
 .public-delivery-invoice:active{transform:translateY(0) scale(.995)}
-.public-delivery-invoice.is-paid{border-color:transparent;background:#f0f4f9;box-shadow:none}
-.public-delivery-invoice.is-paid:hover{border-color:transparent;background:#e8eef5;box-shadow:none}
+.public-delivery-invoice.is-paid{border-color:transparent;background:#f4f5f7;box-shadow:none}
+.public-delivery-invoice.is-paid:hover{border-color:transparent;background:#eceef2;box-shadow:none}
 .public-delivery-invoice-icon{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:#e7e9ee;color:#2c3038;font-size:11px;font-weight:700;letter-spacing:.04em}
-.public-delivery-invoice.is-paid .public-delivery-invoice-icon{background:#e2e9f2;color:#303846}
+.public-delivery-invoice.is-paid .public-delivery-invoice-icon{background:#e7e9ee;color:#2c3038}
 .public-delivery-invoice-label{min-width:0;font-size:15px;font-weight:600}
 .public-delivery-invoice-cta{color:#596579;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;opacity:1}
 .public-delivery-invoice.is-paid .public-delivery-invoice-cta{color:#596579}
 .public-delivery-list{display:grid;gap:12px}
 .public-delivery-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border:1px solid transparent;border-radius:20px;background:#f4f5f7;box-shadow:none;color:var(--ink);text-decoration:none;transition:background .15s ease,transform .15s ease}
-.public-delivery-row.is-active:hover{border-color:transparent;transform:translateY(-1px);background:#e8eef5;box-shadow:none}
+.public-delivery-row.is-active:hover{border-color:transparent;transform:translateY(-1px);background:#eceef2;box-shadow:none}
 button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f4f5f7;text-align:left}
 .public-delivery-row.is-active{cursor:pointer}
 .public-delivery-row.is-disabled{cursor:default;opacity:1;color:#858d99;background:#f5f7fa;border-color:transparent;border-style:solid;box-shadow:none}
