@@ -1,18 +1,25 @@
 /**
  * Segmented
  *
- * Right-aligned pill control used inside the WorkspacePanels header
- * for contextual page modes (e.g. /db: Clients/Activity and /inv modes,
- * /inv: Invoice/Deposit/Paid).
+ * Right-aligned squircle segmented control used inside the WorkspacePanels
+ * header for contextual page modes (e.g. /db: Clients/Activity).
  *
  * Renders the isolated .pf-pillset styles defined in
- * WorkspacePanels.css (deliberately not .segmented so it does
- * not collide with legacy /inv .segmented / .mode-switch rules).
+ * Renders a smooth sliding thumb driven by --pill-count and --pill-index.
  */
 export function Segmented({ value, onChange, options, ariaLabel }) {
+  const list = Array.isArray(options) ? options : [];
+  const activeIndex = Math.max(0, list.findIndex((option) => option.value === value));
+
   return (
-    <div className="pf-pillset" role="tablist" aria-label={ariaLabel}>
-      {options.map((option) => {
+    <div
+      className="pf-pillset"
+      role="tablist"
+      aria-label={ariaLabel}
+      style={{ '--pill-count': Math.max(1, list.length), '--pill-index': activeIndex }}
+    >
+      <span className="pf-pillset-thumb" aria-hidden="true" />
+      {list.map((option) => {
         const active = value === option.value;
         return (
           <button
