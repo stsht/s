@@ -1075,7 +1075,7 @@ function GalleryLinks({ payload }) {
                 >
                   <span className="public-delivery-icon">{icon}</span>
                   <span className="public-delivery-name">{name}</span>
-                  <span className="public-delivery-state">Click</span>
+                  <span className="public-delivery-state">Open</span>
                 </a>
               );
             } else if (url && !isDone) {
