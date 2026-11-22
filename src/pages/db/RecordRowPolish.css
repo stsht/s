@@ -130,13 +130,17 @@
 }
 
 .client-new-event-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 0;
   background: transparent;
   color: var(--ink);
   font: inherit;
   font-size: 0.8rem;
   font-weight: 550;
-  padding: 5px 10px;
+  line-height: 1;
+  padding: 6px 10px;
   margin-right: -10px;
   border-radius: 999px;
   cursor: pointer;
@@ -738,4 +742,120 @@
 .pf-list-tools.db-minimal-tools .pf-search.db-search-input:focus {
   outline: none !important;
   border: 0 !important;
+}
+
+
+/* StarShots Identity — Delivery Detail (Links View inside /db) */
+.delivery-detail-heading {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 18px !important;
+}
+.delivery-detail-identity { min-width: 0; }
+.delivery-detail-identity .eyebrow {
+  margin: 0 0 4px !important;
+  font-size: 0.65rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.11em !important;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+}
+.delivery-detail-identity h2 {
+  margin: 0 !important;
+  font-size: 1.42rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.028em !important;
+  line-height: 1.18 !important;
+  color: var(--ink) !important;
+}
+.delivery-detail-identity .dd-name-line {
+  display: flex !important;
+  align-items: center !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-top: 7px !important;
+}
+.delivery-detail-identity .dd-folder-name {
+  font-size: 0.82rem !important;
+  font-weight: 450 !important;
+  color: var(--muted) !important;
+}
+.delivery-detail-identity .delivery-event-date-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 22px !important;
+  padding: 2px 9px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums;
+}
+.delivery-detail-identity .delivery-event-date-pill.event-tone-soon {
+  background: color-mix(in srgb, var(--evt-soon, #3b82f6) 11%, transparent) !important;
+  color: var(--evt-soon, #2563eb) !important;
+}
+.delivery-detail-identity .delivery-event-date-pill.event-tone-future {
+  background: color-mix(in srgb, var(--evt-future, #22c55e) 11%, transparent) !important;
+  color: var(--evt-future, #16a34a) !important;
+}
+.delivery-detail-identity .delivery-event-date-pill.event-tone-tba {
+  background: color-mix(in srgb, var(--evt-tba, #f59e0b) 13%, transparent) !important;
+  color: var(--evt-tba, #d97706) !important;
+}
+.delivery-detail-identity .delivery-event-date-pill.event-tone-past {
+  background: color-mix(in srgb, var(--ink) 5%, transparent) !important;
+  color: var(--muted) !important;
+}
+.delivery-detail-actions {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  flex-shrink: 0;
+}
+.delivery-detail-actions .delivery-done-button.is-complete {
+  color: var(--evt-future, #16a34a) !important;
+}
+/* Calm Editorial Cards for Short Link, Password, Services & Message */
+.dd-stack { gap: 12px !important; margin-top: 2px !important; }
+.dd-card,
+.dd-message {
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent) !important;
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--ink) 3%, transparent) !important;
+  box-shadow: none !important;
+}
+.dd-card--action:hover,
+.dd-card-tap:hover { transform: none !important; }
+.dd-card--action:hover {
+  border-color: color-mix(in srgb, var(--line-strong, var(--line)) 90%, transparent) !important;
+  background: color-mix(in srgb, var(--ink) 4.5%, transparent) !important;
+}
+.dd-eyebrow {
+  font-size: 0.64rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em !important;
+  color: var(--muted) !important;
+}
+.dd-card-strong {
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.012em !important;
+  font-variant-numeric: tabular-nums;
+}
+.dd-card-hint {
+  font-size: 0.72rem !important;
+  font-weight: 450 !important;
+  color: var(--muted) !important;
+}
+.dd-message-body,
+.dd-message textarea {
+  font-size: 0.86rem !important;
+  font-weight: 450 !important;
+  line-height: 1.55 !important;
+  border-color: color-mix(in srgb, var(--line) 72%, transparent) !important;
+  border-radius: 12px !important;
 }
