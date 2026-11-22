@@ -81,7 +81,9 @@
 }
 
 .pf-panel--right .pf-panel-scroll {
-  display: flex;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--pill-count, 2), minmax(0, 1fr));
   flex-direction: column;
 }
 
@@ -160,33 +162,50 @@
   gap: 3px;
   min-width: 0;
   width: 100%;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--soft);
-  overflow: hidden; /* Prevents a browser scrollbar/handle from peeking through when the pillset renders tightly */
+  padding: 3px;
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 5.5%, transparent);
+  overflow: hidden;
+}
+
+.pf-pillset-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px - (var(--pill-count, 2) - 1) * 3px) / var(--pill-count, 2));
+  border-radius: 9px;
+  background: var(--panel);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  transform: translateX(calc(var(--pill-index, 0) * (100% + 3px)));
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
 }
 
 .pf-pillset button {
-  flex: 1 1 0;
+  position: relative;
+  z-index: 1;
   min-width: 0;
-  height: 36px;
+  height: 34px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 9px;
   background: transparent;
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-size: 0.78rem;
+  font-weight: 550;
+  letter-spacing: -0.01em;
   text-transform: none;
   white-space: nowrap;
   cursor: pointer;
+  transition: color 180ms ease;
 }
 
 .pf-pillset button.active {
-  background: #fff;
+  background: transparent;
   color: var(--ink);
-  box-shadow: var(--shadow-soft);
+  font-weight: 600;
+  box-shadow: none;
 }
 
 /* Cross-tool nav — low-emphasis, lives just below the header in the left
@@ -399,38 +418,51 @@
     grid-template-columns: 1fr 1fr;
     gap: 4px;
     padding: 4px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    /* Mobile performance + readability: this bar is position:fixed and
-     * overlaps the scrolling panel, so a backdrop-filter blur forces a
-     * full-bar recomposite on every scroll frame (jank + device heat on
-     * iOS Safari / tablet Firefox). Use a FULLY OPAQUE solid background
-     * — the last ~4% of translucency let panel content faintly bleed
-     * through the switcher; making it solid reads cleaner and is the
-     * cheapest possible paint. No backdrop-filter, no browser branch. */
-    background: #fff;
-    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+    border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+    border-radius: 14px;
+    background: var(--panel);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
   }
   @media (prefers-color-scheme: dark) {
     .pf-mobile-tabs {
-      border-color: rgba(255, 255, 255, 0.08);
-      background: #1c1e24;
+      border-color: rgba(255, 255, 255, 0.085);
+      background: #1b1d22;
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.42);
     }
+  }
+  .pf-mobile-tabs-thumb {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc((100% - 12px) / 2);
+    border-radius: 10px;
+    background: var(--ink);
+    transform: translateX(calc(var(--mobile-tab-index, 0) * (100% + 4px)));
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
   }
   .pf-mobile-tabs button {
     /* Slimmer, less chunky toggle: trimmed from 46px to a tighter
      * 42px so the bottom switcher reads as a polished pill while the
      * full-width hit area keeps it comfortable to tap on mobile. */
-    height: 42px;
+    position: relative;
+    z-index: 1;
+    height: 38px;
+    min-height: 38px;
     border: 0;
-    border-radius: 999px;
+    border-radius: 10px;
     background: transparent;
     color: var(--muted);
-    font-weight: 900;
+    font-size: 0.82rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    transition: color 180ms ease;
   }
   .pf-mobile-tabs button.active {
-    background: #1f1a17;
-    color: #fff;
+    background: transparent;
+    color: var(--panel);
+    font-weight: 600;
   }
 }
 

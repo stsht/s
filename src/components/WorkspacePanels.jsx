@@ -120,7 +120,12 @@ export function WorkspacePanels({
         ) : null}
       </section>
       {right !== null && mobileTabs ? (
-        <nav className="pf-mobile-tabs" aria-label="Panel switcher">
+        <nav
+          className="pf-mobile-tabs"
+          aria-label="Panel switcher"
+          style={{ '--mobile-tab-index': showDetail ? 1 : 0 }}
+        >
+          <span className="pf-mobile-tabs-thumb" aria-hidden="true" />
           <button
             type="button"
             className={mobileView === 'left' ? 'active' : ''}
