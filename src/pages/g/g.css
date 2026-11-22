@@ -1,54 +1,4 @@
-/* Keep Password Gate greeting calm and neutral; reserve the smooth
- * Gemini-style gradient sweep as a welcome moment after unlock. */
-.gate-greeting-name{
-  color:var(--ink);
-}
-.public-delivery-greeting-name{
-  display:inline-block;
-  color:var(--ink);
-  background-image:linear-gradient(
-    100deg,
-    var(--ink) 0%,
-    var(--ink) 28%,
-    #2563eb 44%,
-    #3b82f6 52%,
-    #60a5fa 59%,
-    var(--ink) 74%,
-    var(--ink) 100%
-  );
-  background-size:260% 100%;
-  background-position:100% 0;
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  animation:client-greeting-gradient-sweep 2600ms cubic-bezier(.37,0,.63,1) 450ms both;
-}
-@keyframes client-greeting-gradient-sweep{
-  0%{background-position:100% 0}
-  100%{background-position:0% 0}
-}
-@media(prefers-color-scheme:dark){
-  .public-delivery-greeting-name{
-    background-image:linear-gradient(
-      100deg,
-      var(--ink) 0%,
-      var(--ink) 28%,
-      #60a5fa 44%,
-      #7cacf8 52%,
-      #93c5fd 59%,
-      var(--ink) 74%,
-      var(--ink) 100%
-    );
-  }
-}
-@media(prefers-reduced-motion:reduce){
-  html:not(.ss-force-motion) .public-delivery-greeting-name{
-    animation:none;
-    background:none;
-    -webkit-text-fill-color:var(--ink);
-    color:var(--ink);
-  }
-}/* /g public client delivery styles.
+/* /g public client delivery styles.
  *
  * Extracted from src/pages/invcs/inv.css (Pass 5) so the /g delivery
  * page owns its own stylesheet. Selectors and values are unchanged —
@@ -171,54 +121,6 @@
   word-break:normal;
 }
 .gate-page .gate-card .client-delivery-greeting-text{display:block;width:100%}
-/* Keep Password Gate greeting calm and neutral; reserve the smooth
- * Gemini-style gradient sweep as a welcome moment after unlock. */
-.gate-greeting-name{
-  color:var(--ink);
-}
-.public-delivery-greeting-name{
-  color:var(--ink);
-  background-image:linear-gradient(
-    90deg,
-    var(--ink) 0%,
-    var(--ink) 34%,
-    #2563eb 48%,
-    #60a5fa 56%,
-    var(--ink) 70%,
-    var(--ink) 100%
-  );
-  background-size:320% 100%;
-  background-position:100% 0;
-  -webkit-background-clip:text;
-  background-clip:text;
-  -webkit-text-fill-color:transparent;
-  animation:client-greeting-gradient-sweep 2400ms cubic-bezier(.22,1,.36,1) 350ms both;
-}
-@keyframes client-greeting-gradient-sweep{
-  0%{background-position:100% 0}
-  100%{background-position:0% 0}
-}
-@media(prefers-color-scheme:dark){
-  .public-delivery-greeting-name{
-    background-image:linear-gradient(
-      90deg,
-      var(--ink) 0%,
-      var(--ink) 34%,
-      #60a5fa 48%,
-      #93c5fd 56%,
-      var(--ink) 70%,
-      var(--ink) 100%
-    );
-  }
-}
-@media(prefers-reduced-motion:reduce){
-  .public-delivery-greeting-name{
-    animation:none;
-    background:none;
-    -webkit-text-fill-color:var(--ink);
-    color:var(--ink);
-  }
-}
 .public-delivery-subcopy{margin:14px 0 22px;color:var(--muted);font-size:13px;font-weight:500;letter-spacing:.01em;text-align:center}
 .public-delivery-invoice{
   display:grid;
@@ -342,9 +244,54 @@ button.public-delivery-row{appearance:none;width:100%;font:inherit;background:#f
   letter-spacing:-.035em;
   line-height:1.2;
 }
-.public-delivery-greeting-name,.gate-greeting-name{color:var(--ink)}
-.public-delivery-greeting-name{animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both}
-.gate-page.is-revealed .gate-greeting-name{animation:client-greeting-name-bloom 2400ms cubic-bezier(.22,1,.36,1) 350ms both}
+/* Single authoritative greeting rule: Password Gate stays calm; Delivery Page gets one smooth Gemini-style blue gradient sweep. */
+.gate-greeting-name{color:var(--ink)}
+.public-delivery-greeting-name{
+  display:inline-block;
+  color:var(--ink);
+  background-image:linear-gradient(
+    100deg,
+    var(--ink) 0%,
+    var(--ink) 28%,
+    #2563eb 44%,
+    #3b82f6 52%,
+    #60a5fa 59%,
+    var(--ink) 74%,
+    var(--ink) 100%
+  );
+  background-size:260% 100%;
+  background-position:100% 0;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:client-greeting-gradient-sweep 2600ms cubic-bezier(.37,0,.63,1) 450ms both;
+}
+@keyframes client-greeting-gradient-sweep{
+  0%{background-position:100% 0}
+  100%{background-position:0% 0}
+}
+@media(prefers-color-scheme:dark){
+  .public-delivery-greeting-name{
+    background-image:linear-gradient(
+      100deg,
+      var(--ink) 0%,
+      var(--ink) 28%,
+      #60a5fa 44%,
+      #7cacf8 52%,
+      #93c5fd 59%,
+      var(--ink) 74%,
+      var(--ink) 100%
+    );
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .public-delivery-greeting-name{
+    animation:none;
+    background:none;
+    -webkit-text-fill-color:var(--ink);
+    color:var(--ink);
+  }
+}
 .public-delivery-subcopy{
   margin:12px 0 18px;
   color:#858585;
