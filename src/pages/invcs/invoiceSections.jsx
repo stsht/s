@@ -310,20 +310,18 @@ export function DepositLedger({ mode, payments, addPayment, updatePayment, remov
     }
   };
   return (
-    <Fieldset title="Deposit Payments">
-      {/* Workflow menu — "Ask DP" reveals the requested-deposit
-          editor; "Add DP Paid" logs a recorded instalment. */}
-      <div className="dp-menu" role="group" aria-label="Deposit workflow">
+    <Fieldset title="Recorded Payments">
+      <div className="dp-menu" role="group" aria-label="Payment actions">
         <button
           type="button"
           className={`dp-menu-btn${depositAskOpen ? ' active' : ''}`}
           aria-expanded={depositAskOpen}
           onClick={handleAskToggle}
         >
-          Ask DP
+          {depositAskOpen ? 'Payment Request: On' : 'Payment Request: Off'}
         </button>
         <button type="button" className="dp-menu-btn dp-menu-btn--primary" onClick={addPayment}>
-          + Add DP Paid
+          + Record Payment
         </button>
       </div>
 
@@ -379,7 +377,7 @@ export function DepositLedger({ mode, payments, addPayment, updatePayment, remov
 
       <div className="dp-list">
         {payments.length === 0 ? (
-          <p className="dp-empty">No deposit payments recorded yet. Use the + Add DP Paid button to log one.</p>
+          <p className="dp-empty">No payments recorded yet. Click + Record Payment to log a deposit or transfer.</p>
         ) : payments.map((payment) => (
           <div className="dp-row" key={payment.id}>
             <label className="dp-paid-toggle">

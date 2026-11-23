@@ -17,6 +17,7 @@ export function emptyItem(packages) {
     qty: 1,
     price: Number(option.price) || 0,
     discount: 0,
+    discountLabel: '',
   };
 }
 
@@ -63,13 +64,6 @@ export function makeDepositPayment(amountDefault) {
 
 export function isDpPaid(payments) {
   return Array.isArray(payments) && payments.some((payment) => payment.paid);
-}
-
-export function resolveAskingDpState(currentAskingDp, explicitToggle = false) {
-  if (explicitToggle) {
-    return !currentAskingDp;
-  }
-  return currentAskingDp;
 }
 
 export function shouldShowBankDetails(activeSection, isDpPaid, isAskingDp) {
