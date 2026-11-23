@@ -1,11 +1,11 @@
+import './Segmented.css';
+
 /**
  * Segmented
  *
- * Right-aligned squircle segmented control used inside the WorkspacePanels
- * header for contextual page modes (e.g. /db: Clients/Activity).
- *
- * Renders the isolated .pf-pillset styles defined in
- * Renders a smooth sliding thumb driven by --pill-count and --pill-index.
+ * Shared squircle segmented control with a smooth sliding thumb driven by
+ * --pill-count and --pill-index. Used in /db (Clients | Activity) and
+ * /inv (Details | Payments, Draft | Deposit | Paid).
  */
 export function Segmented({ value, onChange, options, ariaLabel }) {
   const list = Array.isArray(options) ? options : [];
