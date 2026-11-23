@@ -169,6 +169,7 @@ export function DatabaseRightPanel({
         <DeliveryDetail
           delivery={selectedDelivery || {}}
           invoices={invoices}
+          invoices={invoices}
           onRepaired={(repaired) => {
             setSelected((cur) => cur?.type === 'delivery'
               ? { ...cur, data: repaired }
