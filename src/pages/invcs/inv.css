@@ -1516,3 +1516,102 @@ input.no-spinner::-webkit-inner-spin-button{
   }
   .composer-page .inv-discount-row {
     grid-template-columns: 1fr;
+
+  .composer-page .mobile-tabs {
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+    background: var(--panel);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+    padding: 4px;
+    gap: 4px;
+  }
+  .composer-page .mobile-tabs-thumb {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc((100% - 12px) / 2);
+    border-radius: 10px;
+    background: var(--ink);
+    transform: translateX(calc(var(--mobile-tab-index, 0) * (100% + 4px)));
+    transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  .composer-page .mobile-tabs button {
+    position: relative;
+    z-index: 1;
+    height: 38px;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 550;
+    letter-spacing: -0.01em;
+    transition: color 180ms ease;
+  }
+  .composer-page .mobile-tabs button.active {
+    background: transparent;
+    color: var(--panel);
+    font-weight: 600;
+  }
+}
+
+/* Dark mode — flat charcoal matching /db */
+@media (prefers-color-scheme: dark) {
+  .composer-page {
+    --panel: #1e2024;
+    --field: #1a1c20;
+    --soft: #16181b;
+    --line: #2c2f35;
+    --line-strong: #3a3e46;
+  }
+  .composer-page .panel {
+    background: var(--panel);
+  }
+  .composer-page .inv-tab-switch,
+  .composer-page .inv-status-switch {
+    background: #14161a;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+  .composer-page .inv-tab-switch-thumb,
+  .composer-page .inv-status-switch-thumb {
+    background: #2c3038;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .composer-page .inv-tab-switch button,
+  .composer-page .inv-status-switch button {
+    color: #9aa3b2;
+  }
+  .composer-page .inv-tab-switch button.active,
+  .composer-page .inv-status-switch button.active {
+    background: transparent;
+    color: #f4f6fa;
+  }
+  .composer-page .inv-finance-kpi-item strong.is-positive,
+  .composer-page .inv-finance-kpi-item strong.is-settled,
+  .composer-page .inv-sync-pill.is-active {
+    color: #86efac;
+  }
+  .composer-page .inv-sync-pill.is-active {
+    background: rgba(34, 197, 94, 0.14);
+  }
+}
+
+@media (max-width: 1023px) and (prefers-color-scheme: dark) {
+  .composer-page .mobile-tabs {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: #16181c;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+  }
+  .composer-page .mobile-tabs-thumb {
+    background: #2c3038;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .composer-page .mobile-tabs button {
+    color: #9aa3b2;
+  }
+  .composer-page .mobile-tabs button.active {
+    background: transparent;
+    color: #f4f6fa;
+  }
+}
