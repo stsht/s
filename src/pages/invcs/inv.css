@@ -1516,7 +1516,7 @@ input.no-spinner::-webkit-inner-spin-button{
   }
   .composer-page .inv-discount-row {
     grid-template-columns: 1fr;
-
+  }
   .composer-page .mobile-tabs {
     border-radius: 14px;
     border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
