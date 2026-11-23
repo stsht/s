@@ -67,12 +67,15 @@ export function PaymentMethodSummary({ paymentMethod }) {
   );
 }
 
-export function PaymentMethodFieldset({ paymentMethod, setPaymentMethod }) {
+export function PaymentMethodFieldset() {
   return (
-    <Fieldset title="Payment Method">
-      <div className="field-stack">
-        <PaymentMethodPicker paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} />
-        <PaymentMethodSummary paymentMethod={paymentMethod} />
+    <Fieldset title="Payment Details">
+      <div className="bank-details-summary" aria-label="Bank transfer destination">
+        <dl className="bank-details-summary-list">
+          <div><dt>Bank</dt><dd>{BANK_DETAILS.bank}</dd></div>
+          <div><dt>Account No.</dt><dd>{BANK_DETAILS.accountNumber}</dd></div>
+          <div><dt>Account Name</dt><dd>{BANK_DETAILS.accountHolderLabel}</dd></div>
+        </dl>
       </div>
     </Fieldset>
   );

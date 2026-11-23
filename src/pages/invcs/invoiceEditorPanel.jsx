@@ -2,7 +2,7 @@
 // Clean 2-tab workflow: Details (always editable) | Payments (status,
 // 3-figure financial summary, payment method, deposit & paid ledger).
 
-import { Combobox, DateTimeField } from '../../components/ui/index.js';
+import { Combobox, DateTimeField, Segmented } from '../../components/ui/index.js';
 import { toTitleCase, maybeTitleCase, onBlurTitleCase } from '../../utils/titleCase.js';
 import { selectAllIfZero, parseMoneyInput } from '../../utils/moneyInput.js';
 import { Fieldset, TrashIcon, PlusIcon } from './invoicePrimitives.jsx';
@@ -17,6 +17,11 @@ import {
   DepositLedger,
 } from './invoiceSections.jsx';
 
+const EDITOR_TAB_OPTIONS = [
+  { value: 'details', label: 'Details' },
+  { value: 'payments', label: 'Payments' },
+];
+
 const STATUS_OPTIONS = [
   { value: 'invoice', label: 'Draft' },
   { value: 'deposit', label: 'Deposit' },
@@ -25,7 +30,6 @@ const STATUS_OPTIONS = [
 
 export function EditorPanel(props) {
   const activeTab = props.editorTab === 'payments' ? 'payments' : 'details';
-  const statusIndex = Math.max(0, STATUS_OPTIONS.findIndex((opt) => opt.value === props.mode));
   const grandTotal = Math.max(0, Math.round(Number(props.totals?.grandTotal) || 0));
   const effectivePaid = props.mode === 'paid'
     ? grandTotal
@@ -44,32 +48,12 @@ export function EditorPanel(props) {
               <img src="/logo-hero.png" alt="StarShots" />
             </picture>
           </a>
-          <div
-            className="inv-tab-switch"
-            role="tablist"
-            aria-label="Invoice sections"
-            style={{ '--tab-index': activeTab === 'payments' ? 1 : 0 }}
-          >
-            <span className="inv-tab-switch-thumb" aria-hidden="true" />
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'details'}
-              className={activeTab === 'details' ? 'active' : ''}
-              onClick={() => props.setEditorTab('details')}
-            >
-              Details
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'payments'}
-              className={activeTab === 'payments' ? 'active' : ''}
-              onClick={() => props.setEditorTab('payments')}
-            >
-              Payments
-            </button>
-          </div>
+          <Segmented
+            value={activeTab}
+            onChange={props.setEditorTab}
+            options={EDITOR_TAB_OPTIONS}
+            ariaLabel="Invoice sections"
+          />
         </header>
 
         {activeTab === 'details' ? (
@@ -286,26 +270,12 @@ export function EditorPanel(props) {
 
             <Fieldset title="Invoice Status">
               <div className="field-stack">
-                <div
-                  className="inv-status-switch"
-                  role="radiogroup"
-                  aria-label="Invoice status"
-                  style={{ '--status-index': statusIndex }}
-                >
-                  <span className="inv-status-switch-thumb" aria-hidden="true" />
-                  {STATUS_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={props.mode === opt.value}
-                      className={props.mode === opt.value ? 'active' : ''}
-                      onClick={() => props.setMode(opt.value)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  value={props.mode}
+                  onChange={props.setMode}
+                  options={STATUS_OPTIONS}
+                  ariaLabel="Invoice status"
+                />
 
                 {props.mode === 'invoice' ? (
                   <div className="deposit-block">
