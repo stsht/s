@@ -60,9 +60,6 @@
  * (operator/data-entry) side benefits from a locked header. */
 .editor-panel .panel-header{position:sticky;top:-18px;z-index:2;background:var(--panel);margin:-18px -18px 0;padding:18px 18px 16px}
 .panel-header img{width:132px;max-width:100%;height:auto;display:block}
-.mode-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;min-width:0;width:100%;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--soft)}
-.mode-switch button{min-width:0;height:36px;border:0;border-radius:999px;background:transparent;color:var(--muted);font-size:0.625rem;font-weight:800;text-transform:capitalize;white-space:nowrap}
-.mode-switch button.active{background:#fff;color:var(--ink);box-shadow:var(--shadow-soft)}
 .form-section{padding:18px 0;border-bottom:1px solid var(--line)}
 .form-section:last-child{border-bottom:0}
 .form-section h2{margin:0 0 12px;font-size:0.6875rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
@@ -902,8 +899,6 @@ input.no-spinner::-webkit-inner-spin-button{
   /* /inv pills in dark mode: previously the active pill kept color:var(--ink)
    * (light) on a #fff background -> white text on white. Keep active
    * editor pills dark-on-dark but visibly selected. */
-  .mode-switch button{color:#cdd6e4}
-  .mode-switch button.active{background:#f6f8ff;color:#090b10}
   .composer-page .deposit-presets button,
   .composer-page .payment-method-switch button,
   .composer-page .dp-menu-btn{
@@ -980,7 +975,6 @@ input.no-spinner::-webkit-inner-spin-button{
   .panel-header,.preview-toolbar{align-items:flex-start;flex-direction:column}
   .panel-header{display:grid;grid-template-columns:116px minmax(0,1fr);align-items:center}
   .panel-header img{width:116px}
-  .mode-switch{width:100%}
   .two-col{grid-template-columns:1fr}
   .preview-canvas{min-height:calc(100dvh - 230px)}
   .composer-shell.show-preview .preview-canvas{height:calc(100dvh - 230px)}
@@ -1289,76 +1283,7 @@ input.no-spinner::-webkit-inner-spin-button{
   display: block;
 }
 
-/* 2-tab Details | Payments squircle sliding switcher */
-.composer-page .inv-tab-switch,
-.composer-page .inv-status-switch {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-  width: 100%;
-  padding: 3px;
-  border: 0;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--ink) 5.5%, transparent);
-  overflow: hidden;
-}
-
-.composer-page .inv-tab-switch-thumb {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc((100% - 9px) / 2);
-  border-radius: 9px;
-  background: var(--panel);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transform: translateX(calc(var(--tab-index, 0) * (100% + 3px)));
-  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-
-.composer-page .inv-status-switch-thumb {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc((100% - 12px) / 3);
-  border-radius: 9px;
-  background: var(--panel);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  transform: translateX(calc(var(--status-index, 0) * (100% + 3px)));
-  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
-  pointer-events: none;
-}
-
-.composer-page .inv-tab-switch button,
-.composer-page .inv-status-switch button {
-  position: relative;
-  z-index: 1;
-  flex: 1 1 0;
-  min-width: 0;
-  height: 34px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 550;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color 180ms ease;
-}
-
-.composer-page .inv-tab-switch button.active,
-.composer-page .inv-status-switch button.active {
-  background: transparent;
-  color: var(--ink);
-  font-weight: 600;
-}
+/* Details | Payments & Draft | Deposit | Paid use shared Segmented.css */
 
 /* Editorial form sections */
 .composer-page .form-section {
@@ -1568,25 +1493,6 @@ input.no-spinner::-webkit-inner-spin-button{
   .composer-page .panel {
     background: var(--panel);
   }
-  .composer-page .inv-tab-switch,
-  .composer-page .inv-status-switch {
-    background: #14161a;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-  }
-  .composer-page .inv-tab-switch-thumb,
-  .composer-page .inv-status-switch-thumb {
-    background: #2c3038;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  }
-  .composer-page .inv-tab-switch button,
-  .composer-page .inv-status-switch button {
-    color: #9aa3b2;
-  }
-  .composer-page .inv-tab-switch button.active,
-  .composer-page .inv-status-switch button.active {
-    background: transparent;
-    color: #f4f6fa;
-  }
   .composer-page .inv-finance-kpi-item strong.is-positive,
   .composer-page .inv-finance-kpi-item strong.is-settled,
   .composer-page .inv-sync-pill.is-active {
@@ -1613,5 +1519,197 @@ input.no-spinner::-webkit-inner-spin-button{
   .composer-page .mobile-tabs button.active {
     background: transparent;
     color: #f4f6fa;
+  }
+}
+
+/* ============================================================
+ * StarShots Identity — Complete /inv Controls & Surface Sweep
+ * Replaces all leftover 999px pills and pale-blue boxes inside
+ * .composer-page with calm squircle controls and neutral surfaces.
+ * ============================================================ */
+.composer-page input:not([type="checkbox"]):not([type="radio"]),
+.composer-page select,
+.composer-page textarea {
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--line) 85%, transparent);
+  background: var(--panel);
+}
+
+.composer-page .deposit-presets {
+  padding: 3px;
+  gap: 3px;
+  border: 0;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 5.5%, transparent);
+}
+
+.composer-page .deposit-presets button {
+  height: 32px;
+  border-radius: 9px;
+  font-size: 0.75rem;
+  font-weight: 550;
+  color: var(--muted);
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+
+.composer-page .deposit-presets button.active {
+  background: var(--panel);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Bank Transfer Details card — calm neutral hairline, no pale-blue tint */
+.composer-page .bank-details-summary {
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ink) 2.2%, transparent);
+  padding: 13px 14px;
+}
+
+.composer-page .bank-details-summary-list {
+  margin: 0;
+  gap: 8px;
+}
+
+.composer-page .bank-details-summary-list dt {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.composer-page .bank-details-summary-list dd {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Recorded Payments & Request toggle — squircle 10px matching rest of /inv */
+.composer-page .dp-menu {
+  gap: 8px;
+}
+
+.composer-page .dp-menu-btn {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.composer-page .dp-menu-btn:hover,
+.composer-page .dp-menu-btn:focus-visible {
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  border-color: var(--line-strong);
+}
+
+.composer-page .dp-menu-btn.active {
+  background: color-mix(in srgb, #2563eb 10%, transparent);
+  border-color: color-mix(in srgb, #2563eb 32%, transparent);
+  color: #1d4ed8;
+}
+
+.composer-page .dp-menu-btn--primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--panel);
+}
+
+.composer-page .dp-menu-btn--primary:hover,
+.composer-page .dp-menu-btn--primary:focus-visible {
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 88%, transparent);
+  color: var(--panel);
+}
+
+.composer-page .dp-ask,
+.composer-page .dp-row,
+.composer-page .dp-totals,
+.composer-page .package-catalog {
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  background: color-mix(in srgb, var(--ink) 2.2%, transparent);
+}
+
+.composer-page .dp-readonly-row {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  background: var(--panel);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Package Catalogue, Add Package, Remove & Preview Delete buttons — squircle 10px */
+.composer-page .package-catalog-add,
+.composer-page .package-catalog-edit-actions button,
+.composer-page .add-package-button,
+.composer-page .remove,
+.composer-page .ghost-button,
+.composer-page .primary-button {
+  border-radius: 10px;
+}
+
+.composer-page .add-package-button {
+  border: 1px dashed color-mix(in srgb, var(--line-strong) 85%, transparent);
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.composer-page .add-package-button:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+
+.composer-page .preview-toolbar-actions .toolbar-icon-btn {
+  border-radius: 10px;
+}
+
+.composer-page .preview-toolbar-actions .db-delete-button {
+  border-radius: 10px;
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  background: transparent;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.composer-page .preview-toolbar-actions .db-delete-button:hover {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .composer-page .deposit-presets {
+    background: #14161a;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+  .composer-page .deposit-presets button {
+    color: #9aa3b2;
+  }
+  .composer-page .deposit-presets button.active {
+    background: #2c3038;
+    color: #f4f6fa;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  .composer-page .dp-menu-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #e5e9f0;
+  }
+  .composer-page .dp-menu-btn.active {
+    background: rgba(59, 130, 246, 0.16);
+    border-color: rgba(147, 197, 253, 0.35);
+    color: #93c5fd;
+  }
+  .composer-page .dp-menu-btn--primary,
+  .composer-page .dp-menu-btn--primary:hover,
+  .composer-page .dp-menu-btn--primary:focus-visible {
+    background: #2c3038;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f4f6fa;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }
