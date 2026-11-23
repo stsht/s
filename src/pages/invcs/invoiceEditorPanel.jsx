@@ -238,35 +238,6 @@ export function EditorPanel(props) {
               </button>
             </Fieldset>
 
-                onChange={(event) => props.updateItem(item.id, { discount: parseMoneyInput(event.target.value) })}
-                onBlur={(event) => {
-                  const clamped = clampItemDiscount(parseMoneyInput(event.target.value), item.qty, item.price);
-                  if (clamped !== (Number(item.discount) || 0)) props.updateItem(item.id, { discount: clamped });
-                }}
-                placeholder="0"
-              /></label>
-              <div className="invoice-item-controls">
-                <div className="qty-control" aria-label="Quantity">
-                  <span>Qty</span>
-                  <span className="qty-stepper">
-                    <button type="button" aria-label="Decrease quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) - 1) })}>-</button>
-                    <strong>{Math.max(1, Math.round(Number(item.qty) || 1))}</strong>
-                    <button type="button" aria-label="Increase quantity" onClick={() => props.updateItem(item.id, { qty: Math.max(1, Math.round(Number(item.qty) || 1) + 1) })}>+</button>
-                  </span>
-                </div>
-                <div className="package-price-readonly" aria-label="Package price">
-                  <span>Price</span>
-                  <strong>{rupiah(item.price)}</strong>
-                </div>
-                <button className="icon-danger-button" type="button" aria-label="Delete package row" title="Delete row" onClick={() => props.removeItem(item.id)}>
-                  <TrashIcon />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <button className="ghost-button add-package-button" type="button" onClick={props.addItem}><PlusIcon /> Add Package</button>
-      </Fieldset>
 
       <Fieldset title="Payment">
         <div className="field-stack">
