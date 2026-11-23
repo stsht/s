@@ -16,9 +16,73 @@ import { DeliveryPasswordTools } from './DeliveryPasswordTools.jsx';
 import { DeliveryLinkEditor } from './DeliveryLinkEditor.jsx';
 import { DeliveryMessageBox } from './DeliveryMessageBox.jsx';
 import { DeliveryAccessLogs } from './DeliveryAccessLogs.jsx';
-import { buildDeliveryMessage } from '../../../features/deliveries/deliveryMessages.js';
+import { buildDeliveryMessage, buildPaymentMessage } from '../../../features/deliveries/deliveryMessages.js';
 
-export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRefresh }) {
+function findLinkedClientInvoice(delivery = {}, invoices = []) {
+  if (!Array.isArray(invoices) || !invoices.length) return null;
+  if (String(delivery?.type || '').trim().toLowerCase() === 'vendor') return null;
+
+  const delId = String(delivery?.id || '').trim();
+  const delEventKey = String(delivery?.event_key || '').trim();
+  const delClientId = String(delivery?.client_id || '').trim();
+  const delClientName = String(delivery?.client_name || '').trim().toLowerCase();
+  const delDate = plainEventDate(delivery?.event_date);
+
+  const clientInvoices = invoices.filter((inv) => {
+    const data = inv?.invoice_data && typeof inv.invoice_data === 'object' ? inv.invoice_data : {};
+    return String(inv?.invoice_type || data.invoiceType || '').trim().toLowerCase() !== 'vendor';
+  });
+
+  if (delId) {
+    const byDelId = clientInvoices.find((inv) => {
+      const data = inv?.invoice_data && typeof inv.invoice_data === 'object' ? inv.invoice_data : {};
+      return String(data.delivery_id || '').trim() === delId;
+    });
+    if (byDelId) return byDelId;
+  }
+
+  if (delEventKey) {
+    const byEventKey = clientInvoices.find((inv) => {
+      const data = inv?.invoice_data && typeof inv.invoice_data === 'object' ? inv.invoice_data : {};
+      return String(inv?.event_key || data.event_key || '').trim() === delEventKey;
+    });
+    if (byEventKey) return byEventKey;
+  }
+
+  if (delDate) {
+    const byClientDate = clientInvoices.find((inv) => {
+      const invDate = plainEventDate(inv?.event_date);
+      if (invDate !== delDate) return false;
+      const invClientId = String(inv?.client_id || '').trim();
+      const invClientName = String(inv?.client_name || '').trim().toLowerCase();
+      if (delClientId && invClientId) return delClientId === invClientId;
+      return !!delClientName && delClientName === invClientName;
+    });
+    if (byClientDate) return byClientDate;
+  }
+
+  return null;
+}
+
+function summarizeInvoiceBalance(invoice) {
+  if (!invoice) return null;
+  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const status = String(invoice?.status || 'invoice').toLowerCase();
+  const grandTotal = Math.max(0, Math.round(Number(invoice?.grand_total || invoice?.total || invoice?.price) || 0));
+  const depositPayments = Array.isArray(data.depositPayments) ? data.depositPayments : [];
+  const paidFromArray = depositPayments
+    .filter((p) => p?.paid)
+    .reduce((sum, p) => sum + Math.max(0, Math.round(Number(p.amount) || 0)), 0);
+  const paidSoFar = status === 'paid'
+    ? grandTotal
+    : (paidFromArray > 0 ? paidFromArray : Math.max(0, Math.round(Number(invoice?.paid_amount) || 0)));
+  const remainingBalance = status === 'paid'
+    ? 0
+    : Math.max(0, grandTotal - paidSoFar);
+  return { status, grandTotal, paidSoFar, remainingBalance };
+}
+
+export function DeliveryDetail({ delivery, invoices = [], onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
   const [lastNamePreference, setLastNamePreference] = useState({
     deliveryId: String(delivery?.id || ''),
@@ -32,6 +96,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
       enabled: Boolean(enabled),
     });
   }
+  const [messageMode, setMessageMode] = useState('delivery');
   const [flash, setFlash] = useState('');
   const [repairing, setRepairing] = useState(false);
   const [rotatingPassword, setRotatingPassword] = useState(false);
@@ -123,6 +188,7 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     next.eventDate = plainEventDate(currentDelivery?.event_date);
     next.clientName = String(currentDelivery?.client_name || '').trim();
     setLinkDraft(next);
+    setMessageMode('delivery');
   }, [currentDelivery]);
 
   const deliveryDone = !!currentDelivery?.delivery_done;
@@ -136,7 +202,27 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
     deliveryDone,
     useLastName,
   };
-  const messageText = buildDeliveryMessage(messageInput);
+  const linkedInvoice = useMemo(
+    () => findLinkedClientInvoice(currentDelivery, invoices),
+    [currentDelivery, invoices]
+  );
+  const invoiceBalance = useMemo(() => summarizeInvoiceBalance(linkedInvoice), [linkedInvoice]);
+  const hasPaymentMessage = Boolean(
+    invoiceBalance && invoiceBalance.status !== 'paid' && invoiceBalance.remainingBalance > 0
+  );
+  const activeMessageMode = hasPaymentMessage && messageMode === 'payment' ? 'payment' : 'delivery';
+  const messageText = activeMessageMode === 'payment'
+    ? buildPaymentMessage({
+        title,
+        clientName,
+        link: shortUrl || '',
+        password,
+        useLastName,
+        grandTotal: invoiceBalance.grandTotal,
+        paidSoFar: invoiceBalance.paidSoFar,
+        remainingBalance: invoiceBalance.remainingBalance,
+      })
+    : buildDeliveryMessage(messageInput);
   const hasAnyDetail = !!password || !!shortUrl || services.length > 0;
 
   const accessLogs = Array.isArray(currentDelivery?.stats?.logs) ? currentDelivery.stats.logs : [];
@@ -454,6 +540,9 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
           <DeliveryMessageBox
             useLastName={useLastName}
             setUseLastName={handleUseLastNameChange}
+            messageMode={activeMessageMode}
+            onMessageModeChange={setMessageMode}
+            hasPaymentMessage={hasPaymentMessage}
             messageText={messageText}
             flash={flash}
             handleCopyMessage={handleCopyMessage}
