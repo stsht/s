@@ -49,8 +49,10 @@ function findLinkedClientInvoice(delivery = {}, invoices = []) {
     if (byEventKey) return byEventKey;
   }
 
+  // Date-only matching is allowed only when it identifies exactly one invoice.
+  // Ambiguous same-day sessions must never borrow another event's payment figures.
   if (delDate) {
-    const byClientDate = clientInvoices.find((inv) => {
+    const byClientDate = clientInvoices.filter((inv) => {
       const invDate = plainEventDate(inv?.event_date);
       if (invDate !== delDate) return false;
       const invClientId = String(inv?.client_id || '').trim();
@@ -58,7 +60,7 @@ function findLinkedClientInvoice(delivery = {}, invoices = []) {
       if (delClientId && invClientId) return delClientId === invClientId;
       return !!delClientName && delClientName === invClientName;
     });
-    if (byClientDate) return byClientDate;
+    if (byClientDate.length === 1) return byClientDate[0];
   }
 
   return null;
