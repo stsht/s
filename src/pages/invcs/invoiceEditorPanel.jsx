@@ -238,113 +238,163 @@ export function EditorPanel(props) {
               </button>
             </Fieldset>
 
-
-      <Fieldset title="Payment">
-        <div className="field-stack">
-          <div className="deposit-block">
-            <span className="deposit-label">Deposit</span>
-            <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
-              {DEPOSIT_PRESETS.map((preset) => {
-                const value = String(preset);
-                const active = props.depositMode === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    className={active ? 'active' : ''}
-                    onClick={() => props.setDepositMode(value)}
-                  >
-                    {preset}%
-                  </button>
-                );
-              })}
+            <section className="inv-summary-strip" aria-label="Invoice totals">
+              <div className="inv-summary-row">
+                <span>Grand Total</span>
+                <strong>{rupiah(grandTotal)}</strong>
+              </div>
+              <div className="inv-summary-row">
+                <span>{isFullPayment(props.totals) ? 'Full Payment Due' : 'Deposit Due'}</span>
+                <strong>{rupiah(props.totals.depositDue)}</strong>
+              </div>
               <button
                 type="button"
-                role="radio"
-                aria-checked={props.depositMode === 'custom'}
-                className={props.depositMode === 'custom' ? 'active' : ''}
-                onClick={() => props.setDepositMode('custom')}
+                className="inv-summary-link"
+                onClick={() => props.setEditorTab('payments')}
               >
-                Custom
+                Manage Payments & Status →
               </button>
-            </div>
-            {props.depositMode === 'custom' ? (
-              <label className="deposit-custom">
-                Custom Amount (IDR)
-                <input
-                  type="number"
-                  min="0"
-                  value={props.depositCustomAmount}
-                  onFocus={selectAllIfZero}
-                  onChange={(event) => props.setDepositCustomAmount(event.target.value)}
-                  placeholder="e.g. 500000"
-                />
-              </label>
-            ) : null}
-          </div>
+            </section>
+          </>
+        ) : (
+          <>
+            <section className="inv-finance-kpi" aria-label="Financial summary">
+              <div className="inv-finance-kpi-grid">
+                <div className="inv-finance-kpi-item">
+                  <span>Total</span>
+                  <strong>{rupiah(grandTotal)}</strong>
+                </div>
+                <span className="inv-finance-kpi-divider" aria-hidden="true" />
+                <div className="inv-finance-kpi-item">
+                  <span>Paid</span>
+                  <strong className={effectivePaid > 0 ? 'is-positive' : ''}>{rupiah(effectivePaid)}</strong>
+                </div>
+                <span className="inv-finance-kpi-divider" aria-hidden="true" />
+                <div className="inv-finance-kpi-item">
+                  <span>Balance Due</span>
+                  <strong className={effectiveBalance > 0 ? 'is-due' : 'is-settled'}>{rupiah(effectiveBalance)}</strong>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="inv-edit-details-link"
+                onClick={() => props.setEditorTab('details')}
+              >
+                Edit Packages & Discount
+              </button>
+            </section>
 
-          <PaymentMethodPicker
-            paymentMethod={props.paymentMethod}
-            setPaymentMethod={props.setPaymentMethod}
-          />
-          <PaymentMethodSummary paymentMethod={props.paymentMethod} />
-          <div className="total-card"><span>Grand Total</span><strong>{rupiah(props.totals.grandTotal)}</strong></div>
-          <div className="total-card"><span>{isFullPayment(props.totals) ? 'Full Payment Due' : 'Deposit Due'}</span><strong>{rupiah(props.totals.depositDue)}</strong></div>
-        </div>
-      </Fieldset>
-        </>
-      ) : (
-        <>
-          <LockedDetails
-            invoiceType={props.invoiceType}
-            mode={props.mode}
-            title={props.title}
-            clientName={props.clientName}
-            contact={props.contact}
-            venue={props.venue}
-            eventDate={props.eventDate}
-            eventTime={props.eventTime}
-            totals={props.totals}
-          />
-          {props.mode === 'deposit' ? (
-            <PaymentMethodFieldset
-              paymentMethod={props.paymentMethod}
-              setPaymentMethod={props.setPaymentMethod}
-            />
-          ) : null}
-          {props.mode === 'deposit' || (props.mode === 'paid' && props.depositPayments && props.depositPayments.length > 0) ? (
-            <DepositLedger
-              mode={props.mode}
-              payments={props.depositPayments}
-              addPayment={props.addDepositPayment}
-              updatePayment={props.updateDepositPayment}
-              removePayment={props.removeDepositPayment}
-              depositMode={props.depositMode}
-              setDepositMode={props.setDepositMode}
-              depositCustomAmount={props.depositCustomAmount}
-              setDepositCustomAmount={props.setDepositCustomAmount}
-              depositPaidTotal={props.depositPaidTotal}
-              balanceDue={props.balanceDue}
-              requestedDue={props.requestedDue}
-              totals={props.totals}
-              depositAskOpen={props.depositAskOpen}
-              setDepositAskOpen={props.setDepositAskOpen}
-            />
-          ) : (
-            <PaidSummary
-              totals={props.totals}
-              paidConfirmed={props.paidConfirmed}
-              setPaidConfirmed={props.setPaidConfirmed}
-              paidAtDate={props.paidAtDate}
-              setPaidAtDate={props.setPaidAtDate}
-              paidAtTime={props.paidAtTime}
-              setPaidAtTime={props.setPaidAtTime}
-            />
-          )}
-        </>
-      )}
+            <Fieldset title="Invoice Status">
+              <div className="field-stack">
+                <div
+                  className="inv-status-switch"
+                  role="radiogroup"
+                  aria-label="Invoice status"
+                  style={{ '--status-index': statusIndex }}
+                >
+                  <span className="inv-status-switch-thumb" aria-hidden="true" />
+                  {STATUS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={props.mode === opt.value}
+                      className={props.mode === opt.value ? 'active' : ''}
+                      onClick={() => props.setMode(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+
+                {props.mode === 'invoice' ? (
+                  <div className="deposit-block">
+                    <span className="deposit-label">Requested Deposit</span>
+                    <div className="deposit-presets" role="radiogroup" aria-label="Deposit preset">
+                      {DEPOSIT_PRESETS.map((preset) => {
+                        const value = String(preset);
+                        const active = props.depositMode === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            role="radio"
+                            aria-checked={active}
+                            className={active ? 'active' : ''}
+                            onClick={() => props.setDepositMode(value)}
+                          >
+                            {preset}%
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={props.depositMode === 'custom'}
+                        className={props.depositMode === 'custom' ? 'active' : ''}
+                        onClick={() => props.setDepositMode('custom')}
+                      >
+                        Custom
+                      </button>
+                    </div>
+                    {props.depositMode === 'custom' ? (
+                      <label className="deposit-custom">
+                        Custom Amount (IDR)
+                        <input
+                          type="number"
+                          min="0"
+                          value={props.depositCustomAmount}
+                          onFocus={selectAllIfZero}
+                          onChange={(event) => props.setDepositCustomAmount(event.target.value)}
+                          placeholder="e.g. 500000"
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </Fieldset>
+
+            {props.mode !== 'paid' ? (
+              <PaymentMethodFieldset
+                paymentMethod={props.paymentMethod}
+                setPaymentMethod={props.setPaymentMethod}
+              />
+            ) : null}
+
+            {props.mode === 'deposit' || (props.mode === 'paid' && props.depositPayments && props.depositPayments.length > 0) ? (
+              <DepositLedger
+                mode={props.mode}
+                payments={props.depositPayments}
+                addPayment={props.addDepositPayment}
+                updatePayment={props.updateDepositPayment}
+                removePayment={props.removeDepositPayment}
+                depositMode={props.depositMode}
+                setDepositMode={props.setDepositMode}
+                depositCustomAmount={props.depositCustomAmount}
+                setDepositCustomAmount={props.setDepositCustomAmount}
+                depositPaidTotal={props.depositPaidTotal}
+                balanceDue={props.balanceDue}
+                requestedDue={props.requestedDue}
+                totals={props.totals}
+                depositAskOpen={props.depositAskOpen}
+                setDepositAskOpen={props.setDepositAskOpen}
+              />
+            ) : null}
+
+            {props.mode === 'paid' ? (
+              <PaidSummary
+                totals={props.totals}
+                paidConfirmed={props.paidConfirmed}
+                setPaidConfirmed={props.setPaidConfirmed}
+                paidAtDate={props.paidAtDate}
+                setPaidAtDate={props.setPaidAtDate}
+                paidAtTime={props.paidAtTime}
+                setPaidAtTime={props.setPaidAtTime}
+              />
+            ) : null}
+          </>
+        )}
       </div>
     </aside>
   );
