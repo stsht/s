@@ -113,6 +113,7 @@ export function InvoiceComposer() {
   }, []);
 
   const [mobileView, setMobileView] = useState('edit');
+  const [editorTab, setEditorTab] = useState(() => (initial.mode === 'deposit' || initial.mode === 'paid' ? 'payments' : 'details'));
   const [mode, setMode] = useState('invoice');
   const [title, setTitle] = useState(initial.title ?? (initial.type === INVOICE_TYPES.VENDOR ? '' : 'Ms.'));
   const [clientName, setClientName] = useState(initial.name || '');
@@ -182,6 +183,7 @@ export function InvoiceComposer() {
         qty: Number(item.qty) || 1,
         price: 0,
         discount: 0,
+        discountLabel: '',
       }));
     }
     return [emptyItem(DEFAULT_PACKAGES)];
@@ -343,6 +345,7 @@ export function InvoiceComposer() {
               qty,
               price,
               discount: clampItemDiscount(item.discount ?? item.discount_amount, qty, price),
+              discountLabel: String(item.discountLabel || item.discount_label || '').trim(),
             };
           });
           setItems(hydratedItems);
@@ -670,6 +673,7 @@ export function InvoiceComposer() {
             qty: Number(item.qty) || 1,
             price: Math.max(0, Math.round(Number(item.price) || 0)),
             discount: clampItemDiscount(item.discount, item.qty, item.price),
+            discountLabel: String(item.discountLabel || '').trim(),
           })),
           depositMode: String(depositMode || ''),
           depositCustomAmount: String(depositCustomAmount || ''),
@@ -859,6 +863,8 @@ export function InvoiceComposer() {
       <section className={`composer-shell ${mobileView === 'preview' ? 'show-preview' : ''}`}>
         <EditorPanel
           invoiceType={invoiceType}
+          editorTab={editorTab}
+          setEditorTab={setEditorTab}
           mode={mode}
           setMode={setMode}
           title={title}
@@ -939,7 +945,12 @@ export function InvoiceComposer() {
           hydrating={hydrating}
         />
       </section>
-      <nav className="mobile-tabs" aria-label="Invoice view">
+      <nav
+        className="mobile-tabs"
+        aria-label="Invoice view"
+        style={{ '--mobile-tab-index': mobileView === 'preview' ? 1 : 0 }}
+      >
+        <span className="mobile-tabs-thumb" aria-hidden="true" />
         <button className={mobileView === 'edit' ? 'active' : ''} type="button" onClick={() => setMobileView('edit')}>Edit Details</button>
         <button className={mobileView === 'preview' ? 'active' : ''} type="button" onClick={() => setMobileView('preview')}>Preview Invoice</button>
       </nav>
