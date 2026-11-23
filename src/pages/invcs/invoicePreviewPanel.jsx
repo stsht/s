@@ -127,8 +127,15 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
   return (
     <section className="preview-panel panel">
       <header className="preview-toolbar">
-        <div>
-          <p className="eyebrow">Live Preview</p>
+        <div className="preview-toolbar-title">
+          <div className="preview-toolbar-eyebrow-row">
+            <p className="eyebrow">Live Preview</p>
+            {status ? (
+              <span className="inv-sync-pill is-active">{status}</span>
+            ) : savedId ? (
+              <span className="inv-sync-pill">Synced</span>
+            ) : null}
+          </div>
           <h2>{mode === 'paid' ? 'Paid Receipt' : mode === 'deposit' ? 'Deposit Invoice' : 'Draft Invoice'}</h2>
         </div>
         <div className="preview-toolbar-actions">
@@ -199,7 +206,7 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
                     <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
                     {lineDiscount > 0 ? (
                       <>
-                        <div className="line-discount-label"><small>Package Discount</small></div>
+                        <div className="line-discount-label"><small>{item.discountLabel ? toTitleCase(item.discountLabel) : 'Package Discount'}</small></div>
                         <span aria-hidden="true"></span>
                         <span className="line-discount-amount">-{rupiah(lineDiscount)}</span>
                       </>
