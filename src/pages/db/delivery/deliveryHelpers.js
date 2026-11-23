@@ -114,33 +114,41 @@ export function accessLogEventLabel(type = '', service = '') {
   return labels[cleanType] || cleanType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function accessLogDevice(userAgent = '') {
+export function accessLogPlatform(userAgent = '') {
   const ua = String(userAgent || '');
   if (!ua) return '';
-  // In-app browsers (social / messaging shells) expose themselves
-  // through distinctive UA tokens. Surface the app as the "browser"
-  // so the operator reads "Instagram Browser" instead of the generic
-  // Safari/Chrome webview underneath. Order matters: Instagram's UA
-  // also carries FBAV, so test Instagram before Facebook.
-  const inApp = /Instagram/i.test(ua) ? 'Instagram Browser'
-    : /(FBAN|FBAV|FB_IAB|FBIOS|FB4A)/i.test(ua) ? 'Facebook Browser'
-      : /WhatsApp/i.test(ua) ? 'WhatsApp Browser'
-        : /\bLine\//i.test(ua) ? 'LINE Browser'
-          : /TikTok|musical_ly|BytedanceWebview/i.test(ua) ? 'TikTok Browser'
-            : '';
-  if (inApp) return inApp;
-  const browser = /Edg\//.test(ua) ? 'Edge'
-    : /OPR\//.test(ua) ? 'Opera'
-      : /CriOS|Chrome\//.test(ua) ? 'Chrome'
-        : /FxiOS|Firefox\//.test(ua) ? 'Firefox'
-          : /Safari\//.test(ua) ? 'Safari'
-            : 'Browser';
-  const os = /iPhone|iPad|iPod/.test(ua) ? 'iOS'
-    : /Android/.test(ua) ? 'Android'
-      : /Mac OS X|Macintosh/.test(ua) ? 'macOS'
-        : /Windows/.test(ua) ? 'Windows'
-          : '';
-  return [browser, os].filter(Boolean).join(' ');
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/iPad/i.test(ua)) return 'iPad';
+  if (/iPod/i.test(ua)) return 'iPod';
+  if (/Android/i.test(ua)) return 'Android';
+  if (/Mac OS X|Macintosh/i.test(ua)) return 'macOS';
+  if (/Windows/i.test(ua)) return 'Windows';
+  if (/Linux/i.test(ua) && !/Android/i.test(ua)) return 'Linux';
+  return '';
+}
+
+export function accessLogBrowser(userAgent = '') {
+  const ua = String(userAgent || '');
+  if (!ua) return '';
+  // Order matters: Instagram's UA also carries FBAV, so test Instagram before Facebook.
+  if (/Instagram/i.test(ua)) return 'Instagram';
+  if (/(FBAN|FBAV|FB_IAB|FBIOS|FB4A)/i.test(ua)) return 'Facebook';
+  if (/WhatsApp/i.test(ua) && !/bot|preview|link/i.test(ua)) return 'WhatsApp';
+  if (/\bLine\//i.test(ua)) return 'LINE';
+  if (/TikTok|musical_ly|BytedanceWebview/i.test(ua)) return 'TikTok';
+  if (/Edg\//.test(ua)) return 'Edge';
+  if (/OPR\//.test(ua)) return 'Opera';
+  if (/CriOS|Chrome\//.test(ua)) return 'Chrome';
+  if (/FxiOS|Firefox\//.test(ua)) return 'Firefox';
+  if (/Safari\//.test(ua)) return 'Safari';
+  return '';
+}
+
+export function accessLogDevice(userAgent = '') {
+  const platform = accessLogPlatform(userAgent);
+  const browser = accessLogBrowser(userAgent);
+  const parts = [platform, browser].filter(Boolean);
+  return parts.length ? parts.join(' · ') : (String(userAgent || '').trim() ? 'Browser' : '');
 }
 
 export function accessLogPlace(log = {}) {
@@ -280,26 +288,62 @@ export function crawlerUserAgentLabel(userAgent = '') {
 // click; a bare page view is weak. Known Meta infrastructure paired
 // with a non-app (scanner/generic) UA reads as a preview, never as a
 // confident client open.
+const CLIENT_SIGNAL_TYPES = new Set([
+  'password_success',
+  'unlock_success',
+  'service_click',
+  'button_click',
+  'invoice_view',
+  'invoice_fullscreen',
+  'invoice_download',
+  'payment_bank_copy',
+  'payment_bank',
+  'payment_qr_download',
+  'payment_qr',
+]);
+
+const ADMIN_EVENT_TYPES = new Set(['admin_unlock', 'admin_page_view']);
+
+export function isAdminPreviewLog(log = {}) {
+  return ADMIN_EVENT_TYPES.has(String(log?.event_type || '').toLowerCase());
+}
+
+export function isBotPreviewLog(log = {}) {
+  const ua = String(log?.user_agent || '');
+  if (isRealInAppBrowser(ua)) return false;
+  const crawler = crawlerUserAgentLabel(ua);
+  if (classifyAccessNetwork(log).key === 'meta') return true;
+  return Boolean(crawler);
+}
+
+export function isNoiseAccessLog(log = {}) {
+  return isAdminPreviewLog(log) || isBotPreviewLog(log);
+}
+
 export function accessActorType(visitor = {}) {
+  const events = Array.isArray(visitor.events) ? visitor.events : [];
   const rep = visitor.first || visitor.last || {};
   const net = classifyAccessNetwork(rep);
   const ua = rep.user_agent || visitor.last?.user_agent || '';
   const realApp = isRealInAppBrowser(ua);
-  const types = new Set((visitor.events || []).map((e) => String(e.event_type || '').toLowerCase()));
-  const strongSignal = types.has('password_success') || types.has('service_click') || types.has('button_click');
+  const types = new Set(events.map((e) => String(e.event_type || '').toLowerCase()));
+  const strongSignal = [...types].some((t) => CLIENT_SIGNAL_TYPES.has(t));
+  const allAdmin = events.length > 0 && [...types].every((t) => ADMIN_EVENT_TYPES.has(t));
+
+  if (allAdmin) return { key: 'admin', label: 'Admin' };
   if (net.key === 'meta' && !realApp) return { key: 'meta', label: 'Meta Preview' };
-  if (net.key === 'apple_relay') return { key: 'relay', label: 'Private Relay' };
-  if (net.key === 'cloudflare' || net.key === 'google' || net.key === 'aws' || net.key === 'datacenter') {
-    return { key: 'proxy', label: 'Proxy / Datacenter' };
-  }
   if (!strongSignal && !realApp) {
     const crawler = crawlerUserAgentLabel(ua);
-    if (crawler === 'Meta preview') return { key: 'meta', label: 'Meta preview' };
-    if (crawler === 'WhatsApp preview') return { key: 'meta', label: 'WhatsApp preview' };
+    if (crawler === 'Meta preview') return { key: 'meta', label: 'Meta Preview' };
+    if (crawler === 'WhatsApp preview') return { key: 'meta', label: 'WhatsApp Preview' };
     if (crawler === 'Crawler') return { key: 'proxy', label: 'Crawler' };
   }
-  if (strongSignal) return { key: 'client', label: 'Likely Client' };
-  return { key: 'unknown', label: 'Unknown' };
+  if (strongSignal) return { key: 'client', label: 'Client' };
+  if (net.key === 'apple_relay') return { key: 'relay', label: 'Private Relay' };
+  if (net.key === 'cloudflare' || net.key === 'google' || net.key === 'aws' || net.key === 'datacenter') {
+    return { key: 'proxy', label: 'Proxy' };
+  }
+  return { key: 'opened', label: 'Link Opened' };
 }
 
 export function accessLogRowDetail(event = {}) {
@@ -360,6 +404,7 @@ function makeAccessLogVisitor(group) {
   );
   const first = events[0] || {};
   const last = events[events.length - 1] || {};
+  const ua = first.user_agent || last.user_agent || '';
   return {
     key: group.key,
     ip: group.ip || String(first.ip_address || '').trim(),
@@ -367,32 +412,35 @@ function makeAccessLogVisitor(group) {
     first,
     last,
     place: accessLogPlace(first) || accessLogPlace(last),
-    device: accessLogDevice(first.user_agent) || accessLogDevice(last.user_agent),
+    platform: accessLogPlatform(ua),
+    browser: accessLogBrowser(ua),
+    device: accessLogDevice(ua),
     isp: accessLogIsp(first) || accessLogIsp(last),
   };
 }
 
 export function groupAccessLogsByVisitor(logs = []) {
   const groups = new Map();
-  const metaPreviews = [];
+  const botPreviews = [];
   for (const log of Array.isArray(logs) ? logs : []) {
-    if (isMetaPreviewLog(log)) {
-      metaPreviews.push(log);
+    if (isBotPreviewLog(log)) {
+      botPreviews.push(log);
       continue;
     }
-    const key = accessLogVisitorKey(log);
+    const baseKey = accessLogVisitorKey(log);
+    const key = isAdminPreviewLog(log) ? `admin-preview:${baseKey}` : baseKey;
     if (!groups.has(key)) {
       groups.set(key, { key, ip: String(log.ip_address || '').trim(), logs: [] });
     }
     groups.get(key).logs.push(log);
   }
 
-  // Merge Meta Preview scanner hits into one card when they belong to the
-  // same 60-second burst. Use a fixed window from the first hit (not a
-  // rolling window) so a long chain of scans cannot merge indefinitely.
-  metaPreviews.sort((a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at));
+  // Merge bot/preview scanner hits into one card when they belong to the
+  // same 60-second burst. Use a fixed window from the first hit so a
+  // long chain of scans cannot merge indefinitely.
+  botPreviews.sort((a, b) => accessLogTimeValue(a.created_at) - accessLogTimeValue(b.created_at));
   let burst = null;
-  for (const log of metaPreviews) {
+  for (const log of botPreviews) {
     const timestamp = accessLogTimeValue(log.created_at);
     if (!timestamp) {
       const key = `meta-preview:unknown:${groups.size}`;
@@ -412,20 +460,38 @@ export function groupAccessLogsByVisitor(logs = []) {
   return visitors;
 }
 
-export function summarizeAccessLogs(logs = []) {
+export function partitionAccessVisitors(visitors = []) {
+  const human = [];
+  const bots = [];
+  const admin = [];
+  for (const visitor of Array.isArray(visitors) ? visitors : []) {
+    const actor = accessActorType(visitor);
+    if (actor.key === 'admin') admin.push(visitor);
+    else if (actor.key === 'meta' || (actor.key === 'proxy' && actor.label === 'Crawler')) bots.push(visitor);
+    else human.push(visitor);
+  }
+  return { human, bots, admin };
+}
+
+export function summarizeAccessLogs(logs = [], { excludeNoise = true } = {}) {
+  const list = Array.isArray(logs) ? logs : [];
+  const source = excludeNoise ? list.filter((l) => !isNoiseAccessLog(l)) : list;
   let opens = 0;
   let clicks = 0;
+  let unlocked = 0;
   let last = 0;
-  for (const log of Array.isArray(logs) ? logs : []) {
+  for (const log of source) {
     const type = String(log.event_type || '').toLowerCase();
     if (ACCESS_OPEN_TYPES.has(type)) opens += 1;
     else if (ACCESS_CLICK_TYPES.has(type)) clicks += 1;
+    if (CLIENT_SIGNAL_TYPES.has(type)) unlocked += 1;
     const ts = accessLogTimeValue(log.created_at);
     if (ts > last) last = ts;
   }
   return {
     opens,
     clicks,
+    unlocked,
     lastActivity: last ? formatAccessLogClock(new Date(last).toISOString()) : '',
   };
 }
@@ -448,6 +514,27 @@ export function visitorActionSummary(events = []) {
   return out;
 }
 
+export function visitorPrimaryAction(events = [], actor = {}) {
+  const list = Array.isArray(events) ? events : [];
+  if (actor?.key === 'admin') return 'Admin Preview';
+  if (actor?.key === 'meta' || (actor?.key === 'proxy' && actor?.label === 'Crawler')) {
+    return actor.label || 'Link Preview';
+  }
+  const byPriority = [
+    (e) => ACCESS_CLICK_TYPES.has(String(e.event_type || '').toLowerCase()),
+    (e) => ['payment_qr_download', 'payment_qr', 'payment_bank_copy', 'payment_bank', 'invoice_download', 'invoice_fullscreen', 'invoice_view'].includes(String(e.event_type || '').toLowerCase()),
+    (e) => ['password_success', 'unlock_success'].includes(String(e.event_type || '').toLowerCase()),
+    (e) => ['password_failed', 'unlock_failed'].includes(String(e.event_type || '').toLowerCase()),
+  ];
+  // Check newest events first within each priority tier so the latest click wins.
+  const reversed = [...list].reverse();
+  for (const match of byPriority) {
+    const hit = reversed.find(match);
+    if (hit) return accessLogEventLabel(hit.event_type, hit.service);
+  }
+  return 'Opened Link';
+}
+
 export function visitorWhenLabel(visitor = {}) {
   const first = visitor.first || {};
   const last = visitor.last || {};
@@ -456,18 +543,20 @@ export function visitorWhenLabel(visitor = {}) {
   const lDay = formatAccessLogDay(last.created_at);
   const lClock = formatAccessLogClock(last.created_at);
   if (!fDay && !fClock) return '';
+  const sameDisplayMinute = fDay === lDay && fClock === lClock;
   const singleMoment = (visitor.events?.length || 0) <= 1
+    || sameDisplayMinute
     || accessLogTimeValue(first.created_at) === accessLogTimeValue(last.created_at);
   if (singleMoment) {
     return [fDay, fClock].filter(Boolean).join(' · ');
   }
   if (fDay === lDay) {
-    const range = [fClock, lClock].filter(Boolean).join('-');
+    const range = [fClock, lClock].filter(Boolean).join('–');
     return [fDay, range].filter(Boolean).join(' · ');
   }
   const start = [fDay, fClock].filter(Boolean).join(' ');
   const end = [lDay, lClock].filter(Boolean).join(' ');
-  return [start, end].filter(Boolean).join(' - ');
+  return [start, end].filter(Boolean).join(' – ');
 }
 
 export async function copyToClipboard(text) {

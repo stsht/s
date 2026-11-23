@@ -4,6 +4,7 @@ import {
   resolveDeliveryShortCode,
   buildShortUrl,
   groupAccessLogsByVisitor,
+  partitionAccessVisitors,
   summarizeAccessLogs,
   pluralCount,
   copyToClipboard,
@@ -140,9 +141,10 @@ export function DeliveryDetail({ delivery, onClose, onRepaired, onDeleted, onRef
 
   const accessLogs = Array.isArray(currentDelivery?.stats?.logs) ? currentDelivery.stats.logs : [];
   const accessVisitors = useMemo(() => groupAccessLogsByVisitor(accessLogs), [accessLogs]);
-  const accessStats = useMemo(() => summarizeAccessLogs(accessLogs), [accessLogs]);
+  const { human: humanVisitors } = useMemo(() => partitionAccessVisitors(accessVisitors), [accessVisitors]);
+  const accessStats = useMemo(() => summarizeAccessLogs(accessLogs, { excludeNoise: true }), [accessLogs]);
   const accessSummaryText = [
-    pluralCount(accessVisitors.length, 'visitor'),
+    pluralCount(humanVisitors.length, 'visitor'),
     pluralCount(accessStats.opens, 'open'),
     pluralCount(accessStats.clicks, 'click'),
     accessStats.lastActivity ? `Last activity ${accessStats.lastActivity}` : '',

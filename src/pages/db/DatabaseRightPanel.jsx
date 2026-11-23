@@ -76,6 +76,7 @@ export function DatabaseRightPanel({
         <ActivityDetail
           activity={selected.data || {}}
           onClose={back}
+          onRefresh={refetch}
         />
       ) : null}
       {selected?.type === 'new' ? (

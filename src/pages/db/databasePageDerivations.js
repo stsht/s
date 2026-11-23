@@ -15,6 +15,8 @@ import {
   formatAccessLogClock,
   formatAccessLogDay,
   groupAccessLogsByVisitor,
+  isNoiseAccessLog,
+  partitionAccessVisitors,
   summarizeAccessLogs,
 } from './delivery/deliveryHelpers.js';
 
@@ -174,14 +176,18 @@ export function buildActivityRows({ deliveriesAll, query }) {
   const rows = (Array.isArray(deliveriesAll) ? deliveriesAll : []).map((delivery) => {
     const logs = Array.isArray(delivery?.stats?.logs) ? delivery.stats.logs : [];
     if (!logs.length) return null;
-    const last = latestLog(logs);
+    const humanLogs = logs.filter((log) => !isNoiseAccessLog(log));
+    const last = latestLog(humanLogs.length ? humanLogs : logs);
     if (!last) return null;
-    const summary = summarizeAccessLogs(logs);
-    const visitors = groupAccessLogsByVisitor(logs);
+    const summary = summarizeAccessLogs(logs, { excludeNoise: true });
+    const groupedVisitors = groupAccessLogsByVisitor(logs);
+    const { human: visitors } = partitionAccessVisitors(groupedVisitors);
     const eventDate = plainEventDate(delivery?.event_date);
     const folderName = String(delivery?.folder_name || delivery?.base_slug || delivery?.gallery_code || '').trim();
     const name = String(delivery?.client_name || 'Delivery').trim();
-    const lastActivityLabel = accessLogEventLabel(last.event_type, last.service);
+    const lastActivityLabel = humanLogs.length
+      ? accessLogEventLabel(last.event_type, last.service)
+      : 'Link Preview Only';
     const row = {
       id: `activity:${delivery.id}`,
       deliveryId: delivery.id,
