@@ -172,20 +172,73 @@ export function DeliveryAccessLogs({
         <div className="dd-access-log-head">
           <p className="eyebrow">Access Activity</p>
           {accessSummaryText ? <span>{accessSummaryText}</span> : null}
+        </div>
+      ) : null}
+
+      {human.length ? (
+        <div className="dd-visitor-list">
+          {human.map((visitor, index) => (
+            <AccessLogVisitorCard
+              key={visitor.key || index}
+              visitor={visitor}
+              onRequestDelete={handleDeleteVisitor ? () => handleDeleteVisitor(visitor) : undefined}
+            />
+          ))}
+        </div>
+      ) : hiddenCount > 0 ? (
+        <p className="dd-access-log-empty">No client visits yet — only automated previews or admin opens recorded.</p>
+      ) : (
+        <p className="dd-access-log-empty">No activity yet.</p>
+      )}
+
+      {hiddenCount > 0 ? (
+        <div className="dd-hidden-logs">
+          <button
+            type="button"
+            className={`dd-hidden-toggle${showHidden ? ' is-open' : ''}`}
+            onClick={() => setShowHidden((cur) => !cur)}
+            aria-expanded={showHidden}
+          >
+            <span>{hiddenToggleLabel}</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+
+          {showHidden ? (
+            <div className="dd-hidden-groups">
+              {admin.length ? (
+                <div className="dd-hidden-group">
+                  <p className="dd-hidden-group-label">Admin Previews</p>
+                  <div className="dd-visitor-list">
+                    {admin.map((visitor, index) => (
+                      <AccessLogVisitorCard
+                        key={visitor.key || `admin-${index}`}
+                        visitor={visitor}
+                        onRequestDelete={handleDeleteVisitor ? () => handleDeleteVisitor(visitor) : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {bots.length ? (
+                <div className="dd-hidden-group">
+                  <p className="dd-hidden-group-label">Link Previews & Bots</p>
+                  <div className="dd-visitor-list">
+                    {bots.map((visitor, index) => (
+                      <AccessLogVisitorCard
+                        key={visitor.key || `bot-${index}`}
+                        visitor={visitor}
+                        onRequestDelete={handleDeleteVisitor ? () => handleDeleteVisitor(visitor) : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
-            {accessVisitors.length ? (
-              <div className="dd-visitor-list">
-                {accessVisitors.map((visitor, index) => (
-                  <AccessLogVisitorCard
-                    key={visitor.key || index}
-                    visitor={visitor}
-                    onRequestDelete={handleDeleteVisitor ? () => handleDeleteVisitor(visitor) : undefined}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="dd-access-log-empty">No activity yet.</p>
-            )}
-          </section>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
   );
 }
