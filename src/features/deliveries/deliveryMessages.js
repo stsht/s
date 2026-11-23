@@ -92,6 +92,51 @@ export function buildDeliveryMessage(input = {}) {
   return `Dear ${toUnicodeBold(salutation)},\n\nWith sincere appreciation, your private StarShots delivery page has been prepared for your kind attention.\n\nYou may access your ${toUnicodeBold('Delivery Page')} and ${toUnicodeBold('Invoice')} through the details below:\n\n${details}\n\nShould you wish to use a different password, please feel free to let us know and we will be pleased to update it for you.\n\nKindly keep this link for your delivery updates. Your final files will be made available through the same page once they are ready.\n\nThank you once again for allowing StarShots ID to be part of your special moment.\n\nWarm Regards,\nStarShots ID`;
 }
 
+
+export function buildPaymentMessage(input = {}) {
+  const title = String(input.title ?? 'Ms.').trim();
+  const clientName = String(input.clientName || 'Client').trim() || 'Client';
+  const firstClientToken = clientName.split(/\s+/)[0] || '';
+  const rawSalutation = HONORIFIC_RE.test(firstClientToken)
+    ? clientName
+    : [title, clientName].filter(Boolean).join(' ');
+  const salutation = formatClientSalutation(rawSalutation, input.useLastName === true);
+  const link = String(input.link || '').trim();
+  const pass = String(input.password || '').trim();
+
+  const fmt = (n) => `Rp ${Math.max(0, Math.round(Number(n) || 0)).toLocaleString('id-ID')}`;
+  const grandTotal = Math.max(0, Math.round(Number(input.grandTotal) || 0));
+  const paidSoFar = Math.max(0, Math.round(Number(input.paidSoFar) || 0));
+  const remainingBalance = Math.max(0, Math.round(Number(input.remainingBalance) || 0));
+
+  const amountLines = [
+    grandTotal > 0 ? `${toUnicodeBold('Total:')} ${fmt(grandTotal)}` : '',
+    paidSoFar > 0 ? `${toUnicodeBold('Deposit Paid:')} ${fmt(paidSoFar)}` : '',
+    remainingBalance > 0 ? `${toUnicodeBold('Balance Due:')} ${fmt(remainingBalance)}` : '',
+  ].filter(Boolean).join('\n');
+
+  const accessLines = [
+    link && link !== '(link unavailable)' ? `${toUnicodeBold('Link:')} ${link}` : '',
+    pass && pass !== '(no password)' ? `${toUnicodeBold('Password:')} ${pass}` : '',
+  ].filter(Boolean).join('\n');
+
+  const intro = paidSoFar > 0
+    ? 'Here are the final payment details for your session:'
+    : 'Here are the payment details for your session:';
+
+  const sections = [
+    `Dear ${toUnicodeBold(salutation)},`,
+    intro,
+    amountLines,
+    accessLines
+      ? `You may view your invoice, transfer details, and upload your receipt at your convenience here:\n${accessLines}`
+      : '',
+    'Warm Regards,\nStarShots ID',
+  ].filter(Boolean);
+
+  return sections.join('\n\n');
+}
+
 // Keep the previous exports so the /l preview and any legacy callers
 // continue to resolve without a route or API change. Both now share
 // the same text format; previewOnly remains plain link/password text.
