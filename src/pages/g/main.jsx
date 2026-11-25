@@ -375,10 +375,10 @@ function PublicInvoiceDocument({ invoice }) {
                 </div>
               );
             })}
-            {items.filter((item) => !sessions.some((session) => session.id === item.sessionId)).length ? (
+            {items.filter((item) => !sessions.some((session) => session.id === (item.sessionId || sessions[0]?.id))).length ? (
               <div className="line-session-group">
                 <div className="line-session-heading"><strong>Other Packages</strong></div>
-                {items.filter((item) => !sessions.some((session) => session.id === item.sessionId)).map(renderInvoiceLine)}
+                {items.filter((item) => !sessions.some((session) => session.id === (item.sessionId || sessions[0]?.id))).map(renderInvoiceLine)}
               </div>
             ) : null}
           </>
