@@ -172,15 +172,21 @@ test('20. old invoice row creates a default session and attaches legacy items', 
 });
 
  
-test('21. calculateInvoiceLedger accepts a complete invoice row directly', () => {
+test('21. calculateInvoiceLedger accepts a complete invoice row and reads nested invoice_data', () => {
   const ledger = calculateInvoiceLedger({
     status: 'invoice',
-    grand_total: 1_000_000,
-    paid_amount: 0,
-    balance_due: 1_000_000,
+    grand_total: 900_000,
+    paid_amount: 500_000,
+    balance_due: 400_000,
     event_date: '2026-11-25',
-    invoice_data: { items: [item(1_000_000)] },
+    invoice_data: {
+      items: [item(1_000_000)],
+      adjustments: [{ id: 'adj-1', type: 'session_cancellation', amount: -100_000 }],
+      payments: [payment('p1', 500_000)],
+      refunds: [{ id: 'r1', amount: 200_000, status: 'completed' }],
+    },
   });
-  assert.equal(ledger.netBillableTotal, 1_000_000);
-  assert.equal(ledger.balanceDue, 1_000_000);
+  assert.equal(ledger.netBillableTotal, 900_000);
+  assert.equal(ledger.netCashReceived, 300_000);
+  assert.equal(ledger.balanceDue, 600_000);
 });
