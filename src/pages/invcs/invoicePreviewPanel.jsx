@@ -238,7 +238,7 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
                 <>
                   {sessionRows.map((session, index) => {
                     const sessionItems = items.filter((item) => (item.sessionId || sessionRows[0]?.id) === session.id);
-                    const sessionMeta = [prettyDateTime(session.date, session.startTime), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ');
+                    const sessionMeta = [session.date ? prettyDateTime(session.date, session.startTime) : String(session.startTime || ''), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ');
                     return (
                       <div className="line-session-group" key={session.id}>
                         <div className="line-session-heading">
