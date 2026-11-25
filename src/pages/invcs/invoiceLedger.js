@@ -35,7 +35,7 @@ function paymentDateParts(payment) {
 function normalizeCanonicalPayment(payment, index) {
   const source = asObject(payment);
   const dateParts = paymentDateParts(source);
-  const status = String(source.status || (source.paid === false ? 'pending' : 'confirmed')).toLowerCase();
+  const status = String(source.status || (source.paid === true ? 'confirmed' : 'pending')).toLowerCase();
   return {
     ...source,
     id: String(source.id || 'legacy-payment-' + (index + 1)),
