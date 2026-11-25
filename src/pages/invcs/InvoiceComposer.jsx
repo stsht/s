@@ -704,6 +704,7 @@ export function InvoiceComposer() {
       const invoiceEventDate = String(primarySession?.date || eventDate || '');
       const invoiceEventTime = String(primarySession?.startTime || eventTime || '');
       const invoiceVenue = String(primarySession?.venue || venue || '');
+      const invoiceEventKey = String(eventKey || (savedSessions.length > 1 ? crypto.randomUUID() : ''));
       // Keep the invoice save payload aligned with the worker's
       // handleInvoiceSave contract so it receives the typed columns
       // plus the session-aware invoice_data blob.
@@ -714,7 +715,7 @@ export function InvoiceComposer() {
         invoice_date: String(issuedDate || ''),
         event_date: invoiceEventDate,
         event_time: invoiceEventTime,
-        event_key: String(eventKey || ''),
+        event_key: invoiceEventKey,
         venue: invoiceVenue,
         status: mode,
         invoice_type: invoiceType,
@@ -810,6 +811,7 @@ export function InvoiceComposer() {
       }
       const newId = String(json.invoice?.id || savedId || '');
       if (newId) setSavedId(newId);
+      if (invoiceEventKey && !eventKey) setEventKey(invoiceEventKey);
       dbg('/inv save response', {
         invoiceId: newId,
         savedEventKey: json.invoice?.event_key || '',
