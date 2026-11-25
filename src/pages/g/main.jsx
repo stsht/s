@@ -339,7 +339,7 @@ function PublicInvoiceDocument({ invoice }) {
               {sessions.map((session, index) => (
                 <div className="meta-row" key={session.id}>
                   <dt>{toTitleCase(session.title || 'Session ' + (index + 1))}</dt>
-                  <dd>{[prettyDateTime(session.date, session.startTime), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ') || 'Schedule TBA'}</dd>
+                  <dd>{[session.date ? prettyDateTime(session.date, session.startTime) : String(session.startTime || ''), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ') || 'Schedule TBA'}</dd>
                 </div>
               ))}
               <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(invoice?.invoice_date)}</dd></div>
