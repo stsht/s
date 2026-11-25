@@ -89,3 +89,23 @@ export function eventGroupIsSettled(group = {}) {
 
   return artifactCompletion.length > 0 && artifactCompletion.every(Boolean);
 }
+
+
+// Client delivery state is independent from payment and vendor completion.
+export function bookingDeliveryState(group = {}) {
+  const rows = Array.isArray(group.deliveries) ? group.deliveries.filter((d) => d && d.type !== 'vendor') : (group.delivery ? [group.delivery] : []);
+  const sessions = (Array.isArray(group.sessions) ? group.sessions : []).filter((s) => String(s?.status || s?.state || '').toLowerCase() !== 'cancelled');
+  const shared = rows.filter((d) => d?.session_id == null || d.session_id === '');
+  const dedicated = rows.filter((d) => d?.session_id != null && d.session_id !== '');
+  const done = (d) => d?.delivery_done === true;
+  if (!rows.length) return 'processing';
+  if (!dedicated.length) return shared.every(done) ? 'delivered' : shared.some(done) ? 'partial' : 'processing';
+  if (!shared.length) {
+    const states = sessions.length ? sessions.map((s) => { const item = dedicated.find((d) => String(d.session_id) === String(s.id)); return !!item && done(item); }) : dedicated.map(done);
+    const n = states.filter(Boolean).length;
+    return n === states.length ? 'delivered' : n ? 'partial' : 'processing';
+  }
+  const uncovered = sessions.filter((s) => !dedicated.some((d) => String(d.session_id) === String(s.id)));
+  if (rows.every(done) && (uncovered.length === 0 || shared.every(done))) return 'delivered';
+  return rows.some(done) ? 'partial' : 'processing';
+}
