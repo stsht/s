@@ -170,3 +170,17 @@ test('20. old invoice row creates a default session and attaches legacy items', 
   assert.equal(data.sessions[0].venue, 'Unico Studio');
   assert.equal(data.items[0].sessionId, 'legacy-session');
 });
+
+ 
+test('21. calculateInvoiceLedger accepts a complete invoice row directly', () => {
+  const ledger = calculateInvoiceLedger({
+    status: 'invoice',
+    grand_total: 1_000_000,
+    paid_amount: 0,
+    balance_due: 1_000_000,
+    event_date: '2026-11-25',
+    invoice_data: { items: [item(1_000_000)] },
+  });
+  assert.equal(ledger.netBillableTotal, 1_000_000);
+  assert.equal(ledger.balanceDue, 1_000_000);
+});
