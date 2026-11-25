@@ -11,7 +11,7 @@ test('1. legacy DP plus final settlement derives actual 3M + 7M cash events', ()
     { id: 'dp-1', amount: 3_000_000, status: 'confirmed' },
     { id: 'paid-receipt', amount: 7_000_000, status: 'confirmed' },
   ]);
-  const ledger = calculateInvoiceLedger({ items: [item(10_000_000)], ...data }, { status: 'paid', grand_total: 10_000_000, paid_amount: 10_000_000 });
+  const ledger = calculateInvoiceLedger({ ...data, items: [item(10_000_000)] }, { status: 'paid', grand_total: 10_000_000, paid_amount: 10_000_000 });
   assert.equal(ledger.totalConfirmedPayments, 10_000_000);
   assert.equal(ledger.balanceDue, 0);
 });
@@ -23,7 +23,7 @@ test('2. multiple legacy installments retain each stable ID and sum once', () =>
     { id: 'dp-c', paid: true, amount: 5_000_000 },
   ] }, { status: 'deposit', grand_total: 10_000_000, paid_amount: 10_000_000 });
   assert.deepEqual(data.payments.map((p) => p.id), ['dp-a', 'dp-b', 'dp-c']);
-  assert.equal(calculateInvoiceLedger({ items: [item(10_000_000)], ...data }).totalConfirmedPayments, 10_000_000);
+  assert.equal(calculateInvoiceLedger({ ...data, items: [item(10_000_000)] }).totalConfirmedPayments, 10_000_000);
 });
 
 test('3. partial payment followed by cancellation credit leaves a balance due', () => {
@@ -75,18 +75,20 @@ test('9. repeated reschedule history survives normalization unchanged', () => {
 test('10. multi-session metadata survives ledger normalization', () => {
   const sessions = [{ id: 's1', title: 'Akad' }, { id: 's2', title: 'Resepsi' }];
   const data = normalizeInvoiceData({ sessions });
-  assert.deepEqual(data.sessions, sessions);
+  assert.deepEqual(data.sessions.map(({ id, title }) => ({ id, title })), sessions);
 });
 
-test('11. legacy single-session invoice remains valid without inventing sessions', () => {
+test('11. legacy single-session invoice remains valid and receives a default session', () => {
   const data = normalizeInvoiceData({ items: [item(1_000_000)], depositPayments: [] }, { status: 'invoice', grand_total: 1_000_000 });
-  assert.deepEqual(data.sessions, undefined);
+  assert.equal(data.sessions.length, 1);
+  assert.equal(data.sessions[0].id, 'legacy-session');
+  assert.equal(data.items[0].sessionId, 'legacy-session');
   assert.equal(calculateInvoiceLedger(data, { grand_total: 1_000_000 }).netBillableTotal, 1_000_000);
 });
 
 test('12. pending payments and unpaid legacy DP rows do not count as cash', () => {
   const data = normalizeInvoiceData({ depositPayments: [{ id: 'dp-paid', paid: true, amount: 200_000 }, { id: 'dp-pending', paid: false, amount: 300_000 }] }, { status: 'deposit', grand_total: 1_000_000, paid_amount: 200_000 });
-  const ledger = calculateInvoiceLedger({ items: [item(1_000_000)], ...data });
+  const ledger = calculateInvoiceLedger({ ...data, items: [item(1_000_000)] });
   assert.equal(ledger.totalConfirmedPayments, 200_000);
   assert.equal(ledger.totalPendingPayments, 300_000);
   assert.equal(ledger.balanceDue, 800_000);
@@ -115,7 +117,7 @@ test('15. zero-value legacy settlement marker preserves paid-receipt ID without 
   assert.equal(data.payments[1].id, 'paid-receipt');
   assert.equal(data.payments[1].amount, 0);
   assert.equal(data.payments[1].status, 'superseded');
-  assert.equal(calculateInvoiceLedger({ items: [item(1_000_000)], ...data }).totalConfirmedPayments, 1_000_000);
+  assert.equal(calculateInvoiceLedger({ ...data, items: [item(1_000_000)] }).totalConfirmedPayments, 1_000_000);
 });
 
 test('16. pending adjustments do not change the billable total', () => {
@@ -123,10 +125,48 @@ test('16. pending adjustments do not change the billable total', () => {
   assert.equal(ledger.netBillableTotal, 1_000_000);
 });
 
- 
 test('17. canonical payment without an explicit confirmation remains pending', () => {
   const ledger = calculateInvoiceLedger({ items: [item(1_000_000)], payments: [{ id: 'p-unknown', amount: 500_000 }] });
   assert.equal(ledger.totalConfirmedPayments, 0);
   assert.equal(ledger.totalPendingPayments, 500_000);
   assert.equal(ledger.balanceDue, 1_000_000);
+});
+
+test('18. signed Blueprint adjustments apply without rewriting their sign or type', () => {
+  const data = normalizeInvoiceData({
+    items: [item(1_500_000), item(3_000_000, 300_000)],
+    adjustments: [
+      { id: 'adj-cancel', type: 'session_cancellation', amount: -2_700_000 },
+      { id: 'adj-fee', type: 'cancellation_fee', amount: 500_000 },
+    ],
+  });
+  const ledger = calculateInvoiceLedger(data);
+  assert.equal(data.adjustments[0].amount, -2_700_000);
+  assert.equal(data.adjustments[0].status, 'confirmed');
+  assert.equal(ledger.totalAdjustments, -2_200_000);
+  assert.equal(ledger.netBillableTotal, 2_000_000);
+});
+
+test('19. legacy Blueprint refund with refundedAtDate defaults to completed', () => {
+  const data = normalizeInvoiceData({ refunds: [{ id: 'r1', amount: 1_000_000, refundedAtDate: '2026-11-21', method: 'bank' }] });
+  const ledger = calculateInvoiceLedger({ ...data, items: [item(2_000_000)], payments: [payment('p1', 1_500_000)] });
+  assert.equal(data.refunds[0].status, 'completed');
+  assert.equal(ledger.totalCompletedRefunds, 1_000_000);
+  assert.equal(ledger.netCashReceived, 500_000);
+});
+
+test('20. old invoice row creates a default session and attaches legacy items', () => {
+  const data = normalizeInvoiceData({
+    id: 'invoice-1',
+    status: 'invoice',
+    event_date: '2026-11-25',
+    event_time: '09:00',
+    venue: 'Unico Studio',
+    invoice_data: { items: [item(1_000_000)], eventTime: '09:00' },
+  });
+  assert.equal(data.sessions.length, 1);
+  assert.equal(data.sessions[0].date, '2026-11-25');
+  assert.equal(data.sessions[0].startTime, '09:00');
+  assert.equal(data.sessions[0].venue, 'Unico Studio');
+  assert.equal(data.items[0].sessionId, 'legacy-session');
 });
