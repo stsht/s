@@ -23,7 +23,7 @@ import { isDpPaid, shouldShowBankDetails } from './invoiceState.js';
 // up the parent .toolbar-icon-btn's currentColor for hover/disabled
 // palettes without per-icon overrides.
 
-export function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paymentMethod, paidConfirmed, paidAtDate, paidAtTime, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating, invoiceType }) {
+export function PreviewPanel({ mode, clientName, title, contact, venue, eventDate, issuedDate, eventTime, sessions, items, totals, depositPayments, depositAskOpen, balanceDue, requestedDue, paymentMethod, paidConfirmed, paidAtDate, paidAtTime, status, documentRef, downloadJpg, saveInvoice, deleteInvoice, deletingInvoice, confirmDeleteInvoice, saving, savedId, hydrating, invoiceType }) {
   // Deposit instalments actually marked paid — these are what the
   // Deposit Invoice JPG itemises in the totals area.
   const paidDeposits = (mode === 'deposit' || mode === 'paid')
@@ -61,6 +61,26 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
   // Fit-to-width only: scale the 1000px sheet down so it fits the
   // preview column. No user zoom — see the note on INVOICE_PREVIEW_*.
   const previewScale = previewMetrics.fitScale;
+
+  const sessionRows = Array.isArray(sessions) ? sessions : [];
+  const hasMultipleSessions = sessionRows.length > 1;
+  const renderLineItem = (item) => {
+    const lineDiscount = clampItemDiscount(item.discount, item.qty, item.price);
+    return (
+      <div key={item.id} className={`line-row${lineDiscount > 0 ? ' line-row--has-discount' : ''}`}>
+        <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
+        <span>{item.qty || 1}</span>
+        <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
+        {lineDiscount > 0 ? (
+          <>
+            <div className="line-discount-label"><small>{item.discountLabel ? toTitleCase(item.discountLabel) : 'Package Discount'}</small></div>
+            <span aria-hidden="true"></span>
+            <span className="line-discount-amount">-{rupiah(lineDiscount)}</span>
+          </>
+        ) : null}
+      </div>
+    );
+  };
 
   useEffect(() => {
     const canvas = previewCanvasRef.current;
@@ -186,34 +206,59 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
                   <div className="meta-row"><dt>Contact</dt><dd>{contact ? maybeTitleCase(contact) : '-'}</dd></div>
                 </dl>
               </div>
-              <div className="sheet-box">
-                <p className="eyebrow">Details</p>
-                <dl className="meta-list">
-                  <div className="meta-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
-                  <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
-                  <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
-                </dl>
-              </div>
+              {hasMultipleSessions ? (
+                <div className="sheet-box">
+                  <p className="eyebrow">Sessions</p>
+                  <dl className="meta-list">
+                    {sessionRows.map((session, index) => (
+                      <div className="meta-row" key={session.id}>
+                        <dt>{toTitleCase(session.title || 'Session ' + (index + 1))}</dt>
+                        <dd>
+                          {[session.date ? prettyDateTime(session.date, session.startTime) : String(session.startTime || ''), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ') || 'Schedule TBA'}
+                        </dd>
+                      </div>
+                    ))}
+                    <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
+                  </dl>
+                </div>
+              ) : (
+                <div className="sheet-box">
+                  <p className="eyebrow">Details</p>
+                  <dl className="meta-list">
+                    <div className="meta-row"><dt>Venue</dt><dd>{venue ? toTitleCase(venue) : 'TBA'}</dd></div>
+                    <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(eventDate, eventTime)}</dd></div>
+                    <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(issuedDate)}</dd></div>
+                  </dl>
+                </div>
+              )}
             </section>
             <section className="sheet-box line-table">
               <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
-              {items.map((item) => {
-                const lineDiscount = clampItemDiscount(item.discount, item.qty, item.price);
-                return (
-                  <div key={item.id} className={`line-row${lineDiscount > 0 ? ' line-row--has-discount' : ''}`}>
-                    <div><strong>{toTitleCase(item.name)}</strong><small>{toTitleCase(item.note)}</small></div>
-                    <span>{item.qty || 1}</span>
-                    <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
-                    {lineDiscount > 0 ? (
-                      <>
-                        <div className="line-discount-label"><small>{item.discountLabel ? toTitleCase(item.discountLabel) : 'Package Discount'}</small></div>
-                        <span aria-hidden="true"></span>
-                        <span className="line-discount-amount">-{rupiah(lineDiscount)}</span>
-                      </>
-                    ) : null}
-                  </div>
-                );
-              })}
+              {hasMultipleSessions ? (
+                <>
+                  {sessionRows.map((session, index) => {
+                    const sessionItems = items.filter((item) => (item.sessionId || sessionRows[0]?.id) === session.id);
+                    const sessionMeta = [session.date ? prettyDateTime(session.date, session.startTime) : String(session.startTime || ''), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ');
+                    return (
+                      <div className="line-session-group" key={session.id}>
+                        <div className="line-session-heading">
+                          <strong>{toTitleCase(session.title || 'Session ' + (index + 1))}</strong>
+                          {sessionMeta ? <small>{sessionMeta}</small> : null}
+                        </div>
+                        {sessionItems.length
+                          ? sessionItems.map(renderLineItem)
+                          : <div className="line-session-empty">No packages assigned</div>}
+                      </div>
+                    );
+                  })}
+                  {items.filter((item) => !sessionRows.some((session) => session.id === (item.sessionId || sessionRows[0]?.id))).length ? (
+                    <div className="line-session-group">
+                      <div className="line-session-heading"><strong>Other Packages</strong></div>
+                      {items.filter((item) => !sessionRows.some((session) => session.id === (item.sessionId || sessionRows[0]?.id))).map(renderLineItem)}
+                    </div>
+                  ) : null}
+                </>
+              ) : items.map(renderLineItem)}
             </section>
             <section className="summary-box">
               <p><span>Subtotal</span><strong>{rupiah(totals.subtotal)}</strong></p>
