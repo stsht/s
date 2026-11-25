@@ -99,7 +99,7 @@ export function EditorPanel(props) {
               <Fieldset title="Event Sessions">
                 <div className="invoice-session-list">
                   {props.sessions.map((session, index) => (
-                    <details className="invoice-session-card" key={session.id} open={index === 0}>
+                    <details className="invoice-session-card" key={session.id}>
                       <summary className="invoice-session-summary">
                         <span>{session.title || 'Session ' + (index + 1)}</span>
                         <small>{session.date || 'Date not set'}</small>
