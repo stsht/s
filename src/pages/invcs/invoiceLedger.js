@@ -1,4 +1,5 @@
 const SCHEMA_VERSION = 2;
+const LEGACY_SESSION_ID = 'legacy-session';
 
 function money(value) {
   if (value === null || value === undefined || value === '') return 0;
@@ -61,6 +62,57 @@ function normalizeLegacyDepositPayment(payment, index) {
   };
 }
 
+function normalizeSession(session, index) {
+  const source = asObject(session);
+  return {
+    ...source,
+    id: String(source.id || 'session-' + (index + 1)),
+    title: String(source.title || 'Session ' + (index + 1)),
+    date: String(source.date || ''),
+    startTime: String(source.startTime || ''),
+    endTime: String(source.endTime || ''),
+    venue: String(source.venue || ''),
+    status: String(source.status || 'active'),
+    rescheduledFrom: source.rescheduledFrom ?? null,
+    notes: String(source.notes || ''),
+  };
+}
+
+function createLegacySession(invoiceData, invoiceRow) {
+  return normalizeSession({
+    id: LEGACY_SESSION_ID,
+    title: 'Session 1',
+    date: invoiceRow.event_date || invoiceRow.eventDate || invoiceData.eventDate || invoiceData.event_date || '',
+    startTime: invoiceData.eventTime || invoiceRow.event_time || invoiceRow.eventTime || '',
+    endTime: '',
+    venue: invoiceData.venue || invoiceRow.venue || '',
+    status: 'active',
+    rescheduledFrom: null,
+    notes: '',
+  }, 0);
+}
+
+function normalizeAdjustment(adjustment, index) {
+  const source = asObject(adjustment);
+  return {
+    ...source,
+    id: String(source.id || 'legacy-adjustment-' + (index + 1)),
+    amount: money(source.amount),
+    status: String(source.status || 'confirmed').toLowerCase(),
+  };
+}
+
+function normalizeRefund(refund, index) {
+  const source = asObject(refund);
+  const hasRefundDate = Boolean(source.refundedAtDate || source.refundedAt || source.completedAt);
+  return {
+    ...source,
+    id: String(source.id || 'legacy-refund-' + (index + 1)),
+    amount: Math.abs(money(source.amount)),
+    status: String(source.status || (hasRefundDate ? 'completed' : 'pending')).toLowerCase(),
+  };
+}
+
 function firstMoney(...values) {
   const value = values.find(hasMoney);
   return value === undefined ? 0 : money(value);
@@ -68,13 +120,31 @@ function firstMoney(...values) {
 
 /**
  * Return a new schema-v2 invoice_data object without mutating the input.
- * Existing canonical payments always win over legacy payment fields, so
- * calling this repeatedly cannot duplicate a migrated deposit or receipt.
+ * Accepts either (invoice_data, invoiceRow) or a complete invoice row.
+ * Existing canonical payments always win over legacy payment fields.
  */
-export function normalizeInvoiceData(invoiceData, invoiceRow = {}) {
-  const source = asObject(invoiceData);
-  const row = asObject(invoiceRow);
+export function normalizeInvoiceData(invoiceDataOrRow, invoiceRow = {}) {
+  let source = asObject(invoiceDataOrRow);
+  let row = asObject(invoiceRow);
+  if (Object.keys(row).length === 0 && source.invoice_data && typeof source.invoice_data === 'object') {
+    row = source;
+    source = asObject(source.invoice_data);
+  }
+
   const normalized = { ...source };
+  const existingSessions = asArray(source.sessions);
+  const sessions = existingSessions.length
+    ? existingSessions.map(normalizeSession)
+    : [createLegacySession(source, row)];
+  normalized.sessions = sessions;
+
+  const fallbackSessionId = String(sessions[0]?.id || LEGACY_SESSION_ID);
+  normalized.items = asArray(source.items).map((item) => {
+    const entry = asObject(item);
+    return entry.sessionId || entry.session_id
+      ? { ...entry, sessionId: String(entry.sessionId || entry.session_id) }
+      : { ...entry, sessionId: fallbackSessionId };
+  });
 
   if (Array.isArray(source.payments)) {
     normalized.payments = source.payments.map(normalizeCanonicalPayment);
@@ -84,11 +154,9 @@ export function normalizeInvoiceData(invoiceData, invoiceRow = {}) {
     const receipt = asObject(source.paidReceipt);
     const rowStatus = String(row.status || source.status || '').toLowerCase();
 
-    // Legacy paidReceipt.amount is a settlement snapshot (usually the
-    // whole invoice total), not necessarily the amount of the last transfer.
-    // Subtract already-recorded paid deposits to derive the final cash event.
-    // Keep the deterministic ID even when deposits already cover the total;
-    // in that case it is a zero-value superseded marker, not new cash.
+    // Legacy paidReceipt.amount is a settlement snapshot (usually the whole
+    // invoice total), not necessarily the amount of the last transfer.
+    // Subtract paid DP rows to derive the actual final cash event.
     if (rowStatus === 'paid' && receipt.paid !== false) {
       const paidDeposits = deposits.reduce(
         (sum, payment) => sum + (confirmed(payment) ? payment.amount : 0),
@@ -112,8 +180,8 @@ export function normalizeInvoiceData(invoiceData, invoiceRow = {}) {
     normalized.payments = payments;
   }
 
-  normalized.adjustments = asArray(source.adjustments).map((entry) => ({ ...asObject(entry) }));
-  normalized.refunds = asArray(source.refunds).map((entry) => ({ ...asObject(entry) }));
+  normalized.adjustments = asArray(source.adjustments).map(normalizeAdjustment);
+  normalized.refunds = asArray(source.refunds).map(normalizeRefund);
   normalized.schemaVersion = SCHEMA_VERSION;
   return normalized;
 }
@@ -148,12 +216,15 @@ function itemTotals(invoiceData) {
 }
 
 function adjustmentDelta(adjustment) {
-  if (String(adjustment?.status || '').toLowerCase() !== 'confirmed') return 0;
-  const amount = Math.max(0, money(adjustment.amount));
+  const status = String(adjustment?.status || 'confirmed').toLowerCase();
+  if (['pending', 'cancelled', 'canceled', 'voided', 'rejected'].includes(status)) return 0;
+  const amount = money(adjustment.amount);
   const type = String(adjustment.type || adjustment.kind || '').toLowerCase();
-  if (['credit', 'discount', 'reduction', 'write_off', 'write-off', 'cancellation_credit'].includes(type)) return -amount;
-  if (['charge', 'fee', 'addition', 'increase'].includes(type)) return amount;
-  return 0;
+
+  // Blueprint adjustments use signed amounts. Positive legacy "credit" and
+  // discount entries are also accepted as reductions for compatibility.
+  if (amount > 0 && ['credit', 'discount', 'reduction', 'write_off', 'write-off', 'cancellation_credit'].includes(type)) return -amount;
+  return amount;
 }
 
 /** Pure financial projection for an invoice. All values are integer IDR. */
