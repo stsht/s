@@ -1762,7 +1762,8 @@ async function handleSave(request, env) {
   };
   // A client delivery may belong to one invoice session. Vendor
   // deliveries intentionally remain booking-scoped (session_id NULL).
-  const sessionId = deliveryType === 'client'
+  const isClientDelivery = String(body.type || 'client').trim().toLowerCase() !== 'vendor';
+  const sessionId = isClientDelivery
     ? String(body.sessionId || body.session_id || '').trim().slice(0, 80)
     : '';
   if (sessionId) baseRecord.session_id = sessionId;
