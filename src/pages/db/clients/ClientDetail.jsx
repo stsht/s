@@ -100,7 +100,7 @@ export function ClientDetail({ client, invoices, deliveries, onDeleteClient, onE
 
   const recordsSignature = useMemo(
     () => records
-      .map((row, index) => row.delivery?.id || row.invoice?.id || row.vendorDelivery?.id || row.vendorInvoice?.id || `${row.date}-${index}`)
+      .map((row, index) => row.deliveries?.map((d) => d.id).join(',') || row.delivery?.id || row.invoice?.id || row.vendorDelivery?.id || row.vendorInvoice?.id || `${row.date}-${index}`)
       .join('|'),
     [records],
   );
