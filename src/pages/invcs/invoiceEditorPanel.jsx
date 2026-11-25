@@ -201,6 +201,11 @@ export function EditorPanel(props) {
                       />
                     </label>
                   </div>
+                  {props.invoiceType !== 'vendor' ? (
+                    <button className="ghost-button add-session-button" type="button" onClick={props.addSession}>
+                      <PlusIcon /> Add Another Session
+                    </button>
+                  ) : null}
                 </div>
               </Fieldset>
             )}
