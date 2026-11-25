@@ -47,7 +47,7 @@ function primaryInvoiceSession(sessions = []) {
   const rows = Array.isArray(sessions) ? sessions : [];
   const active = rows.filter((session) => !['cancelled', 'canceled'].includes(String(session?.status || '').toLowerCase()));
   const dated = active.filter((session) => /^\d{4}-\d{2}-\d{2}$/.test(String(session.date || '')))
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.startTime || '').localeCompare(String(b.startTime || ''));
   const now = new Date();
   const localToday = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
   return dated.find((session) => session.date >= localToday)
