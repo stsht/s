@@ -64,6 +64,7 @@ function readInvoiceHandoff() {
     name: params.get('name') || '',
     eventDate: params.get('eventDate') || '',
     invoiceId: params.get('invoiceId') || '',
+    sessionId: params.get('sessionId') || params.get('session_id') || '',
     eventKey: params.get('eventKey') || '',
     // Stable parent client id forwarded by /db's Create Events
     // sheet. Empty when /l is opened standalone or from a legacy
@@ -127,6 +128,8 @@ export function LinkGeneratorPage() {
   const [status, setStatus] = useState({ text: '', tone: '' });
   const [busy, setBusy] = useState(false);
   const [linkedInvoiceId, setLinkedInvoiceId] = useState('');
+  // Optional per-session scope from /inv or /db. Empty means legacy or booking-level delivery.
+  const [linkedSessionId, setLinkedSessionId] = useState('');
   // Stable parent clients.id forwarded from /db's Create Events
   // sheet (or from /inv when an invoice row originated there). The
   // worker uses this as the preferredId in findOrCreateClient so
@@ -183,6 +186,7 @@ export function LinkGeneratorPage() {
     setDeliveryType(handoffType);
     setTitle(handoffTitle);
     setLinkedInvoiceId(cleanLinkText(handoff.invoiceId || ''));
+    setLinkedSessionId(String(handoff.sessionId || handoff.session_id || '').trim().slice(0, 80));
     // Capture the stable parent client id when present. /db
     // forwards the selected client's clients.id so the worker
     // can attach the new delivery to that exact bucket. Any
@@ -392,6 +396,7 @@ export function LinkGeneratorPage() {
           generatedTextWhatsapp: '',
           generatedTextInstagram: '',
           invoiceId: linkedInvoiceId,
+          sessionId: linkedSessionId,
           // Stable parent clients.id when /l was opened from a
           // selected /db client (or from /inv with one). The
           // worker treats this as the preferredId for
@@ -417,6 +422,7 @@ export function LinkGeneratorPage() {
       dbg('/l save response', {
         deliveryId: data.deliveryId,
         migrationMissing: data.migrationMissing || null,
+        sessionMigrationMissing: data.sessionMigrationMissing || null,
       });
 
       const finalShortLink =
@@ -454,6 +460,9 @@ export function LinkGeneratorPage() {
       // that as a scary user-facing warning. Instead we log to the
       // console and only embed it in the visible status when the
       // operator has the debug flag on (?debug=1) — admin-only.
+      if (data.sessionMigrationMissing) {
+        console.warn('[l] session_id migration missing — apply db-migration-part-15.sql.');
+      }
       if (data.migrationMissing) {
         console.warn(
           '[l] schema fallback engaged on save — event grouping fell back to invoice_data jsonb cross-ref. Apply db-migration-part-6.sql.',

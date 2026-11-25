@@ -1760,6 +1760,13 @@ async function handleSave(request, env) {
     generated_text_whatsapp: storedGeneratedTextWa,
     generated_text_instagram: storedGeneratedTextIg
   };
+  // A client delivery may belong to one invoice session. Vendor
+  // deliveries intentionally remain booking-scoped (session_id NULL).
+  const isClientDelivery = String(body.type || 'client').trim().toLowerCase() !== 'vendor';
+  const sessionId = isClientDelivery
+    ? String(body.sessionId || body.session_id || '').trim().slice(0, 80)
+    : '';
+  if (sessionId) baseRecord.session_id = sessionId;
   // Optional event grouping fields. event_date stays a bare
   // YYYY-MM-DD (or empty for TBA); event_key is whatever the
   // frontend handed us (an existing row's event_key, the
@@ -1781,19 +1788,25 @@ async function handleSave(request, env) {
     delete next.event_key;
     return next;
   };
+  const stripSession = (record) => {
+    const next = { ...record };
+    delete next.session_id;
+    return next;
+  };
+  const variantsFor = (record, secured) => {
+    const value = secured ? { ...record, password: '', ...passwordSecurity, short_code: shortCode } : record;
+    return [
+      { record: value, strippedEvent: false, strippedSession: false },
+      { record: stripSession(value), strippedEvent: false, strippedSession: true },
+      { record: stripEvent(value), strippedEvent: true, strippedSession: false },
+      { record: stripEvent(stripSession(value)), strippedEvent: true, strippedSession: true }
+    ];
+  };
   const recordVariants = [
-    { record: { ...linkedRecord, password: '', ...passwordSecurity, short_code: shortCode }, stripped: false },
-    { record: { ...stripEvent(linkedRecord), password: '', ...passwordSecurity, short_code: shortCode }, stripped: true },
-    { record: { ...baseRecord, password: '', ...passwordSecurity, short_code: shortCode }, stripped: false },
-    { record: { ...stripEvent(baseRecord), password: '', ...passwordSecurity, short_code: shortCode }, stripped: true },
-    { record: { ...linkedRecord, password: '', ...passwordSecurity }, stripped: false },
-    { record: { ...stripEvent(linkedRecord), password: '', ...passwordSecurity }, stripped: true },
-    { record: { ...baseRecord, password: '', ...passwordSecurity }, stripped: false },
-    { record: { ...stripEvent(baseRecord), password: '', ...passwordSecurity }, stripped: true },
-    { record: linkedRecord, stripped: false },
-    { record: stripEvent(linkedRecord), stripped: true },
-    { record: baseRecord, stripped: false },
-    { record: stripEvent(baseRecord), stripped: true }
+    ...variantsFor(linkedRecord, true),
+    ...variantsFor(baseRecord, true),
+    ...variantsFor(linkedRecord, false),
+    ...variantsFor(baseRecord, false)
   ];
 
   // Track whether we had to drop event_date/event_key to land the
@@ -1802,6 +1815,7 @@ async function handleSave(request, env) {
   // saving a row that won't group on /db.
   const requestedEventGrouping = !!(eventDate || eventKey);
   let eventColumnsMissing = false;
+  let sessionColumnMissing = false;
 
   let deliveryRows;
   let lastDeliveryError = null;
@@ -1812,7 +1826,8 @@ async function handleSave(request, env) {
         headers: { Prefer: 'return=representation' },
         body: JSON.stringify(variant.record)
       });
-      if (variant.stripped && requestedEventGrouping) eventColumnsMissing = true;
+      if (variant.strippedEvent && requestedEventGrouping) eventColumnsMissing = true;
+      if (variant.strippedSession && sessionId) sessionColumnMissing = true;
       break;
     } catch (error) {
       lastDeliveryError = error;
@@ -1900,6 +1915,9 @@ async function handleSave(request, env) {
   if (eventColumnsMissing) {
     console.warn('[deliveries-save] event_date/event_key columns missing — apply db-migration-part-6.sql');
   }
+  if (sessionColumnMissing) {
+    console.warn('[deliveries-save] session_id column missing — apply db-migration-part-15.sql');
+  }
 
   return json({
     ok: true,
@@ -1911,7 +1929,8 @@ async function handleSave(request, env) {
     password,
     generatedText,
     savedLinks: rows.length,
-    ...(eventColumnsMissing ? { migrationMissing: 'deliveries.event_key' } : {})
+    ...(eventColumnsMissing ? { migrationMissing: 'deliveries.event_key' } : {}),
+    ...(sessionColumnMissing ? { sessionMigrationMissing: 'deliveries.session_id' } : {})
   });
 }
 
@@ -3315,19 +3334,41 @@ function cleanPaymentProofTimezoneOffset(value) {
 
 function authoritativeInvoicePayment(invoice = {}, previousInvoice = null) {
   const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
+  const previousData = previousInvoice?.invoice_data && typeof previousInvoice.invoice_data === 'object'
+    ? previousInvoice.invoice_data
+    : {};
   const status = String(invoice.status || '').toLowerCase();
   let candidate = null;
   let linkedPaymentId = '';
 
-  if (status === 'paid') {
+  // Schema-v2 ledger: select the one newly confirmed payment when
+  // unambiguous. Existing confirmed payment IDs remain untouched.
+  if (Array.isArray(data.payments)) {
+    const previousById = new Map((Array.isArray(previousData.payments) ? previousData.payments : [])
+      .map((payment) => [String(payment?.id || ''), payment]));
+    const confirmedPayments = data.payments.filter((payment) =>
+      String(payment?.status || '').toLowerCase() === 'confirmed'
+    );
+    const changed = confirmedPayments.filter((payment) => {
+      const id = String(payment?.id || '');
+      const previous = id ? previousById.get(id) : null;
+      if (!previous || String(previous?.status || '').toLowerCase() !== 'confirmed') return true;
+      return String(previous.paidAtDate || '') !== String(payment.paidAtDate || '')
+        || String(previous.paidAtTime || '') !== String(payment.paidAtTime || '')
+        || Math.round(Number(previous.amount) || 0) !== Math.round(Number(payment.amount) || 0);
+    });
+    candidate = changed.length === 1
+      ? changed[0]
+      : (changed.length === 0 && confirmedPayments.length === 1 ? confirmedPayments[0] : null);
+    linkedPaymentId = candidate ? String(candidate.id || '').trim() : '';
+  } else if (status === 'paid') {
     const receipt = data.paidReceipt && typeof data.paidReceipt === 'object' ? data.paidReceipt : null;
     if (receipt && receipt.paid !== false) candidate = receipt;
+    // Legacy paidReceipt is deliberately mapped to a stable canonical ID.
+    linkedPaymentId = candidate ? 'paid-receipt' : '';
   } else if (status === 'deposit') {
     const payments = (Array.isArray(data.depositPayments) ? data.depositPayments : [])
       .filter((payment) => payment?.paid);
-    const previousData = previousInvoice?.invoice_data && typeof previousInvoice.invoice_data === 'object'
-      ? previousInvoice.invoice_data
-      : {};
     const previousById = new Map((Array.isArray(previousData.depositPayments) ? previousData.depositPayments : [])
       .map((payment) => [String(payment?.id || ''), payment]));
     const changed = payments.filter((payment) => {
@@ -3342,10 +3383,10 @@ function authoritativeInvoicePayment(invoice = {}, previousInvoice = null) {
     linkedPaymentId = candidate ? String(candidate.id || '').trim() : '';
   }
 
-  const paymentDate = cleanPaymentProofDate(candidate?.paidAtDate);
+  const paymentDate = cleanPaymentProofDate(candidate?.paidAtDate ?? candidate?.paid_at_date);
   return {
     paymentDate,
-    paymentTime: paymentDate ? cleanPaymentProofTime(candidate?.paidAtTime) : '',
+    paymentTime: paymentDate ? cleanPaymentProofTime(candidate?.paidAtTime ?? candidate?.paid_at_time) : '',
     linkedPaymentId
   };
 }
