@@ -9,7 +9,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "pages:dev": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages dev .",
     "deploy": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages deploy dist --project-name starshots",
-    "secret:admin": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages secret put ADMIN_PASSWORD --project-name starshots"
+    "secret:admin": "XDG_CONFIG_HOME=.wrangler/config XDG_CACHE_HOME=.wrangler/cache WRANGLER_CACHE_DIR=.wrangler/cache wrangler pages secret put ADMIN_PASSWORD --project-name starshots",
+    "test:invoice-ledger": "node --test src/pages/invcs/invoiceLedger.test.js"
   },
   "dependencies": {
     "html2canvas": "1.4.1",
