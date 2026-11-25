@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { compactEventDateLabel, jakartaTodayISO } from './dbHelpers.js';
-import { invoicePaymentProofs, paymentState, vendorSummaryState } from './vendorStatus.js';
+import { invoicePaymentProofs, paymentState, vendorSummaryState, bookingDeliveryState } from './vendorStatus.js';
 import { rupiah } from '../../utils/rupiah.js';
 import './RecordRowPolish.css';
 
@@ -1332,7 +1332,8 @@ export function RecordRow({
   const activeClientInvoice = clientInvoiceOverride || row.invoice || null;
   const activeVendorInvoice = vendorInvoiceOverride || row.vendorInvoice || null;
 
-  const hasDelivery = !!row.delivery?.id;
+  const clientDeliveries = Array.isArray(row.deliveries) ? row.deliveries : (row.delivery ? [row.delivery] : []);
+  const hasDelivery = clientDeliveries.length > 0;
   const hasInvoice = !!activeClientInvoice?.id;
   const hasVendorDelivery = !!row.vendorDelivery?.id;
   const hasVendorInvoice = !!activeVendorInvoice?.id;
@@ -1343,7 +1344,8 @@ export function RecordRow({
   const priceNumber = Number(rawPrice) || 0;
   const priceText = priceNumber > 0 ? rupiah(priceNumber) : '';
 
-  const deliveryDone = !!row.delivery?.delivery_done;
+  const deliveryState = bookingDeliveryState(row);
+  const deliveryDone = deliveryState === 'delivered';
   const invoicePaid = String(activeClientInvoice?.status || '').toLowerCase() === 'paid';
   const vendorDeliveryDone = !!row.vendorDelivery?.delivery_done;
   const vendorInvoicePaid = String(activeVendorInvoice?.status || '').toLowerCase() === 'paid';

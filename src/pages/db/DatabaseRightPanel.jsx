@@ -146,7 +146,7 @@ export function DatabaseRightPanel({
           onDeleteRecord={(row) =>
             deleteRecord({
               kind: 'event',
-              deliveryId: row?.delivery?.id || '',
+              deliveryId: row?.deliveries?.length ? row.deliveries.map((d) => d.id).join(',') : (row?.delivery?.id || ''),
               invoiceId: row?.invoice?.id || '',
             })
           }

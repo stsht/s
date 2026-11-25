@@ -206,7 +206,7 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
       // day such as Morning and Afternoon sessions). A group only has
       // one slot per artifact type, so merging would overwrite and hide
       // the earlier record.
-      if (slot && g[slot]) return false;
+      if (slot && slot !== 'delivery' && g[slot]) return false;
 
       // 1. Direct event_key match — the strongest signal. Even if the
       //    operator edited event_date on one side later, a shared
@@ -241,6 +241,8 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
         title: '',
         contact: '',
         delivery: null,
+        deliveries: [],
+        sessions: [],
         invoice: null,
         eventKeys: new Set(),
         eventDates: new Set(),
@@ -297,6 +299,10 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
       group.contact = cContact;
     }
 
+    if (kind === 'invoice' && !isVendor && Array.isArray(record?.invoice_data?.sessions)) {
+      group.sessions = record.invoice_data.sessions;
+    }
+
     if (kind === 'delivery') {
       // Assign vendor-vs-client deliveries with the SAME isVendor
       // determination used for the vendorName/name split above, not a
@@ -310,7 +316,10 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
       // via likelyVendorDelivery, so the two assignments stay in lockstep
       // and the saved state is correct immediately on the next refetch.
       if (isVendor) group.vendorDelivery = record;
-      else group.delivery = record;
+      else {
+        group.deliveries.push(record);
+        if (!group.delivery) group.delivery = record;
+      }
     }
     else if (record?.invoice_type === 'vendor' || record?.type === 'vendor' || record?.invoice_data?.invoiceType === 'vendor') group.vendorInvoice = record;
     else group.invoice = record;
