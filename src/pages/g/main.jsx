@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client';
 import { GlobalBackground } from '../../components/GlobalBackground.jsx';
 import { toTitleCase } from '../../utils/titleCase.js';
+import { normalizeInvoiceData } from '../invcs/invoiceLedger.js';
 import '../../../animate.css';
 import '../../styles/app-base.css';
 import '../../components/PasswordGate.css';
@@ -220,15 +221,15 @@ function isFullPayment(invoice) {
   return grand > 0 && due >= grand;
 }
 
-function invoiceItems(invoice) {
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  const items = Array.isArray(data.items) ? data.items : [];
+function invoiceItems(invoice, normalizedData = normalizeInvoiceData(invoice)) {
+  const items = Array.isArray(normalizedData.items) ? normalizedData.items : [];
   return items.length ? items : [{
     id: 'invoice-line',
     name: 'Package',
     note: '',
     qty: 1,
     price: Number(invoice?.grand_total) || 0,
+    sessionId: normalizedData.sessions?.[0]?.id || 'legacy-session',
   }];
 }
 
@@ -276,8 +277,18 @@ function paymentGateNeeded(invoice) {
 }
 
 function PublicInvoiceDocument({ invoice }) {
-  const data = invoice?.invoice_data && typeof invoice.invoice_data === 'object' ? invoice.invoice_data : {};
-  const items = invoiceItems(invoice);
+  const normalizedData = normalizeInvoiceData(invoice);
+  const data = normalizedData;
+  const sessions = normalizedData.sessions;
+  const items = invoiceItems(invoice, normalizedData);
+  const hasMultipleSessions = sessions.length > 1;
+  const renderInvoiceLine = (item, index) => (
+    <div key={item.id || index} className="line-row">
+      <div><strong>{toTitleCase(item.name || 'Package')}</strong><small>{toTitleCase(item.note || '')}</small></div>
+      <span>{item.qty || 1}</span>
+      <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
+    </div>
+  );
   const status = String(invoice?.status || 'invoice').toLowerCase();
   const subtotal = items.reduce((sum, item) => sum + ((Number(item.qty) || 0) * (Number(item.price) || 0)), 0);
   const grandTotal = Math.max(0, Math.round(Number(invoice?.grand_total) || 0));
@@ -321,24 +332,57 @@ function PublicInvoiceDocument({ invoice }) {
             <div className="meta-row"><dt>Contact</dt><dd>{invoice?.client_contact || '-'}</dd></div>
           </dl>
         </div>
-        <div className="sheet-box">
-          <p className="eyebrow">Details</p>
-          <dl className="meta-list">
-            <div className="meta-row"><dt>Venue</dt><dd>{invoice?.venue ? toTitleCase(invoice.venue) : 'TBA'}</dd></div>
-            <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(invoice?.event_date, invoice?.event_time || data.eventTime)}</dd></div>
-            <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(invoice?.invoice_date)}</dd></div>
-          </dl>
-        </div>
+        {hasMultipleSessions ? (
+          <div className="sheet-box">
+            <p className="eyebrow">Sessions</p>
+            <dl className="meta-list">
+              {sessions.map((session, index) => (
+                <div className="meta-row" key={session.id}>
+                  <dt>{toTitleCase(session.title || 'Session ' + (index + 1))}</dt>
+                  <dd>{[prettyDateTime(session.date, session.startTime), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ') || 'Schedule TBA'}</dd>
+                </div>
+              ))}
+              <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(invoice?.invoice_date)}</dd></div>
+            </dl>
+          </div>
+        ) : (
+          <div className="sheet-box">
+            <p className="eyebrow">Details</p>
+            <dl className="meta-list">
+              <div className="meta-row"><dt>Venue</dt><dd>{invoice?.venue ? toTitleCase(invoice.venue) : 'TBA'}</dd></div>
+              <div className="meta-row"><dt>Event Date</dt><dd>{prettyDateTime(invoice?.event_date, invoice?.event_time || data.eventTime)}</dd></div>
+              <div className="meta-row"><dt>Issued</dt><dd>{prettyDate(invoice?.invoice_date)}</dd></div>
+            </dl>
+          </div>
+        )}
       </section>
       <section className="sheet-box line-table">
         <div className="line-head"><span>Package</span><span>Qty</span><span>Amount</span></div>
-        {items.map((item, index) => (
-          <div key={item.id || index} className="line-row">
-            <div><strong>{toTitleCase(item.name || 'Package')}</strong><small>{toTitleCase(item.note || '')}</small></div>
-            <span>{item.qty || 1}</span>
-            <span>{rupiah((Number(item.qty) || 0) * (Number(item.price) || 0))}</span>
-          </div>
-        ))}
+        {hasMultipleSessions ? (
+          <>
+            {sessions.map((session, index) => {
+              const sessionItems = items.filter((item) => (item.sessionId || sessions[0]?.id) === session.id);
+              const sessionMeta = [prettyDateTime(session.date, session.startTime), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ');
+              return (
+                <div className="line-session-group" key={session.id}>
+                  <div className="line-session-heading">
+                    <strong>{toTitleCase(session.title || 'Session ' + (index + 1))}</strong>
+                    {sessionMeta ? <small>{sessionMeta}</small> : null}
+                  </div>
+                  {sessionItems.length
+                    ? sessionItems.map(renderInvoiceLine)
+                    : <div className="line-session-empty">No packages assigned</div>}
+                </div>
+              );
+            })}
+            {items.filter((item) => !sessions.some((session) => session.id === item.sessionId)).length ? (
+              <div className="line-session-group">
+                <div className="line-session-heading"><strong>Other Packages</strong></div>
+                {items.filter((item) => !sessions.some((session) => session.id === item.sessionId)).map(renderInvoiceLine)}
+              </div>
+            ) : null}
+          </>
+        ) : items.map(renderInvoiceLine)}
       </section>
       <section className="summary-box">
         <p><span>Subtotal</span><strong>{rupiah(subtotal)}</strong></p>
