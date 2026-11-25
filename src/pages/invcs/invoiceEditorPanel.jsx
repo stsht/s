@@ -159,6 +159,14 @@ export function EditorPanel(props) {
                     <PlusIcon /> Add Another Session
                   </button>
                 ) : null}
+                <label className="invoice-session-issued">
+                  Issued
+                  <DateTimeField
+                    value={props.issuedDate}
+                    onChange={props.setIssuedDate}
+                    ariaLabel="Issued date"
+                  />
+                </label>
               </Fieldset>
             ) : (
               <Fieldset title="Event Details">
