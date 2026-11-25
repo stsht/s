@@ -229,8 +229,11 @@ function adjustmentDelta(adjustment) {
 
 /** Pure financial projection for an invoice. All values are integer IDR. */
 export function calculateInvoiceLedger(invoiceData, invoiceRow = {}) {
-  const normalized = normalizeInvoiceData(invoiceData, invoiceRow);
-  const row = asObject(invoiceRow);
+  let row = asObject(invoiceRow);
+  if (Object.keys(row).length === 0 && invoiceData?.invoice_data && typeof invoiceData.invoice_data === 'object') {
+    row = asObject(invoiceData);
+  }
+  const normalized = normalizeInvoiceData(invoiceData, row);
   const items = itemTotals(normalized);
   const fallbackTotal = Math.max(0, firstMoney(row.grand_total, row.grandTotal, normalized.grandTotal, normalized.grand_total));
   const base = items || {
