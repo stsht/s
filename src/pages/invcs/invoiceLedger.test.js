@@ -122,3 +122,11 @@ test('16. pending adjustments do not change the billable total', () => {
   const ledger = calculateInvoiceLedger({ items: [item(1_000_000)], adjustments: [{ id: 'a1', type: 'credit', amount: 200_000, status: 'pending' }] });
   assert.equal(ledger.netBillableTotal, 1_000_000);
 });
+
+ 
+test('17. canonical payment without an explicit confirmation remains pending', () => {
+  const ledger = calculateInvoiceLedger({ items: [item(1_000_000)], payments: [{ id: 'p-unknown', amount: 500_000 }] });
+  assert.equal(ledger.totalConfirmedPayments, 0);
+  assert.equal(ledger.totalPendingPayments, 500_000);
+  assert.equal(ledger.balanceDue, 1_000_000);
+});
