@@ -1713,3 +1713,74 @@ input.no-spinner::-webkit-inner-spin-button{
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }
+
+
+/* Multi-session invoice editor. These controls stay hidden for the
+ * one-session legacy layout, preserving its original visual density. */
+.composer-page .invoice-session-list {
+  display: grid;
+  gap: 10px;
+}
+.composer-page .invoice-session-card {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+}
+.composer-page .invoice-session-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--ink);
+  font-size: .82rem;
+  font-weight: 750;
+}
+.composer-page .invoice-session-summary::-webkit-details-marker {
+  display: none;
+}
+.composer-page .invoice-session-summary::after {
+  content: '+';
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.composer-page .invoice-session-card[open] > .invoice-session-summary::after {
+  content: '−';
+}
+.composer-page .invoice-session-summary small {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 600;
+}
+.composer-page .invoice-session-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+.composer-page .invoice-session-fields label:first-child,
+.composer-page .invoice-session-fields label:last-child {
+  grid-column: 1 / -1;
+}
+.composer-page .invoice-session-issued {
+  margin-top: 12px;
+}
+.composer-page .add-session-button {
+  width: 100%;
+  justify-content: center;
+  margin-top: 10px;
+}
+@media (max-width: 480px) {
+  .composer-page .invoice-session-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .composer-page .invoice-session-fields label {
+    grid-column: 1 / -1;
+  }
+}

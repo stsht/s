@@ -95,40 +95,120 @@ export function EditorPanel(props) {
               </div>
             </Fieldset>
 
-            <Fieldset title="Event Details">
-              <div className="field-stack">
-                <label>
-                  Venue
-                  <input
-                    value={props.venue}
-                    onChange={(event) => props.setVenue(event.target.value)}
-                    onBlur={onBlurTitleCase(props.setVenue)}
-                    placeholder="Venue"
+            {props.sessions?.length > 1 ? (
+              <Fieldset title="Event Sessions">
+                <div className="invoice-session-list">
+                  {props.sessions.map((session, index) => (
+                    <details className="invoice-session-card" key={session.id}>
+                      <summary className="invoice-session-summary">
+                        <span>{session.title || 'Session ' + (index + 1)}</span>
+                        <small>{session.date || 'Date not set'}</small>
+                      </summary>
+                      <div className="invoice-session-fields">
+                        <label>
+                          Session Name
+                          <input
+                            value={session.title || ''}
+                            onChange={(event) => props.updateSession(session.id, { title: event.target.value })}
+                            onBlur={(event) => props.updateSession(session.id, { title: maybeTitleCase(event.target.value.trim()) })}
+                            placeholder={'Session ' + (index + 1)}
+                          />
+                        </label>
+                        <label>
+                          Venue
+                          <input
+                            value={session.venue || ''}
+                            onChange={(event) => props.updateSession(session.id, { venue: event.target.value })}
+                            onBlur={onBlurTitleCase((value) => props.updateSession(session.id, { venue: value }))}
+                            placeholder="Venue"
+                          />
+                        </label>
+                        <label>
+                          Event Date & Start Time
+                          <DateTimeField
+                            value={session.date || ''}
+                            onChange={(value) => props.updateSession(session.id, { date: value })}
+                            timeValue={session.startTime || ''}
+                            onTimeChange={(value) => props.updateSession(session.id, { startTime: value })}
+                            withTime
+                            ariaLabel="Session date and start time"
+                          />
+                        </label>
+                        <label>
+                          End Time
+                          <input
+                            type="time"
+                            value={session.endTime || ''}
+                            onChange={(event) => props.updateSession(session.id, { endTime: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          Notes
+                          <input
+                            value={session.notes || ''}
+                            onChange={(event) => props.updateSession(session.id, { notes: event.target.value })}
+                            placeholder="Optional session notes"
+                          />
+                        </label>
+                      </div>
+                    </details>
+                  ))}
+                </div>
+                {props.invoiceType !== 'vendor' ? (
+                  <button className="ghost-button add-session-button" type="button" onClick={props.addSession}>
+                    <PlusIcon /> Add Another Session
+                  </button>
+                ) : null}
+                <label className="invoice-session-issued">
+                  Issued
+                  <DateTimeField
+                    value={props.issuedDate}
+                    onChange={props.setIssuedDate}
+                    ariaLabel="Issued date"
                   />
                 </label>
-                <div className="event-date-row">
+              </Fieldset>
+            ) : (
+              <Fieldset title="Event Details">
+                <div className="field-stack">
                   <label>
-                    Event Date
-                    <DateTimeField
-                      value={props.eventDate}
-                      onChange={props.setEventDate}
-                      timeValue={props.eventTime}
-                      onTimeChange={props.setEventTime}
-                      withTime
-                      ariaLabel="Event Date and time"
+                    Venue
+                    <input
+                      value={props.sessions?.[0]?.venue ?? props.venue}
+                      onChange={(event) => props.updateSession(props.sessions?.[0]?.id, { venue: event.target.value })}
+                      onBlur={onBlurTitleCase((value) => props.updateSession(props.sessions?.[0]?.id, { venue: value }))}
+                      placeholder="Venue"
                     />
                   </label>
-                  <label>
-                    Issued
-                    <DateTimeField
-                      value={props.issuedDate}
-                      onChange={props.setIssuedDate}
-                      ariaLabel="Issued date"
-                    />
-                  </label>
+                  <div className="event-date-row">
+                    <label>
+                      Event Date
+                      <DateTimeField
+                        value={props.sessions?.[0]?.date ?? props.eventDate}
+                        onChange={(value) => props.updateSession(props.sessions?.[0]?.id, { date: value })}
+                        timeValue={props.sessions?.[0]?.startTime ?? props.eventTime}
+                        onTimeChange={(value) => props.updateSession(props.sessions?.[0]?.id, { startTime: value })}
+                        withTime
+                        ariaLabel="Event Date and time"
+                      />
+                    </label>
+                    <label>
+                      Issued
+                      <DateTimeField
+                        value={props.issuedDate}
+                        onChange={props.setIssuedDate}
+                        ariaLabel="Issued date"
+                      />
+                    </label>
+                  </div>
+                  {props.invoiceType !== 'vendor' ? (
+                    <button className="ghost-button add-session-button" type="button" onClick={props.addSession}>
+                      <PlusIcon /> Add Another Session
+                    </button>
+                  ) : null}
                 </div>
-              </div>
-            </Fieldset>
+              </Fieldset>
+            )}
 
             <Fieldset title="Packages">
               <PackageCatalogEditor
@@ -154,6 +234,19 @@ export function EditorPanel(props) {
                         placeholder="Package"
                       />
                     </label>
+                    {props.sessions?.length > 1 ? (
+                      <label>
+                        Session
+                        <select
+                          value={item.sessionId || props.sessions[0]?.id || ''}
+                          onChange={(event) => props.updateItem(item.id, { sessionId: event.target.value })}
+                        >
+                          {props.sessions.map((session, index) => (
+                            <option key={session.id} value={session.id}>{session.title || 'Session ' + (index + 1)}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ) : null}
                     <label>
                       Note
                       <input

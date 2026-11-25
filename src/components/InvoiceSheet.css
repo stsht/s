@@ -342,3 +342,40 @@
 @media(prefers-color-scheme:dark){
   .invoice-sheet,.invoice-sheet *{color-scheme:light}
 }
+
+
+/* Session headings appear only when an invoice contains multiple sessions.
+ * The original one-session line table remains byte-for-byte unchanged. */
+.line-session-group + .line-session-group {
+  border-top: 1px solid #edf0f5;
+}
+.line-session-heading {
+  display: grid;
+  gap: 4px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf0f5;
+  background: #f8fafc;
+}
+.line-session-heading strong {
+  color: #344256;
+  font-size: .75rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.line-session-heading small {
+  color: #708096;
+  font-size: .75rem;
+  line-height: 1.45;
+}
+.line-session-empty {
+  padding: 16px 18px;
+  color: #8a94a3;
+  font-size: .8rem;
+  font-style: italic;
+}
+@media (prefers-color-scheme: dark) {
+  .line-session-heading {
+    background: #f8fafc;
+  }
+}

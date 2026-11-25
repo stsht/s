@@ -28,6 +28,34 @@ import { normalizeInvoiceData, calculateInvoiceLedger } from './invoiceLedger.js
 // in favour of `toTitleCase` from the shared utility.
 
 const today = new Date().toISOString().slice(0, 10);
+
+function createInvoiceSession(index = 1, seed = {}) {
+  return {
+    id: String(seed.id || crypto.randomUUID()),
+    title: String(seed.title || 'Session ' + index),
+    date: String(seed.date || ''),
+    startTime: String(seed.startTime || ''),
+    endTime: String(seed.endTime || ''),
+    venue: String(seed.venue || ''),
+    status: String(seed.status || 'active'),
+    rescheduledFrom: seed.rescheduledFrom ?? null,
+    notes: String(seed.notes || ''),
+  };
+}
+
+function primaryInvoiceSession(sessions = []) {
+  const rows = Array.isArray(sessions) ? sessions : [];
+  const active = rows.filter((session) => !['cancelled', 'canceled'].includes(String(session?.status || '').toLowerCase()));
+  const dated = active.filter((session) => /^\d{4}-\d{2}-\d{2}$/.test(String(session.date || '')))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)) || String(a.startTime || '').localeCompare(String(b.startTime || '')));
+  const now = new Date();
+  const localToday = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+  return dated.find((session) => session.date >= localToday)
+    || dated[dated.length - 1]
+    || active[0]
+    || rows[0]
+    || null;
+}
 // Live Preview dimensions (INVOICE_PREVIEW_WIDTH /
 // INVOICE_PREVIEW_MIN_HEIGHT) live in invoiceConstants.js.
 
@@ -174,6 +202,8 @@ export function InvoiceComposer() {
   const [depositPayments, setDepositPayments] = useState([]);
   const [requestBalanceDue, setRequestBalanceDue] = useState(true);
   const [packages, setPackages] = useState(DEFAULT_PACKAGES);
+  const [initialSession] = useState(() => createInvoiceSession(1, { date: initial.eventDate, venue: 'TBA' }));
+  const [sessions, setSessions] = useState(() => [initialSession]);
   const [items, setItems] = useState(() => {
     if (initial.items && initial.items.length) {
       return initial.items.map((item) => ({
@@ -185,9 +215,10 @@ export function InvoiceComposer() {
         price: 0,
         discount: 0,
         discountLabel: '',
+        sessionId: initialSession.id,
       }));
     }
-    return [emptyItem(DEFAULT_PACKAGES)];
+    return [{ ...emptyItem(DEFAULT_PACKAGES), sessionId: initialSession.id }];
   });
   const [folderName, setFolderName] = useState(initial.folderName || '');
   // Payment Method shown inside the .payment-box. 'bank' renders the
@@ -308,16 +339,15 @@ export function InvoiceComposer() {
         }
         if (row.client_name != null) setClientName(String(row.client_name || ''));
         if (row.client_contact != null) setContact(String(row.client_contact || ''));
-        if (data.venue != null || row.venue != null) setVenue(String(data.venue ?? row.venue ?? 'TBA'));
-        if (row.event_date != null) setEventDate(String(row.event_date || ''));
-        // Event Time hydration. Prefer the typed column; fall back
-        // to invoice_data.eventTime for older rows where the
-        // column was empty. Anything that doesn't look like the
-        // canonical HH:MM (or HH:MM:SS) shape is dropped so the
-        // <input type=time> binding doesn't render a stray string.
-        const rawEventTime = String(row.event_time || data.eventTime || '').trim();
-        const matchEventTime = /^(\d{2}:\d{2})(?::\d{2})?$/.exec(rawEventTime);
-        if (matchEventTime) setEventTime(matchEventTime[1]);
+        setSessions(ledgerReadModel.sessions);
+        const primarySession = primaryInvoiceSession(ledgerReadModel.sessions);
+        if (primarySession) {
+          setVenue(String(primarySession.venue || data.venue || row.venue || 'TBA'));
+          setEventDate(String(primarySession.date || row.event_date || ''));
+          const rawPrimaryTime = String(primarySession.startTime || row.event_time || data.eventTime || '').trim();
+          const matchPrimaryTime = /^(\d{2}:\d{2})(?::\d{2})?$/.exec(rawPrimaryTime);
+          if (matchPrimaryTime) setEventTime(matchPrimaryTime[1]);
+        }
         // Adopt the row's event_key when the URL handoff didn't
         // already supply one. This way reopening an existing
         // invoice from /db keeps it grouped with its sibling
@@ -342,7 +372,7 @@ export function InvoiceComposer() {
         // Items: the blob is the source of truth when present; fall
         // back to a single synthetic line carrying the row's
         // grand_total so the preview never renders empty.
-        const blobItems = Array.isArray(data.items) ? data.items : null;
+        const blobItems = Array.isArray(ledgerReadModel.items) ? ledgerReadModel.items : null;
         if (blobItems && blobItems.length) {
           const hydratedItems = blobItems.map((item) => {
             const qty = Number(item.qty) || 1;
@@ -356,6 +386,7 @@ export function InvoiceComposer() {
               price,
               discount: clampItemDiscount(item.discount ?? item.discount_amount, qty, price),
               discountLabel: String(item.discountLabel || item.discount_label || '').trim(),
+              sessionId: String(item.sessionId || ledgerReadModel.sessions[0]?.id || initialSession.id),
             };
           });
           setItems(hydratedItems);
@@ -377,6 +408,7 @@ export function InvoiceComposer() {
             qty: 1,
             price: fallbackPrice,
             discount: 0,
+            sessionId: String(ledgerReadModel.sessions[0]?.id || initialSession.id),
           }]);
           if (Number.isFinite(blobDiscount) && blobDiscount > 0) setLegacyDiscount(blobDiscount);
         }
@@ -510,6 +542,21 @@ export function InvoiceComposer() {
     setItems((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
 
+  function updateSession(id, patch) {
+    const next = sessions.map((session) => session.id === id ? { ...session, ...patch } : session);
+    setSessions(next);
+    const primary = primaryInvoiceSession(next);
+    if (primary) {
+      setEventDate(String(primary.date || ''));
+      setEventTime(String(primary.startTime || ''));
+      setVenue(String(primary.venue || 'TBA'));
+    }
+  }
+
+  function addSession() {
+    setSessions((current) => [...current, createInvoiceSession(current.length + 1)]);
+  }
+
   function applyPackage(id, packageName) {
     const option = packages.find((pkg) => pkg.name === packageName);
     updateItem(id, option ? { packageId: String(option.id || ''), name: option.name, note: option.note || '', price: Number(option.price) || 0 } : { packageId: '', name: packageName });
@@ -594,7 +641,7 @@ export function InvoiceComposer() {
   }
 
   function addItem() {
-    setItems((current) => [...current, emptyItem(packages)]);
+    setItems((current) => [...current, { ...emptyItem(packages), sessionId: sessions[0]?.id || initialSession.id }]);
   }
 
   function removeItem(id) {
@@ -652,20 +699,24 @@ export function InvoiceComposer() {
       const balanceDueAmount = mode === 'paid'
         ? 0
         : Math.max(0, grandTotal - paidAmount);
+      const savedSessions = sessions.map((session, index) => createInvoiceSession(index + 1, session));
+      const primarySession = primaryInvoiceSession(savedSessions);
+      const invoiceEventDate = String(primarySession?.date || eventDate || '');
+      const invoiceEventTime = String(primarySession?.startTime || eventTime || '');
+      const invoiceVenue = String(primarySession?.venue || venue || '');
+      const invoiceEventKey = String(eventKey || '').trim() || (savedSessions.length > 1 ? crypto.randomUUID() : '');
       // Keep the invoice save payload aligned with the worker's
-      // handleInvoiceSave contract so it receives the
-      // typed columns it expects, plus the loose invoice_data blob
-      // that the hydrate effect at the top of this component reads
-      // back via /api/invoices-get.
+      // handleInvoiceSave contract so it receives the typed columns
+      // plus the session-aware invoice_data blob.
       const invoice = {
         client_title: invoiceType === 'vendor' ? String(title || '') : String(title || 'Ms.'),
         client_name: trimmedName,
         client_contact: String(contact || ''),
         invoice_date: String(issuedDate || ''),
-        event_date: String(eventDate || ''),
-        event_time: String(eventTime || ''),
-        event_key: String(eventKey || ''),
-        venue: String(venue || ''),
+        event_date: invoiceEventDate,
+        event_time: invoiceEventTime,
+        event_key: invoiceEventKey,
+        venue: invoiceVenue,
         status: mode,
         invoice_type: invoiceType,
         grand_total: grandTotal,
@@ -674,6 +725,7 @@ export function InvoiceComposer() {
         balance_due: balanceDueAmount,
         invoice_data: {
           invoiceType,
+          sessions: savedSessions,
           discount: Math.max(0, Math.round(Number(totals.discount) || 0)),
           items: items.map((item) => ({
             id: String(item.id || ''),
@@ -684,14 +736,15 @@ export function InvoiceComposer() {
             price: Math.max(0, Math.round(Number(item.price) || 0)),
             discount: clampItemDiscount(item.discount, item.qty, item.price),
             discountLabel: String(item.discountLabel || '').trim(),
+            sessionId: String(item.sessionId || savedSessions[0]?.id || ''),
           })),
           depositMode: String(depositMode || ''),
           depositCustomAmount: String(depositCustomAmount || ''),
           depositAskOpen: !!depositAskOpen,
           depositAskOpenedAt: String(depositAskOpenedAt || ''),
           paymentMethod: cleanPaymentMethod(paymentMethod),
-          venue: String(venue || ''),
-          eventTime: String(eventTime || ''),
+          venue: invoiceVenue,
+          eventTime: invoiceEventTime,
           folderName: String(folderName || ''),
           // Deposit-mode workflow state — read back by the hydrate
           // effect. Persisted in every mode so switching invoice ↔
@@ -758,6 +811,7 @@ export function InvoiceComposer() {
       }
       const newId = String(json.invoice?.id || savedId || '');
       if (newId) setSavedId(newId);
+      if (invoiceEventKey && !String(eventKey || '').trim()) setEventKey(invoiceEventKey);
       dbg('/inv save response', {
         invoiceId: newId,
         savedEventKey: json.invoice?.event_key || '',
@@ -907,6 +961,9 @@ export function InvoiceComposer() {
           setEventTime={setEventTime}
           issuedDate={issuedDate}
           setIssuedDate={setIssuedDate}
+          sessions={sessions}
+          updateSession={updateSession}
+          addSession={addSession}
           items={items}
           packages={packages}
           savePackage={savePackage}
@@ -949,6 +1006,7 @@ export function InvoiceComposer() {
           eventDate={eventDate}
           issuedDate={issuedDate}
           eventTime={eventTime}
+          sessions={sessions}
           items={items}
           totals={totals}
                               depositPayments={depositPayments}
