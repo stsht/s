@@ -214,7 +214,7 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
                       <div className="meta-row" key={session.id}>
                         <dt>{toTitleCase(session.title || 'Session ' + (index + 1))}</dt>
                         <dd>
-                          {[prettyDateTime(session.date, session.startTime), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ') || 'Schedule TBA'}
+                          {[session.date ? prettyDateTime(session.date, session.startTime) : String(session.startTime || ''), session.endTime ? 'Until ' + session.endTime : '', session.venue ? toTitleCase(session.venue) : ''].filter(Boolean).join(' · ') || 'Schedule TBA'}
                         </dd>
                       </div>
                     ))}
