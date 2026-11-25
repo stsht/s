@@ -251,10 +251,10 @@ export function PreviewPanel({ mode, clientName, title, contact, venue, eventDat
                       </div>
                     );
                   })}
-                  {items.filter((item) => !sessionRows.some((session) => session.id === item.sessionId)).length ? (
+                  {items.filter((item) => !sessionRows.some((session) => session.id === (item.sessionId || sessionRows[0]?.id))).length ? (
                     <div className="line-session-group">
                       <div className="line-session-heading"><strong>Other Packages</strong></div>
-                      {items.filter((item) => !sessionRows.some((session) => session.id === item.sessionId)).map(renderLineItem)}
+                      {items.filter((item) => !sessionRows.some((session) => session.id === (item.sessionId || sessionRows[0]?.id))).map(renderLineItem)}
                     </div>
                   ) : null}
                 </>
