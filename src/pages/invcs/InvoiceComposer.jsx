@@ -12,6 +12,7 @@ import { emptyItem, cleanPackageRows, nowDateParts, makeDepositPayment } from '.
 import { EditorPanel } from './invoiceEditorPanel.jsx';
 import { PreviewPanel } from './invoicePreviewPanel.jsx';
 import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
+import { normalizeInvoiceData, calculateInvoiceLedger } from './invoiceLedger.js';
 
 // Hardcoded fallback catalogue lives in invoiceConstants.js as
 // DEFAULT_PACKAGES; the composer imports it.
@@ -290,6 +291,15 @@ export function InvoiceComposer() {
         const row = payload?.invoice;
         if (!row || cancelled) return;
         const data = (row.invoice_data && typeof row.invoice_data === 'object') ? row.invoice_data : {};
+        // Read-only schema-v2 projection for audit/debug parity. PR A does not
+        // persist canonical payments yet; the existing legacy payload remains
+        // the write format until the backend migration stage.
+        const ledgerReadModel = normalizeInvoiceData(data, row);
+        const ledgerProjection = calculateInvoiceLedger(ledgerReadModel, row);
+        dbg('/inv hydrated ledger projection (read-only)', {
+          schemaVersion: ledgerReadModel.schemaVersion,
+          ...ledgerProjection,
+        });
 
         if (row.invoice_type === INVOICE_TYPES.VENDOR || data.invoiceType === INVOICE_TYPES.VENDOR) {
           setTitle('');
@@ -703,6 +713,22 @@ export function InvoiceComposer() {
           requestBalanceDue: !!requestBalanceDue,
         },
       };
+      // Read-only ledger projection: compare the canonical model with the
+      // current UI totals without changing the payload or persisted schema.
+      const ledgerReadModel = normalizeInvoiceData(invoice.invoice_data, invoice);
+      const ledgerProjection = calculateInvoiceLedger(ledgerReadModel, invoice);
+      dbg('/inv save ledger projection (read-only)', {
+        schemaVersion: ledgerReadModel.schemaVersion,
+        ...ledgerProjection,
+      });
+      if (ledgerProjection.netBillableTotal !== grandTotal || ledgerProjection.totalConfirmedPayments !== paidAmount) {
+        dbg('/inv ledger parity difference', {
+          uiGrandTotal: grandTotal,
+          ledgerBillableTotal: ledgerProjection.netBillableTotal,
+          uiPaidAmount: paidAmount,
+          ledgerConfirmedPayments: ledgerProjection.totalConfirmedPayments,
+        });
+      }
       if (savedId) invoice.id = savedId;
       dbg('/inv save body', {
         eventKey: invoice.event_key,
