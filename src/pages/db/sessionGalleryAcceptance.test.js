@@ -71,9 +71,11 @@ test('5. vendor delivery remains booking-level and never changes client delivery
   assert.equal(group.vendorDelivery.id, 'vendor-gallery');
   assert.equal(bookingDeliveryState({ ...group, sessions }), 'partial');
   assert.equal(eventGroupIsSettled({ ...group, sessions, invoice: { ...invoice, status: 'paid' } }), false);
+  const secondClientDelivery = delivery('client-gallery-2', 'ses-2', true);
   assert.equal(eventGroupIsSettled({
-    ...group, sessions, delivery: { ...clientDelivery, delivery_done: true },
-    deliveries: [{ ...clientDelivery, delivery_done: true }],
+    ...group, sessions,
+    deliveries: [{ ...clientDelivery, delivery_done: true }, secondClientDelivery],
+    delivery: { ...clientDelivery, delivery_done: true },
     vendorDelivery: { ...vendorDelivery, delivery_done: true },
     invoice: { ...invoice, status: 'paid' },
   }), true);
