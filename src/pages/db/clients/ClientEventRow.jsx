@@ -124,12 +124,23 @@ export function ClientEventRow({
   // state (parent owns the armed-id so only one row at a time
   // can show its delete button on touch devices).
   const recordKey = clientEventRecordKey(row, index);
+  const buildSessionLinkHref = (sessionId = '', sessionDate = '') => createRecordUrl('/l/', {
+    title: row.title || title,
+    name: row.name || name,
+    contact,
+    eventDate: sessionDate || row.eventDate,
+    eventKey: rowEventKey,
+    invoiceId: row.invoice?.id || '',
+    sessionId: sessionId || undefined,
+    clientId: parentClientId,
+  });
   return (
     <RecordRow
       recordKey={recordKey}
       row={row}
       tone={eventDateTone(row.eventDate, todayIso)}
       eventLinkHref={eventLinkHref}
+      buildSessionLinkHref={buildSessionLinkHref}
       eventInvoiceHref={eventInvoiceHref}
       eventVendorInvoiceHref={eventVendorInvoiceHref}
       eventVendorDeliveryHref={eventVendorDeliveryHref}
