@@ -2339,6 +2339,7 @@ async function handleDbSearch(request, env) {
       delivery_done: deliveryDoneBool,
       password_history: passwordHistory,
       event_key: effectiveEventKey,
+      session_id: String(d.session_id || '').trim() || null,
       delivery_url: shortPath,
       short_code: shortCode,
       short_url: shortPath,
