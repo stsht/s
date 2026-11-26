@@ -828,3 +828,17 @@
   border-color: color-mix(in srgb, var(--line) 72%, transparent) !important;
   border-radius: 12px !important;
 }
+
+ 
+/* Multi-session client galleries drawer inside RecordRow */
+.record-row-sessions-panel{grid-column:1!important;display:grid;gap:6px;margin-top:6px;padding:10px 12px;border-radius:12px;border:1px solid color-mix(in srgb,var(--line) 78%,transparent);background:color-mix(in srgb,var(--ink) 2.2%,transparent)}
+.record-row-session-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.record-row-session-item:last-child{border-bottom:0;padding-bottom:0}
+.record-row-session-meta{display:flex;align-items:baseline;gap:8px;min-width:0;flex-wrap:wrap}
+.record-row-session-meta strong{font-size:.78rem;font-weight:600;color:var(--ink)}
+.record-row-session-meta span{font-size:.72rem;font-weight:450;color:var(--muted);font-variant-numeric:tabular-nums}
+.record-row-session-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.record-row-session-hint{font-size:.7rem;font-weight:550;color:var(--muted)}
+.record-row-session-add{font-size:.73rem;font-weight:600;color:var(--accent);text-decoration:none;white-space:nowrap}
+.record-row-session-add:hover{text-decoration:underline}
+.record-row-session-footer{padding-top:4px}

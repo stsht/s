@@ -48,11 +48,19 @@ export function paymentState(entries = []) {
   return ' is-created';
 }
 
+export function invoicePaymentState(invoice = null) {
+  if (!invoice?.id) return 'none';
+  const status = String(invoice.status || 'invoice').trim().toLowerCase();
+  if (status === 'paid' || status === 'cancelled' || status === 'deposit') return status;
+  return 'invoice';
+}
+
 function appendInvoiceArtifacts(artifactCompletion, invoice) {
   if (!invoice?.id) return [];
-  artifactCompletion.push(String(invoice.status || '').trim() === 'paid');
+  const state = invoicePaymentState(invoice);
+  artifactCompletion.push(state === 'paid' || state === 'cancelled');
   const paymentProofs = invoicePaymentProofs(invoice);
-  if (paymentProofs.length) {
+  if (paymentProofs.length && state !== 'cancelled') {
     artifactCompletion.push(paymentState(paymentProofs) === ' is-complete');
   }
   return paymentProofs;
@@ -81,8 +89,13 @@ export function vendorSummaryState(row = {}) {
 // hide an unfinished client artifact (or vice versa).
 export function eventGroupIsSettled(group = {}) {
   const artifactCompletion = [];
+  const clientDeliveries = Array.isArray(group?.deliveries)
+    ? group.deliveries.filter((d) => d && d.type !== 'vendor')
+    : (group?.delivery?.id ? [group.delivery] : []);
 
-  if (group?.delivery?.id) artifactCompletion.push(group.delivery.delivery_done === true);
+  if (clientDeliveries.length) {
+    artifactCompletion.push(bookingDeliveryState(group) === 'delivered');
+  }
   appendInvoiceArtifacts(artifactCompletion, group?.invoice);
   if (group?.vendorDelivery?.id) artifactCompletion.push(group.vendorDelivery.delivery_done === true);
   appendInvoiceArtifacts(artifactCompletion, group?.vendorInvoice);

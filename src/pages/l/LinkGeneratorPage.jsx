@@ -559,6 +559,9 @@ export function LinkGeneratorPage() {
 
   const left = (
     <form className="form-stack lg-form" onSubmit={submit} noValidate>
+      {deliveryType !== 'vendor' && linkedSessionId ? (
+        <p className="muted-copy" role="status">This link will be saved for the selected session only. Other sessions and the shared gallery stay unchanged.</p>
+      ) : null}
       <div className={`two-col${deliveryType === 'vendor' ? ' one-col' : ''}`}>
         {deliveryType === 'vendor' ? null : (
           <label>

@@ -1290,6 +1290,7 @@ export function RecordRow({
   row,
   tone,
   eventLinkHref,
+  buildSessionLinkHref,
   eventInvoiceHref,
   eventVendorInvoiceHref,
   eventVendorDeliveryHref,
@@ -1299,6 +1300,7 @@ export function RecordRow({
 }) {
   const [proofViewer, setProofViewer] = useState(null);
   const [vendorOpen, setVendorOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [swipeOffset, setSwipeOffset] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
@@ -1332,7 +1334,14 @@ export function RecordRow({
   const activeClientInvoice = clientInvoiceOverride || row.invoice || null;
   const activeVendorInvoice = vendorInvoiceOverride || row.vendorInvoice || null;
 
-  const clientDeliveries = Array.isArray(row.deliveries) ? row.deliveries : (row.delivery ? [row.delivery] : []);
+  const clientDeliveries = Array.isArray(row.deliveries)
+    ? row.deliveries.filter((d) => d && d.type !== 'vendor')
+    : (row.delivery ? [row.delivery] : []);
+  const bookingSessions = (Array.isArray(row.sessions) ? row.sessions : [])
+    .filter((s) => String(s?.status || s?.state || '').toLowerCase() !== 'cancelled');
+  const sharedDeliveries = clientDeliveries.filter((d) => d?.session_id == null || d.session_id === '');
+  const dedicatedDeliveries = clientDeliveries.filter((d) => d?.session_id != null && d.session_id !== '');
+  const isMultiSessionLinks = bookingSessions.length > 1 || clientDeliveries.length > 1;
   const hasDelivery = clientDeliveries.length > 0;
   const hasInvoice = !!activeClientInvoice?.id;
   const hasVendorDelivery = !!row.vendorDelivery?.id;
@@ -1514,15 +1523,25 @@ export function RecordRow({
           </div>
 
           <div className="record-row-action-group record-row-primary-actions" aria-label="Client actions">
-            {hasDelivery ? (
+            {isMultiSessionLinks ? (
+              <button
+                type="button"
+                className={actionClass(linkStateClass)}
+                aria-expanded={linksOpen}
+                title={deliveryDone ? 'All session links delivered' : 'Session links'}
+                onClick={(event) => { event.stopPropagation(); setLinksOpen((open) => !open); }}
+              >
+                <span className="record-row-status-dot" aria-hidden="true" />
+                <span>Links</span>
+                <span className="record-row-count">{clientDeliveries.length}</span>
+                <span aria-hidden="true">{linksOpen ? '▴' : '▾'}</span>
+              </button>
+            ) : hasDelivery ? (
               <button
                 type="button"
                 className={actionClass(linkStateClass)}
                 title={deliveryDone ? 'Links complete' : 'Links'}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onViewLinks?.(row.delivery);
-                }}
+                onClick={(event) => { event.stopPropagation(); onViewLinks?.(clientDeliveries[0]); }}
               >
                 <span className="record-row-status-dot" aria-hidden="true" />
                 <span>Links</span>
@@ -1573,6 +1592,50 @@ export function RecordRow({
               <span>Vendor</span> <span aria-hidden="true">{vendorOpen ? '▴' : '▾'}</span>
             </button>
           </div>
+
+          {isMultiSessionLinks && linksOpen ? (
+            <div className="record-row-sessions-panel" role="group" aria-label="Session galleries">
+              {bookingSessions.map((session, sIdx) => {
+                const sid = String(session?.id || '');
+                const match = dedicatedDeliveries.find((d) => String(d.session_id) === sid) || null;
+                const sTitle = String(session?.title || session?.name || `Session ${sIdx + 1}`).trim();
+                const sDate = compactEventDateLabel(session?.date || session?.eventDate || '');
+                const sDone = match?.delivery_done === true;
+                const coveredByShared = !match && sharedDeliveries.some((d) => d.delivery_done === true);
+                const createHref = buildSessionLinkHref ? buildSessionLinkHref(sid, session?.date || session?.eventDate || '') : eventLinkHref;
+                return (
+                  <div className="record-row-session-item" key={sid || `ses-${sIdx}`}>
+                    <div className="record-row-session-meta"><strong>{sTitle}</strong><span>{sDate}</span></div>
+                    <div className="record-row-session-actions">
+                      {match ? (
+                        <button type="button" className={actionClass(sDone ? ' is-complete' : ' is-created')} onClick={(event) => { event.stopPropagation(); onViewLinks?.(match); }}>
+                          <span className="record-row-status-dot" aria-hidden="true" /><span>{sDone ? 'Delivered' : 'Processing'}</span>
+                        </button>
+                      ) : (
+                        <>
+                          {coveredByShared ? <span className="record-row-session-hint">Via Shared Link</span> : sharedDeliveries.length ? <span className="record-row-session-hint">Processing</span> : null}
+                          <a className="record-row-session-add" href={createHref} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>+ Add Link</a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {sharedDeliveries.map((shared, idx) => (
+                <div className="record-row-session-item is-shared" key={shared.id || `shared-${idx}`}>
+                  <div className="record-row-session-meta"><strong>Shared Gallery</strong><span>All Sessions</span></div>
+                  <div className="record-row-session-actions">
+                    <button type="button" className={actionClass(shared.delivery_done === true ? ' is-complete' : ' is-created')} onClick={(event) => { event.stopPropagation(); onViewLinks?.(shared); }}>
+                      <span className="record-row-status-dot" aria-hidden="true" /><span>{shared.delivery_done === true ? 'Delivered' : 'Processing'}</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {!sharedDeliveries.length && buildSessionLinkHref ? (
+                <div className="record-row-session-footer"><a className="record-row-session-add" href={buildSessionLinkHref('', row.eventDate)} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>+ Add Shared Gallery (All Sessions)</a></div>
+              ) : null}
+            </div>
+          ) : null}
 
           {vendorOpen ? (
             <div className="record-row-vendor-panel" role="group" aria-label="Vendor actions">
