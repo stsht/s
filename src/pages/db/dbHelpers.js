@@ -206,17 +206,18 @@ export function buildClientRecords(client, invoices, deliveries, todayIso) {
       // day such as Morning and Afternoon sessions). A group only has
       // one slot per artifact type, so merging would overwrite and hide
       // the earlier record.
-      if (slot && slot !== 'delivery' && g[slot]) return false;
-
-      // 1. Direct event_key match — the strongest signal. Even if the
-      //    operator edited event_date on one side later, a shared
-      //    event_key means they explicitly belong to the same event.
+      // Explicit booking anchors and legacy cross-references take priority,
+      // even when the group already has a client delivery. This allows several
+      // session deliveries under one event_key without breaking old links.
       if (eventKey && g.eventKeys.has(eventKey)) return true;
-      // 2. Cross-ref: this record's event_key points at the
-      //    sibling record's id (or vice versa).
       if (eventKey && g.recordIds.has(eventKey)) return true;
       if (recordId && g.eventKeys.has(recordId)) return true;
-      // 3. Date fallback — ONLY when NEITHER side carries an event_key.
+
+      // Competing artifact slots must not merge through a date-only fallback.
+      // In particular, two keyless same-day client deliveries are separate.
+      if (slot && g[slot]) return false;
+
+      // Date fallback — ONLY when NEITHER side carries an event_key.
       //    If either side already has an event_key that did not match
       //    above, they are separate events on the same day.
       if (eventDate && g.eventDates.has(eventDate)) {
