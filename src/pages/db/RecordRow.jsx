@@ -1613,7 +1613,7 @@ export function RecordRow({
                         </button>
                       ) : (
                         <>
-                          {coveredByShared ? <span className="record-row-session-hint">Via Shared Link</span> : sharedDeliveries.length ? <span className="record-row-session-hint">Processing</span> : null}
+                          {sharedDeliveries.length ? <span className="record-row-session-hint">Via Shared Link</span> : null}
                           <a className="record-row-session-add" href={createHref} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()}>+ Add Link</a>
                         </>
                       )}
