@@ -2767,7 +2767,7 @@ async function handleDbRepairDelivery(request, env) {
 
 
 async function syncDeliveryDateToInvoice(env, delivery, nextEventDate, isVendorDelivery = false) {
-  if (!delivery?.id || !nextEventDate || isVendorDelivery || !/^\\d{4}-\\d{2}-\\d{2}$/.test(nextEventDate)) return;
+  if (!delivery?.id || !nextEventDate || isVendorDelivery || !/^\d{4}-\d{2}-\d{2}$/.test(nextEventDate)) return;
   try {
     const invoice = await findInvoiceForDelivery(env, delivery);
     if (!invoice?.id || invoiceRecordType(invoice) === 'vendor') return;
@@ -2794,7 +2794,7 @@ async function syncDeliveryDateToInvoice(env, delivery, nextEventDate, isVendorD
       const activeDates = sessions
         .filter((s) => String(s?.status || s?.state || '').toLowerCase() !== 'cancelled')
         .map((s) => String(s?.date || s?.eventDate || '').trim())
-        .filter((date) => /^\\d{4}-\\d{2}-\\d{2}$/.test(date))
+        .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
         .sort();
       if (activeDates.length) invoiceDate = activeDates[0];
     } else {
@@ -2839,10 +2839,10 @@ async function syncInvoiceDatesToDeliveries(env, savedInvoice) {
       if (sessionId && sessions.length) {
         const session = sessions.find((s) => String(s?.id || '').trim() === sessionId);
         targetDate = String(session?.date || session?.eventDate || '').trim();
-      } else if (/^\\d{4}-\\d{2}-\\d{2}$/.test(invoiceDate)) {
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) {
         targetDate = invoiceDate;
       }
-      if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDate) || String(delivery.event_date || '').trim() === targetDate) continue;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || String(delivery.event_date || '').trim() === targetDate) continue;
       await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(delivery.id)}`, {
         method: 'PATCH', headers: { Prefer: 'return=minimal' },
         body: JSON.stringify({ event_date: targetDate })
