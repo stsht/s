@@ -159,6 +159,8 @@ export function LinkGeneratorPage() {
   // folder-date check below, so old events with an odd folder can still be edited.
   const initialFolderRef = useRef('');
   const [mobileView, setMobileView] = useState('left');
+  const [useLastName, setUseLastName] = useState(false);
+  const [moreServicesOpen, setMoreServicesOpen] = useState(false);
   // Visual flash on the clickable preview cards / textarea so
   // operators get tactile feedback after a copy or open action.
   const [copyFlash, setCopyFlash] = useState('');
@@ -434,6 +436,7 @@ export function LinkGeneratorPage() {
       const finalMessage = buildDeliveryMessage({
         title: effectiveTitle,
         clientName: name,
+        useLastName,
         folderName: info.folder,
         eventDate: eventDateToSend,
         link: finalShortLink,
@@ -496,6 +499,8 @@ export function LinkGeneratorPage() {
     setEventDateHandoff('');
     dateSourceRef.current = '';
     setSaved(null);
+    setUseLastName(false);
+    setMoreServicesOpen(false);
     setStatus({ text: '', tone: '' });
     setMobileView('left');
     setTimeout(() => clientInputRef.current?.focus(), 0);
@@ -557,145 +562,128 @@ export function LinkGeneratorPage() {
       ? 'Save first'
       : fallbackHost;
 
+  const primaryService = LINK_SERVICES[0];
+  const secondaryServices = LINK_SERVICES.slice(1);
+  const hasSecondaryValue = secondaryServices.some((service) => Boolean(String(serviceUrls[service.key] || '').trim()));
+  const showSecondaryServices = moreServicesOpen || hasSecondaryValue;
+  const isSessionScoped = deliveryType !== 'vendor' && Boolean(linkedSessionId);
+
   const left = (
     <form className="form-stack lg-form" onSubmit={submit} noValidate>
-      {deliveryType !== 'vendor' && linkedSessionId ? (
-        <p className="muted-copy" role="status">This link will be saved for the selected session only. Other sessions and the shared gallery stay unchanged.</p>
+      {isSessionScoped ? (
+        <div className="lg-session-banner" role="status">
+          <span className="lg-session-dot" aria-hidden="true" />
+          <div><strong>Session Gallery</strong><span>Paste the Google Drive subfolder link for this session. Other sessions stay unchanged.</span></div>
+        </div>
       ) : null}
-      <div className={`two-col${deliveryType === 'vendor' ? ' one-col' : ''}`}>
-        {deliveryType === 'vendor' ? null : (
+      <div className="lg-section">
+        <p className="eyebrow lg-section-title">Client &amp; Folder</p>
+        <div className={`two-col${deliveryType === 'vendor' ? ' one-col' : ''}`}>
+          {deliveryType === 'vendor' ? null : (
+            <label>
+              Title
+              <select value={title} onChange={(event) => { setTitle(event.target.value); markDirty(); }}>
+                <option>Ms.</option><option>Mr.</option><option>Mrs.</option><option>Family</option>
+              </select>
+            </label>
+          )}
           <label>
-            Title
-            <select
-              value={title}
-              onChange={(event) => {
-                setTitle(event.target.value);
-                markDirty();
-              }}
-            >
-              <option>Ms.</option>
-              <option>Mr.</option>
-            </select>
+            {deliveryType === 'vendor' ? 'Vendor Name' : 'Client Name'}
+            <input ref={clientInputRef} value={clientName} onChange={handleClientNameChange} onBlur={handleClientNameBlur}
+              placeholder={deliveryType === 'vendor' ? 'Vendor name' : 'Client name'} autoComplete="name" />
           </label>
-        )}
+        </div>
         <label>
-          Name
-          <input
-            ref={clientInputRef}
-            value={clientName}
-            onChange={handleClientNameChange}
-            onBlur={handleClientNameBlur}
-            placeholder="Client name"
-            autoComplete="name"
-          />
+          Folder Name
+          <input value={folderName} onChange={handleFolderNameChange} onBlur={handleFolderNameBlur}
+            placeholder="261127 Client Name ( Event )" autoComplete="off" />
+        </label>
+        <label>
+          Event Date
+          <DateTimeField value={eventDateHandoff} onChange={(value) => {
+            dateSourceRef.current = 'manual'; setEventDateHandoff(value); markDirty();
+          }} ariaLabel="Event date" />
         </label>
       </div>
-      <label>
-        Folder Name
-        <input
-          value={folderName}
-          onChange={handleFolderNameChange}
-          onBlur={handleFolderNameBlur}
-          placeholder="260606 StarShots ( Events )"
-          autoComplete="off"
-        />
-      </label>
-      <label>
-        Event Date
-        <DateTimeField
-          value={eventDateHandoff}
-          onChange={(value) => {
-            // Real event date the operator wants stamped on the
-            // saved /l row. Empty = TBA, which is the spec default
-            // when an event hasn't been scheduled yet. The /l save
-            // payload forwards this value verbatim to the worker;
-            // the worker writes it to deliveries.event_date when
-            // non-empty and skips the column when empty so the row
-            // remains TBA-grouped.
-            dateSourceRef.current = 'manual';
-            setEventDateHandoff(value);
-            markDirty();
-          }}
-          ariaLabel="Event date"
-        />
-      </label>
-      <p className="eyebrow lg-services-heading">Delivery Links</p>
-      <div className="lg-services">
-        {LINK_SERVICES.map((service) => (
-          <ServiceField
-            key={service.key}
-            chip={service.key.toUpperCase()}
-            label={service.label}
-            value={serviceUrls[service.key]}
-            placeholder={service.placeholder}
-            onChange={handleServiceChange(service.key)}
-          />
-        ))}
+      <div className="lg-section">
+        <p className="eyebrow lg-section-title">Delivery Links</p>
+        <div className="lg-services-stack">
+          <ServiceField chip={primaryService.key.toUpperCase()} label={primaryService.label}
+            hint={isSessionScoped ? 'Session subfolder' : 'Primary'} value={serviceUrls[primaryService.key]}
+            placeholder={primaryService.placeholder} onChange={handleServiceChange(primaryService.key)} />
+          {!showSecondaryServices ? (
+            <button type="button" className="lg-more-services-toggle" onClick={() => setMoreServicesOpen(true)}>+ Add Dropbox or WeTransfer</button>
+          ) : (
+            <div className="lg-services-extra">
+              {secondaryServices.map((service) => <ServiceField key={service.key} chip={service.key.toUpperCase()}
+                label={service.label} value={serviceUrls[service.key]} placeholder={service.placeholder}
+                onChange={handleServiceChange(service.key)} />)}
+            </div>
+          )}
+        </div>
       </div>
       <div className="lg-actions">
-        <button type="button" className="ghost-button compact" onClick={clearAll}>
-          Clear
-        </button>
-        <button
-          type="submit"
-          className="primary-button"
-          disabled={busy || Boolean(saved)}
-          title={saved ? 'Edit the details to create another delivery' : 'Generate and save delivery'}
-        >
-          {busy ? 'Saving\u2026' : saved ? 'Generated' : 'Generate'}
+        <button type="button" className="ghost-button compact lg-btn-clear" onClick={clearAll}>Clear</button>
+        <button type="submit" className="primary-button lg-btn-generate" disabled={busy || Boolean(saved)}
+          title={saved ? 'Edit the details to create another delivery' : 'Generate and save delivery'}>
+          {busy ? 'Saving…' : saved ? 'Generated' : 'Generate Link'}
         </button>
       </div>
-      <p className={`download-status${status.tone ? ` lg-status-${status.tone}` : ''}`}>
-        {status.text}
-      </p>
+      {status.text ? <p className={`download-status lg-status${status.tone ? ` lg-status-${status.tone}` : ''}`}>{status.text}</p> : null}
     </form>
   );
 
   const right = (
     <div className="lg-preview">
       <header className="preview-toolbar lg-preview-toolbar">
-        <div>
-          <p className="eyebrow">Generated Text</p>
-          <h2>Short link + password</h2>
-          <span
-            className={`event-date-pill event-tone-${eventDateTone(eventDateHandoff, jakartaTodayISO())} lg-event-date-pill`}
-            aria-label={`Event ${compactEventDateLabel(eventDateHandoff)}`}
-          >
-            {compactEventDateLabel(eventDateHandoff)}
-          </span>
+        <div className="lg-preview-heading">
+          <p className="eyebrow">Delivery Output</p>
+          <div className="lg-preview-title-row">
+            <h2>{clientName ? toTitleCase(clientName) : 'Link Preview'}</h2>
+            <span className={`event-date-pill event-tone-${eventDateTone(eventDateHandoff, jakartaTodayISO())} lg-event-date-pill`}
+              aria-label={`Event ${compactEventDateLabel(eventDateHandoff)}`}>{compactEventDateLabel(eventDateHandoff)}</span>
+          </div>
         </div>
         <div className="preview-toolbar-actions">
-          <button type="button" className="ghost-button compact" onClick={copyMessage}>
-            Copy
-          </button>
+          {info.shortLink ? <a className="lg-open-btn" href={info.shortLink} target="_blank" rel="noopener noreferrer" title="Open live gallery">Open ↗</a> : null}
         </div>
       </header>
       <div className="lg-stats">
-        <button
-          type="button"
-          className={`lg-stat-card${copyFlash === 'short' ? ' is-flash' : ''}`}
-          onClick={openShortLink}
-          aria-label="Copy short link"
-        >
-          <span>Short Link</span>
-          <strong>{deliveryDisplay}</strong>
+        <button type="button" className={`lg-stat-card${copyFlash === 'short' ? ' is-flash' : ''}`} onClick={openShortLink} aria-label="Copy short link">
+          <span className="lg-stat-label">Short Link</span><strong className="lg-stat-value">{deliveryDisplay}</strong>
+          <span className="lg-stat-hint">{copyFlash === 'short' ? 'Copied' : 'Tap to copy'}</span>
         </button>
-        <button
-          type="button"
-          className={`lg-stat-card${copyFlash === 'pass' ? ' is-flash' : ''}`}
-          onClick={copyPassword}
-          aria-label="Copy password"
-        >
-          <span>Password</span>
-          <strong>{info.displayPass || 'Generated on save'}</strong>
+        <button type="button" className={`lg-stat-card${copyFlash === 'pass' ? ' is-flash' : ''}`} onClick={copyPassword} aria-label="Copy password">
+          <span className="lg-stat-label">Password</span><strong className="lg-stat-value lg-mono">{info.displayPass || 'Generated on save'}</strong>
+          <span className="lg-stat-hint">{copyFlash === 'pass' ? 'Copied' : 'Tap to copy'}</span>
         </button>
       </div>
-      <textarea
-        className={`lg-output${copyFlash === 'msg' ? ' is-flash' : ''}`}
-        value={info.generatedText}
-        readOnly
-        placeholder="Generated delivery message will appear here..."
-      />
+      <div className={`lg-message-box${copyFlash === 'msg' ? ' is-flash' : ''}`}>
+        <div className="lg-message-head">
+          <p className="eyebrow">Message</p>
+          {deliveryType !== 'vendor' ? (
+            <label className="lg-salutation-toggle">
+              <input type="checkbox" checked={useLastName} onChange={(event) => {
+                const nextUseLastName = event.target.checked;
+                setUseLastName(nextUseLastName);
+                if (saved) {
+                  const generatedText = buildDeliveryMessage({ title, clientName: cleanLinkText(clientName),
+                    useLastName: nextUseLastName, folderName: info.folder, eventDate: eventDateHandoff,
+                    link: info.shortLink, password: info.displayPass, deliveryDone: false });
+                  setSaved((current) => current ? { ...current, generatedText } : current);
+                }
+              }} />
+              <span>Use Last Name</span>
+            </label>
+          ) : null}
+        </div>
+        <textarea className="lg-output" value={info.generatedText} readOnly spellCheck="false"
+          placeholder="Generated delivery message will appear here after you click Generate Link..." />
+        <div className="lg-message-actions">
+          <button type="button" className={`lg-copy-btn${copyFlash === 'msg' ? ' is-flash' : ''}`} onClick={copyMessage}
+            disabled={!info.generatedText}>{copyFlash === 'msg' ? 'Copied' : 'Copy Message'}</button>
+        </div>
+      </div>
     </div>
   );
 
