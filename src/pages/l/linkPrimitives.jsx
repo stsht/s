@@ -6,35 +6,13 @@
 // behaviour changes. Markup and class names are unchanged; the icon
 // picks up `currentColor` so the parent button's palette flows through.
 
-export function SaveIcon({ saving = false }) {
-  return (
-    <svg
-      className={`btn-icon${saving ? ' is-saving' : ''}`}
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path d="M5 3h12l2 2v16H5z" />
-      <path d="M8 3v6h8V3" />
-      <path d="M8 21v-7h8v7" />
-      <path d="M14 6h1" />
-    </svg>
-  );
-}
-
-export function ServiceField({ chip, label, value, placeholder, onChange }) {
+export function ServiceField({ chip, label, value, placeholder, onChange, hint = '' }) {
   return (
     <label className="lg-service">
       <span className="lg-service-head">
         <span className="lg-service-chip">{chip}</span>
         <span className="lg-service-name">{label}</span>
+        {hint ? <span className="lg-service-hint">{hint}</span> : null}
       </span>
       <input
         type="url"

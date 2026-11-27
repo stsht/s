@@ -1,223 +1,55 @@
-/* /l Link Generator — route-owned styles
- *
- * Extracted from src/pages/invcs/inv.css (Pass 9) so the /l Link
- * Generator owns its own `.lg-*` rules. Selectors and values are
- * byte-identical to the originals — this is a pure move.
- *
- * Load order in src/pages/l/main.jsx is app-base.css → inv.css →
- * l.css, so these rules still layer on top of the shared workspace
- * tokens/base that /l continues to consume from inv.css (palette
- * :root vars, .form-stack/.two-col, .ghost-button/.primary-button,
- * .preview-toolbar, .eyebrow, .download-status, etc.).
- *
- * NOT moved (mixed ownership, still served to /l via inv.css):
- *   - `.lg-event-date-pill,.delivery-event-date-pill` (shared with
- *     /db + /g delivery header pill)
- *   - the `input,select,textarea,.dtf-segment{font-size:16px}` mobile
- *     auto-zoom guard and `.dd-link-fields` (shared / /db-owned),
- *     which stay in inv.css's max-width:1023px block.
- */
-/* /l Link Generator
- *
- * Rules layered on top of the shared workspace tokens. The form
- * (left panel) reuses .form-stack / .two-col / label / input from
- * /inv; this block adds the read-only derived fields, the four
- * service inputs, the action row, and the copyable preview cards
- * + textarea on the right panel.
- *
- * No new CSS variables — palette comes from invcs.css :root so the
- * page picks up the same blue/dark accents as /db, /inv, /subs.
- */
-.lg-form{gap:14px}
-
-/* Read-only derived fields (Gallery Code, Password). They look
- * like inputs but never accept focus / typing. The .lg-readonly
- * class also disables hover focus styles so the field reads as a
- * computed value rather than an editable input. */
-.lg-readonly{
-  background:var(--soft);
-  color:var(--muted);
-  pointer-events:none;
-}
-.lg-readonly:focus{
-  border-color:var(--line);
-  box-shadow:none;
-}
-
-.lg-services-heading{
-  margin:6px 0 -2px;
-  color:var(--muted);
-  font-size:0.6875rem;
-  font-weight:900;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-}
-.lg-services{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-.lg-service{
-  display:grid;
-  gap:8px;
-  padding:12px;
-  border:1px solid var(--line);
-  border-radius:18px;
-  background:var(--field);
-}
-.lg-service-head{
-  display:flex;
-  align-items:center;
-  gap:9px;
-}
-.lg-service-chip{
-  padding:4px 8px;
-  border-radius:999px;
-  background:color-mix(in srgb,var(--ink) 6%,transparent);
-  color:var(--muted);
-  font-size:0.625rem;
-  font-weight:900;
-  letter-spacing:.08em;
-}
-.lg-service-name{
-  color:var(--ink);
-  font-size:0.8125rem;
-  font-weight:800;
-}
-.lg-service input{
-  height:42px;
-  border-radius:14px;
-  font-size:0.875rem;
-  font-weight:600;
-}
-
-/* Bottom action row — Clear (ghost) on the left, Generate
- * (primary) taking the larger share of the row, mirroring the
- * legacy /l ratio. */
-.lg-actions{
-  display:grid;
-  grid-template-columns:1fr 3fr;
-  gap:10px;
-  margin-top:6px;
-}
-.lg-actions .ghost-button,
-.lg-actions .primary-button{
-  width:100%;
-  margin:0;
-  min-height:48px;
-}
-
-/* Status banner colours mirror the legacy success/error tones so
- * "Saved and copied." reads green and "Save failed." reads red.
- * The neutral state inherits .download-status colour. */
-.lg-status-success{color:var(--accent)}
-.lg-status-error{color:var(--danger)}
-
-/* Right-panel preview wraps stat cards + textarea in a column
- * flex so the textarea can stretch to fill the remaining height
- * of the right panel. */
-.lg-preview{
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-  flex:1;
-  min-height:0;
-}
-.lg-preview-toolbar{
-  position:static;
-  margin:0;
-  padding:0 0 4px;
-  border-bottom:0;
-  background:transparent;
-}
-.lg-preview-toolbar h2{
-  margin:2px 0 0;
-  font-size:1.125rem;
-  font-weight:800;
-  color:var(--ink);
-  letter-spacing:0;
-}
-
-/* Two clickable preview cards: Short Link (opens) and Password
- * (copies). Buttons rather than divs so keyboard activation works
- * naturally; styling overrides the default button reset and hooks
- * a transient .is-flash class for tactile feedback after click. */
-.lg-stats{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-.lg-stat-card{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  gap:6px;
-  min-height:64px;
-  padding:14px 16px;
-  border:1px solid var(--line);
-  border-radius:18px;
-  background:var(--field);
-  color:var(--ink);
-  text-align:left;
-  font:inherit;
-  cursor:pointer;
-  transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease,background .15s ease;
-}
-.lg-stat-card:hover{
-  border-color:var(--accent);
-  transform:translateY(-1px);
-}
-.lg-stat-card:active{transform:scale(.99)}
-.lg-stat-card.is-flash{
-  border-color:var(--accent);
-  box-shadow:0 0 0 4px rgba(95,149,245,.18);
-}
-.lg-stat-card span{
-  color:var(--muted);
-  font-size:0.625rem;
-  font-weight:900;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-}
-.lg-stat-card strong{
-  font-size:0.9375rem;
-  font-weight:800;
-  overflow-wrap:anywhere;
-  line-height:1.3;
-}
-
-/* Generated message textarea. Read-only — the only way to fill it
- * is via /api/save's response. Stretches to fill remaining height
- * inside .lg-preview so longer messages don't push the stats off
- * the panel. */
-.lg-output{
-  flex:1;
-  min-height:260px;
-  width:100%;
-  padding:14px 16px;
-  border:1px solid var(--line);
-  border-radius:18px;
-  background:var(--field);
-  color:var(--ink);
-  font:inherit;
-  font-size:0.8438rem;
-  line-height:1.55;
-  resize:none;
-  outline:none;
-  transition:border-color .15s ease,box-shadow .15s ease;
-}
-.lg-output:focus{
-  border-color:var(--accent);
-  box-shadow:0 0 0 4px rgba(95,149,245,.12);
-}
-.lg-output.is-flash{
-  border-color:var(--accent);
-  box-shadow:0 0 0 4px rgba(95,149,245,.18);
-}
-
-@media(max-width:1023px){
-  .lg-services{grid-template-columns:1fr}
-  .lg-actions{grid-template-columns:1fr}
-  .lg-stats{grid-template-columns:1fr 1fr}
-  .lg-output{min-height:220px}
-}
+/* /l Link Generator — StarShots Identity Editorial Minimalist
+ * Squircle controls, neutral dark mode, and progressive disclosure. */
+.lg-form{display:grid;gap:0}
+.lg-section{display:grid;gap:12px;padding:14px 0 16px;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent)}
+.lg-section:first-of-type{padding-top:6px}.lg-section:last-of-type{border-bottom:0}
+.lg-section-title{margin:0!important;font-size:.65rem!important;font-weight:650!important;letter-spacing:.11em!important;color:var(--muted)!important}
+.lg-session-banner{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;margin-bottom:6px;border-radius:12px;border:1px solid color-mix(in srgb,#3b82f6 28%,var(--line));background:color-mix(in srgb,#3b82f6 7%,transparent)}
+.lg-session-dot{width:7px;height:7px;margin-top:5px;border-radius:50%;flex:0 0 auto;background:#3b82f6}
+.lg-session-banner strong{display:block;font-size:.78rem;font-weight:650;color:var(--ink);line-height:1.3}
+.lg-session-banner span{display:block;margin-top:2px;font-size:.74rem;color:var(--muted);line-height:1.4}
+.lg-form input:not([type=checkbox]),.lg-form select{border-radius:10px;border-color:color-mix(in srgb,var(--line) 85%,transparent);background:var(--panel)}
+.lg-services-stack,.lg-services-extra{display:grid;gap:10px}
+.lg-service{display:grid;gap:7px;padding:12px 13px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:14px;background:color-mix(in srgb,var(--ink) 2.2%,transparent)}
+.lg-service-head{display:flex;align-items:center;gap:8px}
+.lg-service-chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--ink) 6.5%,transparent);color:var(--muted);font-size:.62rem;font-weight:650;letter-spacing:.06em}
+.lg-service-name{color:var(--ink);font-size:.8rem;font-weight:600}
+.lg-service-hint{margin-left:auto;font-size:.7rem;font-weight:500;color:var(--muted)}
+.lg-service input{height:38px;border-radius:10px;font-size:.84rem;font-weight:500}
+.lg-more-services-toggle{justify-self:start;padding:4px 2px;border:0;background:transparent;color:var(--accent);font-size:.76rem;font-weight:600;cursor:pointer}
+.lg-more-services-toggle:hover{text-decoration:underline}
+.lg-actions{display:grid;grid-template-columns:1fr 2.4fr;gap:8px;margin-top:6px}
+.lg-actions .lg-btn-clear,.lg-actions .lg-btn-generate{width:100%;margin:0;min-height:42px;border-radius:10px;font-size:.8rem;font-weight:600}
+.lg-actions .lg-btn-clear{border:1px solid color-mix(in srgb,var(--line) 85%,transparent);background:color-mix(in srgb,var(--ink) 3%,transparent);color:var(--ink)}
+.lg-actions .lg-btn-clear:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.lg-actions .lg-btn-generate{border:1px solid var(--ink);background:var(--ink);color:var(--panel)}
+.lg-actions .lg-btn-generate:hover:not(:disabled){background:color-mix(in srgb,var(--ink) 88%,transparent);border-color:color-mix(in srgb,var(--ink) 88%,transparent)}
+.lg-actions .lg-btn-generate:disabled{opacity:.55;cursor:default}
+.lg-status{margin:10px 0 0;font-size:.76rem;font-weight:550}.lg-status-success{color:#15803d}.lg-status-error{color:var(--danger)}
+.lg-preview{display:flex;flex-direction:column;gap:14px;flex:1;min-height:0}
+.lg-preview-toolbar{position:static;margin:0;padding:0 0 12px;border-bottom:1px solid color-mix(in srgb,var(--line) 75%,transparent);background:transparent;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.lg-preview-heading{min-width:0;display:grid;gap:4px}.lg-preview-title-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.lg-preview-toolbar h2{margin:0;font-size:1.32rem;font-weight:600;line-height:1.2;letter-spacing:-.024em;color:var(--ink)}
+.lg-open-btn{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:9px;border:1px solid color-mix(in srgb,var(--line) 85%,transparent);background:color-mix(in srgb,var(--ink) 3%,transparent);color:var(--ink);font-size:.76rem;font-weight:600;text-decoration:none;white-space:nowrap}
+.lg-open-btn:hover{background:color-mix(in srgb,var(--ink) 6.5%,transparent)}
+.lg-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lg-stat-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:13px 15px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:14px;background:color-mix(in srgb,var(--ink) 2.2%,transparent);color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.lg-stat-card:hover{border-color:var(--line-strong);background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.lg-stat-card.is-flash{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.lg-stat-label{color:var(--muted);font-size:.64rem;font-weight:650;letter-spacing:.1em;text-transform:uppercase}
+.lg-stat-value{font-size:.9rem;font-weight:600;letter-spacing:-.012em;overflow-wrap:anywhere;line-height:1.3}
+.lg-stat-value.lg-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.88rem}
+.lg-stat-hint{margin-top:2px;font-size:.7rem;font-weight:500;color:var(--muted)}
+.lg-message-box{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;padding:14px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:16px;background:color-mix(in srgb,var(--ink) 2%,transparent)}
+.lg-message-box.is-flash{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
+.lg-message-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.lg-message-head .eyebrow{margin:0}
+.lg-salutation-toggle{display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:600;color:var(--muted);cursor:pointer}
+.lg-salutation-toggle input{width:14px;height:14px;margin:0;accent-color:var(--accent)}
+.lg-output{flex:1;min-height:220px;width:100%;padding:12px 14px;border:1px solid color-mix(in srgb,var(--line) 80%,transparent);border-radius:12px;background:var(--panel);color:var(--ink);font:inherit;font-size:.82rem;line-height:1.55;resize:none;outline:none}
+.lg-message-actions{display:flex;justify-content:flex-end}
+.lg-copy-btn{min-height:34px;padding:0 14px;border-radius:9px;border:1px solid color-mix(in srgb,var(--line) 85%,transparent);background:var(--panel);color:var(--ink);font-size:.76rem;font-weight:600;cursor:pointer}
+.lg-copy-btn:hover:not(:disabled){background:color-mix(in srgb,var(--ink) 5%,var(--panel));border-color:var(--line-strong)}
+.lg-copy-btn.is-flash{border-color:var(--accent);color:var(--accent)}.lg-copy-btn:disabled{opacity:.45;cursor:default}
+.pf-nav a{border-radius:10px!important;font-size:.78rem!important;font-weight:600!important}
+@media(prefers-color-scheme:dark){.lg-actions .lg-btn-generate,.lg-actions .lg-btn-generate:hover:not(:disabled){background:#2c3038;border-color:rgba(255,255,255,.12);color:#f4f6fa;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}.lg-status-success{color:#86efac}}
+@media(max-width:1023px){.lg-actions{grid-template-columns:1fr 2fr}.lg-stats{grid-template-columns:1fr 1fr}.lg-output{min-height:200px}}
