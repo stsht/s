@@ -91,6 +91,20 @@ export function applyClientListStatus({ classification, groups, todayIso }) {
 
   if (cls.bucket === 'upcoming') {
     const diff = daysBetweenIso(todayIso, cls.representativeDate);
+    if (diff === 0 && Array.isArray(groups) && groups.length > 0) {
+      const hasFutureAfterToday = groups.some((group) => {
+        const date = plainEventDate(group?.eventDate);
+        return !!date && date > todayIso;
+      });
+      const dueEvents = groups.filter((group) => {
+        const date = plainEventDate(group?.eventDate);
+        return !!date && date <= todayIso;
+      });
+      if (!hasFutureAfterToday && dueEvents.length > 0
+        && dueEvents.every((group) => eventGroupIsSettled(group))) {
+        return { ...cls, bucket: 'past', tone: '' };
+      }
+    }
     return {
       ...cls,
       tone: Number.isFinite(diff) && diff >= 0 && diff <= 3 ? 'soon' : 'future',
@@ -120,7 +134,9 @@ export function buildSortedCrmClients({ crmClients, eventDatesByClient, invoices
   const annotated = (Array.isArray(crmClients) ? crmClients : []).map((client) => {
     const dates = eventDatesByClient(client);
     const classification = classifyClientEvents(dates, todayIso);
-    const groups = classification.bucket === 'past'
+    const needsSettlementCheck = classification.bucket === 'past'
+      || (classification.bucket === 'upcoming' && classification.representativeDate === todayIso);
+    const groups = needsSettlementCheck
       ? buildClientRecords(client, invoices, deliveriesAll, todayIso)
       : [];
     const cls = applyClientListStatus({ classification, groups, todayIso });
