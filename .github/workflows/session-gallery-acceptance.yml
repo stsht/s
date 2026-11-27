@@ -18,4 +18,5 @@ jobs:
       - run: npm ci
       - run: npm run test:session-gallery
       - run: npm run test:invoice-ledger
+      - run: node --test src/pages/db/databasePageDerivations.test.js
       - run: npm run build

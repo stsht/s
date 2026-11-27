@@ -2765,6 +2765,94 @@ async function handleDbRepairDelivery(request, env) {
   });
 }
 
+
+async function syncDeliveryDateToInvoice(env, delivery, nextEventDate, isVendorDelivery = false) {
+  if (!delivery?.id || !nextEventDate || isVendorDelivery || !/^\d{4}-\d{2}-\d{2}$/.test(nextEventDate)) return;
+  try {
+    const invoice = await findInvoiceForDelivery(env, delivery);
+    if (!invoice?.id || invoiceRecordType(invoice) === 'vendor') return;
+    const data = invoice.invoice_data && typeof invoice.invoice_data === 'object' ? { ...invoice.invoice_data } : {};
+    const sessions = Array.isArray(data.sessions) ? data.sessions.map((s) => ({ ...s })) : [];
+    const sessionId = String(delivery.session_id || '').trim();
+    const nowIso = new Date().toISOString();
+    let invoiceDate = String(invoice.event_date || '').trim();
+    let changed = false;
+
+    if (sessions.length > 1) {
+      // Shared gallery has no session scope; never guess which session moved.
+      if (!sessionId) return;
+      const index = sessions.findIndex((s) => String(s?.id || '').trim() === sessionId);
+      if (index < 0) return;
+      const previousDate = String(sessions[index].date || sessions[index].eventDate || '').trim();
+      if (previousDate !== nextEventDate) {
+        const history = Array.isArray(sessions[index].rescheduleHistory) ? [...sessions[index].rescheduleHistory] : [];
+        if (previousDate) history.push({ fromDate: previousDate, toDate: nextEventDate, changedAt: nowIso, source: 'delivery' });
+        sessions[index] = { ...sessions[index], date: nextEventDate, rescheduleHistory: history };
+        data.sessions = sessions;
+        changed = true;
+      }
+      const activeDates = sessions
+        .filter((s) => String(s?.status || s?.state || '').toLowerCase() !== 'cancelled')
+        .map((s) => String(s?.date || s?.eventDate || '').trim())
+        .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+        .sort();
+      if (activeDates.length) invoiceDate = activeDates[0];
+    } else {
+      if (sessions.length === 1) {
+        const previousDate = String(sessions[0].date || sessions[0].eventDate || '').trim();
+        if (previousDate !== nextEventDate) {
+          const history = Array.isArray(sessions[0].rescheduleHistory) ? [...sessions[0].rescheduleHistory] : [];
+          if (previousDate) history.push({ fromDate: previousDate, toDate: nextEventDate, changedAt: nowIso, source: 'delivery' });
+          sessions[0] = { ...sessions[0], date: nextEventDate, rescheduleHistory: history };
+          data.sessions = sessions;
+          changed = true;
+        }
+      }
+      if (invoiceDate !== nextEventDate) { invoiceDate = nextEventDate; changed = true; }
+    }
+    if (!changed && String(invoice.event_date || '').trim() === invoiceDate) return;
+    await supabaseFetch(env, `/rest/v1/invoices?id=eq.${encodeURIComponent(invoice.id)}`, {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ event_date: invoiceDate || nextEventDate, invoice_data: data })
+    });
+  } catch (error) {
+    console.warn('[sync-date] delivery->invoice sync failed:', error?.message || error);
+  }
+}
+
+async function syncInvoiceDatesToDeliveries(env, savedInvoice) {
+  if (!savedInvoice?.id || invoiceRecordType(savedInvoice) === 'vendor') return;
+  const data = savedInvoice.invoice_data && typeof savedInvoice.invoice_data === 'object' ? savedInvoice.invoice_data : {};
+  const eventKey = String(savedInvoice.event_key || data.event_key || '').trim();
+  const invoiceDate = String(savedInvoice.event_date || '').trim();
+  if (!eventKey) return;
+  try {
+    const rows = await supabaseFetch(env,
+      `/rest/v1/deliveries?select=id,event_date,session_id,type&event_key=eq.${encodeURIComponent(eventKey)}&limit=20`
+    ).catch(() => []);
+    const deliveries = Array.isArray(rows) ? rows : [];
+    const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+    for (const delivery of deliveries) {
+      if (!delivery?.id || String(delivery.type || '').toLowerCase() === 'vendor') continue;
+      const sessionId = String(delivery.session_id || '').trim();
+      let targetDate = '';
+      if (sessionId && sessions.length) {
+        const session = sessions.find((s) => String(s?.id || '').trim() === sessionId);
+        targetDate = String(session?.date || session?.eventDate || '').trim();
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(invoiceDate)) {
+        targetDate = invoiceDate;
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || String(delivery.event_date || '').trim() === targetDate) continue;
+      await supabaseFetch(env, `/rest/v1/deliveries?id=eq.${encodeURIComponent(delivery.id)}`, {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ event_date: targetDate })
+      }).catch((error) => { if (!isSchemaError(error)) throw error; });
+    }
+  } catch (error) {
+    console.warn('[sync-date] invoice->deliveries sync failed:', error?.message || error);
+  }
+}
+
 async function handleDbUpdateDelivery(request, env) {
   const body = await request.json().catch(() => ({}));
   const password = String(body.password || '').trim();
@@ -2906,6 +2994,9 @@ async function handleDbUpdateDelivery(request, env) {
       if (patchedRow) {
         updatedFolderName = String(patchedRow.folder_name || updatedFolderName || '');
         updatedEventDate = String(patchedRow.event_date || updatedEventDate || '');
+      }
+      if (deliveryPatch.event_date) {
+        await syncDeliveryDateToInvoice(env, patchedRow || delivery, String(deliveryPatch.event_date), isVendorDelivery);
       }
     } catch (error) {
       if (!isSchemaError(error)) throw error;
@@ -3253,6 +3344,7 @@ async function handleInvoiceSave(request, env) {
       console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
     }
     await confirmPendingPaymentProofsForInvoice(env, saved, existingInvoice);
+    await syncInvoiceDatesToDeliveries(env, saved);
     return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
   }
 
@@ -3279,6 +3371,7 @@ async function handleInvoiceSave(request, env) {
     console.warn('[invoices-save] event_key column missing — apply db-migration-part-6.sql');
   }
   await confirmPendingPaymentProofsForInvoice(env, saved, existingInvoice);
+  await syncInvoiceDatesToDeliveries(env, saved);
   return json({ ok: true, invoice: saved, ...(eventKeyColumnMissing ? { migrationMissing: 'invoices.event_key' } : {}) });
 }
 
