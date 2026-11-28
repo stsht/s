@@ -21,6 +21,7 @@ import {
 } from './linkSlug.js';
 import { buildDeliveryMessage } from '../../features/deliveries/deliveryMessages.js';
 import { dbg, dbgEnabled } from '../../utils/debugLogger.js';
+import { readUseLastNamePref, writeUseLastNamePref } from '../../utils/salutationPrefs.js';
 
 // /l — Link Generator.
 //
@@ -166,6 +167,29 @@ export function LinkGeneratorPage() {
   const [copyFlash, setCopyFlash] = useState('');
   const clientInputRef = useRef(null);
   const submitLockRef = useRef(false);
+
+  const salutationKeys = [
+    eventKey ? `evt:${eventKey}` : '',
+    linkedClientId ? `cli:${linkedClientId}` : '',
+  ].filter(Boolean);
+
+  useEffect(() => {
+    if (salutationKeys.length) setUseLastName(readUseLastNamePref(salutationKeys));
+  }, [eventKey, linkedClientId]);
+
+  function handleUseLastNameChange(enabled) {
+    const next = Boolean(enabled);
+    setUseLastName(next);
+    writeUseLastNamePref(salutationKeys, next);
+    if (saved) {
+      const generatedText = buildDeliveryMessage({
+        title, clientName: cleanLinkText(clientName), useLastName: next,
+        folderName: info.folder, eventDate: eventDateHandoff,
+        link: info.shortLink, password: info.displayPass, deliveryDone: false,
+      });
+      setSaved((current) => current ? { ...current, generatedText } : current);
+    }
+  }
 
   // One-shot invoice handoff. Only fills empty fields so that a
   // mid-edit reload from /inv → /l never clobbers manual changes.
@@ -663,16 +687,7 @@ export function LinkGeneratorPage() {
           <p className="eyebrow">Message</p>
           {deliveryType !== 'vendor' ? (
             <label className="lg-salutation-toggle">
-              <input type="checkbox" checked={useLastName} onChange={(event) => {
-                const nextUseLastName = event.target.checked;
-                setUseLastName(nextUseLastName);
-                if (saved) {
-                  const generatedText = buildDeliveryMessage({ title, clientName: cleanLinkText(clientName),
-                    useLastName: nextUseLastName, folderName: info.folder, eventDate: eventDateHandoff,
-                    link: info.shortLink, password: info.displayPass, deliveryDone: false });
-                  setSaved((current) => current ? { ...current, generatedText } : current);
-                }
-              }} />
+              <input type="checkbox" checked={useLastName} onChange={(event) => handleUseLastNameChange(event.target.checked)} />
               <span>Use Last Name</span>
             </label>
           ) : null}

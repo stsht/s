@@ -4596,11 +4596,16 @@ export default {
     const url = new URL(request.url);
 
     try {
-	      if (request.method === 'GET' && url.pathname === '/') {
-	        return withFreshHtmlHeaders(
-	          new Response(rootHomepage(), { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
-	        );
-	      }
+      if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
+        const assetUrl = new URL(request.url);
+        assetUrl.pathname = '/index.html';
+        const assetResp = await env.ASSETS.fetch(new Request(assetUrl.toString(), request)).catch(() => null);
+        if (assetResp && assetResp.ok) return withFreshHtmlHeaders(assetResp);
+        return new Response('Homepage asset unavailable', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
+      }
 	      // /admin and /invcs were duplicate UI surfaces that we retired
 	      // in the unified-frame migration. _redirects sends /admin → /db/
 	      // and /invcs → /inv/. We intentionally do NOT short-circuit here

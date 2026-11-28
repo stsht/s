@@ -17,6 +17,7 @@ import { DeliveryLinkEditor } from './DeliveryLinkEditor.jsx';
 import { DeliveryMessageBox } from './DeliveryMessageBox.jsx';
 import { DeliveryAccessLogs } from './DeliveryAccessLogs.jsx';
 import { buildDeliveryMessage, buildPaymentMessage } from '../../../features/deliveries/deliveryMessages.js';
+import { readUseLastNamePref, writeUseLastNamePref } from '../../../utils/salutationPrefs.js';
 
 function findLinkedClientInvoice(delivery = {}, invoices = []) {
   if (!Array.isArray(invoices) || !invoices.length) return null;
@@ -86,17 +87,26 @@ function summarizeInvoiceBalance(invoice) {
 
 export function DeliveryDetail({ delivery, invoices = [], onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
-  const [lastNamePreference, setLastNamePreference] = useState({
+  const salutationKeys = [
+    currentDelivery?.id ? `del:${currentDelivery.id}` : '',
+    currentDelivery?.event_key ? `evt:${currentDelivery.event_key}` : '',
+    currentDelivery?.client_id ? `cli:${currentDelivery.client_id}` : '',
+  ].filter(Boolean);
+  const [lastNamePreference, setLastNamePreference] = useState(() => ({
     deliveryId: String(delivery?.id || ''),
-    enabled: false,
-  });
+    enabled: readUseLastNamePref([
+      delivery?.id ? `del:${delivery.id}` : '',
+      delivery?.event_key ? `evt:${delivery.event_key}` : '',
+      delivery?.client_id ? `cli:${delivery.client_id}` : '',
+    ]),
+  }));
   const useLastName = lastNamePreference.deliveryId === String(currentDelivery?.id || '')
-    && lastNamePreference.enabled;
+    ? lastNamePreference.enabled
+    : readUseLastNamePref(salutationKeys);
   function handleUseLastNameChange(enabled) {
-    setLastNamePreference({
-      deliveryId: String(currentDelivery?.id || ''),
-      enabled: Boolean(enabled),
-    });
+    const next = Boolean(enabled);
+    writeUseLastNamePref(salutationKeys, next);
+    setLastNamePreference({ deliveryId: String(currentDelivery?.id || ''), enabled: next });
   }
   const [messageMode, setMessageMode] = useState('delivery');
   const [flash, setFlash] = useState('');
@@ -142,7 +152,12 @@ export function DeliveryDetail({ delivery, invoices = [], onClose, onRepaired, o
   }, [delivery]);
 
   useEffect(() => {
-    setLastNamePreference({ deliveryId: String(delivery?.id || ''), enabled: false });
+    const keys = [
+      delivery?.id ? `del:${delivery.id}` : '',
+      delivery?.event_key ? `evt:${delivery.event_key}` : '',
+      delivery?.client_id ? `cli:${delivery.client_id}` : '',
+    ].filter(Boolean);
+    setLastNamePreference({ deliveryId: String(delivery?.id || ''), enabled: readUseLastNamePref(keys) });
     setRepairStatus('');
     setConfirmDelete(false);
     setConfirmRotatePassword(false);
