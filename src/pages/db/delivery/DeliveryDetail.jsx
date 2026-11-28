@@ -88,16 +88,16 @@ function summarizeInvoiceBalance(invoice) {
 export function DeliveryDetail({ delivery, invoices = [], onClose, onRepaired, onDeleted, onRefresh }) {
   const [currentDelivery, setCurrentDelivery] = useState(delivery || {});
   const salutationKeys = [
-    currentDelivery?.id ? `del:${currentDelivery.id}` : '',
     currentDelivery?.event_key ? `evt:${currentDelivery.event_key}` : '',
     currentDelivery?.client_id ? `cli:${currentDelivery.client_id}` : '',
+    currentDelivery?.id ? `del:${currentDelivery.id}` : '',
   ].filter(Boolean);
   const [lastNamePreference, setLastNamePreference] = useState(() => ({
     deliveryId: String(delivery?.id || ''),
     enabled: readUseLastNamePref([
-      delivery?.id ? `del:${delivery.id}` : '',
       delivery?.event_key ? `evt:${delivery.event_key}` : '',
       delivery?.client_id ? `cli:${delivery.client_id}` : '',
+      delivery?.id ? `del:${delivery.id}` : '',
     ]),
   }));
   const useLastName = lastNamePreference.deliveryId === String(currentDelivery?.id || '')
@@ -153,9 +153,9 @@ export function DeliveryDetail({ delivery, invoices = [], onClose, onRepaired, o
 
   useEffect(() => {
     const keys = [
-      delivery?.id ? `del:${delivery.id}` : '',
       delivery?.event_key ? `evt:${delivery.event_key}` : '',
       delivery?.client_id ? `cli:${delivery.client_id}` : '',
+      delivery?.id ? `del:${delivery.id}` : '',
     ].filter(Boolean);
     setLastNamePreference({ deliveryId: String(delivery?.id || ''), enabled: readUseLastNamePref(keys) });
     setRepairStatus('');
