@@ -4598,7 +4598,7 @@ export default {
     try {
       if (request.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
         const assetUrl = new URL(request.url);
-        assetUrl.pathname = '/index.html';
+        assetUrl.pathname = '/';
         const assetResp = await env.ASSETS.fetch(new Request(assetUrl.toString(), request)).catch(() => null);
         if (assetResp && assetResp.ok) return withFreshHtmlHeaders(assetResp);
         return new Response('Homepage asset unavailable', {
