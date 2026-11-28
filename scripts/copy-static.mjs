@@ -5,6 +5,7 @@ const root = process.cwd();
 const out = join(root, 'dist');
 
 const files = [
+  'index.html',
   '404.html',
   '_redirects',
   '_worker.js',
